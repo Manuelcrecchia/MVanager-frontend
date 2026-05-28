@@ -1,0 +1,246 @@
+<div class="clouds"></div>
+
+<div class="container py-4 page-wrap">
+  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+    <button class="btn btn-back-glass" (click)="back()">
+      ⬅ Torna Indietro
+    </button>
+
+    <div class="selection-actions d-flex align-items-center gap-2 flex-wrap" *ngIf="globalService.hasPermission('NOTIFICATIONS_MANAGE')">
+      <button
+        class="btn btn-glass btn-round"
+        (click)="toggleSelectAll()"
+        [disabled]="admins.length === 0"
+      >
+        {{ allSelected ? "Deseleziona tutto" : "Seleziona tutto" }}
+      </button>
+
+      <span class="badge badge-dark">
+        Selezionati: {{ selectedCount }}
+      </span>
+
+      <button
+        class="btn btn-primary btn-round"
+        (click)="openNotifyModal(notifyModal)"
+        [disabled]="selectedCount === 0"
+      >
+        🔔 Invia notifica
+      </button>
+    </div>
+  </div>
+
+  <h2 class="text-center page-title mb-4 text-dark">Gestione Users</h2>
+
+  <div class="table-wrapper desktop-table">
+    <table class="table align-middle text-center mb-0">
+      <thead>
+        <tr>
+          <th style="width: 50px">
+            <input
+              type="checkbox"
+              class="form-check-input"
+              [checked]="allSelected"
+              [indeterminate]="someSelected"
+              (change)="toggleSelectAll()"
+              [disabled]="admins.length === 0"
+            />
+          </th>
+          <th>Nome</th>
+          <th>Cognome</th>
+          <th class="d-none d-md-table-cell">Email</th>
+          <th class="d-none d-lg-table-cell">Codice Operatore</th>
+          <th style="min-width: 190px">Azioni</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let admin of admins">
+          <td>
+            <input
+              type="checkbox"
+              class="form-check-input"
+              [checked]="isSelected(admin.id)"
+              (change)="toggleAdmin(admin.id)"
+            />
+          </td>
+
+          <td>{{ admin.nome }}</td>
+          <td>{{ admin.cognome }}</td>
+          <td class="d-none d-md-table-cell">{{ admin.email }}</td>
+          <td class="d-none d-lg-table-cell">{{ admin.codiceOperatore || "—" }}</td>
+
+          <td class="actions-cell">
+            <button
+              *ngIf="globalService.hasPermission('NOTIFICATIONS_VIEW')"
+              class="btn btn-glass-dark btn-sm btn-round"
+              (click)="openAdminNotifications(admin, adminNotifModal)"
+            >
+              🔔 Notifiche
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="employee-card-list mobile-only" *ngIf="admins.length > 0">
+    <article class="employee-card" *ngFor="let admin of admins">
+      <div class="employee-card__top">
+        <label class="employee-card__selector">
+          <input
+            type="checkbox"
+            class="form-check-input"
+            [checked]="isSelected(admin.id)"
+            (change)="toggleAdmin(admin.id)"
+          />
+          <span>Seleziona</span>
+        </label>
+        <span class="employee-card__id">{{ admin.codiceOperatore || ('#' + admin.id) }}</span>
+      </div>
+
+      <div class="employee-card__identity">
+        <h3>{{ admin.nome }} {{ admin.cognome }}</h3>
+        <p *ngIf="admin.email">{{ admin.email }}</p>
+      </div>
+
+      <div class="employee-card__actions">
+        <button
+          *ngIf="globalService.hasPermission('NOTIFICATIONS_VIEW')"
+          class="btn btn-glass-dark btn-sm btn-round"
+          (click)="openAdminNotifications(admin, adminNotifModal)"
+        >
+          🔔 Notifiche
+        </button>
+      </div>
+    </article>
+  </div>
+
+  <div *ngIf="admins.length === 0" class="alert alert-info text-center mt-3">
+    Nessun amministratore trovato.
+  </div>
+
+  <ng-template #notifyModal let-modal>
+    <div class="modal-header modal-brand">
+      <h5 class="modal-title">🔔 Invia notifica</h5>
+      <button
+        type="button"
+        class="btn-close"
+        aria-label="Close"
+        (click)="modal.dismiss()"
+      ></button>
+    </div>
+
+    <div class="modal-body modal-body-glass">
+      <div class="mb-2">
+        <div class="small text-muted">
+          Inviando a: <b>{{ selectedCount }}</b> user
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-bold">Titolo</label>
+        <input
+          type="text"
+          class="form-control form-control-glass"
+          [(ngModel)]="notifyTitle"
+          maxlength="80"
+          placeholder="Es. Avviso importante"
+        />
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-bold">Messaggio</label>
+        <textarea
+          class="form-control form-control-glass"
+          rows="4"
+          [(ngModel)]="notifyBody"
+          maxlength="500"
+          placeholder="Scrivi qui il testo della notifica..."
+        ></textarea>
+        <div class="small text-muted mt-1">
+          {{ notifyBody.length || 0 }}/500
+        </div>
+      </div>
+
+      <div *ngIf="notifyError" class="alert alert-danger py-2">
+        {{ notifyError }}
+      </div>
+
+      <div *ngIf="notifySuccess" class="alert alert-success py-2">
+        {{ notifySuccess }}
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button
+        class="btn btn-glass btn-round"
+        (click)="modal.dismiss()"
+        [disabled]="sending"
+      >
+        Annulla
+      </button>
+
+      <button
+        class="btn btn-brand-primary btn-round"
+        (click)="sendNotification(modal)"
+        [disabled]="sending || !notifyTitle.trim() || !notifyBody.trim()"
+      >
+        <span
+          *ngIf="sending"
+          class="spinner-border spinner-border-sm me-2"
+        ></span>
+        Invia
+      </button>
+    </div>
+  </ng-template>
+</div>
+
+<ng-template #adminNotifModal let-modal>
+  <div class="modal-header modal-brand">
+    <h5 class="modal-title">
+      🔔 Notifiche di {{ activeAdmin?.nome }} {{ activeAdmin?.cognome }}
+    </h5>
+    <button type="button" class="btn-close" (click)="modal.dismiss()"></button>
+  </div>
+
+  <div class="modal-body modal-body-glass">
+    <div *ngIf="adminNotifLoading" class="text-center py-4">
+      <span class="spinner-border spinner-border-sm me-2"></span> Caricamento...
+    </div>
+
+    <div
+      *ngIf="!adminNotifLoading && adminNotifs.length === 0"
+      class="alert alert-info"
+    >
+      Nessuna notifica inviata a questo amministratore.
+    </div>
+
+    <div *ngIf="!adminNotifLoading && adminNotifs.length > 0" class="list-group">
+      <div class="list-group-item list-item-glass" *ngFor="let n of adminNotifs">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="me-3">
+            <div class="fw-semibold">{{ n.title }}</div>
+            <div class="small text-muted">{{ n.body }}</div>
+            <div class="small text-muted mt-1">
+              Inviata: {{ formatDate(n.createdAt) }}
+            </div>
+          </div>
+
+          <span class="badge" [ngClass]="n.readAt ? 'bg-success' : 'bg-danger'">
+            {{ n.readAt ? "VISTA" : "NON VISTA" }}
+          </span>
+        </div>
+
+        <div *ngIf="n.readAt" class="small text-success mt-2">
+          Vista il: {{ formatDate(n.readAt) }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn btn-glass btn-round" (click)="modal.dismiss()">
+      Chiudi
+    </button>
+  </div>
+</ng-template>

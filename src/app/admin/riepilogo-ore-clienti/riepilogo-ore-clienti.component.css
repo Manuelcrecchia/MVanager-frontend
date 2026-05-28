@@ -1,1 +1,102 @@
-/* Styles are defined in the component template */
+.mobile-day-view {
+  display: grid;
+  gap: 14px;
+}
+
+.mobile-day-toolbar {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  gap: 10px;
+  align-items: center;
+}
+
+.mobile-day-nav,
+.mobile-day-current,
+.mobile-day-chip,
+.mobile-hours-card {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-day-nav {
+  border-radius: 16px;
+  min-height: 44px;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.mobile-day-current {
+  border-radius: 16px;
+  padding: 10px 12px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.mobile-day-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.mobile-day-chip {
+  border-radius: 999px;
+  padding: 8px 12px;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mobile-day-chip--active {
+  background: linear-gradient(135deg, rgba(47, 183, 255, 0.22), rgba(255, 138, 0, 0.18));
+}
+
+.mobile-hours-list {
+  display: grid;
+  gap: 12px;
+}
+
+.mobile-hours-card {
+  border-radius: 22px;
+  padding: 16px;
+}
+
+.mobile-hours-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.mobile-hours-card__head h5 {
+  margin: 0;
+  font-weight: 800;
+}
+
+.mobile-hours-card__value {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  font-weight: 800;
+}
+
+.mobile-hours-card__details {
+  display: grid;
+  gap: 8px;
+}
+
+.mobile-hours-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.mobile-hours-card__empty {
+  margin: 0;
+  color: rgba(0, 0, 0, 0.62);
+}

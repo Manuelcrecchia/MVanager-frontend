@@ -139,4 +139,22 @@ button[mat-raised-button]:hover {
   .container.py-4 {
     padding: 16px;
   }
+
+  .d-flex.justify-content-start.mb-3 {
+    margin-bottom: 16px !important;
+  }
+
+  .d-flex.justify-content-start.mb-3 .btn,
+  .mt-4.d-flex.justify-content-end button[mat-raised-button],
+  .row.g-2.align-items-end.mb-3 button[mat-raised-button] {
+    width: 100%;
+  }
+
+  .mt-4.d-flex.justify-content-end {
+    display: block !important;
+  }
+
+  .border.rounded.p-3.bg-light {
+    padding: 16px !important;
+  }
 }

@@ -257,7 +257,52 @@ html, body{
   </div>
 
   <!-- Tabella -->
-  <div *ngIf="!loading" class="scroll-wrapper">
+  <div *ngIf="!loading" class="mobile-day-view d-md-none">
+    <div class="mobile-day-toolbar">
+      <button type="button" class="mobile-day-nav" (click)="prevDay()" [disabled]="selectedDayIndex === 0">‹</button>
+      <div class="mobile-day-current">{{ selectedDayLabel }}</div>
+      <button
+        type="button"
+        class="mobile-day-nav"
+        (click)="nextDay()"
+        [disabled]="selectedDayIndex === giorni.length - 1"
+      >›</button>
+    </div>
+
+    <div class="mobile-day-chips">
+      <button
+        *ngFor="let g of giorni; let i = index"
+        type="button"
+        class="mobile-day-chip"
+        [class.mobile-day-chip--active]="i === selectedDayIndex"
+        (click)="selectDay(i)"
+      >
+        {{ getDayShortLabel(i) }}
+      </button>
+    </div>
+
+    <div class="mobile-hours-list">
+      <article class="mobile-hours-card" *ngFor="let cliente of clienti">
+        <div class="mobile-hours-card__head">
+          <h5>{{ cliente.nominativo }}</h5>
+          <span class="mobile-hours-card__value">{{ getClienteOre(cliente, selectedDayIndex) }}</span>
+        </div>
+
+        <div class="mobile-hours-card__details" *ngIf="getClienteDettagli(cliente, selectedDayIndex).length > 0; else noDettagli">
+          <div class="mobile-hours-detail" *ngFor="let dip of getClienteDettagli(cliente, selectedDayIndex)">
+            <span>{{ dip.nome }}</span>
+            <strong>{{ dip.ore }}</strong>
+          </div>
+        </div>
+
+        <ng-template #noDettagli>
+          <p class="mobile-hours-card__empty">Nessun dettaglio per il giorno selezionato.</p>
+        </ng-template>
+      </article>
+    </div>
+  </div>
+
+  <div *ngIf="!loading" class="scroll-wrapper d-none d-md-block">
     <table class="presenze-table table table-bordered align-middle">
       <thead class="table-light">
         <tr>

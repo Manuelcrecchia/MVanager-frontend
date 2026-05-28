@@ -21,6 +21,7 @@
         --glass-bg: rgba(255, 255, 255, 0.18);
         --glass-border: rgba(255, 255, 255, 0.35);
         --shadow: 0 20px 60px rgba(2, 6, 23, 0.18);
+        --home-safe-top: max(env(safe-area-inset-top, 0px), 44px);
       }
 
       body {
@@ -85,7 +86,7 @@
       /* Top actions */
       .btn-back {
         position: fixed;
-        top: 18px;
+        top: calc(env(safe-area-inset-top, 0px) + 18px);
         left: 18px;
         z-index: 50;
 
@@ -108,9 +109,9 @@
 
       .menu-toggle {
         position: fixed;
-        top: 18px;
+        top: calc(env(safe-area-inset-top, 0px) + 18px);
         right: 18px;
-        z-index: 50;
+        z-index: 80;
 
         width: 52px;
         height: 52px;
@@ -153,9 +154,9 @@
       /* Dropdown menu */
       .menu {
         position: fixed;
-        top: 78px;
+        top: calc(env(safe-area-inset-top, 0px) + 78px);
         right: 18px;
-        z-index: 60;
+        z-index: 70;
         width: min(320px, calc(100vw - 36px));
 
         background: rgba(255, 255, 255, 0.78);
@@ -191,7 +192,7 @@
 
       /* Logo */
       .logo-container {
-        margin-top: 110px; /* spazio per bottoni fixed */
+        margin-top: calc(env(safe-area-inset-top, 0px) + 110px); /* spazio per bottoni fixed */
         margin-bottom: 26px;
       }
       .logo {
@@ -268,6 +269,39 @@
         padding: 0.35rem 0.55rem;
       }
 
+      .home-section-title {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        color: var(--brand-black);
+      }
+
+      .home-section-title h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 950;
+      }
+
+      .home-category-back {
+        border: 0;
+        border-radius: 14px;
+        padding: 9px 13px;
+        background: rgba(255, 255, 255, 0.68);
+        color: var(--brand-black);
+        font-weight: 900;
+        box-shadow: 0 10px 25px rgba(2, 6, 23, 0.1);
+      }
+
+      .category-count {
+        display: block;
+        margin-top: 8px;
+        font-size: 0.82rem;
+        font-weight: 800;
+        opacity: 0.75;
+      }
+
       .alert-badge {
         display: inline-flex;
         align-items: center;
@@ -292,6 +326,19 @@
 
       /* Mobile tweaks */
       @media (max-width: 768px) {
+        .home-ios .btn-back,
+        .home-ios .menu-toggle {
+          top: calc(var(--home-safe-top) + 12px) !important;
+        }
+        .home-ios .menu-toggle {
+          top: calc(var(--home-safe-top) + 22px) !important;
+        }
+        .home-ios .menu {
+          top: calc(var(--home-safe-top) + 88px) !important;
+        }
+        .home-ios .logo-container {
+          margin-top: calc(var(--home-safe-top) + 98px);
+        }
         .btn-back {
           width: 46px;
           height: 46px;
@@ -320,7 +367,7 @@
     <!-- se FontAwesome è presente nel tuo progetto, puoi togliere "no-fa" dal body -->
     <div class="clouds"></div>
 
-    <div class="page">
+    <div class="page" [class.home-ios]="isIos">
       <!-- NON CAMBIO FUNZIONAMENTI -->
       <button class="btn-back" (click)="back()">
         <span>&larr; Torna Indietro</span>
@@ -339,6 +386,7 @@
 
       <div *ngIf="isMenuOpen" class="menu">
         <a *ngIf="global.hasPermission('ADMIN_CREATE')" (click)="navigateToUserSettings()">Aggiungi utenti</a>
+        <a *ngIf="global.hasPermission('ADMIN_VIEW')" (click)="navigateToGestioneUsers()">Gestione users</a>
         <a *ngIf="global.hasPermission('EMPLOYEE_CREATE')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</a>
         <a (click)="navigateToCambiapassword()">Cambia password</a>
         <a *ngIf="global.hasPermission('EMPLOYEE_PERMITS_MANAGE')" (click)="navigateToLeaveSettings()">Impostazioni Permessi</a>
@@ -355,132 +403,58 @@
       </div>
 
       <div class="container pb-5">
-        <div class="row justify-content-center g-4">
-          <!-- Gestione Dipendenti -->
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('EMPLOYEE_VIEW')">
-            <button class="dash-btn" (click)="navigateToGestioneemployees()">
-              <span class="icon"><i class="fas fa-user"></i></span>
-              <span class="label">Gestione Dipendenti</span>
-            </button>
-          </div>
-
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('EMPLOYEE_DEADLINES_VIEW')">
-            <button class="dash-btn" (click)="navigateToEmployeeDeadlines()">
-              <span class="icon"><i class="fas fa-id-card"></i></span>
+        <div class="row justify-content-center g-4" *ngIf="shouldShowHomeCategories">
+          <div
+            class="col-12 col-sm-6 col-lg-4"
+            *ngFor="let category of visibleHomeCategories"
+          >
+            <button class="dash-btn" (click)="selectHomeCategory(category.id)">
+              <span class="icon"><i [class]="category.icon"></i></span>
               <span class="label">
-                Scadenze Dipendenti
+                {{ category.label }}
                 <span
-                  *ngIf="employeeDeadlineSummary.alertCount > 0"
-                  [ngClass]="deadlineBadgeClass(employeeDeadlineSummary)"
+                  *ngIf="categoryBadgeCount(category) > 0"
+                  class="badge bg-danger ms-1"
                 >
-                  {{ employeeDeadlineSummary.alertCount }}
+                  {{ categoryBadgeCount(category) }}
                 </span>
+              </span>
+              <span class="category-count">
+                {{ visibleHomeButtons(category).length }} sezioni
               </span>
             </button>
           </div>
+        </div>
 
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('VEHICLE_DEADLINES_VIEW')">
-            <button class="dash-btn" (click)="navigateToVehicleDeadlines()">
-              <span class="icon"><i class="fas fa-car"></i></span>
+        <div
+          class="home-section-title"
+          *ngIf="visibleHomeCategories.length > 1 && selectedHomeCategory"
+        >
+          <button class="home-category-back" type="button" (click)="clearHomeCategory()">
+            &larr;
+          </button>
+          <h2>{{ selectedHomeCategory.label }}</h2>
+        </div>
+
+        <div
+          class="row justify-content-center g-4"
+          *ngIf="!shouldShowHomeCategories"
+        >
+          <div
+            class="col-12 col-sm-6 col-lg-4"
+            *ngFor="let button of currentHomeButtons"
+          >
+            <button class="dash-btn" (click)="button.action()">
+              <span class="icon"><i [class]="button.icon"></i></span>
               <span class="label">
-                Scadenze Mezzi
+                {{ button.label }}
                 <span
-                  *ngIf="vehicleDeadlineSummary.alertCount > 0"
-                  [ngClass]="deadlineBadgeClass(vehicleDeadlineSummary)"
+                  *ngIf="buttonBadgeCount(button) > 0"
+                  [ngClass]="buttonBadgeClass(button)"
                 >
-                  {{ vehicleDeadlineSummary.alertCount }}
+                  {{ buttonBadgeCount(button) }}
                 </span>
               </span>
-            </button>
-          </div>
-
-          <!-- Gestione Clienti -->
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('CUSTOMERS_VIEW')">
-            <button class="dash-btn" (click)="navigateToListCustomer()">
-              <span class="icon"><i class="fas fa-users"></i></span>
-              <span class="label">Gestione Clienti</span>
-            </button>
-          </div>
-
-          <!-- Documenti interni -->
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('INTERNAL_DOCS_ACCESS')">
-            <button class="dash-btn" (click)="navigateToInternalDocuments()">
-              <span class="icon"><i class="fas fa-file"></i></span>
-              <span class="label">Documenti interni</span>
-            </button>
-          </div>
-
-          <!-- Gestione Preventivi -->
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('QUOTES_VIEW')">
-            <button class="dash-btn" (click)="navigateToQuotesHome()">
-              <span class="icon"><i class="fas fa-file-alt"></i></span>
-              <span class="label">
-                Gestione Preventivi
-                <span *ngIf="pendingQuoteReviews > 0" class="badge bg-danger ms-1">
-                  {{ pendingQuoteReviews }}
-                </span>
-              </span>
-            </button>
-          </div>
-
-          <!-- Ordini di servizio -->
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('SERVICE_ORDERS_VIEW')">
-            <button class="dash-btn" (click)="navigateToServiceOrders()">
-              <span class="icon"><i class="fas fa-clipboard-list"></i></span>
-              <span class="label">Ordini di servizio</span>
-            </button>
-          </div>
-
-          <!-- Calendario -->
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('CALENDAR_VIEW')">
-            <button class="dash-btn" (click)="navigateToCalendarHome()">
-              <span class="icon"><i class="fas fa-calendar"></i></span>
-              <span class="label">Calendario</span>
-            </button>
-          </div>
-
-          <!-- Turni -->
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('SHIFTS_VIEW')">
-            <button class="dash-btn" (click)="goToShifts()">
-              <span class="icon"><i class="fas fa-tasks"></i></span>
-              <span class="label">Turni</span>
-            </button>
-          </div>
-
-          <!-- Riepilogo Ore Modificabili -->
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('ATTENDANCE_VIEW')">
-            <button class="dash-btn" (click)="goToEditableHours()">
-              <span class="icon"><i class="fas fa-clock"></i></span>
-              <span class="label">Riepilogo presenze personalizzabile</span>
-            </button>
-          </div>
-
-          <!-- Riepilogo Ore Clienti -->
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('CUSTOMERS_HOURS_VIEW')">
-            <button class="dash-btn" (click)="goToRiepilogoOreClienti()">
-              <span class="icon"><i class="fas fa-user-clock"></i></span>
-              <span class="label">Riepilogo ore clienti</span>
-            </button>
-          </div>
-
-          <!-- Gestione Permessi -->
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('EMPLOYEE_PERMITS_MANAGE')">
-            <button class="dash-btn" (click)="navigateToGestionePermessi()">
-              <span class="icon"><i class="fas fa-clipboard-check"></i></span>
-              <span class="label">
-                Permessi
-                <span *ngIf="permessiInAttesa > 0" class="badge bg-danger ms-1">
-                  {{ permessiInAttesa }}
-                </span>
-              </span>
-            </button>
-          </div>
-
-          <!-- Gestione Timbrature -->
-          <div class="col-12 col-sm-6 col-lg-4" *ngIf="global.hasPermission('STAMPING_VIEW')">
-            <button class="dash-btn" (click)="navigateToTimbrature()">
-              <span class="icon"><i class="fas fa-fingerprint"></i></span>
-              <span class="label">Gestione Timbrature</span>
             </button>
           </div>
         </div>

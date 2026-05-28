@@ -12,6 +12,57 @@ body {
   background-color: #f8f9fa;
   color: #333;
   line-height: 1.5;
+  min-height: 100vh;
+}
+
+:root {
+  --app-safe-area-top: env(safe-area-inset-top, 0px);
+  --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --app-ios-top-fallback: 44px;
+  --app-ios-safe-top: max(var(--app-safe-area-top), var(--app-ios-top-fallback));
+}
+
+body.cap-ios app-root {
+  display: block;
+  min-height: 100vh;
+  padding-top: var(--app-ios-safe-top);
+}
+
+body.cap-ios mat-toolbar,
+body.cap-ios header,
+body.cap-ios .cal-header {
+  padding-top: 14px !important;
+}
+
+body.cap-ios .menu-toggle {
+  top: calc(var(--app-ios-safe-top) + 1rem) !important;
+}
+
+@supports (padding-top: env(safe-area-inset-top)) {
+  body {
+    padding-bottom: var(--app-safe-area-bottom);
+  }
+
+  body:not(.cap-ios) mat-toolbar,
+  body:not(.cap-ios) header,
+  body:not(.cap-ios) .cal-header {
+    padding-top: calc(var(--app-safe-area-top) + 12px) !important;
+  }
+
+  .cal-header {
+    top: 0;
+  }
+
+  .container.py-4,
+  .container-fluid.py-4,
+  .page-wrap,
+  .page-bg {
+    padding-top: calc(var(--app-safe-area-top) + 24px) !important;
+  }
+
+  body:not(.cap-ios) .menu-toggle {
+    top: calc(var(--app-safe-area-top) + 1rem) !important;
+  }
 }
 
 h1,

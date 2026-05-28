@@ -295,6 +295,110 @@
   cursor: pointer;
 }
 
+@media (max-width: 767.98px) {
+  .cal-header {
+    align-items: stretch;
+    padding: 12px;
+  }
+
+  .btn-back,
+  .cal-nav-group,
+  .view-switcher {
+    width: 100%;
+  }
+
+  .cal-nav-group {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .mini-cal-wrapper {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .cal-title-btn {
+    width: 100%;
+    padding: 8px 0;
+    text-align: center;
+    font-size: 17px;
+  }
+
+  .btn-today {
+    flex: 0 0 auto;
+  }
+
+  .view-switcher {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .view-switcher button {
+    padding: 9px 6px;
+  }
+
+  .filter-bar {
+    padding: 12px;
+    align-items: stretch;
+  }
+
+  .filter-bar label,
+  .filter-bar select {
+    width: 100%;
+  }
+
+  .cat-legend {
+    margin-left: 0;
+  }
+
+  .cal-month,
+  .cal-time-view {
+    margin: 10px;
+  }
+
+  .month-dow-row,
+  .month-week,
+  .month-body {
+    min-width: 100%;
+  }
+
+  .month-cell {
+    min-width: 0;
+    min-height: 138px;
+    padding: 6px 4px 4px;
+  }
+
+  .cell-date-num {
+    font-size: 12px;
+    width: 22px;
+    height: 22px;
+  }
+
+  .ev-pill {
+    padding: 3px 5px;
+    gap: 3px;
+    font-size: 10px;
+    min-height: 20px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ev-pill-time,
+  .ev-pill-title {
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
+  .cell-events .ev-pill:nth-child(n + 3) {
+    display: none;
+  }
+
+  .ev-more {
+    padding: 2px 2px 0;
+    font-size: 11px;
+  }
+}
+
 /* ═══════════════════════════════════════════════
    TIME VIEWS (week / day)
 ═══════════════════════════════════════════════ */
@@ -567,6 +671,42 @@
 }
 .radio-row input[type="radio"] { cursor: pointer; }
 .inline-date { width: 160px; padding: 5px 8px; font-size: 13px; }
+
+.inspection-settings {
+  background: #f8f9fb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 4px;
+}
+
+.inspection-users-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.inspection-user-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid #dde1e8;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.inspection-user-row input {
+  align-self: flex-start;
+  margin-bottom: 2px;
+}
+
+.inspection-user-row small,
+.small-help {
+  color: #64748b;
+  font-size: 12px;
+}
 
 /* Popup footer */
 .popup-footer {

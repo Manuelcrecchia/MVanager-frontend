@@ -313,3 +313,47 @@ details[open] .mv-accordion__chev {
   border-bottom-color: #fff;
   opacity: 1;
 }
+
+.mv-toolbar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 64px;
+}
+
+.mv-toolbar__left {
+  min-width: 0;
+}
+
+.mv-title {
+  font-weight: 800;
+}
+
+.mv-page-actions {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 767.98px) {
+  .mv-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 10px 12px;
+    row-gap: 8px;
+  }
+
+  .mv-title {
+    display: block;
+    font-size: 1.15rem;
+    line-height: 1.2;
+  }
+
+  .mv-back-btn {
+    width: 100%;
+    justify-content: center !important;
+    margin: 0;
+  }
+
+  .mv-back-btn__label {
+    white-space: normal;
+  }
+}

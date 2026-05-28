@@ -293,7 +293,99 @@ html, body{
   </div>
 
   <!-- Tabella -->
-  <div *ngIf="!loading" class="scroll-wrapper">
+  <div *ngIf="!loading" class="mobile-day-view d-md-none">
+    <div class="mobile-day-toolbar">
+      <button type="button" class="mobile-day-nav" (click)="prevDay()" [disabled]="selectedDayIndex === 0">‹</button>
+      <div class="mobile-day-current">{{ selectedDayLabel }}</div>
+      <button
+        type="button"
+        class="mobile-day-nav"
+        (click)="nextDay()"
+        [disabled]="selectedDayIndex === giorni.length - 1"
+      >›</button>
+    </div>
+
+    <div class="mobile-day-chips">
+      <button
+        *ngFor="let g of giorni; let i = index"
+        type="button"
+        class="mobile-day-chip"
+        [class.mobile-day-chip--active]="i === selectedDayIndex"
+        (click)="selectDay(i)"
+      >
+        {{ getDayShortLabel(i) }}
+      </button>
+    </div>
+
+    <div class="mobile-attendance-list">
+      <article class="mobile-attendance-card" *ngFor="let d of dipendenti">
+        <div class="mobile-attendance-card__head">
+          <label class="mobile-attendance-card__select">
+            <input
+              type="checkbox"
+              [checked]="dipendentiSelezionati.has(d.id)"
+              (change)="toggleDipendente(d.id)"
+            />
+            <span>{{ d.nome }}</span>
+          </label>
+          <span class="mobile-attendance-card__total">{{ d.totale || '0.00' }}</span>
+        </div>
+
+        <div class="mobile-attendance-rows">
+          <div *ngFor="let voce of d.vociGiorno[selectedDayIndex]; let v = index" class="mobile-attendance-row">
+            <select
+              class="form-select form-select-sm"
+              [(ngModel)]="voce.categoria"
+              (change)="onCellaChange(d, selectedDayIndex)"
+            >
+              <option value="O">O</option>
+              <option value="F">F</option>
+              <option value="M">M</option>
+              <option value="P">P</option>
+              <option value="AI">AI</option>
+              <option value="INF">INF</option>
+            </select>
+
+            <input
+              type="text"
+              class="form-control"
+              [(ngModel)]="voce.ore"
+              (ngModelChange)="onCellaChange(d, selectedDayIndex)"
+              (blur)="voce.ore = voce.ore ? formatOreStr(voce.ore) : ''"
+              placeholder="h"
+            />
+
+            <button
+              type="button"
+              class="btn-remove"
+              (click)="rimuoviVoce(d, selectedDayIndex, v)"
+              title="Rimuovi voce"
+            >
+              🗑️
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn-add-voce mt-2"
+          (click)="aggiungiVoce(d, selectedDayIndex)"
+        >
+          + Aggiungi
+        </button>
+
+        <input
+          type="text"
+          class="form-control mt-3"
+          [(ngModel)]="d.note"
+          (ngModelChange)="onNotaChange(d)"
+          placeholder="Note"
+        />
+      </article>
+    </div>
+  </div>
+
+  <div *ngIf="!loading" class="scroll-wrapper d-none d-md-block">
     <table class="presenze-table table table-bordered align-middle">
       <thead class="table-light">
         <tr>

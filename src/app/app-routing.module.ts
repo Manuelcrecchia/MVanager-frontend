@@ -28,6 +28,7 @@ import { CambiapasswordComponent } from './componenti/admin/cambiapassword/cambi
 import { CalendarHomeComponent } from './admin/calendar/calendar-home/calendar-home.component';
 
 import { GestioneEmployeesComponent } from './admin/gestione-employees/gestione-employees.component';
+import { GestioneUsersComponent } from './admin/gestione-users/gestione-users.component';
 import { SettingsEmployeesComponent } from './admin/settings-employees/settings-employees.component';
 import { DeadlinesManagementComponent } from './admin/deadlines-management/deadlines-management.component';
 
@@ -177,6 +178,12 @@ const routes: Routes = [
     component: GestioneEmployeesComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
     data: { permission: 'EMPLOYEE_VIEW' },
+  },
+  {
+    path: 'gestioneusers',
+    component: GestioneUsersComponent,
+    canActivate: [AuthGuard, AuthLevelGuard],
+    data: { permission: 'ADMIN_VIEW' },
   },
   {
     path: 'settingsemployees',

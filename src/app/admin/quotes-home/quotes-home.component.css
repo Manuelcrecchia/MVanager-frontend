@@ -89,6 +89,11 @@ mat-toolbar mat-slide-toggle{
   overflow: hidden;
 }
 
+.quote-card.notification-target{
+  border: 2px solid rgba(255,122,0,.95);
+  box-shadow: 0 22px 70px rgba(255,122,0,.28), 0 18px 54px rgba(2,6,23,.16);
+}
+
 /* header: apre/chiude la tendina */
 .quote-header-btn{
   width: 100%;

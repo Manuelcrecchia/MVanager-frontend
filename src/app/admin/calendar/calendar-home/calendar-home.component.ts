@@ -17,6 +17,8 @@ interface RawEvent {
   categories: string;
   dayLong: boolean;
   status: string;
+  inspectionAdminIds?: number[];
+  inspectionReminderMinutes?: number | null;
 }
 
 interface CalEvent {
@@ -31,6 +33,15 @@ interface CalEvent {
   dayLong: boolean;
   isRecurring?: boolean;
   originalId?: number;
+  inspectionAdminIds?: number[];
+  inspectionReminderMinutes?: number | null;
+}
+
+interface AdminOption {
+  id: number;
+  nome: string;
+  cognome: string;
+  email: string;
 }
 
 interface DayCell {
@@ -66,6 +77,8 @@ export class CalendarHomeComponent implements OnInit {
   popupStartDate = '';
   popupEndDate = '';
   popupCategory = '';
+  popupInspectionAdminIds: number[] = [];
+  popupInspectionReminderMinutes: number | null = 30;
 
   recurrenceEnabled = false;
   recurrenceFreq: 'DAILY' | 'WEEKLY' | 'MONTHLY' = 'DAILY';
@@ -83,6 +96,7 @@ export class CalendarHomeComponent implements OnInit {
   nPreventiviArray: string[] = [];
   descrizioneArray: string[] = [];
   clientiArray: any[] = [];
+  adminOptions: AdminOption[] = [];
 
   monthGrid: DayCell[][] = [];
   weekCells: DayCell[] = [];
@@ -153,6 +167,18 @@ export class CalendarHomeComponent implements OnInit {
     }).subscribe((res) => {
       this.clientiArray = JSON.parse(res);
     });
+
+    this.http.get(this.globalService.url + 'admin/getAll', {
+      headers: this.globalService.headers, responseType: 'text',
+    }).subscribe((res) => {
+      const data = JSON.parse(res);
+      this.adminOptions = (Array.isArray(data) ? data : []).map((admin: any) => ({
+        id: Number(admin.id),
+        nome: admin.nome || '',
+        cognome: admin.cognome || '',
+        email: admin.email || '',
+      }));
+    });
   }
 
   // ── RRULE EXPANDER ─────────────────────────────────────────────────────
@@ -184,6 +210,14 @@ export class CalendarHomeComponent implements OnInit {
       recurrenceRule: raw.recurrenceRule || '',
       recurrenceException: this.parseExceptions(raw.recurrenceException),
       dayLong: raw.dayLong,
+      inspectionAdminIds: Array.isArray(raw.inspectionAdminIds)
+        ? raw.inspectionAdminIds.map((id) => Number(id)).filter(Boolean)
+        : [],
+      inspectionReminderMinutes:
+        raw.inspectionReminderMinutes !== null &&
+        raw.inspectionReminderMinutes !== undefined
+          ? Number(raw.inspectionReminderMinutes)
+          : null,
     };
   }
 
@@ -419,6 +453,8 @@ export class CalendarHomeComponent implements OnInit {
     this.popupTitle=title; this.popupDescription=description;
     this.popupStartDate=this.toInputDatetime(start); this.popupEndDate=this.toInputDatetime(end);
     this.popupCategory=category||this.categories[0]?.id||'';
+    this.popupInspectionAdminIds = [];
+    this.popupInspectionReminderMinutes = 30;
     this.recurrenceEnabled=false; this.recurrenceFreq='DAILY'; this.recurrenceInterval=1;
     this.recurrenceDays=[]; this.recurrenceEndType='never'; this.recurrenceUntil=''; this.recurrenceCount=1;
     this.autocompleteOpen=false; this.showDeleteConfirm=false; this.showPopup=true;
@@ -430,6 +466,13 @@ export class CalendarHomeComponent implements OnInit {
     this.popupTitle=ev.title; this.popupDescription=ev.description||'';
     this.popupStartDate=this.toInputDatetime(ev.start); this.popupEndDate=this.toInputDatetime(ev.end);
     this.popupCategory=ev.categories; this.recurrenceEnabled=this.hasRecurrenceRule; this.showDeleteConfirm=false;
+    this.popupInspectionAdminIds = Array.isArray(ev.inspectionAdminIds)
+      ? [...ev.inspectionAdminIds]
+      : [];
+    this.popupInspectionReminderMinutes =
+      ev.inspectionReminderMinutes !== null && ev.inspectionReminderMinutes !== undefined
+        ? Number(ev.inspectionReminderMinutes)
+        : 30;
     if (this.recurrenceEnabled) {
       const parts = this.parseRRule(ev.recurrenceRule);
       this.recurrenceFreq=(parts['FREQ'] as any)||'DAILY';
@@ -515,6 +558,25 @@ export class CalendarHomeComponent implements OnInit {
 
   onCategoryChange() { this.filteredAutocomplete=this.getAutocompleteSource(this.popupCategory); this.autocompleteOpen=false; }
 
+  toggleInspectionAdmin(adminId: number) {
+    const id = Number(adminId);
+    const index = this.popupInspectionAdminIds.indexOf(id);
+    if (index >= 0) this.popupInspectionAdminIds.splice(index, 1);
+    else this.popupInspectionAdminIds.push(id);
+  }
+
+  isInspectionAdminSelected(adminId: number): boolean {
+    return this.popupInspectionAdminIds.includes(Number(adminId));
+  }
+
+  get selectedInspectionAdminsLabel(): string {
+    if (!this.popupInspectionAdminIds.length) return 'Nessun utente selezionato';
+    const selected = this.adminOptions.filter((admin) =>
+      this.popupInspectionAdminIds.includes(admin.id),
+    );
+    return selected.map((admin) => `${admin.nome} ${admin.cognome}`).join(', ');
+  }
+
   onStartDateChange() {
     if (!this.popupStartDate) return;
     this.popupEndDate = this.toInputDatetime(new Date(new Date(this.popupStartDate).getTime()+30*60000));
@@ -542,6 +604,14 @@ export class CalendarHomeComponent implements OnInit {
     if (!this.popupTitle||!this.popupStartDate||!this.popupEndDate||!this.popupCategory) {
       this.popupService.text='Compilare tutti i campi obbligatori'; this.popupService.openPopup(); return;
     }
+    if (this.popupCategory === 'sopralluogo') {
+      if (!this.popupInspectionAdminIds.length) {
+        this.popupService.text='Seleziona almeno un utente per il sopralluogo'; this.popupService.openPopup(); return;
+      }
+      if (this.popupInspectionReminderMinutes === null || this.popupInspectionReminderMinutes < 0) {
+        this.popupService.text='Specifica quanti minuti prima inviare il promemoria'; this.popupService.openPopup(); return;
+      }
+    }
     const codice = this.popupTitle.split(' - ')[0];
     if (!this.validateCodice(codice,this.popupCategory)) {
       this.popupService.text='Codice non valido o non esistente per la categoria selezionata'; this.popupService.openPopup(); return;
@@ -553,6 +623,11 @@ export class CalendarHomeComponent implements OnInit {
       recurrenceRule: this.buildRRule(),
       dayLong: false, description: this.popupDescription,
       categories: this.popupCategory, recurrenceException: null,
+      inspectionAdminIds: this.popupCategory === 'sopralluogo' ? this.popupInspectionAdminIds : [],
+      inspectionReminderMinutes:
+        this.popupCategory === 'sopralluogo'
+          ? this.popupInspectionReminderMinutes
+          : null,
     };
     if (!this.isNewEvent) body.id = this.editingEventId;
     this.http.post(this.globalService.url+(this.isNewEvent?'appointments/add':'appointments/edit'), body, {

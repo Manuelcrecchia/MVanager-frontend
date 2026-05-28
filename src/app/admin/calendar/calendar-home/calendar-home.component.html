@@ -245,6 +245,36 @@
         </select>
       </div>
 
+      <div class="inspection-settings" *ngIf="popupCategory === 'sopralluogo'">
+        <div class="form-group">
+          <label>Utenti incaricati *</label>
+          <div class="inspection-users-list">
+            <label class="inspection-user-row" *ngFor="let admin of adminOptions">
+              <input
+                type="checkbox"
+                [checked]="isInspectionAdminSelected(admin.id)"
+                (change)="toggleInspectionAdmin(admin.id)"
+              />
+              <span>{{ admin.nome }} {{ admin.cognome }}</span>
+              <small>{{ admin.email }}</small>
+            </label>
+          </div>
+          <div class="small-help">{{ selectedInspectionAdminsLabel }}</div>
+        </div>
+
+        <div class="form-group">
+          <label>Avvisa prima di *</label>
+          <select [(ngModel)]="popupInspectionReminderMinutes" class="form-input">
+            <option [ngValue]="15">15 minuti</option>
+            <option [ngValue]="30">30 minuti</option>
+            <option [ngValue]="60">1 ora</option>
+            <option [ngValue]="120">2 ore</option>
+            <option [ngValue]="180">3 ore</option>
+            <option [ngValue]="1440">1 giorno</option>
+          </select>
+        </div>
+      </div>
+
       <!-- Recurrence toggle -->
       <div class="form-group form-inline">
         <label>Abilita Ricorrenza</label>

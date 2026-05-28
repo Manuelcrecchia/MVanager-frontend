@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, HostListener, Input, OnDestroy, ViewChild } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { GlobalService } from '../../service/global.service';
 import { QuoteModelService } from '../../service/quote-model.service';
@@ -23,6 +23,7 @@ export class QuotesHomeComponent implements OnDestroy {
   @Input() color: any;
   numeroClienteSelezionato = '';
   showCompletedQuotes = false;
+  highlightedQuoteFromNotification = '';
   private quoteAcceptanceSubscription?: Subscription;
 
   quotesFrEnd: {
@@ -59,6 +60,7 @@ export class QuotesHomeComponent implements OnDestroy {
     private pdfService: NgxExtendedPdfViewerService,
     public globalService: GlobalService,
     private router: Router,
+    private route: ActivatedRoute,
     private quoteModel: QuoteModelService,
     private popup: PopupServiceService,
     private automaticAddInspectionToCalendarService: AutomaticAddInspectionToCalendarService,
@@ -105,6 +107,7 @@ export class QuotesHomeComponent implements OnDestroy {
   }
 
   ngOnInit() {
+    this.applyNotificationQueryParams();
     this.loadQuotes();
     this.bindQuoteAcceptanceUpdates();
   }
@@ -141,12 +144,52 @@ export class QuotesHomeComponent implements OnDestroy {
             this.pdfTsSelezionato = false;
             this.numeroClienteSelezionato = '';
           }
+
+          this.focusQuoteFromNotificationIfNeeded();
         },
         error: (err) => {
           console.error('Errore caricamento preventivi:', err);
           alert('Errore durante il caricamento dei preventivi');
         },
       });
+  }
+
+  private applyNotificationQueryParams(): void {
+    const queryParams = this.route.snapshot.queryParamMap;
+    const review = queryParams.get('review');
+    const showCompleted =
+      queryParams.get('showCompleted') ||
+      queryParams.get('showCompletedQuotes') ||
+      queryParams.get('completed');
+
+    if (review === '1' || showCompleted === '1' || showCompleted === 'true') {
+      this.showCompletedQuotes = true;
+    }
+  }
+
+  private focusQuoteFromNotificationIfNeeded(): void {
+    const numeroPreventivo =
+      this.route.snapshot.queryParamMap.get('numeroPreventivo');
+    const review = this.route.snapshot.queryParamMap.get('review');
+
+    if (!numeroPreventivo || review !== '1') {
+      return;
+    }
+
+    this.highlightedQuoteFromNotification = numeroPreventivo;
+
+    const quote = this.quotesFrEnd.find(
+      (item) => item.numeroPreventivo === numeroPreventivo,
+    );
+    if (quote) {
+      this.numeroClienteSelezionato = numeroPreventivo;
+    }
+
+    setTimeout(() => {
+      document
+        .getElementById(`quote-${numeroPreventivo}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
   }
 
   private bindQuoteAcceptanceUpdates(): void {

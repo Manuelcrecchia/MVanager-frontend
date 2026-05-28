@@ -107,3 +107,95 @@ td.actions-cell {
 .btn:hover * {
   color: #000 !important;
 }
+
+.mobile-only {
+  display: none;
+}
+
+.selection-actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 767.98px) {
+  .top-actions {
+    align-items: stretch !important;
+  }
+
+  .top-actions > * {
+    width: 100%;
+  }
+
+  .selection-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .selection-actions .btn,
+  .selection-actions .badge {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .desktop-table {
+    display: none;
+  }
+
+  .mobile-only {
+    display: grid;
+    gap: 16px;
+  }
+
+  .employee-card {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 22px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.08);
+  }
+
+  .employee-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .employee-card__selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+  }
+
+  .employee-card__id {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.06);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .employee-card__identity h3 {
+    margin: 0 0 6px;
+    font-size: 1.15rem;
+    font-weight: 800;
+  }
+
+  .employee-card__identity p {
+    margin: 0 0 4px;
+    color: rgba(0, 0, 0, 0.68);
+    word-break: break-word;
+  }
+
+  .employee-card__actions {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .employee-card__actions .btn {
+    width: 100%;
+  }
+}

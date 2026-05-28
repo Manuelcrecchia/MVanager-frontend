@@ -101,7 +101,12 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "allowedHosts": ["emmeci.local", "sami.local"]
+            "allowedHosts": [
+              "emmeci.local",
+              "sami.local",
+              "sami.mvtechcore.it",
+              "emmeci.mvtechcore.it"
+            ]
           },
           "configurations": {
             "production": {

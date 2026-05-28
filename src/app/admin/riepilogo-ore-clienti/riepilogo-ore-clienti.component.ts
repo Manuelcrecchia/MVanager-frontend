@@ -30,6 +30,7 @@ export class RiepilogoOreClientiComponent implements OnInit {
   clienti: any[] = [];
   giorni: string[] = [];
   loading = false;
+  selectedDayIndex = 0;
 
   // Per tracciare quali dettagli sono espansi
   espanso: Set<string> = new Set();
@@ -82,7 +83,45 @@ export class RiepilogoOreClientiComponent implements OnInit {
 
   cambiaMeseAnno() {
     this.generaGiorni();
+    this.selectedDayIndex = 0;
     this.caricaDati();
+  }
+
+  selectDay(index: number) {
+    this.selectedDayIndex = index;
+  }
+
+  prevDay() {
+    if (this.selectedDayIndex > 0) {
+      this.selectedDayIndex -= 1;
+    }
+  }
+
+  nextDay() {
+    if (this.selectedDayIndex < this.giorni.length - 1) {
+      this.selectedDayIndex += 1;
+    }
+  }
+
+  get selectedDayLabel(): string {
+    return this.giorni[this.selectedDayIndex] || '';
+  }
+
+  getDayLabel(index: number): string {
+    return this.giorni[index] || '';
+  }
+
+  getDayShortLabel(index: number): string {
+    const [day, weekday] = this.getDayLabel(index).split('\n');
+    return [day, weekday].filter(Boolean).join(' ');
+  }
+
+  getClienteOre(cliente: any, index: number): string {
+    return cliente?.orePerGiorno?.[index] || '0.00';
+  }
+
+  getClienteDettagli(cliente: any, index: number): any[] {
+    return cliente?.dettagliPerGiorno?.[index] || [];
   }
 
   // Genera una chiave unica per tracciare lo stato espanso

@@ -10,6 +10,7 @@ import {
 import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 import { TenantService } from './tenant.service';
 import { resolveApiBaseUrl } from './global.service';
+import { NotificationNavigationService } from './notification-navigation.service';
 
 @Injectable({
   providedIn: 'root',
@@ -21,6 +22,7 @@ export class MobilePushService {
   constructor(
     private http: HttpClient,
     private tenantService: TenantService,
+    private notificationNavigation: NotificationNavigationService,
   ) {}
 
   async initAfterLogin(token: string): Promise<void> {
@@ -34,6 +36,7 @@ export class MobilePushService {
     await PushNotifications.removeAllListeners();
 
     PushNotifications.addListener('registration', (token: Token) => {
+      console.log('[Push] Token iOS/APNs ricevuto', token.value);
       this.registerDeviceToken(token.value);
     });
 
@@ -50,8 +53,9 @@ export class MobilePushService {
 
     PushNotifications.addListener(
       'pushNotificationActionPerformed',
-      (action: ActionPerformed) => {
+      async (action: ActionPerformed) => {
         console.log('[Push] Notifica aperta', action);
+        await this.notificationNavigation.navigateFromPayload(action);
       },
     );
 
@@ -78,6 +82,8 @@ export class MobilePushService {
       const result = await FirebaseMessaging.getToken();
       this.registerDeviceToken(result.token);
     }
+
+    await this.notificationNavigation.navigatePendingIfAny();
   }
 
   reset(): void {
@@ -99,7 +105,8 @@ export class MobilePushService {
         { headers: this.headers },
       )
       .subscribe({
-        next: () => console.log('[Push] Token registrato sul backend'),
+        next: (response) =>
+          console.log('[Push] Token registrato sul backend', response),
         error: (err) => console.error('[Push] Errore registrazione token', err),
       });
   }

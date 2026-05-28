@@ -10,6 +10,7 @@ import { TenantService } from '../../service/tenant.service';
 import { SocketService } from '../../service/soket.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
+import { Capacitor } from '@capacitor/core';
 
 type DeadlineStatus = 'ok' | 'warning' | 'expired';
 
@@ -21,6 +22,22 @@ interface DeadlineSummary {
   status: DeadlineStatus;
 }
 
+interface HomeButton {
+  label: string;
+  icon: string;
+  permission: string;
+  action: () => void;
+  badgeCount?: () => number;
+  badgeClass?: () => string;
+}
+
+interface HomeCategory {
+  id: string;
+  label: string;
+  icon: string;
+  buttons: HomeButton[];
+}
+
 @Component({
   selector: 'app-homeadmin',
   templateUrl: './homeadmin.component.html',
@@ -28,6 +45,7 @@ interface DeadlineSummary {
 })
 export class HomeAdminComponent implements OnInit, OnDestroy {
   private quoteAcceptanceSubscription?: Subscription;
+  isIos = Capacitor.getPlatform() === 'ios';
 
   constructor(
     private el: ElementRef,
@@ -44,6 +62,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   ) {}
 
   isMenuOpen: boolean = false;
+  selectedHomeCategoryId = '';
   permessiInAttesa: number = 0;
   pendingQuoteReviews: number = 0;
   employeeDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
@@ -156,6 +175,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.router.navigateByUrl('/userSettings');
   }
 
+  navigateToGestioneUsers() {
+    this.router.navigateByUrl('/gestioneusers');
+  }
+
   navigateToSettingsEmployees() {
     this.router.navigateByUrl('/settingsemployees');
   }
@@ -219,6 +242,187 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   navigateToQuoteSettings() {
     this.router.navigateByUrl('/quoteSettings');
+  }
+
+  get homeCategories(): HomeCategory[] {
+    return [
+      {
+        id: 'personale',
+        label: 'Personale',
+        icon: 'fas fa-user-friends',
+        buttons: [
+          {
+            label: 'Gestione Dipendenti',
+            icon: 'fas fa-user',
+            permission: 'EMPLOYEE_VIEW',
+            action: () => this.navigateToGestioneemployees(),
+          },
+          {
+            label: 'Scadenze Dipendenti',
+            icon: 'fas fa-id-card',
+            permission: 'EMPLOYEE_DEADLINES_VIEW',
+            action: () => this.navigateToEmployeeDeadlines(),
+            badgeCount: () => this.employeeDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.employeeDeadlineSummary),
+          },
+          {
+            label: 'Turni',
+            icon: 'fas fa-tasks',
+            permission: 'SHIFTS_VIEW',
+            action: () => this.goToShifts(),
+          },
+          {
+            label: 'Riepilogo presenze personalizzabile',
+            icon: 'fas fa-clock',
+            permission: 'ATTENDANCE_VIEW',
+            action: () => this.goToEditableHours(),
+          },
+          {
+            label: 'Permessi',
+            icon: 'fas fa-clipboard-check',
+            permission: 'EMPLOYEE_PERMITS_MANAGE',
+            action: () => this.navigateToGestionePermessi(),
+            badgeCount: () => this.permessiInAttesa,
+            badgeClass: () => 'badge bg-danger ms-1',
+          },
+          {
+            label: 'Gestione Timbrature',
+            icon: 'fas fa-fingerprint',
+            permission: 'STAMPING_VIEW',
+            action: () => this.navigateToTimbrature(),
+          },
+        ],
+      },
+      {
+        id: 'commerciale',
+        label: 'Commerciale',
+        icon: 'fas fa-handshake',
+        buttons: [
+          {
+            label: 'Gestione Clienti',
+            icon: 'fas fa-users',
+            permission: 'CUSTOMERS_VIEW',
+            action: () => this.navigateToListCustomer(),
+          },
+          {
+            label: 'Gestione Preventivi',
+            icon: 'fas fa-file-alt',
+            permission: 'QUOTES_VIEW',
+            action: () => this.navigateToQuotesHome(),
+            badgeCount: () => this.pendingQuoteReviews,
+            badgeClass: () => 'badge bg-danger ms-1',
+          },
+        ],
+      },
+      {
+        id: 'operativo',
+        label: 'Operativo',
+        icon: 'fas fa-briefcase',
+        buttons: [
+          {
+            label: 'Calendario',
+            icon: 'fas fa-calendar',
+            permission: 'CALENDAR_VIEW',
+            action: () => this.navigateToCalendarHome(),
+          },
+          {
+            label: 'Ordini di servizio',
+            icon: 'fas fa-clipboard-list',
+            permission: 'SERVICE_ORDERS_VIEW',
+            action: () => this.navigateToServiceOrders(),
+          },
+          {
+            label: 'Riepilogo ore clienti',
+            icon: 'fas fa-user-clock',
+            permission: 'CUSTOMERS_HOURS_VIEW',
+            action: () => this.goToRiepilogoOreClienti(),
+          },
+        ],
+      },
+      {
+        id: 'amministrazione',
+        label: 'Amministrazione',
+        icon: 'fas fa-building',
+        buttons: [
+          {
+            label: 'Gestione Users',
+            icon: 'fas fa-users-cog',
+            permission: 'ADMIN_VIEW',
+            action: () => this.navigateToGestioneUsers(),
+          },
+          {
+            label: 'Scadenze Mezzi',
+            icon: 'fas fa-car',
+            permission: 'VEHICLE_DEADLINES_VIEW',
+            action: () => this.navigateToVehicleDeadlines(),
+            badgeCount: () => this.vehicleDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.vehicleDeadlineSummary),
+          },
+          {
+            label: 'Documenti interni',
+            icon: 'fas fa-file',
+            permission: 'INTERNAL_DOCS_ACCESS',
+            action: () => this.navigateToInternalDocuments(),
+          },
+        ],
+      },
+    ];
+  }
+
+  get visibleHomeCategories(): HomeCategory[] {
+    return this.homeCategories.filter(
+      (category) => this.visibleHomeButtons(category).length > 0,
+    );
+  }
+
+  get shouldShowHomeCategories(): boolean {
+    return this.visibleHomeCategories.length > 1 && !this.selectedHomeCategoryId;
+  }
+
+  get currentHomeButtons(): HomeButton[] {
+    if (this.visibleHomeCategories.length === 1) {
+      return this.visibleHomeButtons(this.visibleHomeCategories[0]);
+    }
+
+    const selectedCategory = this.visibleHomeCategories.find(
+      (category) => category.id === this.selectedHomeCategoryId,
+    );
+
+    return selectedCategory ? this.visibleHomeButtons(selectedCategory) : [];
+  }
+
+  get selectedHomeCategory(): HomeCategory | undefined {
+    return this.visibleHomeCategories.find(
+      (category) => category.id === this.selectedHomeCategoryId,
+    );
+  }
+
+  selectHomeCategory(categoryId: string): void {
+    this.selectedHomeCategoryId = categoryId;
+  }
+
+  clearHomeCategory(): void {
+    this.selectedHomeCategoryId = '';
+  }
+
+  visibleHomeButtons(category: HomeCategory): HomeButton[] {
+    return category.buttons.filter((button) =>
+      this.global.hasPermission(button.permission),
+    );
+  }
+
+  categoryBadgeCount(category: HomeCategory): number {
+    return this.visibleHomeButtons(category).reduce((total, button) => {
+      return total + (button.badgeCount?.() || 0);
+    }, 0);
+  }
+
+  buttonBadgeCount(button: HomeButton): number {
+    return button.badgeCount?.() || 0;
+  }
+
+  buttonBadgeClass(button: HomeButton): string {
+    return button.badgeClass?.() || 'badge bg-danger ms-1';
   }
 
   @HostListener('window:popstate', ['$event'])

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { AfterViewInit, Component, OnDestroy } from '@angular/core';
 import { GlobalService } from '../../../service/global.service';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -7,6 +7,9 @@ import { AuthServiceService } from '../../../auth-service.service';
 import { BiometricService } from '../../../service/biometric.service';
 import { TenantId, TenantService } from '../../../service/tenant.service';
 import { jwtDecode } from 'jwt-decode';
+import { NotificationNavigationService } from '../../../service/notification-navigation.service';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor, PluginListenerHandle } from '@capacitor/core';
 
 @Component({
   selector: 'app-private-area',
@@ -15,10 +18,16 @@ import { jwtDecode } from 'jwt-decode';
 })
 export class PrivateAreaComponent {
   version = this.globalService.version;
+  isMobile = this.globalService.forMobile;
   selectedTenant: TenantId | null = null;
   loginReady = false;
   checkingLoginState = false;
   biometricAvailable = false;
+  private autoBiometricAttempted = false;
+  private biometricLoginInProgress = false;
+  private viewReady = false;
+  private appStateListener?: PluginListenerHandle;
+  private autoBiometricTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     private globalService: GlobalService,
@@ -27,6 +36,7 @@ export class PrivateAreaComponent {
     private popup: PopupServiceService,
     private authService: AuthServiceService,
     private bio: BiometricService,
+    private notificationNavigation: NotificationNavigationService,
     public tenantService: TenantService,
   ) {}
 
@@ -39,6 +49,29 @@ export class PrivateAreaComponent {
     }
 
     await this.initializeLoginState();
+
+    if (Capacitor.getPlatform() !== 'web') {
+      this.appStateListener = await CapacitorApp.addListener(
+        'appStateChange',
+        ({ isActive }) => {
+          if (isActive) {
+            this.startAutomaticBiometricLogin('app-active');
+          }
+        },
+      );
+    }
+  }
+
+  ngAfterViewInit(): void {
+    this.viewReady = true;
+    this.startAutomaticBiometricLogin('view-ready');
+  }
+
+  ngOnDestroy(): void {
+    this.appStateListener?.remove();
+    if (this.autoBiometricTimer) {
+      clearTimeout(this.autoBiometricTimer);
+    }
   }
 
   /**
@@ -96,11 +129,16 @@ export class PrivateAreaComponent {
 
           // 🔒 SALVA NEL KEYCHAIN SOLO SE È LOGIN MANUALE
           if (!automatic) {
-            console.log('🔒 Salvo credenziali nel Keychain...');
-            await this.bio.storeCredentials(email, password, this.tenantService.tenant);
+            console.log('🔒 Salvo credenziali biometriche...');
+            await this.bio.storeCredentials(
+              email,
+              password,
+              this.tenantService.tenant,
+            );
+            this.biometricAvailable = true;
           }
 
-          this.router.navigateByUrl('/homeAdmin');
+          await this.notificationNavigation.consumePendingOrNavigate('/homeAdmin');
         },
         error: (err) => {
           console.error('❌ Errore login:', err);
@@ -157,6 +195,7 @@ export class PrivateAreaComponent {
     await this.tenantService.setTenant(tenant);
     this.selectedTenant = tenant;
     this.loginReady = false;
+    this.autoBiometricAttempted = false;
 
     if (previousTenant && previousTenant !== tenant) {
       this.authService.logout();
@@ -166,20 +205,27 @@ export class PrivateAreaComponent {
     await this.initializeLoginState();
   }
 
-  async biometricLogin(): Promise<void> {
-    if (!this.loginReady) {
+  async biometricLogin(silent = false): Promise<void> {
+    if (!this.loginReady || this.biometricLoginInProgress) {
       return;
     }
 
-    const credentials = await this.bio.getCredentials(this.tenantService.tenant);
-    if (!credentials) {
-      this.popup.text = 'Nessuna credenziale biometrica salvata per questo tenant.';
-      this.popup.openPopup();
-      return;
-    }
+    this.biometricLoginInProgress = true;
+    try {
+      const credentials = await this.bio.getCredentials(this.tenantService.tenant);
+      if (!credentials) {
+        if (!silent) {
+          this.popup.text = 'Nessuna credenziale biometrica salvata per questo tenant.';
+          this.popup.openPopup();
+        }
+        return;
+      }
 
-    console.log('🔐 Login biometrico con:', credentials.email);
-    this.loginFunction(credentials.email, credentials.password, true);
+      console.log('🔐 Login biometrico con:', credentials.email);
+      this.loginFunction(credentials.email, credentials.password, true);
+    } finally {
+      this.biometricLoginInProgress = false;
+    }
   }
 
   private async initializeLoginState(): Promise<void> {
@@ -198,10 +244,46 @@ export class PrivateAreaComponent {
       }
 
       this.loginReady = true;
-      this.biometricAvailable = await this.bio.isAvailable();
+      if (this.bio.isAndroidPlatform()) {
+        const [hasCredentials, isAvailable] = await Promise.all([
+          this.bio.hasStoredCredentials(this.tenantService.tenant),
+          this.bio.isAvailable(),
+        ]);
+        this.biometricAvailable = hasCredentials;
+        console.log('[Biometric] Stato Android', {
+          hasCredentials,
+          isAvailable,
+          tenant: this.tenantService.tenant,
+          autoEnabled: this.biometricAvailable,
+        });
+      } else {
+        this.biometricAvailable = await this.bio.isAvailable();
+      }
+
+      this.startAutomaticBiometricLogin('login-state-ready');
     } finally {
       this.checkingLoginState = false;
     }
+  }
+
+  private startAutomaticBiometricLogin(reason: string): void {
+    if (
+      this.autoBiometricAttempted ||
+      !this.isMobile ||
+      !this.viewReady ||
+      !this.loginReady ||
+      !this.biometricAvailable ||
+      !!this.authService.token ||
+      this.biometricLoginInProgress
+    ) {
+      return;
+    }
+
+    this.autoBiometricAttempted = true;
+    console.log(`[Biometric] Avvio automatico (${reason})`);
+    this.autoBiometricTimer = setTimeout(() => {
+      this.biometricLogin(true);
+    }, Capacitor.getPlatform() === 'android' ? 900 : 350);
   }
 
   private getTokenTenant(): TenantId | null {

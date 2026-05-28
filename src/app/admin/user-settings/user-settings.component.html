@@ -4,11 +4,6 @@
   <div class="mv-toolbar__left">
     <span class="mv-title">Gestione Amministratori</span>
   </div>
-  <span class="spacer"></span>
-  <button class="mv-back-btn" type="button" (click)="back()">
-    <span class="mv-back-btn__icon">←</span>
-    <span class="mv-back-btn__label">Torna Indietro</span>
-  </button>
 </mat-toolbar>
 
 <div class="mv-bg">
@@ -19,6 +14,12 @@
   <div class="mv-page container-fluid">
     <div class="mv-shell mv-shell--single">
       <main class="mv-main">
+        <div class="mv-page-actions">
+          <button class="mv-back-btn" type="button" (click)="back()">
+            <span class="mv-back-btn__icon">←</span>
+            <span class="mv-back-btn__label">Torna Indietro</span>
+          </button>
+        </div>
 
         <!-- ═══════════════════════════════════════════
              SEZIONE: ELENCO AMMINISTRATORI

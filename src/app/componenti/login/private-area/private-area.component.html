@@ -249,7 +249,7 @@
       <div class="subtitle">Inserisci i tuoi dati per accedere.</div>
     </div>
 
-    <div class="tenant-selector">
+    <div class="tenant-selector" *ngIf="isMobile">
       <button
         type="button"
         class="tenant-card"
@@ -273,7 +273,7 @@
       </button>
     </div>
 
-    <div class="tenant-hint">
+    <div class="tenant-hint" *ngIf="isMobile">
       {{ selectedTenant ? ('Tenant selezionato: ' + tenantService.tenantLabel) : 'Seleziona l\'azienda da aprire nell\'app.' }}
     </div>
 

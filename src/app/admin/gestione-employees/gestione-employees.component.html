@@ -8,7 +8,7 @@
     </button>
 
     <!-- AZIONI SELEZIONE + INVIO -->
-    <div class="d-flex align-items-center gap-2 flex-wrap" *ngIf="globalService.hasPermission('NOTIFICATIONS_MANAGE')">
+    <div class="selection-actions d-flex align-items-center gap-2 flex-wrap" *ngIf="globalService.hasPermission('NOTIFICATIONS_MANAGE')">
       <button
         class="btn btn-glass btn-round"
         (click)="toggleSelectAll()"
@@ -34,7 +34,7 @@
   <h2 class="text-center page-title mb-4 text-dark">Gestione Dipendenti</h2>
 
   <!-- TABLE WRAPPER -->
-  <div class="table-wrapper">
+  <div class="table-wrapper desktop-table">
     <table class="table align-middle text-center mb-0">
       <thead>
         <tr>
@@ -100,6 +100,55 @@
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <div class="employee-card-list mobile-only" *ngIf="employees.length > 0">
+    <article class="employee-card" *ngFor="let emp of employees">
+      <div class="employee-card__top">
+        <label class="employee-card__selector">
+          <input
+            type="checkbox"
+            class="form-check-input"
+            [checked]="isSelected(emp.id)"
+            (change)="toggleEmployee(emp.id)"
+          />
+          <span>Seleziona</span>
+        </label>
+        <span class="employee-card__id">#{{ emp.id }}</span>
+      </div>
+
+      <div class="employee-card__identity">
+        <h3>{{ emp.nome }} {{ emp.cognome }}</h3>
+        <p *ngIf="emp.email">{{ emp.email }}</p>
+        <p *ngIf="emp.cellulare">{{ emp.cellulare }}</p>
+      </div>
+
+      <div class="employee-card__actions">
+        <button
+          *ngIf="globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE')"
+          class="btn btn-outline-brand btn-sm btn-round"
+          (click)="goToAssenze(emp.id)"
+        >
+          🗓️ Assenze
+        </button>
+
+        <button
+          *ngIf="globalService.hasPermission('EMPLOYEE_DOCS_MANAGE')"
+          class="btn btn-brand-secondary btn-sm btn-round"
+          (click)="goToDocument(emp.id)"
+        >
+          📁 Documenti
+        </button>
+
+        <button
+          *ngIf="globalService.hasPermission('NOTIFICATIONS_VIEW')"
+          class="btn btn-glass-dark btn-sm btn-round"
+          (click)="openEmpNotifications(emp, empNotifModal)"
+        >
+          🔔 Notifiche
+        </button>
+      </div>
+    </article>
   </div>
 
   <div *ngIf="employees.length === 0" class="alert alert-info text-center mt-3">

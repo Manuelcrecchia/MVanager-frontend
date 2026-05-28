@@ -66,7 +66,11 @@
       <div class="row g-3">
         <div class="col-12" *ngFor="let quote of quotesFrEnd">
           <!-- ✅ CARD CON TENDINA (senza quote.open) -->
-          <div class="quote-card">
+          <div
+            class="quote-card"
+            [class.notification-target]="quote.numeroPreventivo === highlightedQuoteFromNotification"
+            [attr.id]="'quote-' + quote.numeroPreventivo"
+          >
             <!-- HEADER: apre/chiude SOLO la tendina -->
             <button
               type="button"

@@ -10,12 +10,18 @@ function ensureTrailingSlash(url: string): string {
   return url.endsWith('/') ? url : `${url}/`;
 }
 
-function isLocalWebHost(host: string): boolean {
+function isLocalWebHost(host: string, port?: string): boolean {
+  const normalizedPort = String(port || '').trim();
+  const isAngularDevPort =
+    normalizedPort === '4200' || normalizedPort === '4300' || normalizedPort === '4301';
+
   return (
     host.includes('localhost') ||
     host.includes('127.0.0.1') ||
+    host.includes('sami.local') ||
     host.includes('emmeci.local') ||
-    host.includes('sami.local')
+    (isAngularDevPort && host.includes('sami.mvtechcore.it')) ||
+    (isAngularDevPort && host.includes('emmeci.mvtechcore.it'))
   );
 }
 
@@ -23,6 +29,7 @@ export function resolveApiBaseUrl(params: {
   forMobile: boolean;
   tenant: TenantId;
   host?: string;
+  port?: string;
 }): string {
   const host = (params.host || '').toLowerCase();
 
@@ -30,7 +37,7 @@ export function resolveApiBaseUrl(params: {
     return ensureTrailingSlash(environment.mobileDevApiUrl.trim());
   }
 
-  if (!params.forMobile && isLocalWebHost(host)) {
+  if (!params.forMobile && isLocalWebHost(host, params.port)) {
     return 'http://localhost:5001/';
   }
 
@@ -55,12 +62,17 @@ export class GlobalService {
 
   get url(): string {
     const host =
-      typeof window === 'undefined' ? '' : window.location.hostname.toLowerCase();
+      typeof window === 'undefined'
+        ? ''
+        : window.location.hostname.toLowerCase();
+    const port =
+      typeof window === 'undefined' ? '' : window.location.port || '';
 
     return resolveApiBaseUrl({
       forMobile: this.forMobile,
       tenant: this.tenantService.tenant,
       host,
+      port,
     });
   }
 
@@ -83,7 +95,13 @@ export class GlobalService {
             resolve(true);
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error('[GlobalService] checkVersion failed', {
+            url: this.url + 'api/version',
+            tenant: this.tenantService.tenant,
+            forMobile: this.forMobile,
+            error,
+          });
           alert('Impossibile verificare la versione del server.');
           resolve(false);
         });

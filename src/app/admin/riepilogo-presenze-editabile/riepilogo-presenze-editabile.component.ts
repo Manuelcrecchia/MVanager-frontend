@@ -32,6 +32,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
   giorni: string[] = [];
   loading = false;
   dipendentiSelezionati: Set<number> = new Set();
+  selectedDayIndex = 0;
 
   private noteChanges: { [id: number]: Subject<string> } = {};
 
@@ -289,7 +290,33 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
 
   cambiaMeseAnno() {
     this.generaGiorni();
+    this.selectedDayIndex = 0;
     this.caricaPresenze();
+  }
+
+  selectDay(index: number) {
+    this.selectedDayIndex = index;
+  }
+
+  prevDay() {
+    if (this.selectedDayIndex > 0) {
+      this.selectedDayIndex -= 1;
+    }
+  }
+
+  nextDay() {
+    if (this.selectedDayIndex < this.giorni.length - 1) {
+      this.selectedDayIndex += 1;
+    }
+  }
+
+  get selectedDayLabel(): string {
+    return this.giorni[this.selectedDayIndex] || '';
+  }
+
+  getDayShortLabel(index: number): string {
+    const [day, weekday] = (this.giorni[index] || '').split('\n');
+    return [day, weekday].filter(Boolean).join(' ');
   }
 
   // ✅ Formatta SEMPRE con 2 decimali (es: "4.00", "3.25")
