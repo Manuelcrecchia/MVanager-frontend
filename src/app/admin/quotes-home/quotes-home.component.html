@@ -1,254 +1,190 @@
-<!DOCTYPE html>
-<html lang="it">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gestione Preventivi</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-    <link
-      href="https://cdn.jsdelivr.net/npm/@angular/material/prebuilt-themes/indigo-pink.css"
-      rel="stylesheet"
-    />
-  </head>
-  <body class="bg-light">
-    <mat-toolbar
-      class="d-flex flex-wrap justify-content-between align-items-center px-3 py-2 mb-3"
-      color="primary"
-    >
-      <div class="d-flex align-items-center mb-2 mb-md-0">
-        <span class="fs-4 me-3 text-white">Preventivi</span>
-        <button class="btn-back me-3" type="button" (click)="back()">
-          &larr; Torna Indietro
-        </button>
+<div class="container py-4 page-wrap">
+  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <button class="btn btn-back-glass" type="button" (click)="back()">
+        &larr; Torna Indietro
+      </button>
+      <button
+        *ngIf="globalService.hasPermission('QUOTES_MANAGE')"
+        class="btn btn-pink"
+        (click)="navigateToAddQuote()"
+      >
+        <i class="fas fa-plus me-1"></i> Nuovo
+      </button>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <input
+        class="form-control form-control-glass"
+        style="max-width: 220px; min-width: 160px;"
+        placeholder="Numero cliente"
+        #inputNumeroCliente
+        (input)="searchNumeroPreventivo(inputNumeroCliente.value)"
+      />
+      <input
+        class="form-control form-control-glass"
+        style="max-width: 220px; min-width: 160px;"
+        placeholder="Nominativo"
+        #inputNominativo
+        (input)="searchNominativo(inputNominativo.value)"
+      />
+      <label class="d-flex align-items-center gap-2" style="padding: 6px 12px; border-radius: 14px; background: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.55); cursor: pointer; white-space: nowrap;">
+        <input type="checkbox" [(ngModel)]="showCompletedQuotes" (change)="ngOnInit()" style="width: 18px; height: 18px;" />
+        <span class="fw-bold" style="font-size: 13px;">Completati</span>
+      </label>
+    </div>
+  </div>
+
+  <h2 class="text-center page-title mb-4 text-dark">Preventivi</h2>
+
+  <div class="d-flex flex-column gap-3">
+    <div *ngFor="let quote of quotesFrEnd">
+      <div
+        class="quote-card"
+        [class.notification-target]="quote.numeroPreventivo === highlightedQuoteFromNotification"
+        [attr.id]="'quote-' + quote.numeroPreventivo"
+      >
         <button
-          *ngIf="globalService.hasPermission('QUOTES_MANAGE')"
-          (click)="navigateToAddQuote()"
-          mat-icon-button
-          class="btn btn-pink me-2"
+          type="button"
+          class="quote-header-btn"
+          (click)="toggleQuoteOpen(quote.numeroPreventivo)"
         >
-          <mat-icon>add</mat-icon>
-        </button>
-      </div>
+          <span class="quote-title">
+            {{ quote.numeroPreventivo }} - {{ quote.nominativo }}
+            <span
+              *ngIf="quote.isLocked && quote.acceptanceStatus === 'pending' && !showCompletedQuotes"
+              class="badge bg-warning text-dark ms-2"
+            >
+              In attesa cliente
+            </span>
+            <span
+              *ngIf="quote.signaturePresent"
+              class="badge bg-info text-dark ms-2"
+            >
+              Firmato
+            </span>
+            <span
+              *ngIf="quote.needsOfficeReview"
+              class="badge bg-danger ms-2"
+            >
+              Da verificare
+            </span>
+            <span
+              *ngIf="quote.officeConfirmedAt"
+              class="badge bg-success ms-2"
+            >
+              Cliente creato
+            </span>
+            <ng-container *ngIf="showCompletedQuotes">
+              <i *ngIf="quote.complete === 'A'" class="fas fa-check-circle text-success ms-2"></i>
+              <i *ngIf="quote.complete === 'R'" class="fas fa-times-circle text-danger ms-2"></i>
+            </ng-container>
+          </span>
 
-      <div class="d-flex flex-wrap gap-2">
-        <mat-form-field class="example-form-field" appearance="fill">
-          <mat-label>Numero cliente</mat-label>
-          <input
-            #inputNumeroCliente
-            matInput
-            (input)="searchNumeroPreventivo(inputNumeroCliente.value)"
-          />
-        </mat-form-field>
-
-        <mat-form-field class="example-form-field" appearance="fill">
-          <mat-label>Nominativo</mat-label>
-          <input
-            #inputNominativo
-            matInput
-            (input)="searchNominativo(inputNominativo.value)"
-          />
-        </mat-form-field>
-
-        <mat-slide-toggle
-          [(ngModel)]="showCompletedQuotes"
-          (change)="ngOnInit()"
-          color="accent"
-        >
-          Mostra completati
-        </mat-slide-toggle>
-      </div>
-    </mat-toolbar>
-
-    <div class="container">
-      <div class="row g-3">
-        <div class="col-12" *ngFor="let quote of quotesFrEnd">
-          <!-- ✅ CARD CON TENDINA (senza quote.open) -->
-          <div
-            class="quote-card"
-            [class.notification-target]="quote.numeroPreventivo === highlightedQuoteFromNotification"
-            [attr.id]="'quote-' + quote.numeroPreventivo"
-          >
-            <!-- HEADER: apre/chiude SOLO la tendina -->
+          <span class="d-flex align-items-center gap-2">
             <button
               type="button"
-              class="quote-header-btn"
-              data-bs-toggle="collapse"
-              [attr.data-bs-target]="'#qActions' + quote.numeroPreventivo"
-              aria-expanded="false"
-              [attr.aria-controls]="'qActions' + quote.numeroPreventivo"
+              class="btn btn-sm btn-pdf"
+              (click)="viewPdf(quote); $event.stopPropagation()"
             >
-              <span class="quote-title">
-                {{ quote.numeroPreventivo }} - {{ quote.nominativo }}
-                <span
-                  *ngIf="quote.isLocked && quote.acceptanceStatus === 'pending' && !showCompletedQuotes"
-                  class="badge bg-warning text-dark ms-2"
-                >
-                  In attesa cliente
-                </span>
-                <span
-                  *ngIf="quote.signaturePresent"
-                  class="badge bg-info text-dark ms-2"
-                >
-                  Firmato
-                </span>
-                <span
-                  *ngIf="quote.needsOfficeReview"
-                  class="badge bg-danger ms-2"
-                >
-                  Da verificare
-                </span>
-                <span
-                  *ngIf="quote.officeConfirmedAt"
-                  class="badge bg-success ms-2"
-                >
-                  Cliente creato
-                </span>
-                <ng-container *ngIf="showCompletedQuotes">
-                  <mat-icon
-                    *ngIf="quote.complete === 'A'"
-                    class="text-success ms-2"
-                    >check_circle</mat-icon
-                  >
-                  <mat-icon
-                    *ngIf="quote.complete === 'R'"
-                    class="text-danger ms-2"
-                    >cancel</mat-icon
-                  >
-                </ng-container>
-              </span>
+              <i class="fas fa-file-pdf"></i>
+            </button>
+            <button
+              *ngIf="globalService.hasPermission('QUOTES_NOTES_VIEW')"
+              type="button"
+              class="btn btn-sm btn-notes"
+              (click)="navigateToNotes(quote.numeroPreventivo, quote.nominativo); $event.stopPropagation()"
+              title="Note"
+            >
+              <i class="fas fa-sticky-note"></i>
+            </button>
+            <span class="chev" [class.chev--open]="isQuoteOpen(quote.numeroPreventivo)">▾</span>
+          </span>
+        </button>
 
-              <span class="d-flex align-items-center gap-2">
-                <!-- PDF: bottone separato, non apre/chiude la tendina -->
-                <button
-                  type="button"
-                  class="btn btn-sm btn-pdf"
-                  (click)="viewPdf(quote); $event.stopPropagation()"
-                >
-                  <mat-icon>picture_as_pdf</mat-icon>
-                </button>
-
-                <!-- NOTE: bottone separato, non apre/chiude la tendina -->
-                <button
-                  *ngIf="globalService.hasPermission('QUOTES_NOTES_VIEW')"
-                  type="button"
-                  class="btn btn-sm btn-notes"
-                  (click)="navigateToNotes(quote.numeroPreventivo, quote.nominativo); $event.stopPropagation()"
-                  title="Note"
-                >
-                  <mat-icon>notes</mat-icon>
-                </button>
-
-                <span class="chev">▾</span>
-              </span>
+        <div class="quote-actions" *ngIf="isQuoteOpen(quote.numeroPreventivo)">
+          <div class="quote-actions-inner">
+            <button
+              *ngIf="!showCompletedQuotes && globalService.hasPermission('QUOTES_MANAGE') && !quote.isLocked"
+              class="btn btn-quote-action btn-quote-edit"
+              (click)="navigateToEditQuote(quote.numeroPreventivo)"
+            >
+              <i class="fas fa-edit"></i>
             </button>
 
-            <!-- AZIONI -->
-            <div
-              class="collapse quote-actions"
-              [attr.id]="'qActions' + quote.numeroPreventivo"
+            <button
+              *ngIf="globalService.hasPermission('QUOTES_MANAGE') && !quote.isLocked"
+              class="btn btn-quote-action btn-quote-delete"
+              (click)="delete(quote.numeroPreventivo)"
             >
-              <div class="quote-actions-inner">
-                <button
-                  *ngIf="!showCompletedQuotes && globalService.hasPermission('QUOTES_MANAGE') && !quote.isLocked"
-                  mat-raised-button
-                  color="accent"
-                  (click)="navigateToEditQuote(quote.numeroPreventivo)"
-                >
-                  <mat-icon>edit</mat-icon>
-                </button>
+              <i class="fas fa-trash"></i>
+            </button>
 
-                <button
-                  *ngIf="globalService.hasPermission('QUOTES_MANAGE') && !quote.isLocked"
-                  mat-raised-button
-                  color="warn"
-                  (click)="delete(quote.numeroPreventivo)"
-                >
-                  <mat-icon>delete</mat-icon>
-                </button>
+            <button
+              *ngIf="!showCompletedQuotes"
+              class="btn btn-quote-action btn-quote-chat"
+              (click)="sendAcceptanceLink(quote.numeroPreventivo)"
+            >
+              <i class="fas fa-comment-dots"></i>
+            </button>
 
-                <button
-                  *ngIf="!showCompletedQuotes"
-                  mat-raised-button
-                  color="primary"
-                  (click)="sendAcceptanceLink(quote.numeroPreventivo)"
-                >
-                  <mat-icon>chat</mat-icon>
-                </button>
+            <button
+              *ngIf="!showCompletedQuotes && !quote.isLocked"
+              class="btn btn-quote-action btn-quote-send"
+              (click)="invio(quote.numeroPreventivo)"
+            >
+              <i class="fas fa-paper-plane"></i>
+            </button>
 
-                <button
-                  *ngIf="!showCompletedQuotes && !quote.isLocked"
-                  mat-raised-button
-                  color="primary"
-                  (click)="invio(quote.numeroPreventivo)"
-                >
-                  <mat-icon>send</mat-icon>
-                </button>
+            <button
+              *ngIf="!showCompletedQuotes"
+              class="btn btn-quote-action btn-quote-calendar"
+              (click)="addInspection(quote.numeroPreventivo, quote.nominativo)"
+            >
+              <i class="fas fa-calendar-alt"></i>
+            </button>
 
-                <button
-                  *ngIf="!showCompletedQuotes"
-                  mat-raised-button
-                  color="accent"
-                  (click)="addInspection(quote.numeroPreventivo, quote.nominativo)"
-                >
-                  <mat-icon>calendar_today</mat-icon>
-                </button>
+            <button
+              *ngIf="!showCompletedQuotes && !quote.isLocked"
+              class="btn btn-quote-action btn-quote-confirm"
+              (click)="conferm(quote.numeroPreventivo)"
+            >
+              <i class="fas fa-check"></i>
+            </button>
 
-                <button
-                  *ngIf="!showCompletedQuotes && !quote.isLocked"
-                  mat-raised-button
-                  color="success"
-                  (click)="conferm(quote.numeroPreventivo)"
-                >
-                  <mat-icon>check</mat-icon>
-                </button>
+            <button
+              *ngIf="!showCompletedQuotes && (!quote.isLocked || quote.acceptanceStatus === 'pending')"
+              class="btn btn-quote-action btn-quote-refuse"
+              (click)="refuse(quote.numeroPreventivo)"
+            >
+              <i class="fas fa-times"></i>
+            </button>
 
-                <button
-                  *ngIf="!showCompletedQuotes && (!quote.isLocked || quote.acceptanceStatus === 'pending')"
-                  mat-raised-button
-                  color="warn"
-                  (click)="refuse(quote.numeroPreventivo)"
-                >
-                  <mat-icon>close</mat-icon>
-                </button>
+            <button
+              *ngIf="quote.isLocked && globalService.hasPermission('QUOTES_MANAGE')"
+              class="btn btn-quote-action btn-quote-copy"
+              (click)="duplicateQuote(quote.numeroPreventivo)"
+            >
+              <i class="fas fa-copy"></i>
+            </button>
 
-                <button
-                  *ngIf="quote.isLocked && globalService.hasPermission('QUOTES_MANAGE')"
-                  mat-raised-button
-                  color="primary"
-                  (click)="duplicateQuote(quote.numeroPreventivo)"
-                >
-                  <mat-icon>content_copy</mat-icon>
-                </button>
+            <button
+              *ngIf="showCompletedQuotes && quote.needsOfficeReview"
+              class="btn btn-quote-action btn-quote-verify"
+              (click)="conferm(quote.numeroPreventivo)"
+            >
+              <i class="fas fa-check-double"></i>
+            </button>
 
-                <button
-                  *ngIf="showCompletedQuotes && quote.needsOfficeReview"
-                  mat-raised-button
-                  color="success"
-                  (click)="conferm(quote.numeroPreventivo)"
-                >
-                  <mat-icon>verified</mat-icon>
-                </button>
-
-                <button
-                  *ngIf="showCompletedQuotes && !quote.needsOfficeReview"
-                  mat-raised-button
-                  color="primary"
-                  (click)="restore(quote.numeroPreventivo)"
-                >
-                  <mat-icon>restore</mat-icon>
-                </button>
-              </div>
-            </div>
+            <button
+              *ngIf="showCompletedQuotes && !quote.needsOfficeReview"
+              class="btn btn-quote-action btn-quote-restore"
+              (click)="restore(quote.numeroPreventivo)"
+            >
+              <i class="fas fa-undo"></i>
+            </button>
           </div>
-          <!-- ✅ FINE CARD -->
         </div>
       </div>
     </div>
-
-    <!-- bootstrap js (serve per collapse) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
-</html>
+  </div>
+</div>

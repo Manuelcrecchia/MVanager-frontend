@@ -457,6 +457,19 @@ input:invalid {
 .align-items-center {
   align-items: center !important;
 }
+/* =====================================
+     DESKTOP BACK BUTTON HIDE
+  ====================================== */
+body.is-desktop .btn-back,
+body.is-desktop .btn-back-glass,
+body.is-desktop .btn-back-brand,
+body.is-desktop .btn-nav-glass,
+body.is-desktop .mv-back-btn,
+body.is-desktop .btn-back-light,
+body.is-desktop .mv-back-btn-light {
+  display: none !important;
+}
+
 table input {
   width: auto !important;
   min-width: 50px !important;

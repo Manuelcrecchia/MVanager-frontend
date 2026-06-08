@@ -2,215 +2,151 @@
   <div class="spinner-ring"></div>
 </div>
 
-<div class="container py-4">
-  <div class="d-flex justify-content-start align-items-center mb-3">
-    <button class="btn btn-outline-primary rounded-pill" (click)="back()">
-      ⬅ Torna alla Home
+<div class="container py-4 page-wrap">
+  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+    <button class="btn btn-back-glass" type="button" (click)="back()">
+      &larr; Torna Indietro
     </button>
   </div>
 
-  <h2 class="text-center mb-4 text-dark">Aggiungi Dipendente</h2>
+  <h2 class="text-center page-title mb-4 text-dark">Aggiungi Dipendente</h2>
 
-  <form
-    *ngIf="globalService.hasPermission('EMPLOYEE_CREATE')"
-    (ngSubmit)="addEmployees()"
-    class="bg-white text-dark rounded p-4 shadow-sm mb-5"
-  >
-    <div class="row g-3 text-dark">
-      <div class="col-md-6">
-        <label for="nome" class="form-label text-dark">Nome</label>
-        <input
-          type="text"
-          id="nome"
-          name="nome"
-          [(ngModel)]="employeesAdd.nome"
-          class="form-control text-dark"
-          required
-        />
-      </div>
-      <div class="col-md-6">
-        <label for="cognome" class="form-label text-dark">Cognome</label>
-        <input
-          type="text"
-          id="cognome"
-          name="cognome"
-          [(ngModel)]="employeesAdd.cognome"
-          class="form-control text-dark"
-          required
-        />
-      </div>
-      <div class="col-md-6">
-        <label for="email" class="form-label text-dark">Email</label>
-        <input
-          type="email"
-          id="email"
-          name="email"
-          [(ngModel)]="employeesAdd.email"
-          class="form-control text-dark"
-          required
-        />
-      </div>
-      <div class="col-md-6">
-        <label for="cellulare" class="form-label text-dark">Cellulare</label>
-        <input
-          type="text"
-          id="cellulare"
-          name="cellulare"
-          [(ngModel)]="employeesAdd.cellulare"
-          class="form-control text-dark"
-          required
-        />
-      </div>
-      <div class="col-md-6">
-        <label for="oreGiornaliereDefault" class="form-label text-dark">Ore giornaliere standard</label>
-        <input
-          type="number"
-          id="oreGiornaliereDefault"
-          name="oreGiornaliereDefault"
-          [(ngModel)]="employeesAdd.oreGiornaliereDefault"
-          class="form-control text-dark"
-          min="0"
-          max="24"
-          step="0.25"
-          placeholder="es. 8"
-        />
-      </div>
+  <section class="admin-card mb-4" *ngIf="globalService.hasPermission('EMPLOYEE_CREATE')">
+    <div class="card-header py-3 px-4">
+      <h3 class="mb-0 fs-5">Nuovo dipendente</h3>
+      <p class="mb-0 text-muted small">Inserisci i dati del nuovo dipendente</p>
     </div>
-    <div class="text-center mt-4">
-      <button type="submit" class="btn btn-success rounded-pill">
-        ➕ Aggiungi Dipendente
-      </button>
+    <div class="card-body p-4">
+      <form (ngSubmit)="addEmployees()">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="nome" class="form-label fw-bold">Nome</label>
+            <input type="text" id="nome" name="nome" [(ngModel)]="employeesAdd.nome" class="form-control form-control-glass" required />
+          </div>
+          <div class="col-md-6">
+            <label for="cognome" class="form-label fw-bold">Cognome</label>
+            <input type="text" id="cognome" name="cognome" [(ngModel)]="employeesAdd.cognome" class="form-control form-control-glass" required />
+          </div>
+          <div class="col-md-6">
+            <label for="email" class="form-label fw-bold">Email</label>
+            <input type="email" id="email" name="email" [(ngModel)]="employeesAdd.email" class="form-control form-control-glass" required />
+          </div>
+          <div class="col-md-6">
+            <label for="cellulare" class="form-label fw-bold">Cellulare</label>
+            <input type="text" id="cellulare" name="cellulare" [(ngModel)]="employeesAdd.cellulare" class="form-control form-control-glass" required />
+          </div>
+          <div class="col-md-6">
+            <label for="oreGiornaliereDefault" class="form-label fw-bold">Ore giornaliere standard</label>
+            <input type="number" id="oreGiornaliereDefault" name="oreGiornaliereDefault" [(ngModel)]="employeesAdd.oreGiornaliereDefault" class="form-control form-control-glass" min="0" max="24" step="0.25" placeholder="es. 8" />
+          </div>
+        </div>
+        <div class="d-flex justify-content-center mt-4">
+          <button type="submit" class="btn btn-primary btn-round">➕ Aggiungi Dipendente</button>
+        </div>
+      </form>
     </div>
-  </form>
+  </section>
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Lista Dipendenti</h2>
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="mb-0 page-title">Lista Dipendenti</h2>
     <button
-      class="btn rounded-pill"
-      [ngClass]="showArchived ? 'btn-secondary' : 'btn-outline-secondary'"
+      class="btn"
+      [ngClass]="showArchived ? 'btn-glass-dark' : 'btn-glass'"
       (click)="toggleShowArchived()"
     >
       {{ showArchived ? '🙈 Nascondi archiviati' : '📦 Mostra archiviati' }}
     </button>
   </div>
 
-  <div class="table-responsive">
-    <table
-      class="table table-bordered table-striped align-middle text-center bg-white text-dark"
-    >
-      <thead class="table-dark">
+  <div class="table-wrapper">
+    <table class="table align-middle text-center mb-0">
+      <thead>
         <tr>
-          <th class="text-dark">Nome</th>
-          <th class="text-dark">Cognome</th>
-          <th class="text-dark">Email</th>
-          <th class="text-dark">Cellulare</th>
-          <th class="text-dark">Ore standard</th>
-          <th class="text-dark">Azioni</th>
+          <th>Nome</th>
+          <th>Cognome</th>
+          <th class="d-none d-md-table-cell">Email</th>
+          <th class="d-none d-md-table-cell">Cellulare</th>
+          <th>Ore std.</th>
+          <th style="min-width: 200px">Azioni</th>
         </tr>
       </thead>
-      <tbody class="text-dark">
-        <tr
-          *ngFor="let emp of employeess; let i = index"
-          class="text-dark"
-          [class.table-warning]="!emp.active"
-        >
+      <tbody>
+        <tr *ngFor="let emp of employeess; let i = index" [class.table-warning]="!emp.active">
           <!-- VIEW MODE -->
           <ng-container *ngIf="editingIndex !== i; else editRow">
-            <td class="text-dark">
+            <td>
               {{ emp.nome }}
               <span *ngIf="!emp.active" class="badge bg-warning text-dark ms-1">Archiviato</span>
             </td>
-            <td class="text-dark">{{ emp.cognome }}</td>
-            <td class="text-dark">{{ emp.email }}</td>
-            <td class="text-dark">{{ emp.cellulare }}</td>
-            <td class="text-dark">{{ emp.oreGiornaliereDefault || '8.00' }}</td>
-            <td class="d-flex gap-2 justify-content-center flex-wrap">
+            <td>{{ emp.cognome }}</td>
+            <td class="d-none d-md-table-cell">{{ emp.email }}</td>
+            <td class="d-none d-md-table-cell">{{ emp.cellulare }}</td>
+            <td>{{ emp.oreGiornaliereDefault || '8.00' }}</td>
+            <td class="actions-cell">
               <ng-container *ngIf="emp.active">
-                <button
-                  *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')"
-                  class="btn btn-primary btn-sm rounded-pill"
-                  (click)="startEdit(i)"
-                >
-                  ✏️ Modifica
-                </button>
-                <button
-                  *ngIf="globalService.hasPermission('EMPLOYEE_DELETE')"
-                  class="btn btn-warning btn-sm rounded-pill"
-                  (click)="exportAndArchiveEmployee(emp)"
-                >
-                  📦 Esporta ed Archivia
-                </button>
+                <button *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')"
+                        class="btn btn-glass btn-round btn-sm" (click)="startEdit(i)">✏️ Modifica</button>
+                <button *ngIf="globalService.hasPermission('EMPLOYEE_DELETE')"
+                        class="btn btn-glass-dark btn-round btn-sm" (click)="exportAndArchiveEmployee(emp)">📦 Archivia</button>
               </ng-container>
               <ng-container *ngIf="!emp.active">
-                <button
-                  *ngIf="globalService.hasPermission('EMPLOYEE_CREATE')"
-                  class="btn btn-success btn-sm rounded-pill"
-                  (click)="unarchiveEmployee(emp)"
-                >
-                  ♻️ Riattiva
-                </button>
+                <button *ngIf="globalService.hasPermission('EMPLOYEE_CREATE')"
+                        class="btn btn-primary btn-round btn-sm" (click)="unarchiveEmployee(emp)">♻️ Riattiva</button>
               </ng-container>
             </td>
           </ng-container>
 
           <!-- EDIT MODE -->
           <ng-template #editRow>
-            <td>
-              <input
-                class="form-control form-control-sm text-dark"
-                [(ngModel)]="employeeEdit.nome"
-                name="e_nome_{{ i }}"
-              />
-            </td>
-            <td>
-              <input
-                class="form-control form-control-sm text-dark"
-                [(ngModel)]="employeeEdit.cognome"
-                name="e_cognome_{{ i }}"
-              />
-            </td>
-            <td>
-              <input
-                class="form-control form-control-sm text-dark"
-                [(ngModel)]="employeeEdit.email"
-                name="e_email_{{ i }}"
-              />
-            </td>
-            <td>
-              <input
-                class="form-control form-control-sm text-dark"
-                [(ngModel)]="employeeEdit.cellulare"
-                name="e_cell_{{ i }}"
-              />
-            </td>
-            <td>
-              <input
-                type="number"
-                class="form-control form-control-sm text-dark"
-                [(ngModel)]="employeeEdit.oreGiornaliereDefault"
-                name="e_ore_standard_{{ i }}"
-                min="0"
-                max="24"
-                step="0.25"
-              />
-            </td>
-            <td class="d-flex gap-2 justify-content-center">
-              <button
-                class="btn btn-success btn-sm rounded-pill"
-                (click)="saveEdit()"
-              >
-                ✅ Salva
-              </button>
-              <button
-                class="btn btn-secondary btn-sm rounded-pill"
-                (click)="cancelEdit()"
-              >
-                ✖ Annulla
-              </button>
+            <td><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.nome" name="e_nome_{{ i }}" /></td>
+            <td><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.cognome" name="e_cognome_{{ i }}" /></td>
+            <td class="d-none d-md-table-cell"><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.email" name="e_email_{{ i }}" /></td>
+            <td class="d-none d-md-table-cell"><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.cellulare" name="e_cell_{{ i }}" /></td>
+            <td><input type="number" class="form-control form-control-sm" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="e_ore_standard_{{ i }}" min="0" max="24" step="0.25" /></td>
+            <td class="actions-cell">
+              <button class="btn btn-primary btn-round btn-sm" (click)="saveEdit()">✅ Salva</button>
+              <button class="btn btn-glass btn-round btn-sm" (click)="cancelEdit()">✖ Annulla</button>
             </td>
           </ng-template>
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <div class="mobile-only employee-card-list" *ngIf="employeess.length > 0">
+    <article class="employee-card" *ngFor="let emp of employeess; let i = index">
+      <div class="employee-card__top">
+        <span class="employee-card__id">#{{ emp.id }}</span>
+        <span *ngIf="!emp.active" class="badge bg-warning text-dark">Archiviato</span>
+      </div>
+      <div class="employee-card__identity">
+        <h3>{{ emp.nome }} {{ emp.cognome }}</h3>
+        <p>{{ emp.email }}</p>
+        <p class="small">{{ emp.cellulare }} &middot; {{ emp.oreGiornaliereDefault || '8' }}h/g</p>
+      </div>
+      <div class="employee-card__actions">
+        <ng-container *ngIf="editingIndex !== i; else editMobile">
+          <ng-container *ngIf="emp.active">
+            <button *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')"
+                    class="btn btn-glass btn-round btn-sm" (click)="startEdit(i)">✏️ Modifica</button>
+            <button *ngIf="globalService.hasPermission('EMPLOYEE_DELETE')"
+                    class="btn btn-glass-dark btn-round btn-sm" (click)="exportAndArchiveEmployee(emp)">📦 Archivia</button>
+          </ng-container>
+          <ng-container *ngIf="!emp.active">
+            <button *ngIf="globalService.hasPermission('EMPLOYEE_CREATE')"
+                    class="btn btn-primary btn-round btn-sm" (click)="unarchiveEmployee(emp)">♻️ Riattiva</button>
+          </ng-container>
+        </ng-container>
+        <ng-template #editMobile>
+          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.nome" name="m_nome_{{ i }}" placeholder="Nome" />
+          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.cognome" name="m_cognome_{{ i }}" placeholder="Cognome" />
+          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.email" name="m_email_{{ i }}" placeholder="Email" />
+          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.cellulare" name="m_cell_{{ i }}" placeholder="Cellulare" />
+          <input type="number" class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="m_ore_{{ i }}" placeholder="Ore std." min="0" max="24" step="0.25" />
+          <button class="btn btn-primary btn-round btn-sm w-100 mb-1" (click)="saveEdit()">✅ Salva</button>
+          <button class="btn btn-glass btn-round btn-sm w-100" (click)="cancelEdit()">✖ Annulla</button>
+        </ng-template>
+      </div>
+    </article>
   </div>
 </div>

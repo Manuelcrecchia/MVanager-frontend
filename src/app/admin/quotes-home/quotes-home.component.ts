@@ -8,7 +8,6 @@ import { PopupServiceService } from '../../componenti/popup/popup-service.servic
 import { DxSchedulerComponent } from 'devextreme-angular';
 import { AutomaticAddInspectionToCalendarService } from '../../service/automatic-add-inspection-to-calendar.service';
 import { Location } from '@angular/common';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { CustomerModelService } from '../../service/customer-model.service';
 import { TenantService } from '../../service/tenant.service';
 import { SocketService } from '../../service/soket.service';
@@ -25,6 +24,7 @@ export class QuotesHomeComponent implements OnDestroy {
   showCompletedQuotes = false;
   highlightedQuoteFromNotification = '';
   private quoteAcceptanceSubscription?: Subscription;
+  private openQuotes = new Set<string>();
 
   quotesFrEnd: {
     numeroPreventivo: string;
@@ -56,7 +56,6 @@ export class QuotesHomeComponent implements OnDestroy {
 
   constructor(
     private http: HttpClient,
-    private snackBar: MatSnackBar,
     private pdfService: NgxExtendedPdfViewerService,
     public globalService: GlobalService,
     private router: Router,
@@ -204,17 +203,9 @@ export class QuotesHomeComponent implements OnDestroy {
 
         const numeroPreventivo = update?.numeroPreventivo || '';
         if (update?.kind === 'accepted') {
-          this.snackBar.open(
-            `Preventivo ${numeroPreventivo} accettato dal cliente`,
-            'Chiudi',
-            { duration: 5000 },
-          );
+          alert(`Preventivo ${numeroPreventivo} accettato dal cliente`);
         } else if (update?.kind === 'office_confirmed') {
-          this.snackBar.open(
-            `Preventivo ${numeroPreventivo} verificato e trasformato in cliente`,
-            'Chiudi',
-            { duration: 5000 },
-          );
+          alert(`Preventivo ${numeroPreventivo} verificato e trasformato in cliente`);
         }
       });
   }
@@ -535,11 +526,7 @@ export class QuotesHomeComponent implements OnDestroy {
       })
       .subscribe({
         next: (response) => {
-          this.snackBar.open(
-            `Creato nuovo preventivo ${response.numeroPreventivo}`,
-            'Chiudi',
-            { duration: 4000 },
-          );
+          alert(`Creato nuovo preventivo ${response.numeroPreventivo}`);
           this.showCompletedQuotes = false;
           this.loadQuotes();
         },
@@ -759,11 +746,7 @@ export class QuotesHomeComponent implements OnDestroy {
             window.open(targetUrl, '_blank');
           }
 
-          this.snackBar.open(
-            'Link di accettazione generato',
-            'Chiudi',
-            { duration: 4000 },
-          );
+          alert('Link di accettazione generato');
           this.loadQuotes();
         },
         error: (err) => {
@@ -775,6 +758,18 @@ export class QuotesHomeComponent implements OnDestroy {
 
   back() {
     this.router.navigateByUrl('/homeAdmin');
+  }
+
+  toggleQuoteOpen(numeroPreventivo: string) {
+    if (this.openQuotes.has(numeroPreventivo)) {
+      this.openQuotes.delete(numeroPreventivo);
+    } else {
+      this.openQuotes.add(numeroPreventivo);
+    }
+  }
+
+  isQuoteOpen(numeroPreventivo: string): boolean {
+    return this.openQuotes.has(numeroPreventivo);
   }
 
   private parseServerError(err: any): string {

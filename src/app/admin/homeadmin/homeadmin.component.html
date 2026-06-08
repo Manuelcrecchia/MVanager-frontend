@@ -22,6 +22,7 @@
         --glass-border: rgba(255, 255, 255, 0.35);
         --shadow: 0 20px 60px rgba(2, 6, 23, 0.18);
         --home-safe-top: max(env(safe-area-inset-top, 0px), 44px);
+        --sidebar-width: 320px;
       }
 
       body {
@@ -49,7 +50,6 @@
         background-attachment: fixed;
       }
 
-      /* nuvole soft */
       .clouds {
         position: fixed;
         inset: 0;
@@ -74,91 +74,65 @@
           );
         filter: blur(2px);
       }
+
       .logo {
         width: 150px;
         height: auto;
       }
+
       .page {
         position: relative;
         z-index: 1;
       }
 
-      /* Top actions */
-      .btn-back {
-        position: fixed;
-        top: calc(env(safe-area-inset-top, 0px) + 18px);
-        left: 18px;
-        z-index: 50;
-
-        background: rgba(255, 255, 255, 0.7);
-        border: 1px solid rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        padding: 10px 16px;
-        border-radius: 14px;
-        font-weight: 700;
-        color: var(--brand-black);
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-        transition:
-          transform 0.2s ease,
-          filter 0.2s ease;
-      }
-      .btn-back:hover {
-        transform: translateY(-2px);
+      /* ===== MOBILE TOP BAR ===== */
+      .mobile-top-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
       }
 
-      .menu-toggle {
-        position: fixed;
-        top: calc(env(safe-area-inset-top, 0px) + 18px);
-        right: 18px;
-        z-index: 80;
-
-        width: 52px;
-        height: 52px;
-        border-radius: 18px;
+      .mobile-top-bar .menu-toggle {
+        width: 46px;
+        height: 46px;
+        border-radius: 16px;
         border: 0;
         background: linear-gradient(135deg, var(--brand-orange), #ff9a3c);
         box-shadow: 0 14px 34px rgba(255, 122, 0, 0.35);
         color: #fff;
         display: grid;
         place-items: center;
-        transition:
-          transform 0.2s ease,
-          filter 0.2s ease;
+        font-size: 20px;
+        transition: transform 0.2s ease, filter 0.2s ease;
       }
-      .menu-toggle:hover {
+
+      .mobile-top-bar .menu-toggle:hover {
         transform: translateY(-2px);
         filter: brightness(1.02);
       }
 
-      /* Icona cog sempre visibile */
-      .menu-toggle i {
-        font-size: 20px;
-        color: #fff;
-        line-height: 1;
-      }
-      .menu-toggle .fallback-cog {
+      .mobile-top-bar .menu-toggle .fallback-cog {
         font-size: 22px;
-        color: #fff;
-        line-height: 1;
         display: none;
       }
-      /* Se fontawesome non carica, almeno vedi il simbolo */
-      .no-fa .menu-toggle i {
+
+      .no-fa .mobile-top-bar .menu-toggle i {
         display: none;
       }
-      .no-fa .menu-toggle .fallback-cog {
+
+      .no-fa .mobile-top-bar .menu-toggle .fallback-cog {
         display: inline;
       }
 
-      /* Dropdown menu */
-      .menu {
+      /* Mobile dropdown menu */
+      .mobile-menu {
         position: fixed;
-        top: calc(env(safe-area-inset-top, 0px) + 78px);
-        right: 18px;
+        top: calc(env(safe-area-inset-top, 0px) + 70px);
+        right: 16px;
         z-index: 70;
         width: min(320px, calc(100vw - 36px));
-
         background: rgba(255, 255, 255, 0.78);
         border: 1px solid rgba(255, 255, 255, 0.85);
         border-radius: 18px;
@@ -166,13 +140,12 @@
         box-shadow: var(--shadow);
         backdrop-filter: blur(14px);
         -webkit-backdrop-filter: blur(14px);
-
         display: flex;
         flex-direction: column;
         gap: 10px;
       }
 
-      .menu a {
+      .mobile-menu a {
         cursor: pointer;
         text-decoration: none;
         font-weight: 800;
@@ -181,22 +154,33 @@
         border-radius: 12px;
         background: rgba(255, 255, 255, 0.5);
         border: 1px solid rgba(15, 23, 42, 0.06);
-        transition:
-          transform 0.18s ease,
-          background 0.18s ease;
+        transition: transform 0.18s ease, background 0.18s ease;
       }
-      .menu a:hover {
+
+      .mobile-menu a:hover {
         transform: translateY(-1px);
         background: rgba(255, 122, 0, 0.15);
       }
 
-      /* Logo */
+      .mobile-menu .menu-logout {
+        color: #dc3545;
+        border-top: 1px solid rgba(15, 23, 42, 0.1);
+        margin-top: 4px;
+        padding-top: 14px;
+      }
+
+      .mobile-menu .menu-logout:hover {
+        background: rgba(220, 53, 69, 0.12);
+      }
+
+      /* ===== LOGO ===== */
       .logo-container {
-        margin-top: calc(env(safe-area-inset-top, 0px) + 110px); /* spazio per bottoni fixed */
+        margin-top: calc(env(safe-area-inset-top, 0px) + 20px);
         margin-bottom: 26px;
       }
-      .logo {
-        max-height: 160px;
+
+      .logo-container .logo {
+        max-height: 120px;
         width: auto;
         display: block;
         margin: 0 auto;
@@ -204,8 +188,424 @@
         filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.15));
       }
 
-      /* Cards / Buttons */
-      .dash-btn {
+      /* ===== DESKTOP SIDEBAR ===== */
+      .home-desktop-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-right: 1px solid rgba(255, 255, 255, 0.5);
+        box-shadow: 4px 0 30px rgba(2, 6, 23, 0.08);
+        transition: width 0.25s ease;
+      }
+
+      .home-desktop-content {
+        min-height: 100vh;
+        padding: 24px 40px 40px 60px;
+        transition: margin-left 0.25s ease;
+      }
+
+      .sidebar-toggle-btn {
+        position: absolute;
+        top: 50%;
+        right: -22px;
+        z-index: 10;
+        width: 44px;
+        height: 56px;
+        border-radius: 0 12px 12px 0;
+        border: 2px solid rgba(15, 23, 42, 0.1);
+        border-left: none;
+        background: rgba(255, 255, 255, 0.95);
+        color: var(--brand-black);
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        font-size: 18px;
+        box-shadow: 6px 0 16px rgba(2, 6, 23, 0.1);
+        transform: translateY(-50%);
+        transition: right 0.25s ease, background 0.18s ease;
+      }
+
+      .sidebar-toggle-btn:hover {
+        background: #fff;
+        color: var(--brand-orange);
+        border-color: var(--brand-orange);
+      }
+
+      .sidebar-collapsed .sidebar-toggle-btn {
+        right: -22px;
+      }
+
+      .sidebar-toggle-btn i {
+        transition: transform 0.25s ease;
+      }
+
+      .sidebar-collapsed .sidebar-btn-text { display: none !important; }
+      .sidebar-collapsed .home-category-item__text { display: none !important; }
+      .sidebar-collapsed .sidebar-bottom-label { display: none !important; }
+      .sidebar-collapsed .home-panel-title { display: none !important; }
+      .sidebar-collapsed .home-panel-back span:last-child { display: none !important; }
+      .sidebar-collapsed .home-category-panel__eyebrow { display: none !important; }
+      .sidebar-collapsed .sidebar-logo img { display: none !important; }
+      .sidebar-collapsed .sidebar-nav .home-category-item__count { display: none !important; }
+
+      .sidebar-collapsed .home-category-item,
+      .sidebar-collapsed .sidebar-nav .home-sidebar-button {
+        width: 44px !important;
+        min-height: 44px !important;
+        padding: 0 !important;
+        margin: 0 auto 8px !important;
+        border-radius: 12px !important;
+        justify-content: center !important;
+      }
+
+      .sidebar-collapsed .home-category-item__icon {
+        width: 36px !important;
+        height: 36px !important;
+        margin: 0 !important;
+      }
+
+      .sidebar-collapsed .sidebar-bottom-btn,
+      .sidebar-collapsed .sidebar-logout {
+        width: 44px !important;
+        padding: 10px !important;
+        margin: 0 auto 4px !important;
+        justify-content: center !important;
+        border-radius: 12px !important;
+      }
+
+      .sidebar-collapsed .sidebar-bottom {
+        padding: 10px 5px 16px !important;
+        align-items: center !important;
+      }
+
+      .sidebar-collapsed .sidebar-nav {
+        padding: 12px 5px !important;
+      }
+
+      .sidebar-collapsed .sidebar-nav .home-panel-back {
+        width: 44px !important;
+        padding: 10px !important;
+        margin: 0 auto 6px !important;
+        justify-content: center !important;
+        border-radius: 12px !important;
+      }
+
+      .sidebar-logo {
+        flex-shrink: 0;
+        padding: 0;
+        text-align: center;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+      }
+
+      .sidebar-logo .logo {
+        max-height: 220px;
+        max-width: 100%;
+        width: auto;
+        object-fit: contain;
+        filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.1));
+      }
+
+      .sidebar-nav {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 20px;
+      }
+
+      .sidebar-nav .home-category-panel__eyebrow {
+        padding: 2px 6px 8px;
+        color: rgba(15, 23, 42, 0.62);
+        font-size: 0.76rem;
+        font-weight: 950;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .sidebar-nav .home-category-item {
+        width: calc(100% - 10px);
+        min-height: 60px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 18px;
+        margin: 0 5px 8px 5px;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.62);
+        color: var(--brand-black);
+        text-align: left;
+        box-shadow: 0 6px 18px rgba(2, 6, 23, 0.06);
+        transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+      }
+
+      .sidebar-nav .home-category-item__label {
+        display: block;
+        font-size: 1rem;
+        font-weight: 900;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .sidebar-nav .home-category-item:hover,
+      .sidebar-nav .home-category-item--active {
+        transform: translateY(-2px);
+        background: linear-gradient(135deg, rgba(255, 122, 0, 0.95), rgba(13, 110, 253, 0.82));
+        border-color: rgba(255, 255, 255, 0.42);
+        color: #fff;
+        box-shadow: 0 12px 28px rgba(13, 110, 253, 0.18);
+      }
+
+      .sidebar-nav .home-category-item__icon {
+        flex: 0 0 auto;
+        display: inline-grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        background: rgba(13, 110, 253, 0.11);
+        color: var(--brand-blue);
+        font-size: 18px;
+      }
+
+      .sidebar-nav .home-category-item:hover .home-category-item__icon,
+      .sidebar-nav .home-category-item--active .home-category-item__icon {
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+      }
+
+      .sidebar-nav .home-category-item__text {
+        min-width: 0;
+      }
+
+      .sidebar-nav .home-category-item__label {
+        display: block;
+        font-size: 1rem;
+        font-weight: 900;
+        line-height: 1.2;
+      }
+
+      .sidebar-nav .home-category-item__count {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.78rem;
+        font-weight: 800;
+        opacity: 0.72;
+      }
+
+      .sidebar-nav .home-panel-back {
+        width: calc(100% - 10px);
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        margin: 0 5px 6px 5px;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.68);
+        color: var(--brand-black);
+        font-weight: 950;
+        font-size: 0.9rem;
+        text-align: left;
+        transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      .sidebar-bottom-label {
+        font-size: 0.75rem;
+        font-weight: 950;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(15, 23, 42, 0.45);
+        padding: 4px 6px 4px;
+      }
+
+      .sidebar-bottom-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: calc(100% - 10px);
+        padding: 12px 14px;
+        margin: 0 5px;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.5);
+        color: var(--brand-black);
+        font-size: 0.9rem;
+        font-weight: 800;
+        text-align: left;
+        transition: transform 0.18s ease, background 0.18s ease;
+        cursor: pointer;
+      }
+
+      .sidebar-bottom-btn:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 122, 0, 0.12);
+      }
+
+      .sidebar-bottom-btn i {
+        width: 20px;
+        text-align: center;
+        font-size: 0.9rem;
+      }
+
+      .sidebar-logout {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: calc(100% - 10px);
+        padding: 14px 14px;
+        margin: 6px 5px 0 5px;
+        border: 2px solid rgba(220, 53, 69, 0.25);
+        border-radius: 12px;
+        background: rgba(220, 53, 69, 0.08);
+        color: #dc3545;
+        font-size: 0.95rem;
+        font-weight: 900;
+        text-align: left;
+        transition: transform 0.18s ease, background 0.18s ease;
+        cursor: pointer;
+      }
+
+      .sidebar-logout:hover {
+        transform: translateY(-1px);
+        background: rgba(220, 53, 69, 0.18);
+      }
+
+      .sidebar-logout i {
+        width: 20px;
+        text-align: center;
+        font-size: 1rem;
+      }
+
+      /* ===== DESKTOP CONTENT ===== */
+      .home-desktop-content {
+        margin-left: var(--sidebar-width);
+        min-height: 100vh;
+        padding: 24px 40px 40px 60px;
+        transition: margin-left 0.25s ease;
+      }
+
+      .home-desktop-content .home-embedded-content {
+        min-height: calc(100vh - 120px);
+        border-radius: 22px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.72);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+        transition: box-shadow 0.28s ease, background 0.28s ease;
+        animation: homeSlideFromRight 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .home-desktop-content .home-embedded-content:hover {
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 18px 42px rgba(2, 6, 23, 0.09);
+      }
+
+      .home-desktop-content .home-section-title {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 28px;
+        color: var(--brand-black);
+      }
+
+      .home-desktop-content .home-section-title h2 {
+        margin: 0;
+        font-size: 1.8rem;
+        font-weight: 950;
+      }
+
+      .home-desktop-content .home-section-kicker {
+        display: block;
+        color: rgba(15, 23, 42, 0.56);
+        font-size: 0.74rem;
+        font-weight: 950;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 3px;
+      }
+
+      .home-desktop-content .home-submenu-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 300px);
+        gap: 36px;
+        justify-content: center;
+        animation: homeSlideFromRight 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .home-desktop-content .dash-btn {
+        width: 100%;
+        height: 220px;
+        padding: 24px 20px;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        background: rgba(255, 255, 255, 0.55);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: 0 16px 42px rgba(2, 6, 23, 0.12);
+        transition: transform 0.22s ease, filter 0.22s ease, background 0.22s ease;
+        color: var(--brand-black);
+        font-weight: 900;
+        letter-spacing: 0.2px;
+        cursor: pointer;
+        border: none;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .home-desktop-content .dash-btn .icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 18px;
+        margin-bottom: 12px;
+        background: rgba(13, 110, 253, 0.12);
+        border: 1px solid rgba(13, 110, 253, 0.18);
+        color: var(--brand-blue);
+        font-size: 26px;
+      }
+
+      .home-desktop-content .dash-btn:hover {
+        transform: translateY(-6px);
+        filter: brightness(1.02);
+        background: linear-gradient(135deg, rgba(255, 122, 0, 0.85), rgba(13, 110, 253, 0.65));
+        color: #fff;
+      }
+
+      .home-desktop-content .dash-btn:hover .icon {
+        background: rgba(255, 255, 255, 0.22);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        color: #fff;
+      }
+
+      .home-desktop-content .dash-btn .label {
+        font-size: 1.1rem;
+        line-height: 1.3;
+        max-width: 260px;
+      }
+
+      /* ===== MOBILE BODY (categories / submenus as cards) ===== */
+      .home-mobile-body {
+        padding: 0 16px 40px;
+      }
+
+      .home-mobile-category-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 24px;
+      }
+
+      .home-mobile-body .dash-btn {
         width: 100%;
         height: 100%;
         padding: 26px 18px;
@@ -215,16 +615,16 @@
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         box-shadow: 0 16px 42px rgba(2, 6, 23, 0.12);
-        transition:
-          transform 0.22s ease,
-          filter 0.22s ease,
-          background 0.22s ease;
+        transition: transform 0.22s ease, filter 0.22s ease, background 0.22s ease;
         color: var(--brand-black);
         font-weight: 900;
         letter-spacing: 0.2px;
+        cursor: pointer;
+        border: none;
+        text-align: center;
       }
 
-      .dash-btn .icon {
+      .home-mobile-body .dash-btn .icon {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -232,63 +632,32 @@
         height: 56px;
         border-radius: 18px;
         margin-bottom: 10px;
-
         background: rgba(13, 110, 253, 0.12);
         border: 1px solid rgba(13, 110, 253, 0.18);
         color: var(--brand-blue);
         font-size: 22px;
       }
 
-      .dash-btn:hover {
+      .home-mobile-body .dash-btn:hover {
         transform: translateY(-6px);
         filter: brightness(1.02);
-        background: linear-gradient(
-          135deg,
-          rgba(255, 122, 0, 0.85),
-          rgba(13, 110, 253, 0.65)
-        );
+        background: linear-gradient(135deg, rgba(255, 122, 0, 0.85), rgba(13, 110, 253, 0.65));
         color: #fff;
       }
 
-      .dash-btn:hover .icon {
+      .home-mobile-body .dash-btn:hover .icon {
         background: rgba(255, 255, 255, 0.22);
         border: 1px solid rgba(255, 255, 255, 0.35);
         color: #fff;
       }
 
-      .dash-btn .label {
+      .home-mobile-body .dash-btn .label {
         display: block;
         font-size: 1.02rem;
         line-height: 1.25;
       }
 
-      .home-split-layout {
-        display: block;
-      }
-
-      .home-category-panel {
-        display: none;
-      }
-
-      .home-submenu-panel {
-        min-width: 0;
-      }
-
-      .home-mobile-category-grid,
-      .home-submenu-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-        gap: 24px;
-      }
-
-      /* Badge permessi */
-      .dash-btn .badge {
-        border-radius: 12px;
-        font-size: 0.75rem;
-        padding: 0.35rem 0.55rem;
-      }
-
-      .home-section-title {
+      .home-mobile-body .home-section-title {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -297,17 +666,17 @@
         color: var(--brand-black);
       }
 
-      .home-section-kicker {
-        display: none;
-      }
-
-      .home-section-title h2 {
+      .home-mobile-body .home-section-title h2 {
         margin: 0;
         font-size: 1.35rem;
         font-weight: 950;
       }
 
-      .home-category-back {
+      .home-mobile-body .home-section-kicker {
+        display: none;
+      }
+
+      .home-mobile-body .home-category-back {
         border: 0;
         border-radius: 14px;
         padding: 9px 13px;
@@ -317,7 +686,13 @@
         box-shadow: 0 10px 25px rgba(2, 6, 23, 0.1);
       }
 
-      .category-count {
+      .home-mobile-body .home-submenu-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 24px;
+      }
+
+      .home-mobile-body .category-count {
         display: block;
         margin-top: 8px;
         font-size: 0.82rem;
@@ -325,348 +700,18 @@
         opacity: 0.75;
       }
 
-      @keyframes homeSlideFromRight {
-        from {
-          opacity: 0;
-          transform: translateX(86px);
-          filter: blur(2px);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-          filter: blur(0);
-        }
+      /* ===== DESKTOP HIDE BACK BUTTONS ===== */
+      .is-desktop .btn-back,
+      .is-desktop .btn-back-glass,
+      .is-desktop .btn-back-brand,
+      .is-desktop .btn-nav-glass,
+      .is-desktop .mv-back-btn,
+      .is-desktop .btn-back-light,
+      .is-desktop .mv-back-btn-light {
+        display: none !important;
       }
 
-      @keyframes homeSidebarSlideFromRight {
-        from {
-          opacity: 0;
-          transform: translateX(44px);
-          filter: blur(2px);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-          filter: blur(0);
-        }
-      }
-
-      @keyframes homeButtonCascade {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      @media (min-width: 992px) {
-        .logo-container {
-          margin-top: calc(env(safe-area-inset-top, 0px) + 78px);
-          margin-bottom: 20px;
-        }
-
-        .logo {
-          max-height: 116px;
-        }
-
-        .home-split-layout {
-          display: grid;
-          grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
-          gap: 28px;
-          align-items: start;
-        }
-
-        .home-category-panel {
-          position: sticky;
-          top: calc(env(safe-area-inset-top, 0px) + 98px);
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          padding: 18px;
-          border-radius: 26px;
-          border: 1px solid rgba(255, 255, 255, 0.72);
-          background: rgba(255, 255, 255, 0.58);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          box-shadow: 0 20px 55px rgba(2, 6, 23, 0.13);
-          max-height: calc(100vh - 132px);
-          overflow: auto;
-          transition:
-            background 0.28s ease,
-            box-shadow 0.28s ease,
-            transform 0.28s ease;
-        }
-
-        .home-category-panel__eyebrow {
-          padding: 2px 6px 8px;
-          color: rgba(15, 23, 42, 0.62);
-          font-size: 0.76rem;
-          font-weight: 950;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-        }
-
-        .home-category-item {
-          width: 100%;
-          min-height: 82px;
-          display: flex;
-          align-items: center;
-          gap: 13px;
-          padding: 14px;
-          border: 1px solid rgba(15, 23, 42, 0.08);
-          border-radius: 20px;
-          background: rgba(255, 255, 255, 0.62);
-          color: var(--brand-black);
-          text-align: left;
-          box-shadow: 0 10px 24px rgba(2, 6, 23, 0.08);
-          transition:
-            transform 0.18s ease,
-            background 0.18s ease,
-            box-shadow 0.18s ease,
-            border-color 0.18s ease;
-          animation: homeButtonCascade 0.32s ease both;
-        }
-
-        .home-category-item:hover,
-        .home-category-item--active {
-          transform: translateY(-2px);
-          background: linear-gradient(
-            135deg,
-            rgba(255, 122, 0, 0.95),
-            rgba(13, 110, 253, 0.82)
-          );
-          border-color: rgba(255, 255, 255, 0.42);
-          color: #fff;
-          box-shadow: 0 18px 38px rgba(13, 110, 253, 0.22);
-        }
-
-        .home-category-item__icon {
-          flex: 0 0 auto;
-          display: inline-grid;
-          place-items: center;
-          width: 48px;
-          height: 48px;
-          border-radius: 16px;
-          background: rgba(13, 110, 253, 0.11);
-          color: var(--brand-blue);
-          font-size: 19px;
-        }
-
-        .home-category-item:hover .home-category-item__icon,
-        .home-category-item--active .home-category-item__icon {
-          background: rgba(255, 255, 255, 0.2);
-          color: #fff;
-        }
-
-        .home-category-item__text {
-          min-width: 0;
-        }
-
-        .home-category-item__label {
-          display: block;
-          font-size: 0.98rem;
-          font-weight: 950;
-          line-height: 1.2;
-        }
-
-        .home-category-item__count {
-          display: block;
-          margin-top: 6px;
-          font-size: 0.78rem;
-          font-weight: 850;
-          opacity: 0.72;
-        }
-
-        .home-panel-back {
-          width: 100%;
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          padding: 11px 13px;
-          border: 1px solid rgba(15, 23, 42, 0.08);
-          border-radius: 16px;
-          background: rgba(255, 255, 255, 0.68);
-          color: var(--brand-black);
-          font-weight: 950;
-          text-align: left;
-          animation: homeSidebarSlideFromRight 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-          transition:
-            transform 0.18s ease,
-            background 0.18s ease,
-            box-shadow 0.18s ease;
-        }
-
-        .home-panel-back:hover {
-          transform: translateX(-2px);
-          background: rgba(255, 255, 255, 0.86);
-          box-shadow: 0 12px 28px rgba(2, 6, 23, 0.1);
-        }
-
-        .home-panel-title {
-          padding: 4px 6px 8px;
-          color: var(--brand-black);
-          animation: homeSidebarSlideFromRight 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) 0.04s both;
-        }
-
-        .home-panel-title span {
-          display: block;
-          color: rgba(15, 23, 42, 0.56);
-          font-size: 0.72rem;
-          font-weight: 950;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          margin-bottom: 4px;
-        }
-
-        .home-panel-title strong {
-          display: block;
-          font-size: 1.08rem;
-          line-height: 1.2;
-        }
-
-        .home-sidebar-button {
-          min-height: 66px;
-          animation: homeSidebarSlideFromRight 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-        }
-
-        .home-sidebar-button:nth-of-type(2) {
-          animation-delay: 0.04s;
-        }
-
-        .home-sidebar-button:nth-of-type(3) {
-          animation-delay: 0.08s;
-        }
-
-        .home-sidebar-button:nth-of-type(4) {
-          animation-delay: 0.12s;
-        }
-
-        .home-sidebar-button:nth-of-type(5) {
-          animation-delay: 0.16s;
-        }
-
-        .home-sidebar-button:nth-of-type(6) {
-          animation-delay: 0.20s;
-        }
-
-        .home-sidebar-button .home-category-item__icon {
-          width: 42px;
-          height: 42px;
-          border-radius: 14px;
-          font-size: 17px;
-        }
-
-        .home-submenu-panel {
-          min-height: 430px;
-          padding: 22px;
-          border-radius: 28px;
-          border: 1px solid rgba(255, 255, 255, 0.66);
-          background: rgba(255, 255, 255, 0.42);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          box-shadow: 0 20px 55px rgba(2, 6, 23, 0.10);
-          transition:
-            background 0.28s ease,
-            box-shadow 0.28s ease;
-        }
-
-        .home-section-title {
-          justify-content: flex-start;
-          margin-bottom: 18px;
-          padding: 2px 4px;
-        }
-
-        .home-section-kicker {
-          display: block;
-          color: rgba(15, 23, 42, 0.56);
-          font-size: 0.74rem;
-          font-weight: 950;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          margin-bottom: 3px;
-        }
-
-        .home-section-title h2 {
-          font-size: 1.55rem;
-        }
-
-        .home-submenu-grid {
-          grid-template-columns: repeat(2, minmax(220px, 1fr));
-          animation: homeSlideFromRight 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-
-        .home-submenu-button {
-          min-height: 154px;
-          animation: homeButtonCascade 0.34s ease both;
-        }
-
-        .home-submenu-button:nth-child(2) {
-          animation-delay: 0.04s;
-        }
-
-        .home-submenu-button:nth-child(3) {
-          animation-delay: 0.08s;
-        }
-
-        .home-submenu-button:nth-child(4) {
-          animation-delay: 0.12s;
-        }
-
-        .home-submenu-button:nth-child(5) {
-          animation-delay: 0.16s;
-        }
-
-        .home-submenu-button:nth-child(6) {
-          animation-delay: 0.20s;
-        }
-
-        .home-embedded-content {
-          min-height: calc(100vh - 230px);
-          border-radius: 22px;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.72);
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
-          transform-origin: right center;
-          animation: homeSlideFromRight 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
-          transition:
-            box-shadow 0.28s ease,
-            background 0.28s ease;
-        }
-
-        .home-embedded-content:hover {
-          box-shadow:
-            inset 0 0 0 1px rgba(255, 255, 255, 0.55),
-            0 18px 42px rgba(2, 6, 23, 0.09);
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .home-category-item,
-        .home-panel-back,
-        .home-panel-title,
-        .home-sidebar-button,
-        .home-submenu-grid,
-        .home-submenu-button,
-        .home-embedded-content {
-          animation: none !important;
-          transition: none !important;
-        }
-      }
-
-      @media (min-width: 1280px) {
-        .home-split-layout {
-          grid-template-columns: 320px minmax(0, 1fr);
-          gap: 34px;
-        }
-
-        .home-submenu-grid {
-          grid-template-columns: repeat(3, minmax(220px, 1fr));
-        }
-      }
-
+      /* ===== BADGES ===== */
       .alert-badge {
         display: inline-flex;
         align-items: center;
@@ -689,180 +734,141 @@
         color: #fff;
       }
 
-      /* Mobile tweaks */
-      @media (max-width: 768px) {
-        .home-ios .btn-back,
-        .home-ios .menu-toggle {
-          top: calc(var(--home-safe-top) + 12px) !important;
+      /* ===== ANIMATIONS ===== */
+      @keyframes homeSlideFromRight {
+        from {
+          opacity: 0;
+          transform: translateX(86px);
+          filter: blur(2px);
         }
-        .home-ios .menu-toggle {
+        to {
+          opacity: 1;
+          transform: translateX(0);
+          filter: blur(0);
+        }
+      }
+
+      @keyframes homeButtonCascade {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ===== DESKTOP MEDIA QUERY (>= 992px) ===== */
+      @media (min-width: 992px) {
+        .mobile-layout {
+          display: none !important;
+        }
+      }
+
+      /* ===== MOBILE MEDIA QUERY (< 992px) ===== */
+      @media (max-width: 991.98px) {
+        .home-desktop-sidebar {
+          display: none !important;
+        }
+
+        .home-desktop-content {
+          display: none !important;
+        }
+
+        .mobile-top-bar {
+          display: flex !important;
+        }
+
+        .home-mobile-body {
+          display: block !important;
+        }
+      }
+
+      /* ===== MOBILE TWEAKS ===== */
+      @media (max-width: 768px) {
+        .home-ios .mobile-top-bar {
+          padding-top: calc(var(--home-safe-top) + 12px) !important;
+        }
+
+        .home-ios .mobile-top-bar .menu-toggle {
           top: calc(var(--home-safe-top) + 22px) !important;
         }
-        .home-ios .menu {
+
+        .home-ios .mobile-menu {
           top: calc(var(--home-safe-top) + 88px) !important;
         }
+
         .home-ios .logo-container {
-          margin-top: calc(var(--home-safe-top) + 98px);
+          margin-top: calc(var(--home-safe-top) + 20px);
         }
-        .btn-back {
-          width: 46px;
-          height: 46px;
-          padding: 0;
-          border-radius: 50%;
-          display: grid;
-          place-items: center;
+
+        .home-mobile-body .dash-btn {
+          padding: 20px 14px;
+        }
+
+        .home-mobile-body .dash-btn .icon {
+          width: 48px;
+          height: 48px;
           font-size: 18px;
         }
-        .btn-back span {
-          display: none;
+
+        .home-mobile-body .dash-btn .label {
+          font-size: 0.9rem;
         }
-        .menu-toggle {
-          width: 46px;
-          height: 46px;
-          border-radius: 16px;
-        }
-        .logo {
-          max-height: 92px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .home-category-item,
+        .home-panel-back,
+        .home-panel-title,
+        .home-sidebar-button,
+        .home-submenu-grid,
+        .home-submenu-button,
+        .home-embedded-content,
+        .home-desktop-content .home-embedded-content {
+          animation: none !important;
+          transition: none !important;
         }
       }
     </style>
   </head>
 
   <body class="no-fa">
-    <!-- se FontAwesome è presente nel tuo progetto, puoi togliere "no-fa" dal body -->
     <div class="clouds"></div>
 
     <div class="page" [class.home-ios]="isIos">
-      <!-- NON CAMBIO FUNZIONAMENTI -->
-      <button class="btn-back" (click)="back()">
-        <span>&larr; Torna Indietro</span>
-        <!-- su mobile nasconde la scritta -->
-        <span class="d-inline d-md-none">&larr;</span>
-      </button>
+      <!-- ===================== -->
+      <!-- DESKTOP SIDEBAR       -->
+      <!-- ===================== -->
+      <aside class="home-desktop-sidebar" [class.sidebar-collapsed]="sidebarCollapsed" [style.width]="sidebarCollapsed ? '60px' : '320px'" *ngIf="isDesktopHome">
+        <button class="sidebar-toggle-btn" (click)="toggleSidebar()" [attr.title]="sidebarCollapsed ? 'Espandi menu' : 'Comprimi menu'">
+          <i class="fas" [class.fa-chevron-left]="!sidebarCollapsed" [class.fa-chevron-right]="sidebarCollapsed"></i>
+        </button>
 
-      <button
-        class="menu-toggle"
-        (click)="toggleMenu()"
-        aria-label="Impostazioni"
-      >
-        <i class="fas fa-cog"></i>
-        <span class="fallback-cog">⚙️</span>
-      </button>
+        <div class="sidebar-logo">
+          <img
+            src="../../../assets/logo.png"
+            alt="Logo Samy"
+            class="img-fluid logo"
+          />
+        </div>
 
-      <div *ngIf="isMenuOpen" class="menu">
-        <a *ngIf="global.hasPermission('ADMIN_CREATE')" (click)="navigateToUserSettings()">Aggiungi utenti</a>
-        <a *ngIf="global.hasPermission('ADMIN_VIEW')" (click)="navigateToGestioneUsers()">Gestione users</a>
-        <a *ngIf="global.hasPermission('EMPLOYEE_CREATE')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</a>
-        <a (click)="navigateToCambiapassword()">Cambia password</a>
-        <a *ngIf="global.hasPermission('EMPLOYEE_PERMITS_MANAGE')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</a>
-        <a *ngIf="global.hasPermission('SETTINGS_ADMIN')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
-        <a *ngIf="global.hasPermission('SETTINGS_QUOTES')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>
-      </div>
-
-      <div class="logo-container text-center">
-        <img
-          src="../../../assets/logo.png"
-          alt="Logo Samy"
-          class="img-fluid logo"
-        />
-      </div>
-
-      <div class="container pb-5">
-        <div class="home-split-layout">
-          <aside class="home-category-panel" *ngIf="visibleHomeCategories.length > 1">
-            <ng-container *ngIf="!isDesktopContentActive; else desktopSubmenuSidebar">
-              <div class="home-category-panel__eyebrow">Menu principale</div>
-              <button
-                class="home-category-item"
-                *ngFor="let category of visibleHomeCategories"
-                [class.home-category-item--active]="selectedHomeCategory?.id === category.id"
-                type="button"
-                (click)="selectHomeCategory(category.id)"
-              >
-                <span class="home-category-item__icon">
-                  <i [class]="category.icon"></i>
-                </span>
-                <span class="home-category-item__text">
-                  <span class="home-category-item__label">
-                    {{ category.label }}
-                    <span
-                      *ngIf="categoryBadgeCount(category) > 0"
-                      class="badge bg-danger ms-1"
-                    >
-                      {{ categoryBadgeCount(category) }}
-                    </span>
-                  </span>
-                  <span class="home-category-item__count">
-                    {{ visibleHomeButtons(category).length }} sezioni
-                  </span>
-                </span>
-              </button>
-            </ng-container>
-
-            <ng-template #desktopSubmenuSidebar>
-              <button class="home-panel-back" type="button" (click)="showDesktopMainMenu()">
-                <span>&larr;</span>
-                <span>Menu principale</span>
-              </button>
-
-              <div class="home-panel-title" *ngIf="selectedHomeCategory">
-                <span>Sottomenu</span>
-                <strong>{{ selectedHomeCategory.label }}</strong>
-              </div>
-
-              <button
-                class="home-category-item home-sidebar-button"
-                *ngFor="let button of currentHomeButtons"
-                type="button"
-                (click)="activateHomeButton(button)"
-              >
-                <span class="home-category-item__icon">
-                  <i [class]="button.icon"></i>
-                </span>
-                <span class="home-category-item__text">
-                  <span class="home-category-item__label">
-                    {{ button.label }}
-                    <span
-                      *ngIf="buttonBadgeCount(button) > 0"
-                      [ngClass]="buttonBadgeClass(button)"
-                    >
-                      {{ buttonBadgeCount(button) }}
-                    </span>
-                  </span>
-                </span>
-              </button>
-            </ng-template>
-          </aside>
-
-          <section class="home-submenu-panel">
-            <div class="home-embedded-content" *ngIf="isDesktopContentActive; else homeSubmenuChooser">
-              <router-outlet></router-outlet>
-            </div>
-
-            <ng-template #homeSubmenuChooser>
-            <div class="home-section-title" *ngIf="selectedHomeCategory">
-              <button
-                class="home-category-back"
-                type="button"
-                (click)="clearHomeCategory()"
-                *ngIf="!isDesktopHome && visibleHomeCategories.length > 1 && selectedHomeCategoryId"
-              >
-                &larr;
-              </button>
-              <div>
-                <span class="home-section-kicker">Sottomenu</span>
-                <h2>{{ selectedHomeCategory.label }}</h2>
-              </div>
-            </div>
-
-            <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">
-              <button
-                class="dash-btn"
-                *ngFor="let category of visibleHomeCategories"
-                (click)="selectHomeCategory(category.id)"
-              >
-                <span class="icon"><i [class]="category.icon"></i></span>
-                <span class="label">
+        <nav class="sidebar-nav">
+          <ng-container *ngIf="!isDesktopContentActive; else desktopSubmenuSidebar">
+            <div class="home-category-panel__eyebrow">Menu principale</div>
+            <button
+              class="home-category-item"
+              *ngFor="let category of visibleHomeCategories"
+              [class.home-category-item--active]="selectedHomeCategory?.id === category.id"
+              type="button"
+              (click)="selectHomeCategory(category.id)"
+            >
+              <span class="home-category-item__icon">
+                <i [class]="category.icon"></i>
+              </span>
+              <span class="home-category-item__text">
+                <span class="home-category-item__label">
                   {{ category.label }}
                   <span
                     *ngIf="categoryBadgeCount(category) > 0"
@@ -871,20 +877,35 @@
                     {{ categoryBadgeCount(category) }}
                   </span>
                 </span>
-                <span class="category-count">
+                <span class="home-category-item__count">
                   {{ visibleHomeButtons(category).length }} sezioni
                 </span>
-              </button>
+              </span>
+            </button>
+          </ng-container>
+
+          <ng-template #desktopSubmenuSidebar>
+            <button class="home-panel-back" type="button" (click)="showDesktopMainMenu()">
+              <span>&larr;</span>
+              <span>Menu principale</span>
+            </button>
+
+            <div class="home-panel-title" *ngIf="selectedHomeCategory">
+              <span>Sottomenu</span>
+              <strong>{{ selectedHomeCategory.label }}</strong>
             </div>
 
-            <div class="home-submenu-grid" *ngIf="!shouldShowHomeCategories">
-              <button
-                class="dash-btn home-submenu-button"
-                *ngFor="let button of currentHomeButtons"
-                (click)="activateHomeButton(button)"
-              >
-                <span class="icon"><i [class]="button.icon"></i></span>
-                <span class="label">
+            <button
+              class="home-category-item home-sidebar-button"
+              *ngFor="let button of currentHomeButtons"
+              type="button"
+              (click)="activateHomeButton(button)"
+            >
+              <span class="home-category-item__icon">
+                <i [class]="button.icon"></i>
+              </span>
+              <span class="home-category-item__text">
+                <span class="home-category-item__label">
                   {{ button.label }}
                   <span
                     *ngIf="buttonBadgeCount(button) > 0"
@@ -893,10 +914,169 @@
                     {{ buttonBadgeCount(button) }}
                   </span>
                 </span>
-              </button>
+              </span>
+            </button>
+          </ng-template>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="sidebar-bottom-label">Impostazioni</div>
+          <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('ADMIN_CREATE')" (click)="navigateToUserSettings()">
+            <i class="fas fa-user-plus"></i> <span class="sidebar-btn-text">Aggiungi utenti</span>
+          </button>
+          <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('ADMIN_VIEW')" (click)="navigateToGestioneUsers()">
+            <i class="fas fa-users-cog"></i> <span class="sidebar-btn-text">Gestione users</span>
+          </button>
+          <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('EMPLOYEE_CREATE')" (click)="navigateToSettingsEmployees()">
+            <i class="fas fa-user-tie"></i> <span class="sidebar-btn-text">Aggiungi dipendenti</span>
+          </button>
+          <button class="sidebar-bottom-btn" (click)="navigateToCambiapassword()">
+            <i class="fas fa-key"></i> <span class="sidebar-btn-text">Cambia password</span>
+          </button>
+          <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('EMPLOYEE_PERMITS_MANAGE')" (click)="navigateToLeaveSettings()">
+            <i class="fas fa-clipboard-check"></i> <span class="sidebar-btn-text">Permessi e assenze</span>
+          </button>
+          <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('SETTINGS_ADMIN')" (click)="navigateToVehiclesSettings()">
+            <i class="fas fa-truck"></i> <span class="sidebar-btn-text">Gestione mezzi</span>
+          </button>
+          <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('SETTINGS_QUOTES')" (click)="navigateToQuoteSettings()">
+            <i class="fas fa-file-invoice-dollar"></i> <span class="sidebar-btn-text">Impostazioni preventivi</span>
+          </button>
+          <button class="sidebar-logout" (click)="back()">
+            <i class="fas fa-sign-out-alt"></i> <span class="sidebar-btn-text">Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- ===================== -->
+      <!-- DESKTOP CONTENT AREA  -->
+      <!-- ===================== -->
+      <main class="home-desktop-content" [style.margin-left]="sidebarCollapsed ? '60px' : '320px'" *ngIf="isDesktopHome">
+        <div class="home-embedded-content" *ngIf="isDesktopContentActive; else desktopSubmenuChooser">
+          <router-outlet></router-outlet>
+        </div>
+
+        <ng-template #desktopSubmenuChooser>
+          <div class="home-section-title" *ngIf="selectedHomeCategory">
+            <div>
+              <span class="home-section-kicker">Sottomenu</span>
+              <h2>{{ selectedHomeCategory.label }}</h2>
             </div>
-            </ng-template>
-          </section>
+          </div>
+
+          <div class="home-submenu-grid" *ngIf="currentHomeButtons.length > 0">
+            <button
+              class="dash-btn home-submenu-button"
+              *ngFor="let button of currentHomeButtons"
+              (click)="activateHomeButton(button)"
+            >
+              <span class="icon"><i [class]="button.icon"></i></span>
+              <span class="label">
+                {{ button.label }}
+                <span
+                  *ngIf="buttonBadgeCount(button) > 0"
+                  [ngClass]="buttonBadgeClass(button)"
+                >
+                  {{ buttonBadgeCount(button) }}
+                </span>
+              </span>
+            </button>
+          </div>
+        </ng-template>
+      </main>
+
+      <!-- ===================== -->
+      <!-- MOBILE LAYOUT         -->
+      <!-- ===================== -->
+      <div class="mobile-layout" *ngIf="!isDesktopHome">
+        <!-- Mobile top bar with settings -->
+        <div class="mobile-top-bar">
+          <div></div>
+          <button
+            class="menu-toggle"
+            (click)="toggleMenu()"
+            aria-label="Impostazioni"
+          >
+            <i class="fas fa-cog"></i>
+            <span class="fallback-cog">&#9881;&#65039;</span>
+          </button>
+        </div>
+
+        <div *ngIf="isMenuOpen" class="mobile-menu">
+          <a *ngIf="global.hasPermission('ADMIN_CREATE')" (click)="navigateToUserSettings()">Aggiungi utenti</a>
+          <a *ngIf="global.hasPermission('ADMIN_VIEW')" (click)="navigateToGestioneUsers()">Gestione users</a>
+          <a *ngIf="global.hasPermission('EMPLOYEE_CREATE')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</a>
+          <a (click)="navigateToCambiapassword()">Cambia password</a>
+          <a *ngIf="global.hasPermission('EMPLOYEE_PERMITS_MANAGE')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</a>
+          <a *ngIf="global.hasPermission('SETTINGS_ADMIN')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
+          <a *ngIf="global.hasPermission('SETTINGS_QUOTES')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>
+          <a class="menu-logout" (click)="back()">Logout</a>
+        </div>
+
+        <div class="logo-container text-center">
+          <img
+            src="../../../assets/logo.png"
+            alt="Logo Samy"
+            class="img-fluid logo"
+          />
+        </div>
+
+        <div class="home-mobile-body">
+          <div class="home-section-title" *ngIf="selectedHomeCategory">
+            <button
+              class="home-category-back"
+              type="button"
+              (click)="clearHomeCategory()"
+              *ngIf="!isDesktopHome && visibleHomeCategories.length > 1 && selectedHomeCategoryId"
+            >
+              &larr;
+            </button>
+            <div>
+              <span class="home-section-kicker">Sottomenu</span>
+              <h2>{{ selectedHomeCategory.label }}</h2>
+            </div>
+          </div>
+
+          <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">
+            <button
+              class="dash-btn"
+              *ngFor="let category of visibleHomeCategories"
+              (click)="selectHomeCategory(category.id)"
+            >
+              <span class="icon"><i [class]="category.icon"></i></span>
+              <span class="label">
+                {{ category.label }}
+                <span
+                  *ngIf="categoryBadgeCount(category) > 0"
+                  class="badge bg-danger ms-1"
+                >
+                  {{ categoryBadgeCount(category) }}
+                </span>
+              </span>
+              <span class="category-count">
+                {{ visibleHomeButtons(category).length }} sezioni
+              </span>
+            </button>
+          </div>
+
+          <div class="home-submenu-grid" *ngIf="!shouldShowHomeCategories">
+            <button
+              class="dash-btn home-submenu-button"
+              *ngFor="let button of currentHomeButtons"
+              (click)="activateHomeButton(button)"
+            >
+              <span class="icon"><i [class]="button.icon"></i></span>
+              <span class="label">
+                {{ button.label }}
+                <span
+                  *ngIf="buttonBadgeCount(button) > 0"
+                  [ngClass]="buttonBadgeClass(button)"
+                >
+                  {{ buttonBadgeCount(button) }}
+                </span>
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,86 +1,6 @@
-/* ====== BLOCCO CSS DA SOSTITUIRE/INCOLLARE (Quotes Home) ====== */
-:root{
-  --brand-black:#0f172a;
-  --brand-orange:#ff7a00;
-  --brand-orange-2:#ff9a3c;
-  --brand-blue:#0d6efd;
-  --brand-sky:#8ec5ff;
-}
-
-/* sfondo brand (vivo, non bianco) */
-body.bg-light{
-  background:
-    radial-gradient(1200px 520px at 50% 0%, rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
-    linear-gradient(180deg, var(--brand-sky) 0%, #cfe7ff 35%, #eef6ff 100%) !important;
-  background-attachment: fixed !important;
-}
-
-/* toolbar brand */
-mat-toolbar[color="primary"]{
-  background: linear-gradient(135deg, var(--brand-orange), var(--brand-blue)) !important;
-  border-bottom: 1px solid rgba(255,255,255,.35);
-  box-shadow: 0 14px 34px rgba(2,6,23,.14);
-  border-radius: 0 0 18px 18px;
-}
-
-/* titolo */
-mat-toolbar .fs-4{
-  font-weight: 950;
-  letter-spacing: .3px;
-  color: #000 !important;
-  text-shadow: 0 1px 0 rgba(255,255,255,.25);
-}
-
-/* back */
-.btn-back{
-  border: 0;
-  border-radius: 14px;
-  padding: 10px 14px;
-  font-weight: 900;
-  color: #000 !important;
-  background: rgba(255,255,255,.70);
-  box-shadow: 0 12px 28px rgba(2,6,23,.10);
-  transition: .2s ease;
-}
-.btn-back:hover{
-  transform: translateY(-1px);
-  background: rgba(255,255,255,.90);
-}
-
-/* add (btn-pink) -> arancione */
-.btn-pink{
-  background: linear-gradient(135deg, var(--brand-orange), var(--brand-orange-2)) !important;
-  color: #000 !important;
-  border: 0 !important;
-  border-radius: 14px !important;
-  box-shadow: 0 14px 34px rgba(255,122,0,.30);
-}
-.btn-pink:hover{
-  filter: brightness(1.05);
-  transform: translateY(-1px);
-}
-mat-toolbar button[mat-icon-button] mat-icon{ color:#000 !important; }
-
-/* form fields toolbar */
-.example-form-field{ min-width: 220px; }
-mat-toolbar .mat-mdc-form-field{
-  background: rgba(255,255,255,.55);
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,.55);
-}
-mat-toolbar mat-slide-toggle{
-  padding: 6px 10px;
-  border-radius: 14px;
-  background: rgba(255,255,255,.45);
-  border: 1px solid rgba(255,255,255,.45);
-}
-
-/* ===== CARD CON TENDINA ===== */
-.quote-card{
-  background:
-    linear-gradient(135deg, rgba(255,122,0,.16), rgba(13,110,253,.10)),
-    rgba(255,255,255,.55);
+.quote-card {
+  background: linear-gradient(135deg, rgba(255,122,0,.10), rgba(13,110,253,.08)),
+              rgba(255,255,255,.65);
   border: 1px solid rgba(255,255,255,.70);
   border-radius: 22px;
   box-shadow: 0 20px 60px rgba(2,6,23,.14);
@@ -89,183 +9,188 @@ mat-toolbar mat-slide-toggle{
   overflow: hidden;
 }
 
-.quote-card.notification-target{
+.quote-card.notification-target {
   border: 2px solid rgba(255,122,0,.95);
   box-shadow: 0 22px 70px rgba(255,122,0,.28), 0 18px 54px rgba(2,6,23,.16);
 }
 
-/* header: apre/chiude la tendina */
-.quote-header-btn{
+.quote-header-btn {
   width: 100%;
   border: 0;
   background: linear-gradient(135deg, rgba(142,197,255,.40), rgba(255,122,0,.22));
-  padding: 14px 14px;
-  display:flex;
-  align-items:center;
+  padding: 14px;
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   font-weight: 950;
-  color:#000;
-  text-align:left;
+  color: #000;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
 }
 
-.quote-title{
-  min-width:0;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+.quote-header-btn:hover {
+  background: linear-gradient(135deg, rgba(142,197,255,.55), rgba(255,122,0,.32));
 }
 
-.chev{
+.quote-title {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chev {
   font-size: 18px;
-  color:#000;
+  color: #000;
+  transition: transform 0.2s ease;
 }
 
-/* bottone pdf in header */
-.btn-pdf{
+.chev--open {
+  transform: rotate(180deg);
+}
+
+.btn-pdf {
   border-radius: 12px;
   font-weight: 950;
   color: #000 !important;
   background: linear-gradient(135deg, rgba(142,197,255,.70), rgba(255,122,0,.35));
   border: 1px solid rgba(0,0,0,.08);
-  padding: 6px 8px;
+  padding: 6px 10px;
   line-height: 1;
 }
-.btn-pdf mat-icon{ color:#000 !important; }
 
-.btn-notes{
+.btn-pdf:hover {
+  background: linear-gradient(135deg, rgba(142,197,255,.85), rgba(255,122,0,.45));
+}
+
+.btn-notes {
   border-radius: 12px;
   font-weight: 950;
   color: #000 !important;
   background: linear-gradient(135deg, rgba(255,122,0,.45), rgba(142,197,255,.55));
   border: 1px solid rgba(0,0,0,.08);
-  padding: 6px 8px;
+  padding: 6px 10px;
   line-height: 1;
 }
-.btn-notes mat-icon{ color:#000 !important; }
 
-/* tendina azioni */
-.quote-actions{
+.btn-notes:hover {
+  background: linear-gradient(135deg, rgba(255,122,0,.55), rgba(142,197,255,.65));
+}
+
+.quote-actions {
   background: rgba(255,255,255,.22);
   border-top: 1px solid rgba(0,0,0,.06);
 }
-.quote-actions-inner{
+
+.quote-actions-inner {
   padding: 12px 14px 14px;
-  display:flex;
+  display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-/* bottoni material: testo nero + colori vivi */
-button[mat-raised-button]{
+.btn-quote-action {
   border-radius: 14px !important;
   font-weight: 950 !important;
-  color:#000 !important;
+  color: #000 !important;
   box-shadow: 0 10px 22px rgba(2,6,23,.10) !important;
-}
-button[mat-raised-button] mat-icon{ color:#000 !important; }
-
-button[mat-raised-button][color="primary"]{
-  background: linear-gradient(135deg, var(--brand-orange), var(--brand-orange-2)) !important;
   border: 0 !important;
+  padding: 8px 14px;
+  font-size: 14px;
 }
-button[mat-raised-button][color="accent"]{
+
+.btn-quote-edit {
   background: linear-gradient(135deg, rgba(142,197,255,.85), rgba(13,110,253,.25)) !important;
   border: 1px solid rgba(13,110,253,.18) !important;
 }
-button[mat-raised-button][color="warn"]{
+
+.btn-quote-delete {
   background: linear-gradient(135deg, rgba(255,122,0,.55), rgba(255,255,255,.35)) !important;
   border: 1px solid rgba(255,122,0,.25) !important;
 }
-button[mat-raised-button][color="success"]{
+
+.btn-quote-chat {
+  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+}
+
+.btn-quote-send {
+  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+}
+
+.btn-quote-calendar {
+  background: linear-gradient(135deg, rgba(142,197,255,.85), rgba(13,110,253,.25)) !important;
+  border: 1px solid rgba(13,110,253,.18) !important;
+}
+
+.btn-quote-confirm {
   background: linear-gradient(135deg, rgba(142,197,255,.75), rgba(255,255,255,.35)) !important;
   border: 1px solid rgba(142,197,255,.35) !important;
 }
 
-/* responsive azioni */
-@media (max-width: 992px){
-  .example-form-field{ min-width: 200px; }
+.btn-quote-refuse {
+  background: linear-gradient(135deg, rgba(255,122,0,.55), rgba(255,255,255,.35)) !important;
+  border: 1px solid rgba(255,122,0,.25) !important;
 }
-@media (max-width:768px){
-  .example-form-field{ min-width: 100%; width:100%; }
-  mat-toolbar .d-flex.flex-wrap.gap-2{ width: 100%; }
 
-  .quote-actions-inner button[mat-raised-button]{
+.btn-quote-copy {
+  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+}
+
+.btn-quote-verify {
+  background: linear-gradient(135deg, rgba(142,197,255,.75), rgba(255,255,255,.35)) !important;
+  border: 1px solid rgba(142,197,255,.35) !important;
+}
+
+.btn-quote-restore {
+  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+}
+
+.btn-pink {
+  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+  color: #000 !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 14px 34px rgba(255,122,0,.30);
+}
+
+.btn-pink:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .top-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .top-actions > div {
+    width: 100%;
+  }
+
+  .top-actions .form-control {
+    max-width: 100% !important;
+    min-width: 100% !important;
+  }
+
+  .top-actions .d-flex.flex-wrap {
+    flex-direction: column;
+  }
+
+  .top-actions label {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .quote-actions-inner button {
     width: calc(50% - 6px);
   }
 }
-@media (max-width:420px){
-  .quote-actions-inner button[mat-raised-button]{
+
+@media (max-width: 420px) {
+  .quote-actions-inner button {
     width: 100%;
-  }
-}
-/* ===== FIX: la lista deve partire SEMPRE sotto la toolbar ===== */
-mat-toolbar{
-  position: relative !important;
-  z-index: 5 !important;
-}
-
-/* spazio tra toolbar e lista */
-mat-toolbar + .container{
-  margin-top: 18px !important;
-}
-
-/* su mobile la toolbar diventa più alta -> serve più aria */
-@media (max-width: 768px){
-  mat-toolbar{
-    padding-bottom: 16px !important;
-    margin-bottom: 10px !important;
-  }
-
-  mat-toolbar + .container{
-    margin-top: 22px !important;
-  }
-  
-}
-@media (max-width:768px){
-
-  /* la toolbar deve contenere davvero i filtri */
-  mat-toolbar[color="primary"]{
-    height: auto !important;
-    min-height: unset !important;
-    padding-top: 12px !important;
-    padding-bottom: 18px !important;
-    align-items: stretch !important;
-  }
-
-  /* prima riga (titolo + back + +) */
-  mat-toolbar .d-flex.align-items-center{
-    width: 100% !important;
-    justify-content: space-between !important;
-    flex-wrap: wrap !important;
-    gap: 10px !important;
-    margin-bottom: 12px !important;
-  }
-
-  /* seconda riga filtri: mettila a colonna e full width */
-  mat-toolbar .d-flex.flex-wrap.gap-2{
-    width: 100% !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 12px !important;
-  }
-
-  .example-form-field{
-    min-width: 100% !important;
-    width: 100% !important;
-  }
-  mat-toolbar .mat-mdc-form-field{
-    width: 100% !important;
-  }
-
-  mat-toolbar mat-slide-toggle{
-    width: 100% !important;
-    display: flex !important;
-    justify-content: space-between !important;
-  }
-
-  /* ora la lista parte davvero sotto ai filtri */
-  mat-toolbar + .container{
-    margin-top: 18px !important;
   }
 }

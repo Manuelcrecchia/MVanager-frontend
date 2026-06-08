@@ -1,50 +1,37 @@
-<!-- ===== Impostazioni permessi e assenze ===== -->
-
-<mat-toolbar class="mv-toolbar-light">
-  <span class="mv-title-dark">Impostazioni permessi e assenze</span>
-  <span class="spacer"></span>
-
-  <button class="mv-back-btn-light" type="button" (click)="back()">
-    <span class="mv-back-btn__icon">←</span>
-    <span class="mv-back-btn__label">Torna Indietro</span>
-  </button>
-</mat-toolbar>
-
-<div class="mv-page-light">
-
-  <div class="mv-card-light">
-
-    <h3 class="mv-h3 text-center">
-      Giorni minimi di preavviso
-    </h3>
-
-    <p class="mv-sub text-center">
-      Imposta il numero minimo di giorni richiesti per richiedere un permesso o un'assenza
-    </p>
-
-    <mat-form-field appearance="outline" class="w-100 mt-3">
-      <mat-label>Giorni minimi</mat-label>
-      <input
-        matInput
-        type="number"
-        [(ngModel)]="limit"
-        min="0"
-        required
-      />
-    </mat-form-field>
-
-    <button
-      mat-raised-button
-      color="primary"
-      class="mv-save-btn w-100 mt-3"
-      (click)="saveLimit()"
-    >
-      💾 Salva impostazione
+<div class="container py-4 page-wrap" style="max-width: 600px;">
+  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+    <button class="btn btn-back-glass" type="button" (click)="back()">
+      &larr; Torna Indietro
     </button>
-
-    <div *ngIf="message" class="mv-alert-light mt-3 text-center">
-      {{ message }}
-    </div>
-
   </div>
+
+  <h2 class="text-center page-title mb-4 text-dark">Impostazioni permessi e assenze</h2>
+
+  <section class="admin-card">
+    <div class="card-body p-4 text-center">
+      <h3 class="fw-bold mb-2">Giorni minimi di preavviso</h3>
+      <p class="text-muted small mb-4">
+        Imposta il numero minimo di giorni richiesti per richiedere un permesso o un'assenza.
+      </p>
+
+      <div class="mb-3" style="max-width: 200px; margin-left: auto; margin-right: auto;">
+        <label class="form-label fw-bold">Giorni minimi</label>
+        <input
+          class="form-control form-control-glass text-center"
+          type="number"
+          [(ngModel)]="limit"
+          min="0"
+          required
+        />
+      </div>
+
+      <button class="btn btn-primary btn-round" (click)="saveLimit()">
+        💾 Salva impostazione
+      </button>
+
+      <div *ngIf="message" class="mt-3" style="padding: 10px 14px; border-radius: 14px; background: rgba(47,183,255,0.15); border: 1px solid rgba(47,183,255,0.4); font-weight: 700; color: #111;">
+        {{ message }}
+      </div>
+    </div>
+  </section>
 </div>

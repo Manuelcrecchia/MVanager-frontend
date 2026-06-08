@@ -1,284 +1,111 @@
-/* =========================================
-   Fix: no horizontal scroll
-   ========================================= */
 :host {
   display: block;
-  overflow-x: hidden;
 }
 
-.mv-page,
-.mv-shell,
-.mv-main,
-.mv-card,
-.mv-card__body,
-.mv-admin-card,
-mat-card,
-mat-card-content {
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-.mv-v--mono {
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-/* =========================================
-   Admin info grid (view mode)
-   ========================================= */
-.mv-admin-info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 24px;
-  margin-bottom: 16px;
-}
-
-@media (max-width: 600px) {
-  .mv-admin-info-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.mv-kv--wide {
-  grid-column: 1 / -1;
-}
-
-/* =========================================
-   Pill per codice operatore
-   ========================================= */
-.mv-pill {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, rgba(47,183,255,0.12), rgba(255,138,0,0.10));
-  border: 1px solid rgba(47,183,255,0.22);
-  font-weight: 700;
-  font-size: 13px;
-  color: #1a6fa8;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-/* =========================================
-   Sezione permessi – view mode
-   ========================================= */
-.mv-perms-section {
-  margin-top: 4px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(0,0,0,0.07);
-}
-
-.mv-perms-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: #888;
-  margin-bottom: 10px;
-}
-
-.mv-perms-preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-width: 100%;
-}
-
-.mv-chip {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, rgba(47,183,255,0.13), rgba(255,138,0,0.10));
-  border: 1px solid rgba(47,183,255,0.20);
-  font-size: 12px;
-  font-weight: 600;
-  color: #1a6fa8;
-  max-width: 100%;
+.admin-card {
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.08);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.mv-muted {
-  font-size: 13px;
-  color: #aaa;
-  font-style: italic;
+.admin-card .card-header {
+  background: linear-gradient(135deg, rgba(47,183,255,0.07), rgba(255,138,0,0.05));
+  border-bottom: 1px solid rgba(0,0,0,0.06);
 }
 
-/* =========================================
-   Admin card editing state
-   ========================================= */
-.mv-admin-card--editing {
-  border: 1px solid rgba(47,183,255,0.30) !important;
-  box-shadow: 0 0 0 3px rgba(47,183,255,0.08) !important;
-}
-
-/* =========================================
-   Section label (separatori interni al form)
-   ========================================= */
-.mv-section-label {
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-  color: #888;
-  margin: 0 0 12px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(0,0,0,0.07);
-}
-
-.mv-section-label--perms {
-  margin-top: 24px;
-}
-
-/* =========================================
-   Accordion MV (details/summary)
-   ========================================= */
-.mv-perm-wrap {
-  display: grid;
-  gap: 10px;
-  max-width: 100%;
-}
-
-.mv-accordion {
-  border-radius: 14px;
+.admin-item {
   border: 1px solid rgba(0,0,0,0.09);
-  background: rgba(255,255,255,0.95);
+  border-radius: 16px;
+  padding: 20px;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-item:hover {
+  border-color: rgba(47,183,255,0.25);
+}
+
+.admin-item--editing {
+  border-color: rgba(47,183,255,0.35);
+  box-shadow: 0 0 0 3px rgba(47,183,255,0.08);
+}
+
+.admin-view .badge {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.perm-accordion {
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.09);
+  background: #fff;
   overflow: hidden;
-  transition: box-shadow .15s ease;
 }
 
-.mv-accordion[open] {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+.perm-accordion[open] {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
 }
 
-.mv-accordion__summary {
+.perm-accordion__summary {
   list-style: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 10px 14px;
   cursor: pointer;
   user-select: none;
-  background: linear-gradient(
-    135deg,
-    rgba(47,183,255,0.07),
-    rgba(255,138,0,0.05)
-  );
+  background: linear-gradient(135deg, rgba(47,183,255,0.06), rgba(255,138,0,0.04));
   border-bottom: 1px solid rgba(0,0,0,0.06);
   gap: 12px;
 }
 
-.mv-accordion__summary::-webkit-details-marker { display: none; }
-
-.mv-accordion__header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
+.perm-accordion__summary::-webkit-details-marker {
+  display: none;
 }
 
-.mv-accordion__title {
-  font-weight: 700;
-  font-size: 14px;
-  color: #222;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mv-accordion__count {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 12px;
-  background: rgba(47,183,255,0.12);
-  color: #1a6fa8;
+.perm-accordion__chev {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgba(0,0,0,0.4);
+  border-bottom: 2px solid rgba(0,0,0,0.4);
+  transform: rotate(45deg);
+  transition: transform 0.18s ease;
   flex-shrink: 0;
 }
 
-.mv-accordion__chev {
-  width: 9px;
-  height: 9px;
-  border-right: 2px solid rgba(0,0,0,0.45);
-  border-bottom: 2px solid rgba(0,0,0,0.45);
-  transform: rotate(45deg);
-  transition: transform .18s ease;
-  flex: 0 0 auto;
-}
-
-details[open] .mv-accordion__chev {
+details[open] .perm-accordion__chev {
   transform: rotate(-135deg);
 }
 
-.mv-accordion__body {
-  padding: 14px;
-  max-width: 100%;
-  background: rgba(250,251,253,0.8);
+.perm-accordion__body {
+  padding: 12px;
+  background: rgba(250,251,253,0.7);
 }
 
-/* =========================================
-   Griglia checkbox permessi
-   ========================================= */
-.mv-permissions-table {
-  display: grid;
-  gap: 8px;
-  max-width: 100%;
-}
-
-@media (min-width: 700px) {
-  .mv-permissions-table {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1100px) {
-  .mv-permissions-table {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.mv-perm-row {
+.perm-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid rgba(0,0,0,0.09);
   background: #fff;
   cursor: pointer;
-  max-width: 100%;
-  overflow: hidden;
-  transition: border-color .13s ease, background .13s ease, box-shadow .13s ease;
+  transition: border-color 0.13s ease, background 0.13s ease;
 }
 
-.mv-perm-row:hover {
-  border-color: rgba(47,183,255,0.30);
-  box-shadow: 0 3px 10px rgba(0,0,0,0.07);
+.perm-row:hover {
+  border-color: rgba(47,183,255,0.3);
 }
 
-.mv-perm-row--active {
+.perm-row--active {
   background: linear-gradient(135deg, rgba(47,183,255,0.06), rgba(255,138,0,0.04));
   border-color: rgba(47,183,255,0.25);
 }
 
-.mv-perm-row__check {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-}
-
-.mv-perm-row__label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #222;
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Checkbox custom */
-.mv-perm-row input[type="checkbox"] {
+.perm-row input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   width: 18px;
@@ -289,10 +116,10 @@ details[open] .mv-accordion__chev {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  transition: background .12s ease, border-color .12s ease;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
-.mv-perm-row input[type="checkbox"]::after {
+.perm-row input[type="checkbox"]::after {
   content: "";
   width: 10px;
   height: 6px;
@@ -300,60 +127,30 @@ details[open] .mv-accordion__chev {
   border-bottom: 2px solid transparent;
   transform: rotate(-45deg) translateY(-1px);
   opacity: 0;
-  transition: opacity .12s ease;
+  transition: opacity 0.12s ease;
 }
 
-.mv-perm-row input[type="checkbox"]:checked {
+.perm-row input[type="checkbox"]:checked {
   background: linear-gradient(135deg, #2fb7ff, #ff8a00);
   border-color: rgba(0,0,0,0.12);
 }
 
-.mv-perm-row input[type="checkbox"]:checked::after {
+.perm-row input[type="checkbox"]:checked::after {
   border-left-color: #fff;
   border-bottom-color: #fff;
   opacity: 1;
 }
 
-.mv-toolbar {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  min-height: 64px;
-}
-
-.mv-toolbar__left {
-  min-width: 0;
-}
-
-.mv-title {
-  font-weight: 800;
-}
-
-.mv-page-actions {
-  margin-bottom: 16px;
-}
-
 @media (max-width: 767.98px) {
-  .mv-toolbar {
-    display: grid;
-    grid-template-columns: 1fr;
-    padding: 10px 12px;
-    row-gap: 8px;
+  .admin-item {
+    padding: 14px;
   }
 
-  .mv-title {
-    display: block;
-    font-size: 1.15rem;
-    line-height: 1.2;
+  .admin-view .row > div {
+    margin-bottom: 8px;
   }
 
-  .mv-back-btn {
-    width: 100%;
-    justify-content: center !important;
-    margin: 0;
-  }
-
-  .mv-back-btn__label {
-    white-space: normal;
+  .admin-view .row > div:last-child {
+    margin-bottom: 0;
   }
 }

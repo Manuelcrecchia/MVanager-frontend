@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ElementRef, HostListener } from '@angular/core';
+import { Component, OnDestroy, OnInit, ElementRef, HostListener, Renderer2 } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
@@ -63,6 +63,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     public tenantService: TenantService,
     private socketService: SocketService,
     private snackBar: MatSnackBar,
+    private renderer: Renderer2,
   ) {}
 
   isMenuOpen: boolean = false;
@@ -71,6 +72,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   pendingQuoteReviews: number = 0;
   employeeDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   vehicleDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
+  sidebarCollapsed = false;
 
   ngOnInit(): void {
     this.updateDesktopHomeState();
@@ -84,6 +86,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.quoteAcceptanceSubscription?.unsubscribe();
     this.routerEventsSubscription?.unsubscribe();
+    this.renderer.removeClass(document.body, 'is-desktop');
   }
 
   checkPermessiInAttesa(): void {
@@ -102,6 +105,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   toggleMenu() {
     this.isMenuOpen = !this.isMenuOpen;
+  }
+
+  toggleSidebar() {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
   }
 
   loadDeadlineSummary(): void {
@@ -519,6 +526,11 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   private updateDesktopHomeState(): void {
     this.isDesktopHome =
       typeof window !== 'undefined' && window.matchMedia('(min-width: 992px)').matches;
+    if (this.isDesktopHome) {
+      this.renderer.addClass(document.body, 'is-desktop');
+    } else {
+      this.renderer.removeClass(document.body, 'is-desktop');
+    }
     this.syncDesktopRouteState();
   }
 

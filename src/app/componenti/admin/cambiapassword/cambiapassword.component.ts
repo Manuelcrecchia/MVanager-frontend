@@ -21,6 +21,6 @@ changePassword(password: string){
 
 
   back(){
-    this.router.navigateByUrl('/');
+    this.router.navigateByUrl('/homeAdmin');
   }
 }
