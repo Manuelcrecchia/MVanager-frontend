@@ -48,4 +48,19 @@ export class SocketService {
       };
     });
   }
+
+  onAdminTodoUpdate(): Observable<any> {
+    return new Observable((subscriber) => {
+      const listener = (data: any) => {
+        if (data?.tenantId && data.tenantId !== this.tenantService.tenant) {
+          return;
+        }
+        subscriber.next(data);
+      };
+      this.socket.on('adminTodoUpdated', listener);
+      return () => {
+        this.socket.off('adminTodoUpdated', listener);
+      };
+    });
+  }
 }

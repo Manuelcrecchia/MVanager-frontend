@@ -155,6 +155,12 @@ export class TenantService {
     this.persistTenantAsync(tenant);
   }
 
+  clearTenant(): void {
+    this._selectedTenant = null;
+    this.persistTenantSync(null);
+    this.persistTenantAsync(null);
+  }
+
   setTenantFromToken(tenant: unknown): void {
     const normalized = this.normalizeTenant(
       typeof tenant === 'string' ? tenant : null,

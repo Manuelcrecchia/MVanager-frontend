@@ -47,6 +47,7 @@ import { RiepilogoOreClientiComponent } from './admin/riepilogo-ore-clienti/riep
 import { TimbratureHomeComponent } from './admin/timbrature-home/timbrature-home.component';
 import { TimbratureDettaglioComponent } from './admin/timbrature-dettaglio/timbrature-dettaglio.component';
 import { QuoteAcceptComponent } from './public/quote-accept/quote-accept.component';
+import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work-completion-stats.component';
 
 // ✅ Documenti interni (assumo questo path; se diverso, aggiorna SOLO l'import)
 import { InternalDocumentsComponent } from './admin/internal-documents/internal-documents.component';
@@ -149,6 +150,12 @@ const routes: Routes = [
         component: InternalDocumentsComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
         data: { permission: 'INTERNAL_DOCS_ACCESS' },
+      },
+      {
+        path: 'statistiche',
+        component: WorkCompletionStatsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'STATS_VIEW' },
       },
     ],
   },

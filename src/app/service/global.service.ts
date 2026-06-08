@@ -3,6 +3,7 @@ import { HttpHeaders } from '@angular/common/http';
 import { Capacitor } from '@capacitor/core';
 import { AuthServiceService } from '../auth-service.service';
 import { TenantService } from './tenant.service';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
@@ -20,6 +21,14 @@ export class GlobalService {
   }
 
   get url(): string {
+    const tenantUrl = this.tenantService.isEmmeci
+      ? 'https://nodeemmeci.mvtechcore.it/'
+      : 'https://nodesami.mvtechcore.it/';
+
+    if (this.forMobile) {
+      return environment.mobileDevApiUrl || tenantUrl;
+    }
+
     const host = window.location.hostname.toLowerCase();
 
     if (
@@ -31,13 +40,7 @@ export class GlobalService {
       return 'http://localhost:5001/';
     }
 
-    if (this.tenantService.isEmmeci) {
-      //return 'https://nodeemmeci.mvtechcore.it/';
-      return 'http://nodeemmeci.mvtechcore.it:5001/';
-    }
-
-    //return 'https://nodesami.mvtechcore.it/';
-    return 'http://nodesami.mvtechcore.it:5001/';
+    return tenantUrl;
   }
 
   checkVersion(): Promise<boolean> {
@@ -55,7 +58,8 @@ export class GlobalService {
             resolve(true);
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error('Errore verifica versione server', this.url + 'api/version', error);
           alert('Impossibile verificare la versione del server.');
           resolve(false);
         });
@@ -100,7 +104,14 @@ export function resolveApiBaseUrl(options: {
   tenant: string;
   host: string;
 }): string {
-  const { host, tenant } = options;
+  const { host, tenant, forMobile } = options;
+  const tenantUrl = tenant === 'emmeci'
+    ? 'https://nodeemmeci.mvtechcore.it/'
+    : 'https://nodesami.mvtechcore.it/';
+
+  if (forMobile) {
+    return environment.mobileDevApiUrl || tenantUrl;
+  }
 
   if (
     host.includes('localhost') ||
@@ -111,9 +122,5 @@ export function resolveApiBaseUrl(options: {
     return 'http://localhost:5001/';
   }
 
-  if (tenant === 'emmeci') {
-    return 'http://nodeemmeci.mvtechcore.it:5001/';
-  }
-
-  return 'http://nodesami.mvtechcore.it:5001/';
+  return tenantUrl;
 }

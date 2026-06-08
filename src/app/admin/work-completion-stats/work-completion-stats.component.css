@@ -1,0 +1,250 @@
+.stats-page {
+  min-height: 100%;
+  padding: 24px;
+  color: #0f172a;
+}
+
+.stats-topbar,
+.stats-hero,
+.filters-panel,
+.score-grid,
+.distribution-grid,
+.rank-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.stats-topbar {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.btn-back {
+  width: max-content;
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #0f172a;
+  font-weight: 900;
+}
+
+.stats-hero,
+.filters-panel,
+.panel,
+.score-card,
+.kpi {
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 18px 42px rgba(2, 6, 23, 0.09);
+}
+
+.stats-hero {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  border-radius: 22px;
+  padding: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: rgba(15, 23, 42, 0.58);
+  font-size: 0.76rem;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.stats-hero h2 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 950;
+}
+
+.stats-hero p {
+  margin: 8px 0 0;
+  color: rgba(15, 23, 42, 0.66);
+  font-weight: 750;
+}
+
+.stats-kpis {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.kpi {
+  min-width: 130px;
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.kpi strong {
+  display: block;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.kpi span {
+  display: block;
+  margin-top: 6px;
+  color: rgba(15, 23, 42, 0.62);
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.filters-panel {
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  align-items: end;
+  margin-top: 16px;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.filters-panel label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: rgba(15, 23, 42, 0.7);
+}
+
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.score-grid {
+  grid-template-columns: repeat(4, minmax(170px, 1fr));
+  margin-top: 16px;
+}
+
+.score-card,
+.panel {
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.score-card div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.score-card span {
+  font-weight: 900;
+  color: rgba(15, 23, 42, 0.66);
+}
+
+.score-card strong {
+  font-size: 1.35rem;
+  font-weight: 950;
+}
+
+.score-bar {
+  height: 9px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.score-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0d6efd, #ff7a00);
+}
+
+.distribution-grid,
+.rank-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.distribution-grid {
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+}
+
+.panel h3 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.distribution-row,
+.rank-row,
+.note-row {
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.distribution-row,
+.rank-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.distribution-row span,
+.rank-row span,
+.note-row span {
+  display: block;
+  color: rgba(15, 23, 42, 0.58);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.rank-row b {
+  display: inline-grid;
+  min-width: 42px;
+  height: 34px;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(13, 110, 253, 0.12);
+  color: #0d6efd;
+}
+
+.rank-row-low b {
+  background: rgba(220, 53, 69, 0.12);
+  color: #dc3545;
+}
+
+.note-row {
+  padding: 12px 0;
+}
+
+.note-row p {
+  margin: 8px 0 0;
+  color: #0f172a;
+  font-weight: 750;
+}
+
+.empty-state,
+.empty-line {
+  margin-top: 16px;
+  border-radius: 16px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.68);
+  color: rgba(15, 23, 42, 0.62);
+  font-weight: 850;
+}
+
+@media (max-width: 1100px) {
+  .stats-hero,
+  .filters-panel,
+  .score-grid,
+  .distribution-grid,
+  .rank-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-kpis {
+    justify-content: stretch;
+  }
+}

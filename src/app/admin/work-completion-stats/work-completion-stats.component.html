@@ -1,0 +1,133 @@
+<div class="stats-page">
+  <div class="stats-topbar">
+    <button class="btn-back" type="button" (click)="back()">← Indietro</button>
+    <button class="btn btn-outline-light btn-sm" type="button" (click)="loadStats()">↻ Aggiorna</button>
+  </div>
+
+  <section class="stats-hero">
+    <div>
+      <p class="eyebrow">Fogli fine lavoro</p>
+      <h2>Statistiche</h2>
+      <p>Analisi delle valutazioni lasciate dai clienti a fine intervento.</p>
+    </div>
+    <div class="stats-kpis">
+      <div class="kpi">
+        <strong>{{ stats?.total || 0 }}</strong>
+        <span>Fogli valutati</span>
+      </div>
+      <div class="kpi">
+        <strong>{{ stats?.averageScore || 0 }}</strong>
+        <span>Media generale</span>
+      </div>
+      <div class="kpi">
+        <strong>{{ stats?.satisfactionYesRate || 0 }}%</strong>
+        <span>Soddisfatti</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="filters-panel">
+    <label>
+      Dal
+      <input class="form-control" type="date" [(ngModel)]="from" />
+    </label>
+    <label>
+      Al
+      <input class="form-control" type="date" [(ngModel)]="to" />
+    </label>
+    <label>
+      Cliente
+      <input class="form-control" placeholder="Numero cliente" [(ngModel)]="numeroCliente" />
+    </label>
+    <div class="filter-actions">
+      <button class="btn btn-primary" type="button" (click)="loadStats()">Filtra</button>
+      <button class="btn btn-outline-light" type="button" (click)="resetFilters()">Reset</button>
+    </div>
+  </section>
+
+  <div *ngIf="error" class="alert alert-danger mt-3">{{ error }}</div>
+  <div *ngIf="loading" class="empty-state">Caricamento statistiche...</div>
+
+  <ng-container *ngIf="!loading && stats">
+    <section class="score-grid">
+      <article class="score-card">
+        <div>
+          <span>Consulente</span>
+          <strong>{{ stats.averages.consulente }}</strong>
+        </div>
+        <div class="score-bar"><i [style.width.%]="scorePercent(stats.averages.consulente)"></i></div>
+      </article>
+      <article class="score-card">
+        <div>
+          <span>Personale tecnico</span>
+          <strong>{{ stats.averages.personale }}</strong>
+        </div>
+        <div class="score-bar"><i [style.width.%]="scorePercent(stats.averages.personale)"></i></div>
+      </article>
+      <article class="score-card">
+        <div>
+          <span>Igienizzazione</span>
+          <strong>{{ stats.averages.igienizzazione }}</strong>
+        </div>
+        <div class="score-bar"><i [style.width.%]="scorePercent(stats.averages.igienizzazione)"></i></div>
+      </article>
+      <article class="score-card">
+        <div>
+          <span>Soddisfazione</span>
+          <strong>{{ stats.averages.soddisfazione }}</strong>
+        </div>
+        <div class="score-bar"><i [style.width.%]="scorePercent(stats.averages.soddisfazione)"></i></div>
+      </article>
+    </section>
+
+    <section class="distribution-grid">
+      <article class="panel" *ngFor="let dimension of ['consulente', 'personale', 'igienizzazione', 'soddisfazione']">
+        <h3>{{ dimension | titlecase }}</h3>
+        <div class="distribution-row" *ngFor="let entry of distributionEntries($any(stats.dimensions)[dimension])">
+          <span>{{ ratingLabels[entry.key] || entry.key }}</span>
+          <strong>{{ entry.value }}</strong>
+        </div>
+      </article>
+    </section>
+
+    <section class="rank-grid">
+      <article class="panel">
+        <h3>Punteggi maggiori</h3>
+        <div class="rank-row" *ngFor="let record of stats.best">
+          <div>
+            <strong>{{ record.clienteNome }}</strong>
+            <span>{{ formatDate(record.completedAt) }} · Cliente {{ record.numeroCliente }}</span>
+          </div>
+          <b>{{ record.averageScore }}</b>
+        </div>
+        <p class="empty-line" *ngIf="stats.best.length === 0">Nessun dato nel periodo.</p>
+      </article>
+
+      <article class="panel">
+        <h3>Punteggi minori</h3>
+        <div class="rank-row rank-row-low" *ngFor="let record of stats.worst">
+          <div>
+            <strong>{{ record.clienteNome }}</strong>
+            <span>{{ formatDate(record.completedAt) }} · Cliente {{ record.numeroCliente }}</span>
+          </div>
+          <b>{{ record.averageScore }}</b>
+        </div>
+        <p class="empty-line" *ngIf="stats.worst.length === 0">Nessun dato nel periodo.</p>
+      </article>
+    </section>
+
+    <section class="panel">
+      <h3>Note e disservizi</h3>
+      <div class="notes-list">
+        <div class="note-row" *ngFor="let record of stats.notes">
+          <div>
+            <strong>{{ record.clienteNome }}</strong>
+            <span>{{ formatDate(record.completedAt) }} · punteggio {{ record.averageScore }}</span>
+          </div>
+          <p>{{ record.note }}</p>
+        </div>
+        <p class="empty-line" *ngIf="stats.notes.length === 0">Nessuna nota nel periodo.</p>
+      </div>
+    </section>
+  </ng-container>
+</div>

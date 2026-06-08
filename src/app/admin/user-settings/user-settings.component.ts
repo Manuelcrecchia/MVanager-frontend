@@ -277,6 +277,10 @@ export class UserSettingsComponent implements OnInit {
         title: 'Notifiche',
         items: pick(['NOTIFICATIONS_VIEW', 'NOTIFICATIONS_MANAGE']),
       },
+      {
+        title: 'Statistiche',
+        items: pick(['STATS_VIEW']),
+      },
     ].filter((g) => g.items.length > 0);
   }
 
@@ -367,7 +371,6 @@ export class UserSettingsComponent implements OnInit {
     this.adminEdit = {
       ...this.admins[i],
       permissions: [...(this.admins[i].permissions || [])],
-      password: '',
     };
   }
 
@@ -388,10 +391,6 @@ export class UserSettingsComponent implements OnInit {
       codiceOperatore: this.adminEdit.codiceOperatore,
       permissions: this.adminEdit.permissions || [],
     };
-
-    if (this.adminEdit.password && this.adminEdit.password.trim().length > 0) {
-      body.password = this.adminEdit.password;
-    }
 
     this.http
       .post(this.globalService.url + 'admin/edit', body, {

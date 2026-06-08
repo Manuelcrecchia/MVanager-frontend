@@ -97,6 +97,7 @@ import { CustomerNotesComponent } from './admin/customer-notes/customer-notes.co
 import { ServiceOrdersComponent } from './admin/service-orders/service-orders.component';
 import { AddServiceOrderComponent } from './admin/add-service-order/add-service-order.component';
 import { QuoteAcceptComponent } from './public/quote-accept/quote-accept.component';
+import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work-completion-stats.component';
 
 registerLocaleData(localeIt);
 
@@ -146,6 +147,7 @@ registerLocaleData(localeIt);
     ServiceOrdersComponent,
     AddServiceOrderComponent,
     QuoteAcceptComponent,
+    WorkCompletionStatsComponent,
   ],
   imports: [
     BrowserModule,

@@ -39,6 +39,14 @@ interface HomeCategory {
   buttons: HomeButton[];
 }
 
+interface AdminTodo {
+  id: number;
+  title: string;
+  completed: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 @Component({
   selector: 'app-homeadmin',
   templateUrl: './homeadmin.component.html',
@@ -47,6 +55,7 @@ interface HomeCategory {
 export class HomeAdminComponent implements OnInit, OnDestroy {
   private quoteAcceptanceSubscription?: Subscription;
   private routerEventsSubscription?: Subscription;
+  private adminTodoSubscription?: Subscription;
   isIos = Capacitor.getPlatform() === 'ios';
   isDesktopHome = false;
   isDesktopContentActive = false;
@@ -73,6 +82,12 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   employeeDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   vehicleDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   sidebarCollapsed = false;
+  settingsMenuOpen = false;
+  adminTodos: AdminTodo[] = [];
+  newTodoTitle = '';
+  todoLoading = false;
+  todoSaving = false;
+  todoError = '';
 
   ngOnInit(): void {
     this.updateDesktopHomeState();
@@ -80,12 +95,15 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.checkPermessiInAttesa();
     this.loadDeadlineSummary();
     this.loadPendingQuoteReviews();
+    this.loadAdminTodos();
     this.bindQuoteAcceptanceUpdates();
+    this.bindAdminTodoUpdates();
   }
 
   ngOnDestroy(): void {
     this.quoteAcceptanceSubscription?.unsubscribe();
     this.routerEventsSubscription?.unsubscribe();
+    this.adminTodoSubscription?.unsubscribe();
     this.renderer.removeClass(document.body, 'is-desktop');
   }
 
@@ -109,6 +127,13 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   toggleSidebar() {
     this.sidebarCollapsed = !this.sidebarCollapsed;
+    if (this.sidebarCollapsed) {
+      this.settingsMenuOpen = false;
+    }
+  }
+
+  toggleSettingsMenu(): void {
+    this.settingsMenuOpen = !this.settingsMenuOpen;
   }
 
   loadDeadlineSummary(): void {
@@ -231,6 +256,12 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   back() {
     this.global.logout();
   }
+
+  changeTenant(): void {
+    this.tenantService.clearTenant();
+    this.global.logout();
+  }
+
   navigateToCambiapassword() {
     this.router.navigateByUrl('/cambiapassword');
   }
@@ -258,11 +289,15 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.router.navigateByUrl('/quoteSettings');
   }
 
+  navigateToWorkCompletionStats() {
+    this.router.navigateByUrl('/homeAdmin/statistiche');
+  }
+
   get homeCategories(): HomeCategory[] {
     return [
       {
         id: 'personale',
-        label: 'Personale',
+        label: 'Ufficio tecnico',
         icon: 'fas fa-user-friends',
         buttons: [
           {
@@ -338,7 +373,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       },
       {
         id: 'operativo',
-        label: 'Operativo',
+        label: 'Risorse umane',
         icon: 'fas fa-briefcase',
         buttons: [
           {
@@ -392,6 +427,13 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             action: () => this.navigateToInternalDocuments(),
             desktopPath: 'internal-documents',
           },
+          {
+            label: 'Statistiche',
+            icon: 'fas fa-chart-line',
+            permission: 'STATS_VIEW',
+            action: () => this.navigateToWorkCompletionStats(),
+            desktopPath: 'statistiche',
+          },
         ],
       },
     ];
@@ -416,9 +458,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       return this.visibleHomeButtons(this.visibleHomeCategories[0]);
     }
 
-    const selectedId =
-      this.selectedHomeCategoryId ||
-      (this.isDesktopHome ? this.visibleHomeCategories[0]?.id : "");
+    const selectedId = this.selectedHomeCategoryId || "";
 
     const selectedCategory = this.visibleHomeCategories.find(
       (category) => category.id === selectedId,
@@ -428,9 +468,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   get selectedHomeCategory(): HomeCategory | undefined {
-    const selectedId =
-      this.selectedHomeCategoryId ||
-      (this.isDesktopHome ? this.visibleHomeCategories[0]?.id : "");
+    const selectedId = this.selectedHomeCategoryId || "";
     return this.visibleHomeCategories.find((category) => category.id === selectedId);
   }
 
@@ -457,8 +495,140 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   showDesktopMainMenu(): void {
+    this.selectedHomeCategoryId = '';
     this.isDesktopContentActive = false;
     this.router.navigate(['/homeAdmin']);
+  }
+
+  loadAdminTodos(): void {
+    this.todoLoading = true;
+    this.todoError = '';
+
+    this.http
+      .get<AdminTodo[]>(this.global.url + 'admin/todos', {
+        headers: this.global.headers,
+      })
+      .subscribe({
+        next: (todos) => {
+          this.adminTodos = Array.isArray(todos) ? todos : [];
+          this.todoLoading = false;
+        },
+        error: (err) => {
+          console.error('Errore caricamento todo admin:', err);
+          this.todoError = 'Non riesco a caricare la lista attività.';
+          this.todoLoading = false;
+        },
+      });
+  }
+
+  addAdminTodo(): void {
+    const title = this.newTodoTitle.trim();
+    if (!title || this.todoSaving) return;
+
+    this.todoSaving = true;
+    this.todoError = '';
+
+    this.http
+      .post<AdminTodo>(
+        this.global.url + 'admin/todos',
+        { title },
+        { headers: this.global.headers },
+      )
+      .subscribe({
+        next: (todo) => {
+          this.adminTodos = [todo, ...this.adminTodos];
+          this.newTodoTitle = '';
+          this.todoSaving = false;
+        },
+        error: (err) => {
+          console.error('Errore creazione todo admin:', err);
+          this.todoError = 'Non riesco ad aggiungere questa attività.';
+          this.todoSaving = false;
+        },
+      });
+  }
+
+  toggleAdminTodo(todo: AdminTodo): void {
+    const completed = !todo.completed;
+    this.todoError = '';
+
+    this.http
+      .patch<AdminTodo>(
+        this.global.url + `admin/todos/${todo.id}`,
+        { completed },
+        { headers: this.global.headers },
+      )
+      .subscribe({
+        next: (updatedTodo) => {
+          this.adminTodos = this.adminTodos.map((item) =>
+            item.id === updatedTodo.id ? updatedTodo : item,
+          );
+        },
+        error: (err) => {
+          console.error('Errore aggiornamento todo admin:', err);
+          this.todoError = 'Non riesco ad aggiornare questa attività.';
+        },
+      });
+  }
+
+  deleteAdminTodo(todo: AdminTodo): void {
+    this.todoError = '';
+
+    this.http
+      .delete(this.global.url + `admin/todos/${todo.id}`, {
+        headers: this.global.headers,
+      })
+      .subscribe({
+        next: () => {
+          this.adminTodos = this.adminTodos.filter((item) => item.id !== todo.id);
+        },
+        error: (err) => {
+          console.error('Errore eliminazione todo admin:', err);
+          this.todoError = 'Non riesco a eliminare questa attività.';
+        },
+      });
+  }
+
+  private bindAdminTodoUpdates(): void {
+    if (this.adminTodoSubscription) {
+      return;
+    }
+
+    this.adminTodoSubscription = this.socketService
+      .onAdminTodoUpdate()
+      .subscribe((update: any) => {
+        if (update?.tenantId && update.tenantId !== this.tenantService.tenant) {
+          return;
+        }
+
+        const todo = update?.todo as AdminTodo | null;
+        if (!todo?.id) {
+          return;
+        }
+
+        if (update.action === 'deleted') {
+          this.adminTodos = this.adminTodos.filter((item) => item.id !== todo.id);
+          return;
+        }
+
+        const existingIndex = this.adminTodos.findIndex((item) => item.id === todo.id);
+        if (existingIndex >= 0) {
+          this.adminTodos = this.adminTodos.map((item) =>
+            item.id === todo.id ? todo : item,
+          );
+          return;
+        }
+
+        this.adminTodos = [todo, ...this.adminTodos];
+      });
+  }
+
+  get openAdminTodosCount(): number {
+    return this.adminTodos.filter((todo) => !todo.completed).length;
+  }
+
+  get completedAdminTodosCount(): number {
+    return this.adminTodos.filter((todo) => todo.completed).length;
   }
 
   @HostListener('window:resize')
