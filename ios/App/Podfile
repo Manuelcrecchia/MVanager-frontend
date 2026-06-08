@@ -16,6 +16,7 @@ def capacitor_pods
   pod 'CapacitorPreferences', :path => '../../node_modules/@capacitor/preferences'
   pod 'CapacitorPushNotifications', :path => '../../node_modules/@capacitor/push-notifications'
   pod 'CapacitorNativeBiometric', :path => '../../node_modules/capacitor-native-biometric'
+  pod 'MvanagerInspectionAlarmKit', :path => '../../plugins/inspection-alarm-kit'
 end
 
 target 'App' do

@@ -2,6 +2,7 @@ import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
 import { Router } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 declare var bootstrap: any;
 
 @Component({
@@ -14,7 +15,9 @@ export class GestionePermessiComponent implements OnInit {
   @ViewChild('creaModal') creaModalElement!: ElementRef;
 
   leaveRequests: any[] = [];
+  historyRequests: any[] = [];
   employees: any[] = [];
+  selectedHistoryEmployeeId = '';
   loading = false;
   selectedRequest: any = null;
   creaLoading = false;
@@ -40,12 +43,17 @@ export class GestionePermessiComponent implements OnInit {
   constructor(
     private http: HttpClient,
     public globalService: GlobalService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
-    this.loadRequests();
-    this.loadEmployees();
+    this.route.queryParams.subscribe((params) => {
+      this.selectedHistoryEmployeeId = params['employeeId'] || '';
+      this.loadRequests();
+      this.loadEmployees();
+      this.loadHistory();
+    });
   }
 
   loadEmployees(): void {
@@ -109,6 +117,7 @@ export class GestionePermessiComponent implements OnInit {
         this.creaLoading = false;
         bootstrap.Modal.getInstance(this.creaModalElement.nativeElement)?.hide();
         this.showToast('✅ Richiesta inviata al dipendente per conferma');
+        this.loadHistory();
       },
       error: (err) => {
         this.creaLoading = false;
@@ -136,7 +145,8 @@ export class GestionePermessiComponent implements OnInit {
       next: () => {
         this.creaLoading = false;
         bootstrap.Modal.getInstance(this.creaModalElement.nativeElement)?.hide();
-        this.showToast('✅ Permesso salvato');
+        this.showToast('✅ Permesso/assenza salvato');
+        this.loadHistory();
       },
       error: (err) => {
         this.creaLoading = false;
@@ -157,6 +167,24 @@ export class GestionePermessiComponent implements OnInit {
         this.loading = false;
       },
     });
+  }
+
+  loadHistory(): void {
+    const suffix = this.selectedHistoryEmployeeId
+      ? `?employeeId=${this.selectedHistoryEmployeeId}`
+      : '';
+    this.http.get<any[]>(this.globalService.url + 'permission/history' + suffix).subscribe({
+      next: (res) => {
+        this.historyRequests = res || [];
+      },
+      error: (err) => {
+        console.error('Errore nel recupero storico permessi:', err);
+      },
+    });
+  }
+
+  onHistoryEmployeeChange(): void {
+    this.loadHistory();
   }
 
   openModal(req: any): void {
@@ -190,10 +218,11 @@ export class GestionePermessiComponent implements OnInit {
       next: (res: any) => {
         this.showToast('✅ Permesso accettato');
         this.loadRequests();
+        this.loadHistory();
       },
       error: (err) => {
         console.error('Errore durante accettazione:', err);
-        this.showToast('❌ Errore durante l\'accettazione', true);
+        this.showToast('❌ ' + this.parseServerError(err), true);
       },
     });
   }
@@ -240,10 +269,11 @@ export class GestionePermessiComponent implements OnInit {
           );
           modal.hide();
           this.loadRequests();
+          this.loadHistory();
         },
         error: (err) => {
           console.error('Errore durante accettazione:', err);
-          this.showToast('❌ Errore durante l\'accettazione', true);
+          this.showToast('❌ ' + this.parseServerError(err), true);
         },
       });
   }
@@ -255,6 +285,7 @@ export class GestionePermessiComponent implements OnInit {
         next: () => {
           this.showToast('🗑️ Permesso rifiutato');
           this.loadRequests();
+          this.loadHistory();
         },
         error: (err) => {
           console.error('Errore durante rifiuto:', err);
@@ -328,6 +359,15 @@ export class GestionePermessiComponent implements OnInit {
     } border-0`;
     const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
     toast.show();
+  }
+
+  private parseServerError(err: any): string {
+    try {
+      const body = typeof err.error === 'string' ? JSON.parse(err.error) : err.error;
+      if (body?.error) return body.error;
+    } catch {}
+    if (err.status === 0) return 'Impossibile connettersi al server';
+    return 'Errore imprevisto. Riprova.';
   }
 
   downloadAllegato(filepath: string, filename: string): void {

@@ -203,8 +203,8 @@ export class GestioneEmployeesComponent implements OnInit {
     this.router.navigate(['/documenti/employee', id]);
   }
 
-  goToAssenze(empId: number) {
-    this.router.navigate(['/gestioneassenze'], {
+  goToPermessiAssenze(empId: number) {
+    this.router.navigate(['/gestionepermessi'], {
       queryParams: { employeeId: empId },
     });
   }

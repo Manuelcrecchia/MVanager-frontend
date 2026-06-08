@@ -265,6 +265,8 @@
         <div class="form-group">
           <label>Avvisa prima di *</label>
           <select [(ngModel)]="popupInspectionReminderMinutes" class="form-input">
+            <option [ngValue]="1">1 minuto</option>
+            <option [ngValue]="5">5 minuti</option>
             <option [ngValue]="15">15 minuti</option>
             <option [ngValue]="30">30 minuti</option>
             <option [ngValue]="60">1 ora</option>

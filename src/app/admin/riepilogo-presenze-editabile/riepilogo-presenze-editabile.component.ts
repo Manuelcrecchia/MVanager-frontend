@@ -393,14 +393,12 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
       const malattiaVal = parseFloat(d.tipologie.Malattia[i]) || 0;
       const ferieVal = parseFloat(d.tipologie.Ferie[i]) || 0;
       const permessiVal = parseFloat(d.tipologie['Permessi/ROL'][i]) || 0;
-      const assenzaVal = parseFloat(d.tipologie['Assenza Ingiustificata'][i]) || 0;
       const infortunioVal = parseFloat(d.tipologie.Infortunio[i]) || 0;
 
       const giornoCents = ordinarioCents +
                          Math.round(malattiaVal * 100) +
                          Math.round(ferieVal * 100) +
                          Math.round(permessiVal * 100) +
-                         Math.round(assenzaVal * 100) +
                          Math.round(infortunioVal * 100);
       totalCents += giornoCents;
     }

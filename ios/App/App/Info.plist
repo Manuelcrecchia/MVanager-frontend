@@ -24,6 +24,8 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Usiamo Face ID per proteggere l'accesso salvato nell'app.</string>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Usiamo le sveglie per ricordarti i sopralluoghi assegnati con posticipa e spegni.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoadsInWebContent</key>

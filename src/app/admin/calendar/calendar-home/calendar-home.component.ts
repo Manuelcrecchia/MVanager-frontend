@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { AutomaticAddInspectionToCalendarService } from '../../../service/automatic-add-inspection-to-calendar.service';
 import { PopupServiceService } from '../../../componenti/popup/popup-service.service';
 import { TenantService } from '../../../service/tenant.service';
+import { InspectionAlarmSyncService } from '../../../service/inspection-alarm-sync.service';
 
 interface RawEvent {
   id: number;
@@ -125,6 +126,7 @@ export class CalendarHomeComponent implements OnInit {
     private autoInspectionService: AutomaticAddInspectionToCalendarService,
     private popupService: PopupServiceService,
     public tenantService: TenantService,
+    private inspectionAlarmSync: InspectionAlarmSyncService,
   ) {}
 
   ngOnInit() {
@@ -632,7 +634,17 @@ export class CalendarHomeComponent implements OnInit {
     if (!this.isNewEvent) body.id = this.editingEventId;
     this.http.post(this.globalService.url+(this.isNewEvent?'appointments/add':'appointments/edit'), body, {
       headers: this.globalService.headers, responseType: 'text',
-    }).subscribe(()=>{ this.closePopup(); this.loadAll(); if(body.categories==='sopralluogo')this.sendInspectionConfirmation(body); });
+    }).subscribe(()=>{
+      this.closePopup();
+      this.loadAll();
+      if (body.categories === 'sopralluogo') {
+        this.inspectionAlarmSync.setToken(this.globalService.token);
+        this.inspectionAlarmSync.syncSoon('calendar-save', true).catch((err) => {
+          console.error('[Calendar] Errore sync sveglie sopralluogo:', err);
+        });
+        this.sendInspectionConfirmation(body);
+      }
+    });
   }
 
   validateCodice(codice: string, categoria: string): boolean {

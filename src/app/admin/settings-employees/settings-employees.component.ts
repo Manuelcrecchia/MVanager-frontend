@@ -10,6 +10,7 @@ interface Employee {
   cognome: string;
   email: string;
   cellulare: string;
+  oreGiornaliereDefault?: string | number | null;
   active: boolean;
 }
 
@@ -24,6 +25,7 @@ export class SettingsEmployeesComponent implements OnInit {
     cognome: '',
     email: '',
     cellulare: '',
+    oreGiornaliereDefault: null,
   };
   employeess: Employee[] = [];
   showArchived = false;
@@ -86,6 +88,7 @@ export class SettingsEmployeesComponent implements OnInit {
       cognome: this.employeeEdit.cognome,
       email: this.employeeEdit.email,
       cellulare: this.employeeEdit.cellulare,
+      oreGiornaliereDefault: this.employeeEdit.oreGiornaliereDefault,
     };
 
     this.http
@@ -111,6 +114,7 @@ export class SettingsEmployeesComponent implements OnInit {
       cognome: this.employeesAdd.cognome,
       email: this.employeesAdd.email,
       cellulare: this.employeesAdd.cellulare,
+      oreGiornaliereDefault: this.employeesAdd.oreGiornaliereDefault,
     };
 
     this.isLoading = true;
@@ -122,7 +126,13 @@ export class SettingsEmployeesComponent implements OnInit {
       .subscribe({
         next: () => {
           this.isLoading = false;
-          this.employeesAdd = { nome: '', cognome: '', email: '', cellulare: '' };
+          this.employeesAdd = {
+            nome: '',
+            cognome: '',
+            email: '',
+            cellulare: '',
+            oreGiornaliereDefault: null,
+          };
           this.fetchEmployees();
         },
         error: (error) => {

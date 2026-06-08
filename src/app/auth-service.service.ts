@@ -4,6 +4,7 @@ import { jwtDecode } from "jwt-decode";
 import { Preferences } from '@capacitor/preferences';
 import { MobilePushService } from './service/mobile-push.service';
 import { TenantService } from './service/tenant.service';
+import { Capacitor } from '@capacitor/core';
 
 @Injectable({
   providedIn: 'root'
@@ -14,6 +15,7 @@ export class AuthServiceService {
   private readonly PERMISSIONS_KEY = 'permissions';
   private readonly EMAIL_KEY = 'email';
   private logoutTimer: any;
+  private postLoginServicesToken: string | null = null;
   private _token: string | null = localStorage.getItem(this.TOKEN_KEY) || sessionStorage.getItem(this.TOKEN_KEY) || null;
   private _userCode: string | null = localStorage.getItem(this.USER_CODE_KEY) || sessionStorage.getItem(this.USER_CODE_KEY) || null;
   private _permissions: string[] = (() => {
@@ -47,9 +49,7 @@ export class AuthServiceService {
       const remainingTime = this.getTokenRemainingTime(value);
       if (remainingTime > 0) {
         this.setLogoutTimer(remainingTime);
-        this.mobilePush.initAfterLogin(value).catch((err) => {
-          console.error('[AuthService] Errore inizializzazione push:', err);
-        });
+        this.initializePostLoginServices(value);
       } else {
         this.clearSessionState();
       }
@@ -140,6 +140,19 @@ export class AuthServiceService {
     this._permissions = [];
     this.clearLogoutTimer();
     this.mobilePush.reset();
+    this.postLoginServicesToken = null;
+  }
+
+  initializePostLoginServices(token = this._token): void {
+    if (!token || this.postLoginServicesToken === token) {
+      return;
+    }
+
+    this.postLoginServicesToken = token;
+    this.mobilePush.initAfterLogin(token).catch((err) => {
+      this.postLoginServicesToken = null;
+      console.error('[AuthService] Errore inizializzazione push:', err);
+    });
   }
 
   logout(): void {
@@ -192,7 +205,9 @@ export class AuthServiceService {
       if (remainingTime > 0) {
         this.persistValue(this.TOKEN_KEY, this._token);
         this.setLogoutTimer(remainingTime);
-        await this.mobilePush.initAfterLogin(this._token);
+        if (Capacitor.getPlatform() === 'web') {
+          this.initializePostLoginServices(this._token);
+        }
       } else {
         this.clearSessionState();
       }

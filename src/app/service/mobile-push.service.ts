@@ -11,6 +11,7 @@ import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 import { TenantService } from './tenant.service';
 import { resolveApiBaseUrl } from './global.service';
 import { NotificationNavigationService } from './notification-navigation.service';
+import { InspectionAlarmSyncService } from './inspection-alarm-sync.service';
 
 @Injectable({
   providedIn: 'root',
@@ -23,10 +24,13 @@ export class MobilePushService {
     private http: HttpClient,
     private tenantService: TenantService,
     private notificationNavigation: NotificationNavigationService,
+    private inspectionAlarmSync: InspectionAlarmSyncService,
   ) {}
 
   async initAfterLogin(token: string): Promise<void> {
     this.token = token;
+    this.inspectionAlarmSync.setToken(token);
+    await this.inspectionAlarmSync.syncSoon('after-login', true);
 
     if (this.initialized || Capacitor.getPlatform() === 'web') {
       return;
@@ -48,6 +52,9 @@ export class MobilePushService {
       'pushNotificationReceived',
       (notification: PushNotificationSchema) => {
         console.log('[Push] Notifica ricevuta', notification);
+        this.inspectionAlarmSync.syncSoon('push-received').catch((err) => {
+          console.error('[Push] Errore sync sveglie sopralluogo:', err);
+        });
       },
     );
 
@@ -55,6 +62,7 @@ export class MobilePushService {
       'pushNotificationActionPerformed',
       async (action: ActionPerformed) => {
         console.log('[Push] Notifica aperta', action);
+        await this.inspectionAlarmSync.syncSoon('push-opened', true);
         await this.notificationNavigation.navigateFromPayload(action);
       },
     );
@@ -89,6 +97,9 @@ export class MobilePushService {
   reset(): void {
     this.initialized = false;
     this.token = null;
+    this.inspectionAlarmSync.clearAll().catch((err) => {
+      console.error('[Push] Errore reset sveglie sopralluogo:', err);
+    });
   }
 
   private registerDeviceToken(pushToken: string): void {

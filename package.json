@@ -47,6 +47,7 @@
     "gsap": "^3.13.0",
     "jwt-decode": "^4.0.0",
     "material": "^0.9.11",
+    "mvanager-inspection-alarm-kit": "file:plugins/inspection-alarm-kit",
     "material-icons": "^1.13.12",
     "ng2-pdf-viewer": "^10.4.0",
     "ngx-extended-pdf-viewer": "^23.0.0-alpha.3",

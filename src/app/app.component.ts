@@ -5,6 +5,8 @@ import { GlobalService } from './service/global.service';
 import { NotificationNavigationService } from './service/notification-navigation.service';
 import { BiometricService } from './service/biometric.service';
 import { Router } from '@angular/router';
+import { InspectionAlarmSyncService } from './service/inspection-alarm-sync.service';
+import { AuthServiceService } from './auth-service.service';
 
 @Component({
   selector: 'app-root',
@@ -22,6 +24,8 @@ export class AppComponent {
     private notificationNavigation: NotificationNavigationService,
     private biometricService: BiometricService,
     private router: Router,
+    private inspectionAlarmSync: InspectionAlarmSyncService,
+    private authService: AuthServiceService,
   ) {}
   ngOnInit() {
     const platform = Capacitor.getPlatform();
@@ -49,6 +53,9 @@ export class AppComponent {
     CapacitorApp.addListener('appStateChange', ({ isActive }) => {
       if (isActive) {
         if (this.sessionUnlocked) {
+          this.inspectionAlarmSync.syncSoon('app-active').catch((err) => {
+            console.error('[App] Errore sync sveglie sopralluogo:', err);
+          });
           this.navigatePendingNotificationIfLoggedIn();
         } else {
           this.unlockExistingSessionWithBiometrics('app-active');
@@ -89,6 +96,9 @@ export class AppComponent {
       }
 
       this.sessionUnlocked = true;
+      this.authService.initializePostLoginServices(this.globalService.token);
+      this.inspectionAlarmSync.setToken(this.globalService.token);
+      await this.inspectionAlarmSync.syncSoon('biometric-unlock', true);
       const navigatedFromNotification =
         await this.notificationNavigation.navigatePendingIfAny();
 

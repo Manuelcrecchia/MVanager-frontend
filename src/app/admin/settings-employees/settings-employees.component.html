@@ -61,6 +61,20 @@
           required
         />
       </div>
+      <div class="col-md-6">
+        <label for="oreGiornaliereDefault" class="form-label text-dark">Ore giornaliere standard</label>
+        <input
+          type="number"
+          id="oreGiornaliereDefault"
+          name="oreGiornaliereDefault"
+          [(ngModel)]="employeesAdd.oreGiornaliereDefault"
+          class="form-control text-dark"
+          min="0"
+          max="24"
+          step="0.25"
+          placeholder="es. 8"
+        />
+      </div>
     </div>
     <div class="text-center mt-4">
       <button type="submit" class="btn btn-success rounded-pill">
@@ -90,6 +104,7 @@
           <th class="text-dark">Cognome</th>
           <th class="text-dark">Email</th>
           <th class="text-dark">Cellulare</th>
+          <th class="text-dark">Ore standard</th>
           <th class="text-dark">Azioni</th>
         </tr>
       </thead>
@@ -108,6 +123,7 @@
             <td class="text-dark">{{ emp.cognome }}</td>
             <td class="text-dark">{{ emp.email }}</td>
             <td class="text-dark">{{ emp.cellulare }}</td>
+            <td class="text-dark">{{ emp.oreGiornaliereDefault || '8.00' }}</td>
             <td class="d-flex gap-2 justify-content-center flex-wrap">
               <ng-container *ngIf="emp.active">
                 <button
@@ -165,6 +181,17 @@
                 class="form-control form-control-sm text-dark"
                 [(ngModel)]="employeeEdit.cellulare"
                 name="e_cell_{{ i }}"
+              />
+            </td>
+            <td>
+              <input
+                type="number"
+                class="form-control form-control-sm text-dark"
+                [(ngModel)]="employeeEdit.oreGiornaliereDefault"
+                name="e_ore_standard_{{ i }}"
+                min="0"
+                max="24"
+                step="0.25"
               />
             </td>
             <td class="d-flex gap-2 justify-content-center">

@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit, ElementRef, HostListener } from '@angular/core';
-import { Router } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { QuoteModelService } from '../../service/quote-model.service';
@@ -9,7 +9,7 @@ import { AuthServiceService } from '../../auth-service.service';
 import { TenantService } from '../../service/tenant.service';
 import { SocketService } from '../../service/soket.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Subscription } from 'rxjs';
+import { Subscription, filter } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 
 type DeadlineStatus = 'ok' | 'warning' | 'expired';
@@ -27,6 +27,7 @@ interface HomeButton {
   icon: string;
   permission: string;
   action: () => void;
+  desktopPath?: string;
   badgeCount?: () => number;
   badgeClass?: () => string;
 }
@@ -45,7 +46,10 @@ interface HomeCategory {
 })
 export class HomeAdminComponent implements OnInit, OnDestroy {
   private quoteAcceptanceSubscription?: Subscription;
+  private routerEventsSubscription?: Subscription;
   isIos = Capacitor.getPlatform() === 'ios';
+  isDesktopHome = false;
+  isDesktopContentActive = false;
 
   constructor(
     private el: ElementRef,
@@ -69,6 +73,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   vehicleDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
 
   ngOnInit(): void {
+    this.updateDesktopHomeState();
+    this.bindRouterState();
     this.checkPermessiInAttesa();
     this.loadDeadlineSummary();
     this.loadPendingQuoteReviews();
@@ -77,6 +83,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.quoteAcceptanceSubscription?.unsubscribe();
+    this.routerEventsSubscription?.unsubscribe();
   }
 
   checkPermessiInAttesa(): void {
@@ -256,12 +263,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             icon: 'fas fa-user',
             permission: 'EMPLOYEE_VIEW',
             action: () => this.navigateToGestioneemployees(),
+            desktopPath: 'gestioneemployees',
           },
           {
             label: 'Scadenze Dipendenti',
             icon: 'fas fa-id-card',
             permission: 'EMPLOYEE_DEADLINES_VIEW',
             action: () => this.navigateToEmployeeDeadlines(),
+            desktopPath: 'employee-deadlines',
             badgeCount: () => this.employeeDeadlineSummary.alertCount,
             badgeClass: () => this.deadlineBadgeClass(this.employeeDeadlineSummary),
           },
@@ -270,18 +279,21 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             icon: 'fas fa-tasks',
             permission: 'SHIFTS_VIEW',
             action: () => this.goToShifts(),
+            desktopPath: 'shifts',
           },
           {
             label: 'Riepilogo presenze personalizzabile',
             icon: 'fas fa-clock',
-            permission: 'ATTENDANCE_VIEW',
+            permission: 'ATTENDANCE_MANAGE',
             action: () => this.goToEditableHours(),
+            desktopPath: 'riepilogo-presenze-editabile',
           },
           {
-            label: 'Permessi',
+            label: 'Gestione permessi e assenze',
             icon: 'fas fa-clipboard-check',
             permission: 'EMPLOYEE_PERMITS_MANAGE',
             action: () => this.navigateToGestionePermessi(),
+            desktopPath: 'gestionepermessi',
             badgeCount: () => this.permessiInAttesa,
             badgeClass: () => 'badge bg-danger ms-1',
           },
@@ -290,6 +302,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             icon: 'fas fa-fingerprint',
             permission: 'STAMPING_VIEW',
             action: () => this.navigateToTimbrature(),
+            desktopPath: 'timbratureHome',
           },
         ],
       },
@@ -303,12 +316,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             icon: 'fas fa-users',
             permission: 'CUSTOMERS_VIEW',
             action: () => this.navigateToListCustomer(),
+            desktopPath: 'listCustomer',
           },
           {
             label: 'Gestione Preventivi',
             icon: 'fas fa-file-alt',
             permission: 'QUOTES_VIEW',
             action: () => this.navigateToQuotesHome(),
+            desktopPath: 'quotesHome',
             badgeCount: () => this.pendingQuoteReviews,
             badgeClass: () => 'badge bg-danger ms-1',
           },
@@ -324,18 +339,21 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             icon: 'fas fa-calendar',
             permission: 'CALENDAR_VIEW',
             action: () => this.navigateToCalendarHome(),
+            desktopPath: 'calendarHome',
           },
           {
             label: 'Ordini di servizio',
             icon: 'fas fa-clipboard-list',
             permission: 'SERVICE_ORDERS_VIEW',
             action: () => this.navigateToServiceOrders(),
+            desktopPath: 'service-orders',
           },
           {
             label: 'Riepilogo ore clienti',
             icon: 'fas fa-user-clock',
             permission: 'CUSTOMERS_HOURS_VIEW',
             action: () => this.goToRiepilogoOreClienti(),
+            desktopPath: 'riepilogo-ore-clienti',
           },
         ],
       },
@@ -349,12 +367,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             icon: 'fas fa-users-cog',
             permission: 'ADMIN_VIEW',
             action: () => this.navigateToGestioneUsers(),
+            desktopPath: 'gestioneusers',
           },
           {
             label: 'Scadenze Mezzi',
             icon: 'fas fa-car',
             permission: 'VEHICLE_DEADLINES_VIEW',
             action: () => this.navigateToVehicleDeadlines(),
+            desktopPath: 'vehicle-deadlines',
             badgeCount: () => this.vehicleDeadlineSummary.alertCount,
             badgeClass: () => this.deadlineBadgeClass(this.vehicleDeadlineSummary),
           },
@@ -363,6 +383,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             icon: 'fas fa-file',
             permission: 'INTERNAL_DOCS_ACCESS',
             action: () => this.navigateToInternalDocuments(),
+            desktopPath: 'internal-documents',
           },
         ],
       },
@@ -376,7 +397,11 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   get shouldShowHomeCategories(): boolean {
-    return this.visibleHomeCategories.length > 1 && !this.selectedHomeCategoryId;
+    return (
+      !this.isDesktopHome &&
+      this.visibleHomeCategories.length > 1 &&
+      !this.selectedHomeCategoryId
+    );
   }
 
   get currentHomeButtons(): HomeButton[] {
@@ -384,25 +409,54 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       return this.visibleHomeButtons(this.visibleHomeCategories[0]);
     }
 
+    const selectedId =
+      this.selectedHomeCategoryId ||
+      (this.isDesktopHome ? this.visibleHomeCategories[0]?.id : "");
+
     const selectedCategory = this.visibleHomeCategories.find(
-      (category) => category.id === this.selectedHomeCategoryId,
+      (category) => category.id === selectedId,
     );
 
     return selectedCategory ? this.visibleHomeButtons(selectedCategory) : [];
   }
 
   get selectedHomeCategory(): HomeCategory | undefined {
-    return this.visibleHomeCategories.find(
-      (category) => category.id === this.selectedHomeCategoryId,
-    );
+    const selectedId =
+      this.selectedHomeCategoryId ||
+      (this.isDesktopHome ? this.visibleHomeCategories[0]?.id : "");
+    return this.visibleHomeCategories.find((category) => category.id === selectedId);
   }
 
   selectHomeCategory(categoryId: string): void {
     this.selectedHomeCategoryId = categoryId;
+    if (this.isDesktopHome) {
+      this.isDesktopContentActive = false;
+      this.router.navigate(['/homeAdmin']);
+    }
   }
 
   clearHomeCategory(): void {
     this.selectedHomeCategoryId = '';
+  }
+
+  activateHomeButton(button: HomeButton): void {
+    if (this.isDesktopHome && button.desktopPath) {
+      this.isDesktopContentActive = true;
+      this.router.navigate(['/homeAdmin', button.desktopPath]);
+      return;
+    }
+
+    button.action();
+  }
+
+  showDesktopMainMenu(): void {
+    this.isDesktopContentActive = false;
+    this.router.navigate(['/homeAdmin']);
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.updateDesktopHomeState();
   }
 
   visibleHomeButtons(category: HomeCategory): HomeButton[] {
@@ -460,5 +514,47 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
           ? raw.status
           : 'ok',
     };
+  }
+
+  private updateDesktopHomeState(): void {
+    this.isDesktopHome =
+      typeof window !== 'undefined' && window.matchMedia('(min-width: 992px)').matches;
+    this.syncDesktopRouteState();
+  }
+
+  private bindRouterState(): void {
+    this.routerEventsSubscription = this.router.events
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
+      .subscribe(() => this.syncDesktopRouteState());
+
+    this.syncDesktopRouteState();
+  }
+
+  private syncDesktopRouteState(): void {
+    const activePath = this.activeDesktopChildPath();
+    if (!activePath) {
+      this.isDesktopContentActive = false;
+      return;
+    }
+
+    const activeCategory = this.visibleHomeCategories.find((category) =>
+      this.visibleHomeButtons(category).some(
+        (button) => button.desktopPath === activePath,
+      ),
+    );
+
+    if (activeCategory) {
+      this.selectedHomeCategoryId = activeCategory.id;
+      this.isDesktopContentActive = this.isDesktopHome;
+    }
+  }
+
+  private activeDesktopChildPath(): string {
+    const cleanUrl = this.router.url.split('?')[0].split('#')[0];
+    if (!cleanUrl.startsWith('/homeAdmin/')) {
+      return '';
+    }
+
+    return cleanUrl.replace('/homeAdmin/', '').split('/')[0];
   }
 }

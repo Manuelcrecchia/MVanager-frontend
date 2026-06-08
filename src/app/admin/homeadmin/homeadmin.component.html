@@ -262,6 +262,25 @@
         line-height: 1.25;
       }
 
+      .home-split-layout {
+        display: block;
+      }
+
+      .home-category-panel {
+        display: none;
+      }
+
+      .home-submenu-panel {
+        min-width: 0;
+      }
+
+      .home-mobile-category-grid,
+      .home-submenu-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 24px;
+      }
+
       /* Badge permessi */
       .dash-btn .badge {
         border-radius: 12px;
@@ -276,6 +295,10 @@
         gap: 12px;
         margin-bottom: 20px;
         color: var(--brand-black);
+      }
+
+      .home-section-kicker {
+        display: none;
       }
 
       .home-section-title h2 {
@@ -300,6 +323,348 @@
         font-size: 0.82rem;
         font-weight: 800;
         opacity: 0.75;
+      }
+
+      @keyframes homeSlideFromRight {
+        from {
+          opacity: 0;
+          transform: translateX(86px);
+          filter: blur(2px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+          filter: blur(0);
+        }
+      }
+
+      @keyframes homeSidebarSlideFromRight {
+        from {
+          opacity: 0;
+          transform: translateX(44px);
+          filter: blur(2px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+          filter: blur(0);
+        }
+      }
+
+      @keyframes homeButtonCascade {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (min-width: 992px) {
+        .logo-container {
+          margin-top: calc(env(safe-area-inset-top, 0px) + 78px);
+          margin-bottom: 20px;
+        }
+
+        .logo {
+          max-height: 116px;
+        }
+
+        .home-split-layout {
+          display: grid;
+          grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+          gap: 28px;
+          align-items: start;
+        }
+
+        .home-category-panel {
+          position: sticky;
+          top: calc(env(safe-area-inset-top, 0px) + 98px);
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 18px;
+          border-radius: 26px;
+          border: 1px solid rgba(255, 255, 255, 0.72);
+          background: rgba(255, 255, 255, 0.58);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          box-shadow: 0 20px 55px rgba(2, 6, 23, 0.13);
+          max-height: calc(100vh - 132px);
+          overflow: auto;
+          transition:
+            background 0.28s ease,
+            box-shadow 0.28s ease,
+            transform 0.28s ease;
+        }
+
+        .home-category-panel__eyebrow {
+          padding: 2px 6px 8px;
+          color: rgba(15, 23, 42, 0.62);
+          font-size: 0.76rem;
+          font-weight: 950;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+
+        .home-category-item {
+          width: 100%;
+          min-height: 82px;
+          display: flex;
+          align-items: center;
+          gap: 13px;
+          padding: 14px;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          border-radius: 20px;
+          background: rgba(255, 255, 255, 0.62);
+          color: var(--brand-black);
+          text-align: left;
+          box-shadow: 0 10px 24px rgba(2, 6, 23, 0.08);
+          transition:
+            transform 0.18s ease,
+            background 0.18s ease,
+            box-shadow 0.18s ease,
+            border-color 0.18s ease;
+          animation: homeButtonCascade 0.32s ease both;
+        }
+
+        .home-category-item:hover,
+        .home-category-item--active {
+          transform: translateY(-2px);
+          background: linear-gradient(
+            135deg,
+            rgba(255, 122, 0, 0.95),
+            rgba(13, 110, 253, 0.82)
+          );
+          border-color: rgba(255, 255, 255, 0.42);
+          color: #fff;
+          box-shadow: 0 18px 38px rgba(13, 110, 253, 0.22);
+        }
+
+        .home-category-item__icon {
+          flex: 0 0 auto;
+          display: inline-grid;
+          place-items: center;
+          width: 48px;
+          height: 48px;
+          border-radius: 16px;
+          background: rgba(13, 110, 253, 0.11);
+          color: var(--brand-blue);
+          font-size: 19px;
+        }
+
+        .home-category-item:hover .home-category-item__icon,
+        .home-category-item--active .home-category-item__icon {
+          background: rgba(255, 255, 255, 0.2);
+          color: #fff;
+        }
+
+        .home-category-item__text {
+          min-width: 0;
+        }
+
+        .home-category-item__label {
+          display: block;
+          font-size: 0.98rem;
+          font-weight: 950;
+          line-height: 1.2;
+        }
+
+        .home-category-item__count {
+          display: block;
+          margin-top: 6px;
+          font-size: 0.78rem;
+          font-weight: 850;
+          opacity: 0.72;
+        }
+
+        .home-panel-back {
+          width: 100%;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 11px 13px;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.68);
+          color: var(--brand-black);
+          font-weight: 950;
+          text-align: left;
+          animation: homeSidebarSlideFromRight 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+          transition:
+            transform 0.18s ease,
+            background 0.18s ease,
+            box-shadow 0.18s ease;
+        }
+
+        .home-panel-back:hover {
+          transform: translateX(-2px);
+          background: rgba(255, 255, 255, 0.86);
+          box-shadow: 0 12px 28px rgba(2, 6, 23, 0.1);
+        }
+
+        .home-panel-title {
+          padding: 4px 6px 8px;
+          color: var(--brand-black);
+          animation: homeSidebarSlideFromRight 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) 0.04s both;
+        }
+
+        .home-panel-title span {
+          display: block;
+          color: rgba(15, 23, 42, 0.56);
+          font-size: 0.72rem;
+          font-weight: 950;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          margin-bottom: 4px;
+        }
+
+        .home-panel-title strong {
+          display: block;
+          font-size: 1.08rem;
+          line-height: 1.2;
+        }
+
+        .home-sidebar-button {
+          min-height: 66px;
+          animation: homeSidebarSlideFromRight 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+
+        .home-sidebar-button:nth-of-type(2) {
+          animation-delay: 0.04s;
+        }
+
+        .home-sidebar-button:nth-of-type(3) {
+          animation-delay: 0.08s;
+        }
+
+        .home-sidebar-button:nth-of-type(4) {
+          animation-delay: 0.12s;
+        }
+
+        .home-sidebar-button:nth-of-type(5) {
+          animation-delay: 0.16s;
+        }
+
+        .home-sidebar-button:nth-of-type(6) {
+          animation-delay: 0.20s;
+        }
+
+        .home-sidebar-button .home-category-item__icon {
+          width: 42px;
+          height: 42px;
+          border-radius: 14px;
+          font-size: 17px;
+        }
+
+        .home-submenu-panel {
+          min-height: 430px;
+          padding: 22px;
+          border-radius: 28px;
+          border: 1px solid rgba(255, 255, 255, 0.66);
+          background: rgba(255, 255, 255, 0.42);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          box-shadow: 0 20px 55px rgba(2, 6, 23, 0.10);
+          transition:
+            background 0.28s ease,
+            box-shadow 0.28s ease;
+        }
+
+        .home-section-title {
+          justify-content: flex-start;
+          margin-bottom: 18px;
+          padding: 2px 4px;
+        }
+
+        .home-section-kicker {
+          display: block;
+          color: rgba(15, 23, 42, 0.56);
+          font-size: 0.74rem;
+          font-weight: 950;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          margin-bottom: 3px;
+        }
+
+        .home-section-title h2 {
+          font-size: 1.55rem;
+        }
+
+        .home-submenu-grid {
+          grid-template-columns: repeat(2, minmax(220px, 1fr));
+          animation: homeSlideFromRight 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .home-submenu-button {
+          min-height: 154px;
+          animation: homeButtonCascade 0.34s ease both;
+        }
+
+        .home-submenu-button:nth-child(2) {
+          animation-delay: 0.04s;
+        }
+
+        .home-submenu-button:nth-child(3) {
+          animation-delay: 0.08s;
+        }
+
+        .home-submenu-button:nth-child(4) {
+          animation-delay: 0.12s;
+        }
+
+        .home-submenu-button:nth-child(5) {
+          animation-delay: 0.16s;
+        }
+
+        .home-submenu-button:nth-child(6) {
+          animation-delay: 0.20s;
+        }
+
+        .home-embedded-content {
+          min-height: calc(100vh - 230px);
+          border-radius: 22px;
+          overflow: hidden;
+          background: rgba(255, 255, 255, 0.72);
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+          transform-origin: right center;
+          animation: homeSlideFromRight 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
+          transition:
+            box-shadow 0.28s ease,
+            background 0.28s ease;
+        }
+
+        .home-embedded-content:hover {
+          box-shadow:
+            inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+            0 18px 42px rgba(2, 6, 23, 0.09);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .home-category-item,
+        .home-panel-back,
+        .home-panel-title,
+        .home-sidebar-button,
+        .home-submenu-grid,
+        .home-submenu-button,
+        .home-embedded-content {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+
+      @media (min-width: 1280px) {
+        .home-split-layout {
+          grid-template-columns: 320px minmax(0, 1fr);
+          gap: 34px;
+        }
+
+        .home-submenu-grid {
+          grid-template-columns: repeat(3, minmax(220px, 1fr));
+        }
       }
 
       .alert-badge {
@@ -389,7 +754,7 @@
         <a *ngIf="global.hasPermission('ADMIN_VIEW')" (click)="navigateToGestioneUsers()">Gestione users</a>
         <a *ngIf="global.hasPermission('EMPLOYEE_CREATE')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</a>
         <a (click)="navigateToCambiapassword()">Cambia password</a>
-        <a *ngIf="global.hasPermission('EMPLOYEE_PERMITS_MANAGE')" (click)="navigateToLeaveSettings()">Impostazioni Permessi</a>
+        <a *ngIf="global.hasPermission('EMPLOYEE_PERMITS_MANAGE')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</a>
         <a *ngIf="global.hasPermission('SETTINGS_ADMIN')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
         <a *ngIf="global.hasPermission('SETTINGS_QUOTES')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>
       </div>
@@ -403,60 +768,135 @@
       </div>
 
       <div class="container pb-5">
-        <div class="row justify-content-center g-4" *ngIf="shouldShowHomeCategories">
-          <div
-            class="col-12 col-sm-6 col-lg-4"
-            *ngFor="let category of visibleHomeCategories"
-          >
-            <button class="dash-btn" (click)="selectHomeCategory(category.id)">
-              <span class="icon"><i [class]="category.icon"></i></span>
-              <span class="label">
-                {{ category.label }}
-                <span
-                  *ngIf="categoryBadgeCount(category) > 0"
-                  class="badge bg-danger ms-1"
-                >
-                  {{ categoryBadgeCount(category) }}
+        <div class="home-split-layout">
+          <aside class="home-category-panel" *ngIf="visibleHomeCategories.length > 1">
+            <ng-container *ngIf="!isDesktopContentActive; else desktopSubmenuSidebar">
+              <div class="home-category-panel__eyebrow">Menu principale</div>
+              <button
+                class="home-category-item"
+                *ngFor="let category of visibleHomeCategories"
+                [class.home-category-item--active]="selectedHomeCategory?.id === category.id"
+                type="button"
+                (click)="selectHomeCategory(category.id)"
+              >
+                <span class="home-category-item__icon">
+                  <i [class]="category.icon"></i>
                 </span>
-              </span>
-              <span class="category-count">
-                {{ visibleHomeButtons(category).length }} sezioni
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <div
-          class="home-section-title"
-          *ngIf="visibleHomeCategories.length > 1 && selectedHomeCategory"
-        >
-          <button class="home-category-back" type="button" (click)="clearHomeCategory()">
-            &larr;
-          </button>
-          <h2>{{ selectedHomeCategory.label }}</h2>
-        </div>
-
-        <div
-          class="row justify-content-center g-4"
-          *ngIf="!shouldShowHomeCategories"
-        >
-          <div
-            class="col-12 col-sm-6 col-lg-4"
-            *ngFor="let button of currentHomeButtons"
-          >
-            <button class="dash-btn" (click)="button.action()">
-              <span class="icon"><i [class]="button.icon"></i></span>
-              <span class="label">
-                {{ button.label }}
-                <span
-                  *ngIf="buttonBadgeCount(button) > 0"
-                  [ngClass]="buttonBadgeClass(button)"
-                >
-                  {{ buttonBadgeCount(button) }}
+                <span class="home-category-item__text">
+                  <span class="home-category-item__label">
+                    {{ category.label }}
+                    <span
+                      *ngIf="categoryBadgeCount(category) > 0"
+                      class="badge bg-danger ms-1"
+                    >
+                      {{ categoryBadgeCount(category) }}
+                    </span>
+                  </span>
+                  <span class="home-category-item__count">
+                    {{ visibleHomeButtons(category).length }} sezioni
+                  </span>
                 </span>
-              </span>
-            </button>
-          </div>
+              </button>
+            </ng-container>
+
+            <ng-template #desktopSubmenuSidebar>
+              <button class="home-panel-back" type="button" (click)="showDesktopMainMenu()">
+                <span>&larr;</span>
+                <span>Menu principale</span>
+              </button>
+
+              <div class="home-panel-title" *ngIf="selectedHomeCategory">
+                <span>Sottomenu</span>
+                <strong>{{ selectedHomeCategory.label }}</strong>
+              </div>
+
+              <button
+                class="home-category-item home-sidebar-button"
+                *ngFor="let button of currentHomeButtons"
+                type="button"
+                (click)="activateHomeButton(button)"
+              >
+                <span class="home-category-item__icon">
+                  <i [class]="button.icon"></i>
+                </span>
+                <span class="home-category-item__text">
+                  <span class="home-category-item__label">
+                    {{ button.label }}
+                    <span
+                      *ngIf="buttonBadgeCount(button) > 0"
+                      [ngClass]="buttonBadgeClass(button)"
+                    >
+                      {{ buttonBadgeCount(button) }}
+                    </span>
+                  </span>
+                </span>
+              </button>
+            </ng-template>
+          </aside>
+
+          <section class="home-submenu-panel">
+            <div class="home-embedded-content" *ngIf="isDesktopContentActive; else homeSubmenuChooser">
+              <router-outlet></router-outlet>
+            </div>
+
+            <ng-template #homeSubmenuChooser>
+            <div class="home-section-title" *ngIf="selectedHomeCategory">
+              <button
+                class="home-category-back"
+                type="button"
+                (click)="clearHomeCategory()"
+                *ngIf="!isDesktopHome && visibleHomeCategories.length > 1 && selectedHomeCategoryId"
+              >
+                &larr;
+              </button>
+              <div>
+                <span class="home-section-kicker">Sottomenu</span>
+                <h2>{{ selectedHomeCategory.label }}</h2>
+              </div>
+            </div>
+
+            <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">
+              <button
+                class="dash-btn"
+                *ngFor="let category of visibleHomeCategories"
+                (click)="selectHomeCategory(category.id)"
+              >
+                <span class="icon"><i [class]="category.icon"></i></span>
+                <span class="label">
+                  {{ category.label }}
+                  <span
+                    *ngIf="categoryBadgeCount(category) > 0"
+                    class="badge bg-danger ms-1"
+                  >
+                    {{ categoryBadgeCount(category) }}
+                  </span>
+                </span>
+                <span class="category-count">
+                  {{ visibleHomeButtons(category).length }} sezioni
+                </span>
+              </button>
+            </div>
+
+            <div class="home-submenu-grid" *ngIf="!shouldShowHomeCategories">
+              <button
+                class="dash-btn home-submenu-button"
+                *ngFor="let button of currentHomeButtons"
+                (click)="activateHomeButton(button)"
+              >
+                <span class="icon"><i [class]="button.icon"></i></span>
+                <span class="label">
+                  {{ button.label }}
+                  <span
+                    *ngIf="buttonBadgeCount(button) > 0"
+                    [ngClass]="buttonBadgeClass(button)"
+                  >
+                    {{ buttonBadgeCount(button) }}
+                  </span>
+                </span>
+              </button>
+            </div>
+            </ng-template>
+          </section>
         </div>
       </div>
     </div>

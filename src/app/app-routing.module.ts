@@ -39,7 +39,6 @@ import { ShiftHomeComponent } from './admin/shift-home/shift-home.component';
 import { CreateShiftComponent } from './admin/create-shift/create-shift.component';
 
 import { GestionePermessiComponent } from './admin/gestione-permessi/gestione-permessi.component';
-import { GestioneAssenzeComponent } from './admin/gestione-assenze/gestione-assenze.component';
 import { LeaveSettingsComponent } from './admin/leave-settings/leave-settings.component';
 
 import { RiepilogoPresenzeEditabileComponent } from './admin/riepilogo-presenze-editabile/riepilogo-presenze-editabile.component';
@@ -66,6 +65,92 @@ const routes: Routes = [
     path: 'homeAdmin',
     component: HomeAdminComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
+    children: [
+      {
+        path: 'gestioneemployees',
+        component: GestioneEmployeesComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'EMPLOYEE_VIEW' },
+      },
+      {
+        path: 'employee-deadlines',
+        component: DeadlinesManagementComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'EMPLOYEE_DEADLINES_VIEW', kind: 'employee' },
+      },
+      {
+        path: 'shifts',
+        component: ShiftHomeComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'SHIFTS_VIEW' },
+      },
+      {
+        path: 'riepilogo-presenze-editabile',
+        component: RiepilogoPresenzeEditabileComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'ATTENDANCE_MANAGE' },
+      },
+      {
+        path: 'gestionepermessi',
+        component: GestionePermessiComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
+      },
+      {
+        path: 'timbratureHome',
+        component: TimbratureHomeComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'STAMPING_VIEW' },
+      },
+      {
+        path: 'listCustomer',
+        component: ListCustomerComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMERS_VIEW' },
+      },
+      {
+        path: 'quotesHome',
+        component: QuotesHomeComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'QUOTES_VIEW' },
+      },
+      {
+        path: 'calendarHome',
+        component: CalendarHomeComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CALENDAR_VIEW' },
+      },
+      {
+        path: 'service-orders',
+        component: ServiceOrdersComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'SERVICE_ORDERS_VIEW' },
+      },
+      {
+        path: 'riepilogo-ore-clienti',
+        component: RiepilogoOreClientiComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMERS_HOURS_VIEW' },
+      },
+      {
+        path: 'gestioneusers',
+        component: GestioneUsersComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'ADMIN_VIEW' },
+      },
+      {
+        path: 'vehicle-deadlines',
+        component: DeadlinesManagementComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'VEHICLE_DEADLINES_VIEW', kind: 'vehicle' },
+      },
+      {
+        path: 'internal-documents',
+        component: InternalDocumentsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'INTERNAL_DOCS_ACCESS' },
+      },
+    ],
   },
 
   // gestione amministratori
@@ -213,7 +298,7 @@ const routes: Routes = [
   },
   {
     path: 'gestioneassenze',
-    component: GestioneAssenzeComponent,
+    component: GestionePermessiComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
     data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
   },
@@ -258,7 +343,7 @@ const routes: Routes = [
     path: 'riepilogo-presenze-editabile',
     component: RiepilogoPresenzeEditabileComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
-    data: { permissionsAny: ['ATTENDANCE_VIEW', 'ATTENDANCE_MANAGE'] },
+    data: { permission: 'ATTENDANCE_MANAGE' },
   },
 
   // ore clienti

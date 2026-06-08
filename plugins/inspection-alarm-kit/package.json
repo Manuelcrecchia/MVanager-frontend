@@ -1,0 +1,21 @@
+{
+  "name": "mvanager-inspection-alarm-kit",
+  "version": "0.0.1",
+  "description": "MVanager local Capacitor plugin for iOS inspection alarms.",
+  "main": "dist/plugin.cjs.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "files": [
+    "dist/",
+    "ios/Sources",
+    "InspectionAlarmKitPlugin.podspec"
+  ],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=7.0.0"
+  }
+}

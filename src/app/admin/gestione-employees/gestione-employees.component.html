@@ -76,9 +76,9 @@
             <button
               *ngIf="globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE')"
               class="btn btn-outline-brand btn-sm btn-round"
-              (click)="goToAssenze(emp.id)"
+              (click)="goToPermessiAssenze(emp.id)"
             >
-              🗓️ Assenze
+              🗓️ Permessi e assenze
             </button>
 
             <button
@@ -127,9 +127,9 @@
         <button
           *ngIf="globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE')"
           class="btn btn-outline-brand btn-sm btn-round"
-          (click)="goToAssenze(emp.id)"
+          (click)="goToPermessiAssenze(emp.id)"
         >
-          🗓️ Assenze
+          🗓️ Permessi e assenze
         </button>
 
         <button

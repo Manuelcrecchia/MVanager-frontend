@@ -60,6 +60,8 @@ PODS:
   - GoogleUtilities/UserDefaults (8.1.0):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
+  - MvanagerInspectionAlarmKit (0.0.1):
+    - Capacitor
   - nanopb (3.30910.0):
     - nanopb/decode (= 3.30910.0)
     - nanopb/encode (= 3.30910.0)
@@ -75,6 +77,7 @@ DEPENDENCIES:
   - CapacitorNativeBiometric (from `../../node_modules/capacitor-native-biometric`)
   - "CapacitorPreferences (from `../../node_modules/@capacitor/preferences`)"
   - "CapacitorPushNotifications (from `../../node_modules/@capacitor/push-notifications`)"
+  - MvanagerInspectionAlarmKit (from `../../plugins/inspection-alarm-kit`)
 
 SPEC REPOS:
   trunk:
@@ -102,6 +105,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/preferences"
   CapacitorPushNotifications:
     :path: "../../node_modules/@capacitor/push-notifications"
+  MvanagerInspectionAlarmKit:
+    :path: "../../plugins/inspection-alarm-kit"
 
 SPEC CHECKSUMS:
   Capacitor: 0a78ec6b54580fa055c11744a4e83cd7942d98ca
@@ -117,9 +122,10 @@ SPEC CHECKSUMS:
   FirebaseMessaging: 00ece041b71ddb52a2862ffdee73fb6e9824bd0c
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
+  MvanagerInspectionAlarmKit: 6d854ff7b4acbda2c8a3ba3b1a0d2f87b87da02b
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
 
-PODFILE CHECKSUM: db1346e4ec1238deb88a9603442575ed1830e075
+PODFILE CHECKSUM: 432bdb7b223cdaf24a0f0deb76d8fae678d3c775
 
 COCOAPODS: 1.16.2

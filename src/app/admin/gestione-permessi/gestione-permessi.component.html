@@ -212,7 +212,7 @@
     </button>
   </div>
 
-  <h2 class="permessi-title text-dark">Gestione Permessi Richiesti</h2>
+  <h2 class="permessi-title text-dark">Gestione permessi e assenze</h2>
 
   <div *ngIf="loading" class="text-center my-3">
     <div class="spinner-border" role="status"></div>
@@ -275,6 +275,74 @@
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="mt-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+      <h4 class="text-dark mb-0">Storico</h4>
+      <select
+        class="form-select w-auto"
+        [(ngModel)]="selectedHistoryEmployeeId"
+        (change)="onHistoryEmployeeChange()"
+      >
+        <option value="">Tutti i dipendenti</option>
+        <option *ngFor="let emp of employees" [value]="emp.id">
+          {{ emp.nome }} {{ emp.cognome }}
+        </option>
+      </select>
+    </div>
+
+    <div *ngIf="historyRequests.length === 0" class="alert alert-light">
+      Nessuno storico disponibile.
+    </div>
+
+    <div class="table-responsive" *ngIf="historyRequests.length > 0">
+      <table class="table table-sm table-striped bg-white text-dark align-middle">
+        <thead>
+          <tr>
+            <th>Dipendente</th>
+            <th>Categoria</th>
+            <th>Tipo</th>
+            <th>Periodo</th>
+            <th>Ore</th>
+            <th>Stato</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let req of historyRequests">
+            <td>{{ req.employee?.nome }} {{ req.employee?.cognome }}</td>
+            <td>{{ req.categoria }}</td>
+            <td class="text-capitalize">{{ req.tipoPermesso }}</td>
+            <td>
+              <span *ngIf="req.fromDate === req.toDate">{{ req.fromDate | date:'dd/MM/yyyy' }}</span>
+              <span *ngIf="req.fromDate !== req.toDate">
+                {{ req.fromDate | date:'dd/MM/yyyy' }} - {{ req.toDate | date:'dd/MM/yyyy' }}
+              </span>
+            </td>
+            <td>
+              <span *ngIf="req.oraInizioModificata && req.oraFineModificata">
+                {{ req.oraInizioModificata }}-{{ req.oraFineModificata }}
+              </span>
+              <span *ngIf="!req.oraInizioModificata || !req.oraFineModificata">
+                {{ req.oreGiornaliere || '-' }}
+              </span>
+            </td>
+            <td>
+              <span
+                class="badge"
+                [ngClass]="{
+                  'bg-success': req.status === 'accettato',
+                  'bg-danger': req.status === 'rifiutato',
+                  'bg-warning text-dark': req.status === 'modificato'
+                }"
+              >
+                {{ req.status === 'modificato' ? 'Da confermare' : req.status }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -519,7 +587,7 @@
         </ng-container>
 
         <p class="small text-muted mt-2 mb-0">
-          Il dipendente riceverà una notifica e dovrà confermare il permesso.
+          Puoi salvare subito senza notifica oppure inviare al dipendente per conferma.
         </p>
       </div>
 
