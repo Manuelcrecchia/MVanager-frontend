@@ -59,7 +59,11 @@ export class GlobalService {
           }
         })
         .catch((error) => {
-          console.error('Errore verifica versione server', this.url + 'api/version', error);
+          console.error(
+            'Errore verifica versione server',
+            this.url + 'api/version',
+            error,
+          );
           alert('Impossibile verificare la versione del server.');
           resolve(false);
         });
@@ -105,9 +109,10 @@ export function resolveApiBaseUrl(options: {
   host: string;
 }): string {
   const { host, tenant, forMobile } = options;
-  const tenantUrl = tenant === 'emmeci'
-    ? 'https://nodeemmeci.mvtechcore.it/'
-    : 'https://nodesami.mvtechcore.it/';
+  const tenantUrl =
+    tenant === 'emmeci'
+      ? 'https://nodeemmeci.mvtechcore.it/'
+      : 'https://nodesami.mvtechcore.it/';
 
   if (forMobile) {
     return environment.mobileDevApiUrl || tenantUrl;

@@ -120,10 +120,10 @@ export class ShiftHomeComponent implements OnInit {
           empName,
           numeroCliente,
           start: shift?.startDate && shift?.startDate !== 'null' && shift?.startDate !== '' ? shift.startDate : null,
-          duration: emp?.ShiftEmployees?.durationOverride != null
-            ? Number(emp.ShiftEmployees.durationOverride) || 0
+          duration: this.getShiftEmployeeLink(emp)?.durationOverride != null
+            ? Number(this.getShiftEmployeeLink(emp).durationOverride) || 0
             : Number(shift?.duration) || 0,
-          published: emp?.ShiftEmployees?.published === true,
+          published: this.getShiftEmployeeLink(emp)?.published === true,
           cellulare: emp?.cellulare ?? null,
           description: shift?.description || '',
           vehicleName: shift?.vehicles?.length ? shift.vehicles[0].name : (shift?.vehicle?.name ?? null),
@@ -196,7 +196,20 @@ export class ShiftHomeComponent implements OnInit {
   }
 
   private formatDate(date: Date): string {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private getShiftEmployeeLink(emp: any): any {
+    return (
+      emp?.ShiftEmployees ||
+      emp?.shiftEmployees ||
+      emp?.ShiftEmployee ||
+      emp?.shiftEmployee ||
+      {}
+    );
   }
 
   private resolveKeyRequired(shift: any): boolean {
@@ -339,7 +352,8 @@ export class ShiftHomeComponent implements OnInit {
           (name: string) => name !== key,
         );
 
-        const joinPublished: boolean = emp?.ShiftEmployees?.published === true;
+        const link = this.getShiftEmployeeLink(emp);
+        const joinPublished: boolean = link?.published === true;
 
         result[key].push({
           empId,
@@ -353,8 +367,8 @@ export class ShiftHomeComponent implements OnInit {
               ? shift.startDate
               : null,
           duration:
-            emp?.ShiftEmployees?.durationOverride != null
-              ? Number(emp.ShiftEmployees.durationOverride) || 0
+            link?.durationOverride != null
+              ? Number(link.durationOverride) || 0
               : Number(shift?.duration) || 0,
           appointmentId: Number(shift?.appointmentId) || 0,
           keyRequired: this.resolveKeyRequired(shift),

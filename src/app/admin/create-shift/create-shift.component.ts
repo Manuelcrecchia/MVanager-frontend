@@ -205,7 +205,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     return category === 'ordinario' || category === 'straordinario' || category === 'ordineservizio';
   }
 
-  private scheduleAutosave(app: any): void {
+  private scheduleAutosave(app: any, includeAssignments = false): void {
     if (!app) return;
     const id = String(app.id);
 
@@ -215,11 +215,11 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
     this.autosaveTimers[id] = setTimeout(() => {
       this.autosaveTimers[id] = null;
-      this.autosave(app);
+      this.autosave(app, includeAssignments);
     }, this.autosaveDelayMs);
   }
 
-  private autosave(app: any): void {
+  private autosave(app: any, includeAssignments = false): void {
     const dateStr = this.formatDate(this.selectedDate);
 
     let start: string | null = null;
@@ -231,9 +231,6 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       shiftId: app.shiftId || null,
       appointmentId: app.isExtra ? null : app.originalAppointmentId || app.id,
       data: dateStr,
-      employeeIds: this.assignedShifts[app.id] || [],
-      capisquadra: this.assignedCapisquadra[app.id] || [],
-      capisquadraNotesMap: this.assignedCapisquadraNotes[app.id] || {},
       title: app.title,
       description: app.description,
       startDate: start,
@@ -242,18 +239,25 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       vehicleIds: this.assignedVehicles[app.id] || [],
     };
 
+    if (includeAssignments) {
+      payload.updateEmployees = true;
+      payload.employeeIds = this.assignedShifts[app.id] || [];
+      payload.capisquadra = this.assignedCapisquadra[app.id] || [];
+      payload.capisquadraNotesMap = this.assignedCapisquadraNotes[app.id] || {};
+    }
+
     console.log('AUTOSAVE PAYLOAD ->', payload);
     console.log('assignedCapisquadraNotes[' + app.id + '] =', this.assignedCapisquadraNotes[app.id]);
 
     this.http
-      .post<any>(this.globalService.url + 'shifts/autosave', payload)
-      .subscribe({
+	      .post<any>(this.globalService.url + 'shifts/autosave', payload)
+	      .subscribe({
         next: (res) => {
-          if (app.isExtra && !app.shiftId && res?.shiftId) {
+          if (!app.shiftId && res?.shiftId) {
             app.shiftId = res.shiftId;
           }
         },
-        error: (err) => {
+	        error: (err) => {
           console.error('Autosave fallito:', err);
           alert(this.parseServerError(err));
         },
@@ -450,7 +454,20 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   }
 
   formatDate(date: Date): string {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private getShiftEmployeeLink(emp: any): any {
+    return (
+      emp?.ShiftEmployees ||
+      emp?.shiftEmployees ||
+      emp?.ShiftEmployee ||
+      emp?.shiftEmployee ||
+      {}
+    );
   }
 
   parseHourInput(value: string): Date | null {
@@ -528,6 +545,10 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     const dateStr = this.formatDate(this.selectedDate);
 
     this.appointments = [];
+    this.assignedShifts = {};
+    this.assignedCapisquadra = {};
+    this.assignedCapisquadraNotes = {};
+    this.assignedVehicles = {};
 
     this.http
       .post<any[]>(this.globalService.url + 'appointments/byDate', {
@@ -654,12 +675,13 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
             // Carica caposquadra e note
             this.assignedCapisquadra[extraId] = (s.employees || [])
-              .filter((e: any) => e.ShiftEmployees?.isCaposquadra)
+              .filter((e: any) => this.getShiftEmployeeLink(e)?.isCaposquadra)
               .map((e: any) => e.id);
             this.assignedCapisquadraNotes[extraId] = {};
             (s.employees || []).forEach((e: any) => {
-              if (e.ShiftEmployees?.caposquadraNote) {
-                this.assignedCapisquadraNotes[extraId][e.id] = e.ShiftEmployees.caposquadraNote;
+              const link = this.getShiftEmployeeLink(e);
+              if (link?.caposquadraNote) {
+                this.assignedCapisquadraNotes[extraId][e.id] = link.caposquadraNote;
               }
             });
 
@@ -693,6 +715,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
                 this.appointments.push({
                   id: newId,
+                  shiftId: s.id,
                   originalAppointmentId: s.appointmentId,
                   appointmentId: s.appointmentId,
                   isExtra: false,
@@ -721,18 +744,21 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
               // Carica caposquadra e note
               this.assignedCapisquadra[newId] = (s.employees || [])
-                .filter((e: any) => e.ShiftEmployees?.isCaposquadra)
+                .filter((e: any) => this.getShiftEmployeeLink(e)?.isCaposquadra)
                 .map((e: any) => e.id);
               this.assignedCapisquadraNotes[newId] = {};
               (s.employees || []).forEach((e: any) => {
-                if (e.ShiftEmployees?.caposquadraNote) {
-                  this.assignedCapisquadraNotes[newId][e.id] = e.ShiftEmployees.caposquadraNote;
+                const link = this.getShiftEmployeeLink(e);
+                if (link?.caposquadraNote) {
+                  this.assignedCapisquadraNotes[newId][e.id] = link.caposquadraNote;
                 }
               });
 
               this.assignedVehicles[newId] = Array.isArray(s.vehicleIds) ? s.vehicleIds : (s.vehicleId != null ? [s.vehicleId] : []);
               continue;
             }
+
+            app.shiftId = s.id;
 
             if ('startDate' in s) {
               app.startDate =
@@ -766,12 +792,13 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
             // Carica caposquadra e note
             this.assignedCapisquadra[app.id] = (s.employees || [])
-              .filter((e: any) => e.ShiftEmployees?.isCaposquadra)
+              .filter((e: any) => this.getShiftEmployeeLink(e)?.isCaposquadra)
               .map((e: any) => e.id);
             this.assignedCapisquadraNotes[app.id] = {};
             (s.employees || []).forEach((e: any) => {
-              if (e.ShiftEmployees?.caposquadraNote) {
-                this.assignedCapisquadraNotes[app.id][e.id] = e.ShiftEmployees.caposquadraNote;
+              const link = this.getShiftEmployeeLink(e);
+              if (link?.caposquadraNote) {
+                this.assignedCapisquadraNotes[app.id][e.id] = link.caposquadraNote;
               }
             });
 
@@ -841,7 +868,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         this.assignedShifts[app.id] = result.employees || result;
         this.assignedCapisquadra[app.id] = result.capisquadra || [];
         this.assignedCapisquadraNotes[app.id] = result.capisquadraNotesMap || {};
-        this.scheduleAutosave(app);
+        this.scheduleAutosave(app, true);
 
         this.socketService.emitUpdate({
           type: 'assignEmployees',
@@ -982,10 +1009,9 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   removeExtra(app: any): void {
     const dateStr = this.formatDate(this.selectedDate);
     const payload: any = { appointmentId: app.appointmentId, data: dateStr };
+    if (app.shiftId) payload.shiftId = app.shiftId;
 
     if (app.isExtra) {
-      if (app.shiftId) payload.shiftId = app.shiftId;
-
       this.socketService.emitUpdate({
         type: 'removeExtra',
         date: this.formatDate(this.selectedDate),
