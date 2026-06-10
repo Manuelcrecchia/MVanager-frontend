@@ -875,7 +875,7 @@
       }
 
       .mobile-todo-panel {
-        margin-top: 22px;
+        margin-bottom: 22px;
       }
 
       /* ===== MOBILE BODY (categories / submenus as cards) ===== */
@@ -1450,28 +1450,6 @@
             </div>
           </div>
 
-          <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">
-            <button
-              class="dash-btn"
-              *ngFor="let category of visibleHomeCategories"
-              (click)="selectHomeCategory(category.id)"
-            >
-              <span class="icon"><i [class]="category.icon"></i></span>
-              <span class="label">
-                {{ category.label }}
-                <span
-                  *ngIf="categoryBadgeCount(category) > 0"
-                  class="badge bg-danger ms-1"
-                >
-                  {{ categoryBadgeCount(category) }}
-                </span>
-              </span>
-              <span class="category-count">
-                {{ visibleHomeButtons(category).length }} sezioni
-              </span>
-            </button>
-          </div>
-
           <section class="todo-panel mobile-todo-panel" *ngIf="shouldShowHomeCategories" aria-label="Todo list universale">
             <div class="todo-panel-header">
               <h3>Todo list universale</h3>
@@ -1511,6 +1489,28 @@
               </li>
             </ul>
           </section>
+
+          <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">
+            <button
+              class="dash-btn"
+              *ngFor="let category of visibleHomeCategories"
+              (click)="selectHomeCategory(category.id)"
+            >
+              <span class="icon"><i [class]="category.icon"></i></span>
+              <span class="label">
+                {{ category.label }}
+                <span
+                  *ngIf="categoryBadgeCount(category) > 0"
+                  class="badge bg-danger ms-1"
+                >
+                  {{ categoryBadgeCount(category) }}
+                </span>
+              </span>
+              <span class="category-count">
+                {{ visibleHomeButtons(category).length }} sezioni
+              </span>
+            </button>
+          </div>
 
           <div class="home-submenu-grid" *ngIf="!shouldShowHomeCategories">
             <button
