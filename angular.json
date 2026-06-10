@@ -104,6 +104,10 @@
             "allowedHosts": [
               "emmeci.local",
               "sami.local",
+              "nodeemmeci.localhost",
+              "nodesami.localhost",
+              "emmeci.localhost",
+              "sami.localhost",
               "sami.mvtechcore.it",
               "emmeci.mvtechcore.it"
             ]

@@ -295,56 +295,24 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   get homeCategories(): HomeCategory[] {
     return [
-      {
-        id: 'personale',
-        label: 'Ufficio tecnico',
-        icon: 'fas fa-user-friends',
-        buttons: [
-          {
-            label: 'Gestione Dipendenti',
-            icon: 'fas fa-user',
-            permission: 'EMPLOYEE_VIEW',
-            action: () => this.navigateToGestioneemployees(),
-            desktopPath: 'gestioneemployees',
-          },
-          {
-            label: 'Scadenze Dipendenti',
-            icon: 'fas fa-id-card',
-            permission: 'EMPLOYEE_DEADLINES_VIEW',
-            action: () => this.navigateToEmployeeDeadlines(),
-            desktopPath: 'employee-deadlines',
-            badgeCount: () => this.employeeDeadlineSummary.alertCount,
-            badgeClass: () => this.deadlineBadgeClass(this.employeeDeadlineSummary),
-          },
-          {
-            label: 'Turni',
-            icon: 'fas fa-tasks',
-            permission: 'SHIFTS_VIEW',
-            action: () => this.goToShifts(),
-            desktopPath: 'shifts',
-          },
-          {
-            label: 'Riepilogo presenze personalizzabile',
-            icon: 'fas fa-clock',
-            permission: 'ATTENDANCE_MANAGE',
-            action: () => this.goToEditableHours(),
-            desktopPath: 'riepilogo-presenze-editabile',
-          },
-          {
-            label: 'Gestione permessi e assenze',
-            icon: 'fas fa-clipboard-check',
-            permission: 'EMPLOYEE_PERMITS_MANAGE',
-            action: () => this.navigateToGestionePermessi(),
-            desktopPath: 'gestionepermessi',
-            badgeCount: () => this.permessiInAttesa,
-            badgeClass: () => 'badge bg-danger ms-1',
-          },
-          {
-            label: 'Gestione Timbrature',
-            icon: 'fas fa-fingerprint',
-            permission: 'STAMPING_VIEW',
-            action: () => this.navigateToTimbrature(),
-            desktopPath: 'timbratureHome',
+	      {
+	        id: 'personale',
+	        label: 'Ufficio tecnico',
+	        icon: 'fas fa-user-friends',
+	        buttons: [
+	          {
+	            label: 'Turni',
+	            icon: 'fas fa-tasks',
+	            permission: 'SHIFTS_VIEW',
+	            action: () => this.goToShifts(),
+	            desktopPath: 'shifts',
+	          },
+	          {
+	            label: 'Gestione Timbrature',
+	            icon: 'fas fa-fingerprint',
+	            permission: 'STAMPING_VIEW',
+	            action: () => this.navigateToTimbrature(),
+	            desktopPath: 'timbratureHome',
           },
         ],
       },
@@ -370,18 +338,50 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             badgeClass: () => 'badge bg-danger ms-1',
           },
         ],
-      },
-      {
-        id: 'operativo',
-        label: 'Risorse umane',
-        icon: 'fas fa-briefcase',
-        buttons: [
-          {
-            label: 'Calendario',
-            icon: 'fas fa-calendar',
-            permission: 'CALENDAR_VIEW',
-            action: () => this.navigateToCalendarHome(),
-            desktopPath: 'calendarHome',
+	      },
+	      {
+	        id: 'operativo',
+	        label: 'Risorse umane',
+	        icon: 'fas fa-briefcase',
+	        buttons: [
+	          {
+	            label: 'Gestione Dipendenti',
+	            icon: 'fas fa-user',
+	            permission: 'EMPLOYEE_VIEW',
+	            action: () => this.navigateToGestioneemployees(),
+	            desktopPath: 'gestioneemployees',
+	          },
+	          {
+	            label: 'Scadenze Dipendenti',
+	            icon: 'fas fa-id-card',
+	            permission: 'EMPLOYEE_DEADLINES_VIEW',
+	            action: () => this.navigateToEmployeeDeadlines(),
+	            desktopPath: 'employee-deadlines',
+	            badgeCount: () => this.employeeDeadlineSummary.alertCount,
+	            badgeClass: () => this.deadlineBadgeClass(this.employeeDeadlineSummary),
+	          },
+	          {
+	            label: 'Riepilogo presenze personalizzabile',
+	            icon: 'fas fa-clock',
+	            permission: 'ATTENDANCE_MANAGE',
+	            action: () => this.goToEditableHours(),
+	            desktopPath: 'riepilogo-presenze-editabile',
+	          },
+	          {
+	            label: 'Gestione permessi e assenze',
+	            icon: 'fas fa-clipboard-check',
+	            permission: 'EMPLOYEE_PERMITS_MANAGE',
+	            action: () => this.navigateToGestionePermessi(),
+	            desktopPath: 'gestionepermessi',
+	            badgeCount: () => this.permessiInAttesa,
+	            badgeClass: () => 'badge bg-danger ms-1',
+	          },
+	          {
+	            label: 'Calendario',
+	            icon: 'fas fa-calendar',
+	            permission: 'CALENDAR_VIEW',
+	            action: () => this.navigateToCalendarHome(),
+	            desktopPath: 'calendarHome',
           },
           {
             label: 'Ordini di servizio',
@@ -510,7 +510,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       })
       .subscribe({
         next: (todos) => {
-          this.adminTodos = Array.isArray(todos) ? todos : [];
+          this.adminTodos = this.dedupeAdminTodos(Array.isArray(todos) ? todos : []);
           this.todoLoading = false;
         },
         error: (err) => {
@@ -536,7 +536,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (todo) => {
-          this.adminTodos = [todo, ...this.adminTodos];
+          this.upsertAdminTodo(todo);
           this.newTodoTitle = '';
           this.todoSaving = false;
         },
@@ -560,9 +560,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (updatedTodo) => {
-          this.adminTodos = this.adminTodos.map((item) =>
-            item.id === updatedTodo.id ? updatedTodo : item,
-          );
+          this.upsertAdminTodo(updatedTodo);
         },
         error: (err) => {
           console.error('Errore aggiornamento todo admin:', err);
@@ -611,16 +609,31 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
           return;
         }
 
-        const existingIndex = this.adminTodos.findIndex((item) => item.id === todo.id);
-        if (existingIndex >= 0) {
-          this.adminTodos = this.adminTodos.map((item) =>
-            item.id === todo.id ? todo : item,
-          );
-          return;
-        }
-
-        this.adminTodos = [todo, ...this.adminTodos];
+        this.upsertAdminTodo(todo);
       });
+  }
+
+  private upsertAdminTodo(todo: AdminTodo): void {
+    if (!todo?.id) return;
+
+    const existingIndex = this.adminTodos.findIndex((item) => item.id === todo.id);
+    if (existingIndex >= 0) {
+      this.adminTodos = this.adminTodos.map((item) =>
+        item.id === todo.id ? todo : item,
+      );
+      return;
+    }
+
+    this.adminTodos = [todo, ...this.adminTodos];
+  }
+
+  private dedupeAdminTodos(todos: AdminTodo[]): AdminTodo[] {
+    const seen = new Set<number>();
+    return todos.filter((todo) => {
+      if (!todo?.id || seen.has(todo.id)) return false;
+      seen.add(todo.id);
+      return true;
+    });
   }
 
   get openAdminTodosCount(): number {

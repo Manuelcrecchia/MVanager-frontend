@@ -9,7 +9,7 @@ import { environment } from '../../environments/environment';
   providedIn: 'root',
 })
 export class GlobalService {
-  version = '3.8';
+  version = '4.0';
 
   constructor(
     private authService: AuthServiceService,
@@ -22,22 +22,11 @@ export class GlobalService {
 
   get url(): string {
     const tenantUrl = this.tenantService.isEmmeci
-      ? 'https://nodeemmeci.mvtechcore.it/'
-      : 'https://nodesami.mvtechcore.it/';
+      ? environment.apiUrls.emmeci
+      : environment.apiUrls.sami;
 
     if (this.forMobile) {
       return environment.mobileDevApiUrl || tenantUrl;
-    }
-
-    const host = window.location.hostname.toLowerCase();
-
-    if (
-      host.includes('localhost') ||
-      host.includes('127.0.0.1') ||
-      host.includes('emmeci.local') ||
-      host.includes('sami.local')
-    ) {
-      return 'http://localhost:5001/';
     }
 
     return tenantUrl;
@@ -45,12 +34,25 @@ export class GlobalService {
 
   checkVersion(): Promise<boolean> {
     return new Promise((resolve) => {
-      fetch(this.url + 'api/version')
+      const platform = this.forMobile ? 'mobile' : 'web';
+      const url =
+        this.url +
+        `api/version?app=MVanager&platform=${platform}&version=${encodeURIComponent(this.version)}`;
+
+      fetch(url)
         .then((res) => res.json())
         .then((data) => {
-          if (data.version !== this.version) {
+          const supported =
+            typeof data.supported === 'boolean'
+              ? data.supported
+              : data.version === this.version;
+
+          if (!supported) {
+            const allowed = Array.isArray(data.allowedVersions)
+              ? data.allowedVersions.join(', ')
+              : data.version;
             alert(
-              `Versione non valida!\nApp: ${this.version}\nServer: ${data.version}`,
+              `Versione non valida!\nApp: ${this.version}\nVersioni consentite: ${allowed}`,
             );
             resolve(false);
             this.logout();
@@ -59,11 +61,7 @@ export class GlobalService {
           }
         })
         .catch((error) => {
-          console.error(
-            'Errore verifica versione server',
-            this.url + 'api/version',
-            error,
-          );
+          console.error('Errore verifica versione server', url, error);
           alert('Impossibile verificare la versione del server.');
           resolve(false);
         });
@@ -110,21 +108,10 @@ export function resolveApiBaseUrl(options: {
 }): string {
   const { host, tenant, forMobile } = options;
   const tenantUrl =
-    tenant === 'emmeci'
-      ? 'https://nodeemmeci.mvtechcore.it/'
-      : 'https://nodesami.mvtechcore.it/';
+    tenant === 'emmeci' ? environment.apiUrls.emmeci : environment.apiUrls.sami;
 
   if (forMobile) {
     return environment.mobileDevApiUrl || tenantUrl;
-  }
-
-  if (
-    host.includes('localhost') ||
-    host.includes('127.0.0.1') ||
-    host.includes('emmeci.local') ||
-    host.includes('sami.local')
-  ) {
-    return 'http://localhost:5001/';
   }
 
   return tenantUrl;
