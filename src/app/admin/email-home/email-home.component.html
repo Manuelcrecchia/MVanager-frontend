@@ -45,7 +45,7 @@
       <div class="mail-list-header__top">
         <div>
           <h2>{{ selectedFolderLabel }}</h2>
-          <p>{{ messages.length }} email</p>
+          <p>{{ messages.length }}<span *ngIf="messageTotal"> di {{ messageTotal }}</span> email</p>
         </div>
         <button class="icon-btn" type="button" (click)="loadMessages()" title="Aggiorna">
           <i class="fas fa-sync-alt"></i>
@@ -95,6 +95,12 @@
         </button>
       </span>
     </button>
+
+    <div class="load-more-row" *ngIf="!loading && loadingMore">
+      <span class="load-more-status">
+        Caricamento altre email...
+      </span>
+    </div>
   </section>
 
   <section class="mail-detail">

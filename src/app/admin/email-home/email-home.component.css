@@ -258,6 +258,18 @@
   font-size: 12px;
 }
 
+.load-more-row {
+  padding: 14px;
+  display: grid;
+  place-items: center;
+}
+
+.load-more-status {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .mail-detail {
   overflow-y: auto;
   padding: 26px 32px;

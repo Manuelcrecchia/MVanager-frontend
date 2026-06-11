@@ -40,6 +40,14 @@ interface EmailAttachment {
   size: number;
 }
 
+interface EmailMessagesResponse {
+  items: EmailMessage[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 interface InternalEmailDocument {
   source?: 'internal' | 'employee' | 'customer';
   sourceLabel?: string;
@@ -64,6 +72,11 @@ export class EmailHomeComponent implements OnInit {
   selectedFolder: MailFolder = 'inbox';
   messageSearchQuery = '';
   loading = false;
+  loadingMore = false;
+  messagePageSize = 20;
+  messageTotal = 0;
+  hasMoreMessages = false;
+  private messageLoadToken = 0;
   sending = false;
   composeOpen = false;
   safeHtml = '';
@@ -131,19 +144,63 @@ export class EmailHomeComponent implements OnInit {
   }
 
   loadMessages() {
+    this.messageLoadToken += 1;
     this.loading = true;
+    this.loadingMore = false;
+    this.messages = [];
+    this.messageTotal = 0;
+    this.hasMoreMessages = false;
+    this.fetchMessagePage(0, this.messageLoadToken);
+  }
+
+  private fetchMessagePage(offset: number, token: number) {
+    const append = offset > 0;
+    if (append) this.loadingMore = true;
+
     const params: string[] = [`folder=${this.selectedFolder}`];
     if (this.selectedAccountId) params.push(`accountId=${this.selectedAccountId}`);
+    params.push(`limit=${this.messagePageSize}`);
+    params.push(`offset=${offset}`);
     if (this.messageSearchQuery.trim()) {
       params.push(`search=${encodeURIComponent(this.messageSearchQuery.trim())}`);
     }
 
     this.http
-      .get<EmailMessage[]>(this.globalService.url + `admin/email/messages?${params.join('&')}`)
+      .get<EmailMessage[] | EmailMessagesResponse>(
+        this.globalService.url + `admin/email/messages?${params.join('&')}`,
+      )
       .subscribe({
-        next: (messages) => {
-          this.messages = messages || [];
+        next: (res) => {
+          if (token !== this.messageLoadToken) return;
+
+          const page = Array.isArray(res)
+            ? {
+                items: res || [],
+                total: res?.length || 0,
+                hasMore: false,
+              }
+            : {
+                items: res?.items || [],
+                total: res?.total || 0,
+                hasMore: !!res?.hasMore,
+              };
+
+          this.messages = append
+            ? [...this.messages, ...page.items]
+            : page.items;
+          this.messageTotal = page.total;
+          this.hasMoreMessages = page.hasMore;
           this.loading = false;
+          this.loadingMore = false;
+
+          if (page.hasMore) {
+            window.setTimeout(() => {
+              if (token === this.messageLoadToken) {
+                this.fetchMessagePage(this.messages.length, token);
+              }
+            }, 80);
+          }
+
           if (this.selectedMessage) {
             const refreshed = this.messages.find((m) => m.id === this.selectedMessage?.id);
             if (!refreshed) this.selectedMessage = null;
@@ -153,6 +210,7 @@ export class EmailHomeComponent implements OnInit {
           console.error('Errore caricamento email:', err);
           alert(err?.error?.error || 'Errore caricamento email');
           this.loading = false;
+          this.loadingMore = false;
         },
       });
   }
