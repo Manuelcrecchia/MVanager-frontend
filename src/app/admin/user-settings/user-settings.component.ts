@@ -76,6 +76,7 @@ export class UserSettingsComponent implements OnInit {
     ADMIN_EDIT: ['ADMIN_VIEW'],
     ADMIN_DELETE: ['ADMIN_VIEW'],
     SETTINGS_ADMIN: ['ADMIN_VIEW'],
+    EMAIL_SETTINGS: ['EMAIL_VIEW'],
 
     // Dipendenti
     EMPLOYEE_CREATE: ['EMPLOYEE_VIEW'],
@@ -276,6 +277,10 @@ export class UserSettingsComponent implements OnInit {
       {
         title: 'Notifiche',
         items: pick(['NOTIFICATIONS_VIEW', 'NOTIFICATIONS_MANAGE']),
+      },
+      {
+        title: 'Email aziendali',
+        items: pick(['EMAIL_VIEW', 'EMAIL_SETTINGS']),
       },
       {
         title: 'Statistiche',

@@ -48,6 +48,8 @@ import { TimbratureHomeComponent } from './admin/timbrature-home/timbrature-home
 import { TimbratureDettaglioComponent } from './admin/timbrature-dettaglio/timbrature-dettaglio.component';
 import { QuoteAcceptComponent } from './public/quote-accept/quote-accept.component';
 import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work-completion-stats.component';
+import { EmailHomeComponent } from './admin/email-home/email-home.component';
+import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
 
 // ✅ Documenti interni (assumo questo path; se diverso, aggiorna SOLO l'import)
 import { InternalDocumentsComponent } from './admin/internal-documents/internal-documents.component';
@@ -157,6 +159,12 @@ const routes: Routes = [
         canActivate: [AuthGuard, AuthLevelGuard],
         data: { permission: 'STATS_VIEW' },
       },
+      {
+        path: 'email',
+        component: EmailHomeComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'EMAIL_VIEW' },
+      },
     ],
   },
 
@@ -180,6 +188,12 @@ const routes: Routes = [
     component: QuoteSettingsComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
     data: { permission: 'SETTINGS_QUOTES' },
+  },
+  {
+    path: 'emailSettings',
+    component: EmailSettingsComponent,
+    canActivate: [AuthGuard, AuthLevelGuard],
+    data: { permission: 'EMAIL_SETTINGS' },
   },
 
   // preventivi
@@ -381,6 +395,12 @@ const routes: Routes = [
     component: CalendarHomeComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
     data: { permission: 'CALENDAR_VIEW' },
+  },
+  {
+    path: 'email',
+    component: EmailHomeComponent,
+    canActivate: [AuthGuard, AuthLevelGuard],
+    data: { permission: 'EMAIL_VIEW' },
   },
 
   // timbrature

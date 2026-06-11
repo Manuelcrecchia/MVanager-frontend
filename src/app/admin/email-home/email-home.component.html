@@ -1,0 +1,242 @@
+<div class="mail-shell">
+  <aside class="mail-sidebar">
+    <div class="sidebar-top">
+      <button class="icon-btn" type="button" (click)="back()" title="Indietro">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <button class="compose-btn" type="button" (click)="newEmail()" [disabled]="accounts.length === 0">
+        <i class="fas fa-pen"></i>
+        Nuova email
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Caselle</h3>
+      <button
+        class="side-row mailbox-row"
+        *ngFor="let account of accounts"
+        [class.active]="selectedAccountId === account.id"
+        type="button"
+        (click)="selectAccount(account.id)"
+      >
+        <span class="mailbox-label">
+          <span>{{ accountName(account) }}</span>
+          <span
+            class="mailbox-unread-dot"
+            *ngIf="accountHasUnread(account)"
+            [title]="(account.unreadCount || 0) + ' messaggi non letti'"
+          ></span>
+        </span>
+        <small>{{ account.email }}</small>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Categorie</h3>
+      <button class="side-row folder-row" *ngFor="let folder of folders" [class.active]="selectedFolder === folder.id" type="button" (click)="selectFolder(folder.id)">
+        <i [class]="folder.icon"></i>
+        <span>{{ folder.label }}</span>
+      </button>
+    </div>
+  </aside>
+
+  <section class="mail-list">
+    <header class="mail-list-header">
+      <div class="mail-list-header__top">
+        <div>
+          <h2>{{ selectedFolderLabel }}</h2>
+          <p>{{ messages.length }} email</p>
+        </div>
+        <button class="icon-btn" type="button" (click)="loadMessages()" title="Aggiorna">
+          <i class="fas fa-sync-alt"></i>
+        </button>
+      </div>
+      <div class="mail-search">
+        <i class="fas fa-search"></i>
+        <input
+          type="search"
+          [(ngModel)]="messageSearchQuery"
+          name="messageSearchQuery"
+          placeholder="Cerca nelle email"
+          (keyup.enter)="searchMessages()"
+        />
+        <button class="icon-btn" type="button" (click)="clearMessageSearch()" *ngIf="messageSearchQuery" title="Pulisci ricerca">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="loading" *ngIf="loading">Caricamento email...</div>
+    <div class="empty" *ngIf="!loading && accounts.length === 0">Nessun indirizzo email assegnato al tuo utente.</div>
+    <div class="empty" *ngIf="!loading && accounts.length > 0 && messages.length === 0">Nessuna email in questa categoria.</div>
+
+    <button
+      class="message-row"
+      *ngFor="let message of messages"
+      [class.unread]="!message.read"
+      [class.active]="selectedMessage?.id === message.id"
+      type="button"
+      (click)="openMessage(message)"
+    >
+      <span class="read-indicator" [class.is-unread]="!message.read"></span>
+      <span class="message-account">{{ message.accountLabel || message.accountEmail }}</span>
+      <span class="message-main">
+        <strong>{{ sender(message) }}</strong>
+        <span>
+          {{ message.subject || '(Senza oggetto)' }}
+          <i class="fas fa-paperclip attachment-inline" *ngIf="message.attachments && message.attachments.length > 0"></i>
+        </span>
+        <small>{{ message.preview }}</small>
+      </span>
+      <span class="message-meta">
+        <time *ngIf="messageDate(message)">{{ messageDate(message) | date:'dd/MM HH:mm' }}</time>
+        <button class="trash-btn" type="button" (click)="trash(message, $event)" title="Cestino">
+          <i class="fas fa-trash"></i>
+        </button>
+      </span>
+    </button>
+  </section>
+
+  <section class="mail-detail">
+    <form class="compose-panel compose-panel-inline" *ngIf="composeOpen" (ngSubmit)="send()">
+      <header>
+        <h3>Nuova email</h3>
+        <button class="icon-btn" type="button" (click)="closeCompose()" title="Chiudi">
+          <i class="fas fa-times"></i>
+        </button>
+      </header>
+
+      <label>
+        Da
+        <select class="form-control" [(ngModel)]="compose.accountId" name="accountId">
+          <option *ngFor="let account of accounts" [ngValue]="account.id">{{ accountName(account) }} · {{ account.email }}</option>
+        </select>
+      </label>
+      <label>
+        A
+        <input class="form-control" [(ngModel)]="compose.to" name="to" placeholder="cliente@email.it" />
+      </label>
+      <label>
+        Cc
+        <input class="form-control" [(ngModel)]="compose.cc" name="cc" placeholder="facoltativo" />
+      </label>
+      <label>
+        Ccn
+        <input class="form-control" [(ngModel)]="compose.bcc" name="bcc" placeholder="facoltativo" />
+      </label>
+      <label>
+        Oggetto
+        <input class="form-control" [(ngModel)]="compose.subject" name="subject" />
+      </label>
+      <textarea class="form-control compose-body" [(ngModel)]="compose.body" name="body"></textarea>
+
+      <section class="compose-attachments">
+        <div class="compose-attachments__header">
+          <h4>Allegati</h4>
+          <label class="attachment-upload-btn">
+            <i class="fas fa-paperclip"></i>
+            Dal PC
+            <input type="file" multiple hidden (change)="onFilesSelected($event)" />
+          </label>
+        </div>
+
+        <div class="selected-attachments" *ngIf="selectedFiles.length || selectedInternalAttachments.length">
+          <button
+            class="selected-attachment"
+            type="button"
+            *ngFor="let file of selectedFiles; let i = index"
+            (click)="removeSelectedFile(i)"
+            title="Rimuovi allegato"
+          >
+            <i class="fas fa-file"></i>
+            <span>{{ file.name }}</span>
+            <i class="fas fa-times"></i>
+          </button>
+
+          <button
+            class="selected-attachment"
+            type="button"
+            *ngFor="let file of selectedInternalAttachments"
+            (click)="toggleInternalAttachment(file)"
+            title="Rimuovi allegato"
+          >
+            <i class="fas fa-folder-open"></i>
+            <span>{{ file.filename }} · {{ file.sourceLabel || 'Documenti interni' }}</span>
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="internal-picker" *ngIf="canUseInternalDocuments">
+          <div class="internal-picker__bar">
+            <span>Documenti app</span>
+            <button class="icon-btn" type="button" (click)="searchAppAttachments()" title="Cerca">
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+
+          <input
+            class="form-control"
+            name="attachmentSearchQuery"
+            placeholder="Cerca file, cliente, dipendente o cartella"
+            [(ngModel)]="attachmentSearchQuery"
+            (keyup.enter)="searchAppAttachments()"
+          />
+
+          <div class="internal-picker__grid">
+            <button
+              class="internal-item"
+              type="button"
+              *ngFor="let file of attachmentSearchResults"
+              [class.selected]="isInternalAttachmentSelected(file)"
+              (click)="toggleInternalAttachment(file)"
+            >
+              <i class="fas fa-file"></i>
+              <span>{{ file.filename }} · {{ file.sourceLabel }} · {{ file.ownerLabel }}</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <span>La grafica applicata sarà quella dell'azienda corrente.</span>
+        <button class="btn btn-primary btn-round" type="submit" [disabled]="sending">
+          {{ sending ? 'Invio...' : 'Invia' }}
+        </button>
+      </footer>
+    </form>
+
+    <div class="detail-empty" *ngIf="!selectedMessage && !composeOpen">
+      <i class="fas fa-envelope-open-text"></i>
+    </div>
+
+    <article *ngIf="selectedMessage && !composeOpen" class="detail-card">
+      <header>
+        <div>
+          <span class="message-account">{{ selectedMessage.accountLabel || selectedMessage.accountEmail }}</span>
+          <h1>{{ selectedMessage.subject || '(Senza oggetto)' }}</h1>
+          <p>
+            Da {{ selectedMessage.fromName || selectedMessage.fromEmail }}
+            <span *ngIf="selectedMessage.folder === 'sent'">a {{ firstRecipient(selectedMessage) }}</span>
+          </p>
+        </div>
+        <button class="icon-btn" type="button" (click)="trash(selectedMessage)" title="Cestino">
+          <i class="fas fa-trash"></i>
+        </button>
+      </header>
+      <section class="attachments-box" *ngIf="selectedMessage.attachments && selectedMessage.attachments.length > 0">
+        <h3>Allegati</h3>
+        <button
+          class="attachment-row"
+          type="button"
+          *ngFor="let attachment of selectedMessage.attachments"
+          (click)="downloadAttachment(attachment)"
+        >
+          <i class="fas fa-paperclip"></i>
+          <span>{{ attachmentLabel(attachment) }}</span>
+          <i class="fas fa-download"></i>
+        </button>
+      </section>
+      <div class="message-body" [innerHTML]="safeHtml"></div>
+    </article>
+  </section>
+</div>

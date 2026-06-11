@@ -1,0 +1,172 @@
+.email-settings-page {
+  min-height: 100vh;
+  padding: 24px;
+  color: #111827;
+}
+
+.top-actions,
+.page-title {
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.page-title {
+  text-align: center;
+  font-weight: 900;
+  margin-bottom: 24px;
+}
+
+.settings-layout {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 18px;
+}
+
+.settings-panel {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 8px;
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.08);
+  padding: 18px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.panel-header h3,
+.server-box h4,
+.access-box h4 {
+  margin: 0;
+  font-weight: 900;
+}
+
+.panel-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+}
+
+.form-grid,
+.server-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+label {
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.form-control {
+  margin-top: 6px;
+  border-radius: 8px;
+}
+
+.server-grid,
+.access-box,
+.active-row {
+  margin-top: 16px;
+}
+
+.server-box {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(249, 250, 251, 0.9);
+}
+
+.inline-fields {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.check-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.admin-chip {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+.admin-chip small {
+  grid-column: 2;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.admin-chip.is-selected {
+  border-color: #2fb7ff;
+  background: rgba(47, 183, 255, 0.08);
+}
+
+.account-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  padding: 13px 0;
+}
+
+.account-row strong,
+.account-row span,
+.account-row small {
+  display: block;
+}
+
+.account-row small {
+  color: #6b7280;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.empty-state {
+  color: #6b7280;
+  padding: 24px 0;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .settings-layout,
+  .form-grid,
+  .server-grid,
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-row {
+    flex-direction: column;
+  }
+}

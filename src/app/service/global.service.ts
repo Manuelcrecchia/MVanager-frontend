@@ -9,7 +9,7 @@ import { environment } from '../../environments/environment';
   providedIn: 'root',
 })
 export class GlobalService {
-  version = '4.0';
+  version = '4.1';
 
   constructor(
     private authService: AuthServiceService,

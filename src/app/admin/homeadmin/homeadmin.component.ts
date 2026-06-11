@@ -56,6 +56,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   private quoteAcceptanceSubscription?: Subscription;
   private routerEventsSubscription?: Subscription;
   private adminTodoSubscription?: Subscription;
+  private emailUnreadIntervalId?: ReturnType<typeof setInterval>;
   isIos = Capacitor.getPlatform() === 'ios';
   isDesktopHome = false;
   isDesktopContentActive = false;
@@ -79,6 +80,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   selectedHomeCategoryId = '';
   permessiInAttesa: number = 0;
   pendingQuoteReviews: number = 0;
+  emailUnreadCount: number = 0;
   employeeDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   vehicleDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   sidebarCollapsed = false;
@@ -95,15 +97,21 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.checkPermessiInAttesa();
     this.loadDeadlineSummary();
     this.loadPendingQuoteReviews();
+    this.loadEmailUnreadSummary();
     this.loadAdminTodos();
     this.bindQuoteAcceptanceUpdates();
     this.bindAdminTodoUpdates();
+    this.bindEmailUnreadPolling();
+    setTimeout(() => this.loadEmailUnreadSummary(), 1500);
   }
 
   ngOnDestroy(): void {
     this.quoteAcceptanceSubscription?.unsubscribe();
     this.routerEventsSubscription?.unsubscribe();
     this.adminTodoSubscription?.unsubscribe();
+    if (this.emailUnreadIntervalId) {
+      clearInterval(this.emailUnreadIntervalId);
+    }
     this.renderer.removeClass(document.body, 'is-desktop');
   }
 
@@ -173,6 +181,34 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
           );
         },
       });
+  }
+
+  loadEmailUnreadSummary(): void {
+    if (!this.global.hasPermission('EMAIL_VIEW')) {
+      this.emailUnreadCount = 0;
+      return;
+    }
+
+    this.http
+      .get<{ count: number }>(this.global.url + 'admin/email/unread-summary')
+      .subscribe({
+        next: (res) => {
+          this.emailUnreadCount = Number(res?.count) || 0;
+        },
+        error: (err) => {
+          console.error('Errore caricamento email non lette:', err);
+        },
+      });
+  }
+
+  private bindEmailUnreadPolling(): void {
+    if (this.emailUnreadIntervalId) {
+      return;
+    }
+
+    this.emailUnreadIntervalId = setInterval(() => {
+      this.loadEmailUnreadSummary();
+    }, 30000);
   }
 
   private bindQuoteAcceptanceUpdates(): void {
@@ -289,30 +325,57 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.router.navigateByUrl('/quoteSettings');
   }
 
+  navigateToEmailSettings() {
+    this.router.navigateByUrl('/emailSettings');
+  }
+
   navigateToWorkCompletionStats() {
     this.router.navigateByUrl('/homeAdmin/statistiche');
   }
 
   get homeCategories(): HomeCategory[] {
     return [
-	      {
-	        id: 'personale',
-	        label: 'Ufficio tecnico',
-	        icon: 'fas fa-user-friends',
-	        buttons: [
-	          {
-	            label: 'Turni',
-	            icon: 'fas fa-tasks',
-	            permission: 'SHIFTS_VIEW',
-	            action: () => this.goToShifts(),
-	            desktopPath: 'shifts',
-	          },
-	          {
-	            label: 'Gestione Timbrature',
-	            icon: 'fas fa-fingerprint',
-	            permission: 'STAMPING_VIEW',
-	            action: () => this.navigateToTimbrature(),
-	            desktopPath: 'timbratureHome',
+      {
+        id: 'personale',
+        label: 'Ufficio tecnico',
+        icon: 'fas fa-user-friends',
+        buttons: [
+          {
+            label: 'Turni',
+            icon: 'fas fa-tasks',
+            permission: 'SHIFTS_VIEW',
+            action: () => this.goToShifts(),
+            desktopPath: 'shifts',
+          },
+          {
+            label: 'Gestione Timbrature',
+            icon: 'fas fa-fingerprint',
+            permission: 'STAMPING_VIEW',
+            action: () => this.navigateToTimbrature(),
+            desktopPath: 'timbratureHome',
+          },
+          {
+            label: 'Scadenze Mezzi',
+            icon: 'fas fa-car',
+            permission: 'VEHICLE_DEADLINES_VIEW',
+            action: () => this.navigateToVehicleDeadlines(),
+            desktopPath: 'vehicle-deadlines',
+            badgeCount: () => this.vehicleDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.vehicleDeadlineSummary),
+          },
+          {
+            label: 'Ordini di servizio',
+            icon: 'fas fa-clipboard-list',
+            permission: 'SERVICE_ORDERS_VIEW',
+            action: () => this.navigateToServiceOrders(),
+            desktopPath: 'service-orders',
+          },
+          {
+            label: 'Riepilogo ore clienti',
+            icon: 'fas fa-user-clock',
+            permission: 'CUSTOMERS_HOURS_VIEW',
+            action: () => this.goToRiepilogoOreClienti(),
+            desktopPath: 'riepilogo-ore-clienti',
           },
         ],
       },
@@ -337,65 +400,60 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             badgeCount: () => this.pendingQuoteReviews,
             badgeClass: () => 'badge bg-danger ms-1',
           },
+          {
+            label: 'Calendario',
+            icon: 'fas fa-calendar',
+            permission: 'CALENDAR_VIEW',
+            action: () => this.navigateToCalendarHome(),
+            desktopPath: 'calendarHome',
+          },
+          {
+            label: 'Email',
+            icon: 'fas fa-envelope',
+            permission: 'EMAIL_VIEW',
+            action: () => this.router.navigateByUrl('/email'),
+            desktopPath: 'email',
+            badgeCount: () => this.emailUnreadCount,
+            badgeClass: () => 'badge bg-danger ms-1',
+          },
         ],
-	      },
-	      {
-	        id: 'operativo',
-	        label: 'Risorse umane',
-	        icon: 'fas fa-briefcase',
-	        buttons: [
-	          {
-	            label: 'Gestione Dipendenti',
-	            icon: 'fas fa-user',
-	            permission: 'EMPLOYEE_VIEW',
-	            action: () => this.navigateToGestioneemployees(),
-	            desktopPath: 'gestioneemployees',
-	          },
-	          {
-	            label: 'Scadenze Dipendenti',
-	            icon: 'fas fa-id-card',
-	            permission: 'EMPLOYEE_DEADLINES_VIEW',
-	            action: () => this.navigateToEmployeeDeadlines(),
-	            desktopPath: 'employee-deadlines',
-	            badgeCount: () => this.employeeDeadlineSummary.alertCount,
-	            badgeClass: () => this.deadlineBadgeClass(this.employeeDeadlineSummary),
-	          },
-	          {
-	            label: 'Riepilogo presenze personalizzabile',
-	            icon: 'fas fa-clock',
-	            permission: 'ATTENDANCE_MANAGE',
-	            action: () => this.goToEditableHours(),
-	            desktopPath: 'riepilogo-presenze-editabile',
-	          },
-	          {
-	            label: 'Gestione permessi e assenze',
-	            icon: 'fas fa-clipboard-check',
-	            permission: 'EMPLOYEE_PERMITS_MANAGE',
-	            action: () => this.navigateToGestionePermessi(),
-	            desktopPath: 'gestionepermessi',
-	            badgeCount: () => this.permessiInAttesa,
-	            badgeClass: () => 'badge bg-danger ms-1',
-	          },
-	          {
-	            label: 'Calendario',
-	            icon: 'fas fa-calendar',
-	            permission: 'CALENDAR_VIEW',
-	            action: () => this.navigateToCalendarHome(),
-	            desktopPath: 'calendarHome',
+      },
+      {
+        id: 'operativo',
+        label: 'Risorse umane',
+        icon: 'fas fa-briefcase',
+        buttons: [
+          {
+            label: 'Gestione Dipendenti',
+            icon: 'fas fa-user',
+            permission: 'EMPLOYEE_VIEW',
+            action: () => this.navigateToGestioneemployees(),
+            desktopPath: 'gestioneemployees',
           },
           {
-            label: 'Ordini di servizio',
-            icon: 'fas fa-clipboard-list',
-            permission: 'SERVICE_ORDERS_VIEW',
-            action: () => this.navigateToServiceOrders(),
-            desktopPath: 'service-orders',
+            label: 'Scadenze Dipendenti',
+            icon: 'fas fa-id-card',
+            permission: 'EMPLOYEE_DEADLINES_VIEW',
+            action: () => this.navigateToEmployeeDeadlines(),
+            desktopPath: 'employee-deadlines',
+            badgeCount: () => this.employeeDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.employeeDeadlineSummary),
           },
           {
-            label: 'Riepilogo ore clienti',
-            icon: 'fas fa-user-clock',
-            permission: 'CUSTOMERS_HOURS_VIEW',
-            action: () => this.goToRiepilogoOreClienti(),
-            desktopPath: 'riepilogo-ore-clienti',
+            label: 'Riepilogo presenze personalizzabile',
+            icon: 'fas fa-clock',
+            permission: 'ATTENDANCE_MANAGE',
+            action: () => this.goToEditableHours(),
+            desktopPath: 'riepilogo-presenze-editabile',
+          },
+          {
+            label: 'Gestione permessi e assenze',
+            icon: 'fas fa-clipboard-check',
+            permission: 'EMPLOYEE_PERMITS_MANAGE',
+            action: () => this.navigateToGestionePermessi(),
+            desktopPath: 'gestionepermessi',
+            badgeCount: () => this.permessiInAttesa,
+            badgeClass: () => 'badge bg-danger ms-1',
           },
         ],
       },
@@ -410,15 +468,6 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             permission: 'ADMIN_VIEW',
             action: () => this.navigateToGestioneUsers(),
             desktopPath: 'gestioneusers',
-          },
-          {
-            label: 'Scadenze Mezzi',
-            icon: 'fas fa-car',
-            permission: 'VEHICLE_DEADLINES_VIEW',
-            action: () => this.navigateToVehicleDeadlines(),
-            desktopPath: 'vehicle-deadlines',
-            badgeCount: () => this.vehicleDeadlineSummary.alertCount,
-            badgeClass: () => this.deadlineBadgeClass(this.vehicleDeadlineSummary),
           },
           {
             label: 'Documenti interni',
@@ -647,6 +696,11 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   @HostListener('window:resize')
   onWindowResize(): void {
     this.updateDesktopHomeState();
+  }
+
+  @HostListener('window:emailUnreadChanged')
+  onEmailUnreadChanged(): void {
+    this.loadEmailUnreadSummary();
   }
 
   visibleHomeButtons(category: HomeCategory): HomeButton[] {

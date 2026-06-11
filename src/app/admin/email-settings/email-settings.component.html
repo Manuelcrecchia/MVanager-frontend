@@ -1,0 +1,110 @@
+<div class="email-settings-page">
+  <div class="top-actions">
+    <button class="btn btn-back-glass" type="button" (click)="back()">&larr; Torna Indietro</button>
+  </div>
+
+  <h2 class="page-title">Impostazioni email</h2>
+
+  <section class="settings-layout">
+    <form class="settings-panel" (ngSubmit)="save()">
+      <div class="panel-header">
+        <div>
+          <h3>{{ editingId ? 'Modifica account' : 'Nuovo account email' }}</h3>
+          <p>Configura SMTP, IMAP e utenti autorizzati</p>
+        </div>
+        <button class="btn btn-glass btn-sm" type="button" (click)="startNew()" *ngIf="editingId">Nuovo</button>
+      </div>
+
+      <div class="form-grid">
+        <label>
+          Etichetta
+          <input class="form-control" [(ngModel)]="form.label" name="label" placeholder="Es. Commerciale" />
+        </label>
+        <label>
+          Indirizzo email *
+          <input class="form-control" [(ngModel)]="form.email" name="email" type="email" placeholder="info@azienda.it" />
+        </label>
+        <label>
+          Username
+          <input class="form-control" [(ngModel)]="form.username" name="username" placeholder="Di solito uguale all'email" />
+        </label>
+        <label>
+          Password {{ editingId ? '(lascia vuoto per non cambiarla)' : '*' }}
+          <input class="form-control" [(ngModel)]="form.password" name="password" type="password" autocomplete="new-password" />
+        </label>
+      </div>
+
+      <div class="server-grid">
+        <div class="server-box">
+          <h4>SMTP</h4>
+          <input class="form-control" [(ngModel)]="form.smtpHost" name="smtpHost" placeholder="smtp.server.it" />
+          <div class="inline-fields">
+            <input class="form-control" [(ngModel)]="form.smtpPort" name="smtpPort" type="number" />
+            <label class="check-row">
+              <input type="checkbox" [(ngModel)]="form.smtpSecure" name="smtpSecure" />
+              SSL
+            </label>
+          </div>
+        </div>
+        <div class="server-box">
+          <h4>IMAP</h4>
+          <input class="form-control" [(ngModel)]="form.imapHost" name="imapHost" placeholder="imap.server.it" />
+          <div class="inline-fields">
+            <input class="form-control" [(ngModel)]="form.imapPort" name="imapPort" type="number" />
+            <label class="check-row">
+              <input type="checkbox" [(ngModel)]="form.imapSecure" name="imapSecure" />
+              SSL
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="access-box">
+        <h4>Utenti con accesso</h4>
+        <div class="admin-grid">
+          <label class="admin-chip" *ngFor="let admin of admins" [class.is-selected]="form.adminIds.includes(admin.id)">
+            <input type="checkbox" [checked]="form.adminIds.includes(admin.id)" (change)="toggleAdmin(admin.id)" />
+            <span>{{ adminName(admin) }}</span>
+            <small>{{ admin.email }}</small>
+          </label>
+        </div>
+      </div>
+
+      <label class="check-row active-row">
+        <input type="checkbox" [(ngModel)]="form.active" name="active" />
+        Account attivo
+      </label>
+
+      <button class="btn btn-primary btn-round" type="submit" [disabled]="saving">
+        {{ saving ? 'Salvataggio...' : 'Salva account email' }}
+      </button>
+    </form>
+
+    <section class="settings-panel">
+      <div class="panel-header">
+        <div>
+          <h3>Account configurati</h3>
+          <p>Indirizzi aziendali disponibili</p>
+        </div>
+        <button class="btn btn-glass btn-sm" type="button" (click)="loadAll()">Aggiorna</button>
+      </div>
+
+      <div *ngIf="loading" class="empty-state">Caricamento...</div>
+      <article class="account-row" *ngFor="let account of accounts">
+        <div>
+          <strong>{{ account.label || account.email }}</strong>
+          <span>{{ account.email }}</span>
+          <small>{{ account.active ? 'Attivo' : 'Disattivato' }} · {{ account.adminIds.length }} utenti</small>
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-glass btn-sm" type="button" (click)="test(account)" [disabled]="testingId === account.id">
+            {{ testingId === account.id ? 'Test...' : 'Test' }}
+          </button>
+          <button class="btn btn-glass btn-sm" type="button" (click)="startEdit(account)">Modifica</button>
+          <button class="btn btn-glass-dark btn-sm" type="button" (click)="delete(account)">Elimina</button>
+        </div>
+      </article>
+      <div *ngIf="!loading && accounts.length === 0" class="empty-state">Nessun account configurato</div>
+    </section>
+  </section>
+</div>

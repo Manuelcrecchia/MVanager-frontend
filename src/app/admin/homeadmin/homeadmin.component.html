@@ -1284,6 +1284,9 @@
             <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('SETTINGS_QUOTES')" (click)="navigateToQuoteSettings()">
               <i class="fas fa-file-invoice-dollar"></i> <span class="sidebar-btn-text">Impostazioni preventivi</span>
             </button>
+            <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('EMAIL_SETTINGS')" (click)="navigateToEmailSettings()">
+              <i class="fas fa-envelope-open-text"></i> <span class="sidebar-btn-text">Impostazioni email</span>
+            </button>
           </div>
           <button class="sidebar-logout" (click)="back()">
             <i class="fas fa-sign-out-alt"></i> <span class="sidebar-btn-text">Logout</span>
@@ -1422,6 +1425,7 @@
           <a *ngIf="global.hasPermission('EMPLOYEE_PERMITS_MANAGE')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</a>
           <a *ngIf="global.hasPermission('SETTINGS_ADMIN')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
           <a *ngIf="global.hasPermission('SETTINGS_QUOTES')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>
+          <a *ngIf="global.hasPermission('EMAIL_SETTINGS')" (click)="navigateToEmailSettings()">Impostazioni email</a>
           <a (click)="changeTenant()">Cambia azienda</a>
           <a class="menu-logout" (click)="back()">Logout</a>
         </div>

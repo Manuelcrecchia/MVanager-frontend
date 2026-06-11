@@ -98,6 +98,8 @@ import { ServiceOrdersComponent } from './admin/service-orders/service-orders.co
 import { AddServiceOrderComponent } from './admin/add-service-order/add-service-order.component';
 import { QuoteAcceptComponent } from './public/quote-accept/quote-accept.component';
 import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work-completion-stats.component';
+import { EmailHomeComponent } from './admin/email-home/email-home.component';
+import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
 
 registerLocaleData(localeIt);
 
@@ -148,6 +150,8 @@ registerLocaleData(localeIt);
     AddServiceOrderComponent,
     QuoteAcceptComponent,
     WorkCompletionStatsComponent,
+    EmailHomeComponent,
+    EmailSettingsComponent,
   ],
   imports: [
     BrowserModule,
