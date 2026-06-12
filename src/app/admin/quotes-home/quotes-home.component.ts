@@ -86,7 +86,7 @@ export class QuotesHomeComponent implements OnDestroy {
           const temp = Array.isArray(response) ? response : [];
           this.automaticAddInspectionToCalendarService.telefono =
             temp[0]?.telefono || '';
-          this.router.navigateByUrl('/calendarHome');
+          this.router.navigateByUrl('/homeAdmin/calendarHome');
         },
         error: (err) => {
           console.error('Errore addInspection:', err);

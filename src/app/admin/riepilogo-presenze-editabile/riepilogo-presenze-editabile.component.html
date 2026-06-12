@@ -136,14 +136,20 @@ html, body{
 .sticky-col{
   position: sticky;
   left: 0;
-  z-index: 4;
+  z-index: 10;
   background: rgba(255,255,255,0.98) !important;
   color: #000 !important;
 }
 
+/* Day cells behind sticky column */
+.presenze-table tbody td:not(.sticky-col){
+  position: relative;
+  z-index: 1;
+}
+
 /* Angolo top-left sopra tutto */
 .corner{
-  z-index: 6 !important;
+  z-index: 20 !important;
   background: rgba(255,255,255,0.98) !important;
   color: #000 !important;
 }

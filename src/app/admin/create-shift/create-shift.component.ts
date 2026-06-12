@@ -437,7 +437,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
             date: this.formatDate(this.selectedDate),
           });
           alert('Turni salvati');
-          this.router.navigate(['/admin/shifts'], { queryParams: { date: this.formatDate(this.selectedDate) } });
+          this.router.navigate(['/homeAdmin/shifts'], { queryParams: { date: this.formatDate(this.selectedDate) } });
         },
         error: (err) => {
           console.error('Errore salvataggio turni:', err);
@@ -520,7 +520,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   }
 
   goBack(): void {
-    this.router.navigate(['/admin/shifts'], { queryParams: { date: this.formatDate(this.selectedDate) } });
+    this.router.navigate(['/homeAdmin/shifts'], { queryParams: { date: this.formatDate(this.selectedDate) } });
   }
 
   showPreviousWeekShifts(): void {

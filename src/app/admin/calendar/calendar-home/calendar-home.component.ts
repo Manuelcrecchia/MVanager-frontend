@@ -68,10 +68,16 @@ export class CalendarHomeComponent implements OnInit {
   miniCalDate = new Date();
 
   showPopup = false;
+  showDayPopup = false;
+  dayPopupDate: Date = new Date();
+  dayPopupEvents: CalEvent[] = [];
   isNewEvent = true;
   editingEventId: number | null = null;
   isRecurringInstance = false;
   hasRecurrenceRule = false;
+
+  readonly MAX_VISIBLE_EVENTS = 5;
+  readonly MAX_OVERLAP_COLS = 4;
 
   popupTitle = '';
   popupDescription = '';
@@ -360,7 +366,7 @@ export class CalendarHomeComponent implements OnInit {
       this.weekCells.push({
         date: day, isCurrentMonth: true, isToday: this.isSameDay(day, new Date()),
         events: dayEvs,
-        eventLayout: this.computeOverlapLayout(dayEvs),
+        eventLayout: this.computeOverlapLayout(dayEvs, this.MAX_OVERLAP_COLS),
       });
     }
   }
@@ -373,7 +379,7 @@ export class CalendarHomeComponent implements OnInit {
       date: new Date(this.currentDate), isCurrentMonth: true,
       isToday: this.isSameDay(this.currentDate, new Date()),
       events: dayEvs,
-      eventLayout: this.computeOverlapLayout(dayEvs),
+      eventLayout: this.computeOverlapLayout(dayEvs, this.MAX_OVERLAP_COLS),
     }];
   }
 
@@ -488,6 +494,14 @@ export class CalendarHomeComponent implements OnInit {
   }
 
   closePopup() { this.showPopup=false; this.showDeleteConfirm=false; }
+
+  showDayEventsPopup(cell: DayCell) {
+    this.dayPopupDate = cell.date;
+    this.dayPopupEvents = cell.events;
+    this.showDayPopup = true;
+  }
+
+  closeDayPopup() { this.showDayPopup = false; this.dayPopupEvents = []; }
 
   onDblClickCell(date: Date, slot?: string) {
     const d = new Date(date);
@@ -762,7 +776,7 @@ export class CalendarHomeComponent implements OnInit {
     };
   }
 
-  goBack() { this.router.navigateByUrl('homeAdmin'); }
+  goBack() { this.router.navigateByUrl('/homeAdmin'); }
 
   @HostListener('document:click',['$event'])
   onDocumentClick(event: MouseEvent) {

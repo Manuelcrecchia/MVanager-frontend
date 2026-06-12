@@ -295,6 +295,21 @@
   cursor: pointer;
 }
 
+.ev-more-block {
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  font-size: 11px;
+  color: #1a73e8;
+  font-weight: 700;
+  padding: 2px 6px;
+  cursor: pointer;
+  background: rgba(255,255,255,.85);
+  border-radius: 4px;
+  z-index: 6;
+}
+.ev-more-block:hover { text-decoration: underline; }
+
 @media (max-width: 767.98px) {
   .cal-header {
     align-items: stretch;
@@ -536,6 +551,31 @@
 .cat-lavoriSvolti  { background: #6f8fcf; }
 .cat-altro         { background: #9a7bc2; }
 .cat-default       { background: #8a949e; }
+
+.popup-day-list { max-width: 520px; }
+
+.day-event-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: filter .12s;
+  color: #fff;
+}
+.day-event-row:hover { filter: brightness(.92); }
+.day-event-time { font-size: 11px; opacity: .8; font-weight: 600; }
+.day-event-title { font-size: 14px; font-weight: 700; }
+.day-event-desc { font-size: 12px; opacity: .75; margin-top: 2px; }
+
+.empty-line {
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+  padding: 24px 0;
+}
 
 /* ═══════════════════════════════════════════════
    POPUP

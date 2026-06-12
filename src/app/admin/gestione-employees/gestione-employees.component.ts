@@ -204,7 +204,7 @@ export class GestioneEmployeesComponent implements OnInit {
   }
 
   goToPermessiAssenze(empId: number) {
-    this.router.navigate(['/gestionepermessi'], {
+    this.router.navigate(['/homeAdmin/gestionepermessi'], {
       queryParams: { employeeId: empId },
     });
   }

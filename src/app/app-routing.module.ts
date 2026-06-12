@@ -365,6 +365,14 @@ const routes: Routes = [
     canActivate: [AuthGuard],
   },
 
+  // statistiche
+  {
+    path: 'work-completion-stats',
+    component: WorkCompletionStatsComponent,
+    canActivate: [AuthGuard, AuthLevelGuard],
+    data: { permission: 'STATS_VIEW' },
+  },
+
   // presenze
   {
     path: 'riepilogo-presenze-editabile',

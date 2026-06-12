@@ -83,7 +83,7 @@
               <span class="ev-pill-time">{{ formatTime(ev.start) }}</span>
               <span class="ev-pill-title">{{ ev.title }}</span>
             </div>
-            <div class="ev-more" *ngIf="cell.events.length > 3">
+            <div class="ev-more" *ngIf="cell.events.length > 3" (click)="showDayEventsPopup(cell)">
               +{{ cell.events.length - 3 }} altri
             </div>
           </div>
@@ -126,7 +126,7 @@
           <div class="current-time-line" *ngIf="cell.isToday" [style.top.px]="currentTimeTopPx()"></div>
           <!-- events -->
           <div
-            *ngFor="let ev of cell.events"
+            *ngFor="let ev of cell.events.slice(0, MAX_VISIBLE_EVENTS)"
             class="ev-block"
             [ngClass]="getCategoryClass(ev.categories)"
             [ngStyle]="getEventPositionStyle(ev, cell.eventLayout)"
@@ -135,6 +135,10 @@
             (dblclick)="onEventDblClick(ev,$event)">
             <span class="evb-title">{{ ev.title }}</span>
             <span class="evb-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</span>
+          </div>
+          <div class="ev-more-block" *ngIf="cell.events.length > MAX_VISIBLE_EVENTS"
+               (click)="showDayEventsPopup(cell)">
+            +{{ cell.events.length - MAX_VISIBLE_EVENTS }} altri
           </div>
         </div>
       </div>
@@ -170,7 +174,7 @@
           </div>
           <div class="current-time-line" *ngIf="weekCells[0].isToday" [style.top.px]="currentTimeTopPx()"></div>
           <div
-            *ngFor="let ev of weekCells[0].events"
+            *ngFor="let ev of weekCells[0].events.slice(0, MAX_VISIBLE_EVENTS)"
             class="ev-block"
             [ngClass]="getCategoryClass(ev.categories)"
             [ngStyle]="getEventPositionStyle(ev, weekCells[0].eventLayout)"
@@ -180,11 +184,34 @@
             <span class="evb-title">{{ ev.title }}</span>
             <span class="evb-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</span>
           </div>
+          <div class="ev-more-block" *ngIf="weekCells[0].events.length > MAX_VISIBLE_EVENTS"
+               (click)="showDayEventsPopup(weekCells[0])">
+            +{{ weekCells[0].events.length - MAX_VISIBLE_EVENTS }} altri
+          </div>
         </div>
       </div>
     </div>
   </div>
 
+</div>
+
+<!-- ═══ DAY EVENTS POPUP ═══ -->
+<div class="popup-overlay" *ngIf="showDayPopup" (click)="closeDayPopup()">
+  <div class="popup-box popup-day-list" (click)="$event.stopPropagation()">
+    <div class="popup-header">
+      <h3>{{ dayPopupDate | date:'fullDate' }}</h3>
+      <button class="popup-close" (click)="closeDayPopup()">✕</button>
+    </div>
+    <div class="popup-body">
+      <div class="day-event-row" *ngFor="let ev of dayPopupEvents"
+        [ngClass]="getCategoryClass(ev.categories)">
+        <div class="day-event-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</div>
+        <div class="day-event-title">{{ ev.title }}</div>
+        <div class="day-event-desc" *ngIf="ev.description">{{ ev.description }}</div>
+      </div>
+      <p class="empty-line" *ngIf="!dayPopupEvents.length">Nessun evento in questo giorno.</p>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ POPUP ═══ -->

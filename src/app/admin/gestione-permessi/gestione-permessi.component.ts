@@ -392,6 +392,6 @@ export class GestionePermessiComponent implements OnInit {
   }
 
   goBack(): void {
-    this.router.navigate(['homeAdmin']);
+    this.router.navigate(['/homeAdmin']);
   }
 }

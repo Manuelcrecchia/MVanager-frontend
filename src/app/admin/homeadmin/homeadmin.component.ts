@@ -334,7 +334,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   navigateToWorkCompletionStats() {
-    this.router.navigateByUrl('/homeAdmin/statistiche');
+    this.router.navigateByUrl('/work-completion-stats');
   }
 
   get homeCategories(): HomeCategory[] {

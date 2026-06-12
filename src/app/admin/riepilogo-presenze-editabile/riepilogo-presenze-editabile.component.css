@@ -82,13 +82,19 @@
 .sticky-col {
   position: sticky;
   left: 0;
-  z-index: 4;
+  z-index: 10;
   background: #fff;
+}
+
+/* Keep day cells and their children (select, input) behind the sticky column */
+.presenze-table tbody td:not(.sticky-col) {
+  position: relative;
+  z-index: 1;
 }
 
 /* Celle di incrocio (top+left) */
 .corner {
-  z-index: 6; /* sopra tutto */
+  z-index: 20; /* sopra tutto (sticky-col + sticky-top) */
 }
 
 /* (opzionale) linea di separazione più “excel” sulla colonna sticky */
