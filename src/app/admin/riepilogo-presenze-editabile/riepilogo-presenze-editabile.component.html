@@ -80,7 +80,7 @@ html, body{
 .scroll-wrapper{
   border-radius: var(--radius-lg);
   border: 1px solid rgba(255,255,255,0.16);
-  background: rgba(255,255,255,0.08);
+  background: #fff;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: var(--shadow-soft);
@@ -92,13 +92,15 @@ html, body{
 .presenze-table{
   margin: 0;
   min-width: 1200px;
-  background: rgba(255,255,255,0.92);
+  background: #fff;
   color: #000;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 /* Header (giorni in alto): chiaro + testo nero */
 .presenze-table thead th{
-  background: rgba(255,255,255,0.96) !important;
+  background: #f8f9fa !important;
   color: #000 !important;
   border-color: rgba(0,0,0,0.08) !important;
   font-weight: 950;
@@ -112,18 +114,18 @@ html, body{
   vertical-align: top;
 }
 .presenze-table tbody td{
-  background: rgba(255,255,255,0.94) !important;
+  background: #fff !important;
   color: #000 !important;
 }
 .presenze-table tbody tr:hover td{
-  background: rgba(47,183,255,0.06) !important;
+  background: #f2fbff !important;
 }
 
 /* Sticky header */
 .sticky-top{
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 30;
 }
 
 /* Day header with number and day abbreviation */
@@ -136,9 +138,10 @@ html, body{
 .sticky-col{
   position: sticky;
   left: 0;
-  z-index: 10;
-  background: rgba(255,255,255,0.98) !important;
+  z-index: 40;
+  background: #fff !important;
   color: #000 !important;
+  box-shadow: 2px 0 0 rgba(0,0,0,0.08);
 }
 
 /* Day cells behind sticky column */
@@ -149,8 +152,8 @@ html, body{
 
 /* Angolo top-left sopra tutto */
 .corner{
-  z-index: 20 !important;
-  background: rgba(255,255,255,0.98) !important;
+  z-index: 50 !important;
+  background: #f8f9fa !important;
   color: #000 !important;
 }
 
@@ -168,7 +171,8 @@ html, body{
   display: flex;
   gap: 4px;
   align-items: center;
-  background: rgba(255,255,255,0.7);
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
   border-radius: 8px;
   padding: 4px;
 }

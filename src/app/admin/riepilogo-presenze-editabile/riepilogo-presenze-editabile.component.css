@@ -59,6 +59,8 @@
   border-spacing: 0;
   width: max-content; /* così la tabella può allargarsi e far comparire scroll X */
   min-width: 100%;
+  background: #fff;
+  color: #000;
 }
 
 .cell-wrap {
@@ -74,7 +76,7 @@
 .sticky-top {
   position: sticky;
   top: 0;
-  z-index: 5; /* sopra le celle */
+  z-index: 30; /* sopra le celle */
   background: #f8f9fa; /* come table-light */
 }
 
@@ -82,8 +84,9 @@
 .sticky-col {
   position: sticky;
   left: 0;
-  z-index: 10;
+  z-index: 40;
   background: #fff;
+  color: #000;
 }
 
 /* Keep day cells and their children (select, input) behind the sticky column */
@@ -94,7 +97,8 @@
 
 /* Celle di incrocio (top+left) */
 .corner {
-  z-index: 20; /* sopra tutto (sticky-col + sticky-top) */
+  z-index: 50; /* sopra tutto (sticky-col + sticky-top) */
+  background: #f8f9fa;
 }
 
 /* (opzionale) linea di separazione più “excel” sulla colonna sticky */

@@ -29,11 +29,11 @@
   <section class="filters-panel">
     <label>
       Dal
-      <input class="form-control" type="date" [(ngModel)]="from" />
+      <input class="form-control" type="date" [(ngModel)]="from" (change)="loadStats()" />
     </label>
     <label>
       Al
-      <input class="form-control" type="date" [(ngModel)]="to" />
+      <input class="form-control" type="date" [(ngModel)]="to" (change)="loadStats()" />
     </label>
     <label>
       Cliente
