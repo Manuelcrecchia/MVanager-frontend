@@ -256,16 +256,33 @@
       </header>
       <section class="attachments-box" *ngIf="selectedMessage.attachments && selectedMessage.attachments.length > 0">
         <h3>Allegati</h3>
-        <button
+        <div
           class="attachment-row"
-          type="button"
           *ngFor="let attachment of selectedMessage.attachments"
-          (click)="downloadAttachment(attachment)"
         >
           <i class="fas fa-paperclip"></i>
           <span>{{ attachmentLabel(attachment) }}</span>
-          <i class="fas fa-download"></i>
-        </button>
+          <div class="attachment-actions">
+            <button
+              class="attachment-action"
+              type="button"
+              (click)="previewAttachment(attachment)"
+              title="Anteprima"
+            >
+              <i class="fas fa-eye"></i>
+              <span>Anteprima</span>
+            </button>
+            <button
+              class="attachment-action"
+              type="button"
+              (click)="downloadAttachment(attachment)"
+              title="Scarica"
+            >
+              <i class="fas fa-download"></i>
+              <span>Scarica</span>
+            </button>
+          </div>
+        </div>
       </section>
       <div class="message-body" [innerHTML]="safeHtml"></div>
     </article>

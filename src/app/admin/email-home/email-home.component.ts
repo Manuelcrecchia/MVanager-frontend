@@ -580,26 +580,56 @@ export class EmailHomeComponent implements OnInit {
     return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
+  previewAttachment(attachment: EmailAttachment) {
+    const previewWindow = window.open('', '_blank');
+    if (!previewWindow) {
+      alert("Pop-up bloccato dal browser. Abilita i pop-up per vedere l'anteprima.");
+      return;
+    }
+
+    previewWindow.document.write('Caricamento anteprima...');
+    this.fetchAttachmentBlob(attachment).subscribe({
+      next: (blob) => {
+        const previewBlob = blob.type
+          ? blob
+          : new Blob([blob], {
+              type: attachment.contentType || 'application/octet-stream',
+            });
+        const url = URL.createObjectURL(previewBlob);
+        previewWindow.location.href = url;
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: (err) => {
+        previewWindow.close();
+        console.error('Errore anteprima allegato:', err);
+        alert(err?.error?.error || 'Errore anteprima allegato');
+      },
+    });
+  }
+
   downloadAttachment(attachment: EmailAttachment) {
-    this.http
+    this.fetchAttachmentBlob(attachment).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = attachment.filename || 'allegato';
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (err) => {
+        console.error('Errore download allegato:', err);
+        alert(err?.error?.error || 'Errore download allegato');
+      },
+    });
+  }
+
+  private fetchAttachmentBlob(attachment: EmailAttachment) {
+    return this.http
       .get(
         this.globalService.url + `admin/email/attachments/${attachment.id}/download`,
         { responseType: 'blob' },
-      )
-      .subscribe({
-        next: (blob) => {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = attachment.filename || 'allegato';
-          a.click();
-          URL.revokeObjectURL(url);
-        },
-        error: (err) => {
-          console.error('Errore download allegato:', err);
-          alert(err?.error?.error || 'Errore download allegato');
-        },
-      });
+      );
   }
 
   private textToHtml(text: string): string {

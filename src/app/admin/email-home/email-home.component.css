@@ -402,7 +402,7 @@
   color: #111827;
   padding: 10px 12px;
   display: grid;
-  grid-template-columns: 20px 1fr 20px;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   text-align: left;
@@ -410,6 +410,36 @@
 
 .attachment-row + .attachment-row {
   margin-top: 8px;
+}
+
+.attachment-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.attachment-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.attachment-action {
+  border: 1px solid #d7e2f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  padding: 7px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.attachment-action:hover {
+  background: #eaf3ff;
+  color: #0f5fd1;
 }
 
 .compose-panel {
@@ -638,5 +668,19 @@
   .message-body,
   .attachments-box {
     padding: 16px;
+  }
+
+  .attachment-row {
+    grid-template-columns: 20px minmax(0, 1fr);
+  }
+
+  .attachment-actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .attachment-action {
+    flex: 1;
+    justify-content: center;
   }
 }
