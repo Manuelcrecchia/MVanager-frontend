@@ -112,6 +112,10 @@ export class EmailHomeComponent implements OnInit {
     );
   }
 
+  get detailOpen(): boolean {
+    return !!this.selectedMessage || this.composeOpen;
+  }
+
   constructor(
     private http: HttpClient,
     private router: Router,
@@ -274,8 +278,59 @@ export class EmailHomeComponent implements OnInit {
     }
   }
 
+  reply(message: EmailMessage) {
+    const sender = message.fromEmail || '';
+    this.composeOpen = true;
+    this.compose = {
+      accountId: message.accountId || this.accounts[0]?.id || 0,
+      to: sender,
+      cc: '',
+      bcc: '',
+      subject: this.prefixedSubject(message.subject, 'Re:'),
+      body: this.quotedBody(message),
+    };
+    this.resetComposeAttachments();
+  }
+
+  forward(message: EmailMessage) {
+    this.composeOpen = true;
+    this.compose = {
+      accountId: message.accountId || this.accounts[0]?.id || 0,
+      to: '',
+      cc: '',
+      bcc: '',
+      subject: this.prefixedSubject(message.subject, 'Fwd:'),
+      body: this.forwardBody(message),
+    };
+    this.resetComposeAttachments();
+  }
+
+  markUnread(message: EmailMessage) {
+    this.http.post(this.globalService.url + `admin/email/messages/${message.id}/unread`, {}).subscribe({
+      next: () => {
+        message.read = false;
+        const listMessage = this.messages.find((item) => item.id === message.id);
+        if (listMessage) listMessage.read = false;
+        this.updateAccountUnreadCount(message.accountId, 1);
+        this.notifyUnreadChanged();
+        this.selectedMessage = null;
+        this.safeHtml = '';
+      },
+      error: (err) => {
+        console.error('Errore segna non letto:', err);
+        alert(err?.error?.error || 'Errore aggiornamento email');
+      },
+    });
+  }
+
   closeCompose() {
     this.composeOpen = false;
+  }
+
+  closeDetail() {
+    this.selectedMessage = null;
+    this.composeOpen = false;
+    this.safeHtml = '';
   }
 
   send() {
@@ -488,6 +543,41 @@ export class EmailHomeComponent implements OnInit {
   attachmentLabel(attachment: EmailAttachment): string {
     const kb = attachment.size ? Math.ceil(attachment.size / 1024) : 0;
     return kb ? `${attachment.filename} · ${kb} KB` : attachment.filename;
+  }
+
+  private resetComposeAttachments() {
+    this.selectedFiles = [];
+    this.selectedInternalAttachments = [];
+    this.attachmentSearchQuery = '';
+    this.attachmentSearchResults = [];
+    if (this.canUseInternalDocuments) {
+      this.searchAppAttachments();
+    }
+  }
+
+  private prefixedSubject(subject: string, prefix: string): string {
+    const clean = String(subject || '').trim() || '(Senza oggetto)';
+    return clean.toLowerCase().startsWith(prefix.toLowerCase())
+      ? clean
+      : `${prefix} ${clean}`;
+  }
+
+  private quotedBody(message: EmailMessage): string {
+    return `\n\n--- Messaggio originale ---\nDa: ${message.fromName || message.fromEmail}\nData: ${this.formatMailDate(message)}\nOggetto: ${message.subject || '(Senza oggetto)'}\n\n${message.textBody || this.stripHtml(message.htmlBody)}`;
+  }
+
+  private forwardBody(message: EmailMessage): string {
+    const recipients = (message.to || []).map((item) => item.email).join(', ');
+    return `\n\n--- Messaggio inoltrato ---\nDa: ${message.fromName || message.fromEmail}\nA: ${recipients}\nData: ${this.formatMailDate(message)}\nOggetto: ${message.subject || '(Senza oggetto)'}\n\n${message.textBody || this.stripHtml(message.htmlBody)}`;
+  }
+
+  private formatMailDate(message: EmailMessage): string {
+    const date = this.messageDate(message);
+    return date ? new Date(date).toLocaleString('it-IT') : '';
+  }
+
+  private stripHtml(html: string): string {
+    return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
   downloadAttachment(attachment: EmailAttachment) {

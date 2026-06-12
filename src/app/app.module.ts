@@ -100,6 +100,7 @@ import { QuoteAcceptComponent } from './public/quote-accept/quote-accept.compone
 import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work-completion-stats.component';
 import { EmailHomeComponent } from './admin/email-home/email-home.component';
 import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
+import { NotificationSettingsComponent } from './admin/notification-settings/notification-settings.component';
 
 registerLocaleData(localeIt);
 
@@ -152,6 +153,7 @@ registerLocaleData(localeIt);
     WorkCompletionStatsComponent,
     EmailHomeComponent,
     EmailSettingsComponent,
+    NotificationSettingsComponent,
   ],
   imports: [
     BrowserModule,

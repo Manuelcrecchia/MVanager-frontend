@@ -1,4 +1,4 @@
-<div class="mail-shell">
+<div class="mail-shell" [class.detail-open]="detailOpen">
   <aside class="mail-sidebar">
     <div class="sidebar-top">
       <button class="icon-btn" type="button" (click)="back()" title="Indietro">
@@ -104,6 +104,17 @@
   </section>
 
   <section class="mail-detail">
+    <button
+      class="mobile-detail-back"
+      type="button"
+      (click)="closeDetail()"
+      title="Torna alla lista"
+      *ngIf="detailOpen"
+    >
+      <i class="fas fa-chevron-left"></i>
+      <span>Indietro</span>
+    </button>
+
     <form class="compose-panel compose-panel-inline" *ngIf="composeOpen" (ngSubmit)="send()">
       <header>
         <h3>Nuova email</h3>
@@ -225,9 +236,23 @@
             <span *ngIf="selectedMessage.folder === 'sent'">a {{ firstRecipient(selectedMessage) }}</span>
           </p>
         </div>
-        <button class="icon-btn" type="button" (click)="trash(selectedMessage)" title="Cestino">
-          <i class="fas fa-trash"></i>
-        </button>
+        <div class="detail-actions">
+          <button class="detail-action-btn" type="button" (click)="reply(selectedMessage)" title="Rispondi">
+            <i class="fas fa-reply"></i>
+            <span>Rispondi</span>
+          </button>
+          <button class="detail-action-btn" type="button" (click)="forward(selectedMessage)" title="Inoltra">
+            <i class="fas fa-share"></i>
+            <span>Inoltra</span>
+          </button>
+          <button class="detail-action-btn" type="button" (click)="markUnread(selectedMessage)" title="Segna come non letto">
+            <i class="fas fa-envelope"></i>
+            <span>Non letto</span>
+          </button>
+          <button class="icon-btn" type="button" (click)="trash(selectedMessage)" title="Cestino">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
       </header>
       <section class="attachments-box" *ngIf="selectedMessage.attachments && selectedMessage.attachments.length > 0">
         <h3>Allegati</h3>

@@ -50,6 +50,7 @@ import { QuoteAcceptComponent } from './public/quote-accept/quote-accept.compone
 import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work-completion-stats.component';
 import { EmailHomeComponent } from './admin/email-home/email-home.component';
 import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
+import { NotificationSettingsComponent } from './admin/notification-settings/notification-settings.component';
 
 // ✅ Documenti interni (assumo questo path; se diverso, aggiorna SOLO l'import)
 import { InternalDocumentsComponent } from './admin/internal-documents/internal-documents.component';
@@ -194,6 +195,11 @@ const routes: Routes = [
     component: EmailSettingsComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
     data: { permission: 'EMAIL_SETTINGS' },
+  },
+  {
+    path: 'notificationSettings',
+    component: NotificationSettingsComponent,
+    canActivate: [AuthGuard, AuthLevelGuard],
   },
 
   // preventivi

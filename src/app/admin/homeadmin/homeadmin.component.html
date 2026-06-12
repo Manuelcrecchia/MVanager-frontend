@@ -1426,6 +1426,7 @@
           <a *ngIf="global.hasPermission('SETTINGS_ADMIN')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
           <a *ngIf="global.hasPermission('SETTINGS_QUOTES')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>
           <a *ngIf="global.hasPermission('EMAIL_SETTINGS')" (click)="navigateToEmailSettings()">Impostazioni email</a>
+          <a *ngIf="global.forMobile" (click)="navigateToNotificationSettings()">Notifiche mobile</a>
           <a (click)="changeTenant()">Cambia azienda</a>
           <a class="menu-logout" (click)="back()">Logout</a>
         </div>

@@ -1,0 +1,60 @@
+<div class="notification-settings-page">
+  <div class="top-actions">
+    <button class="btn btn-back-glass" type="button" (click)="back()">
+      &larr; Torna Indietro
+    </button>
+  </div>
+
+  <h2 class="page-title">Notifiche mobile</h2>
+
+  <section class="settings-panel">
+    <div class="panel-header">
+      <div>
+        <h3>Categorie notifiche</h3>
+        <p>Scegli quali avvisi push ricevere su questo profilo.</p>
+      </div>
+      <button
+        class="btn btn-glass btn-sm"
+        type="button"
+        (click)="loadPreferences()"
+        [disabled]="loading || saving"
+      >
+        Aggiorna
+      </button>
+    </div>
+
+    <p class="state-message" *ngIf="loading">Caricamento preferenze...</p>
+    <p class="state-message error" *ngIf="error">{{ error }}</p>
+
+    <div class="category-list" *ngIf="!loading && categories.length > 0">
+      <label
+        class="category-row"
+        *ngFor="let category of categories"
+        [class.is-selected]="isEnabled(category.key)"
+      >
+        <input
+          type="checkbox"
+          [checked]="isEnabled(category.key)"
+          (change)="toggleCategory(category.key)"
+        />
+        <span class="category-main">
+          <strong>{{ category.label }}</strong>
+          <small>{{ category.description }}</small>
+        </span>
+      </label>
+    </div>
+
+    <p class="state-message" *ngIf="!loading && categories.length === 0">
+      Nessuna categoria disponibile per i permessi del tuo profilo.
+    </p>
+
+    <button
+      class="btn btn-primary btn-round save-btn"
+      type="button"
+      (click)="save()"
+      [disabled]="saving || loading"
+    >
+      {{ saving ? 'Salvataggio...' : 'Salva preferenze' }}
+    </button>
+  </section>
+</div>

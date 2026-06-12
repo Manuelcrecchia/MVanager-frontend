@@ -329,6 +329,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.router.navigateByUrl('/emailSettings');
   }
 
+  navigateToNotificationSettings() {
+    this.router.navigateByUrl('/notificationSettings');
+  }
+
   navigateToWorkCompletionStats() {
     this.router.navigateByUrl('/homeAdmin/statistiche');
   }
