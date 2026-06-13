@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 
 type MailFolder = 'unread' | 'inbox' | 'sent' | 'trash';
@@ -119,6 +119,7 @@ export class EmailHomeComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private router: Router,
+    private route: ActivatedRoute,
     public globalService: GlobalService,
   ) {}
 
@@ -138,6 +139,7 @@ export class EmailHomeComponent implements OnInit {
           this.compose.accountId = this.accounts[0].id;
           this.selectedAccountId = this.accounts[0].id;
         }
+        this.applyComposeQueryParams();
         this.loadMessages();
       },
       error: (err) => {
@@ -259,14 +261,16 @@ export class EmailHomeComponent implements OnInit {
     });
   }
 
-  newEmail() {
+  newEmail(to = '', subject = '') {
     this.composeOpen = true;
+    this.selectedMessage = null;
+    this.safeHtml = '';
     this.compose = {
       accountId: this.accounts[0]?.id || 0,
-      to: '',
+      to,
       cc: '',
       bcc: '',
-      subject: '',
+      subject,
       body: '',
     };
     this.selectedFiles = [];
@@ -552,6 +556,17 @@ export class EmailHomeComponent implements OnInit {
     this.attachmentSearchResults = [];
     if (this.canUseInternalDocuments) {
       this.searchAppAttachments();
+    }
+  }
+
+  private applyComposeQueryParams(): void {
+    const composeTo = String(this.route.snapshot.queryParamMap.get('composeTo') || '').trim();
+    const composeSubject = String(
+      this.route.snapshot.queryParamMap.get('composeSubject') || '',
+    ).trim();
+
+    if (composeTo) {
+      this.newEmail(composeTo, composeSubject);
     }
   }
 

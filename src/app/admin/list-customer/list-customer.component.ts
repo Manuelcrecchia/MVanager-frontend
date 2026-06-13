@@ -203,6 +203,54 @@ export class ListCustomerComponent {
     // Naviga o apri modale, a seconda di come gestisci i documenti
     this.router.navigate(['/documenti/client', numeroCliente]);
   }
+
+  openCustomerWhatsApp(customer: any): void {
+    const normalizedPhone = this.normalizePhoneForWhatsApp(customer?.telefono || '');
+    if (!normalizedPhone) {
+      alert('Numero di telefono non disponibile.');
+      return;
+    }
+
+    window.open(`https://wa.me/${normalizedPhone}`, '_blank', 'noopener,noreferrer');
+  }
+
+  composeCustomerEmail(customer: any): void {
+    const email = String(customer?.email || '').trim();
+    if (!email) {
+      alert('Indirizzo email non disponibile per questo cliente.');
+      return;
+    }
+
+    if (!this.isValidEmail(email)) {
+      alert('Indirizzo email cliente non valido.');
+      return;
+    }
+
+    this.router.navigate(['/email'], {
+      queryParams: {
+        composeTo: email,
+        composeSubject: customer?.nominativo
+          ? `Cliente ${customer.nominativo}`
+          : '',
+      },
+    });
+  }
+
+  private normalizePhoneForWhatsApp(phone: string): string {
+    let cleaned = String(phone || '').replace(/[^\d+]/g, '');
+    if (!cleaned) return '';
+    if (cleaned.startsWith('+')) cleaned = cleaned.slice(1);
+    if (cleaned.startsWith('00')) cleaned = cleaned.slice(2);
+    if (!cleaned.startsWith('39') && cleaned.length <= 10) {
+      cleaned = `39${cleaned}`;
+    }
+    return cleaned;
+  }
+
+  private isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
   back() {
     this.router.navigateByUrl('/homeAdmin');
   }

@@ -48,7 +48,10 @@ export class GestioneAssenzeComponent implements OnInit {
       .get(this.global.url + 'admin/attendanceCategory/get/' + this.employeeId)
       .subscribe({
         next: (data: any) => (this.assenze = data),
-        error: (err) => console.error('Errore caricamento assenze:', err),
+        error: (err) => {
+          console.error('Errore caricamento assenze:', err);
+          alert('❌ ' + this.parseServerError(err));
+        },
       });
   }
 

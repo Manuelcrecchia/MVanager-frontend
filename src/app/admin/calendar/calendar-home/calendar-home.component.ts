@@ -174,6 +174,7 @@ export class CalendarHomeComponent implements OnInit {
       headers: this.globalService.headers, responseType: 'text',
     }).subscribe((res) => {
       this.clientiArray = JSON.parse(res);
+      this.openPendingCustomerEventIfNeeded();
     });
 
     this.http.get(this.globalService.url + 'admin/getAll', {
@@ -466,6 +467,36 @@ export class CalendarHomeComponent implements OnInit {
     this.recurrenceEnabled=false; this.recurrenceFreq='DAILY'; this.recurrenceInterval=1;
     this.recurrenceDays=[]; this.recurrenceEndType='never'; this.recurrenceUntil=''; this.recurrenceCount=1;
     this.autocompleteOpen=false; this.showDeleteConfirm=false; this.showPopup=true;
+  }
+
+  private openPendingCustomerEventIfNeeded(): void {
+    if (!this.autoInspectionService.pendingCustomerEvent) {
+      return;
+    }
+
+    const numeroCliente = this.autoInspectionService.numeroCliente;
+    const nominativo = this.autoInspectionService.nominativo;
+    const category = this.autoInspectionService.customerEventCategory || 'ordinario';
+    const description = this.autoInspectionService.customerEventDescription;
+
+    this.autoInspectionService.pendingCustomerEvent = false;
+    this.autoInspectionService.numeroCliente = '';
+    this.autoInspectionService.customerEventCategory = '';
+    this.autoInspectionService.customerEventDescription = '';
+
+    if (!numeroCliente || !nominativo) {
+      return;
+    }
+
+    this.currentView = 'day';
+    this.currentDate = new Date();
+    this.buildGrid();
+    this.openNewPopup(
+      new Date(),
+      category,
+      `${numeroCliente} - ${nominativo}`,
+      description,
+    );
   }
 
   openEditPopup(ev: CalEvent) {

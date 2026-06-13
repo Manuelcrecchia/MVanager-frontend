@@ -33,120 +33,97 @@
 
   <h2 class="text-center page-title mb-4 text-dark">Gestione Dipendenti</h2>
 
-  <!-- TABLE WRAPPER -->
-  <div class="table-wrapper desktop-table">
-    <table class="table align-middle text-center mb-0">
-      <thead>
-        <tr>
-          <th style="width: 50px">
-            <input
-              type="checkbox"
-              class="form-check-input"
-              [checked]="allSelected"
-              [indeterminate]="someSelected"
-              (change)="toggleSelectAll()"
-              [disabled]="employees.length === 0"
-            />
-          </th>
-          <th>Nome</th>
-          <th>Cognome</th>
-          <th class="d-none d-md-table-cell">Email</th>
-          <th class="d-none d-lg-table-cell">Telefono</th>
-          <th style="min-width: 240px">Azioni</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        <tr *ngFor="let emp of employees">
-          <td>
+  <div class="employee-card-list" *ngIf="employees.length > 0">
+    <article class="employee-card" *ngFor="let emp of employees">
+      <button
+        type="button"
+        class="employee-header-btn"
+        (click)="toggleEmployeeOpen(emp.id)"
+      >
+        <span class="employee-main">
+          <label class="employee-selector" (click)="$event.stopPropagation()">
             <input
               type="checkbox"
               class="form-check-input"
               [checked]="isSelected(emp.id)"
               (change)="toggleEmployee(emp.id)"
             />
-          </td>
+          </label>
 
-          <td>{{ emp.nome }}</td>
-          <td>{{ emp.cognome }}</td>
-          <td class="d-none d-md-table-cell">{{ emp.email }}</td>
-          <td class="d-none d-lg-table-cell">{{ emp.cellulare || "—" }}</td>
+          <span class="employee-identity">
+            <span class="employee-name">{{ emp.nome }} {{ emp.cognome }}</span>
+            <span class="employee-id">#{{ emp.id }}</span>
+          </span>
+        </span>
 
-          <td class="actions-cell">
-            <button
-              *ngIf="globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE')"
-              class="btn btn-outline-brand btn-sm btn-round"
-              (click)="goToPermessiAssenze(emp.id)"
-            >
-              🗓️ Permessi e assenze
-            </button>
+        <span class="chev" [class.chev--open]="isEmployeeOpen(emp.id)">▾</span>
+      </button>
 
-            <button
-              *ngIf="globalService.hasPermission('EMPLOYEE_DOCS_MANAGE')"
-              class="btn btn-brand-secondary btn-sm btn-round"
-              (click)="goToDocument(emp.id)"
-            >
-              📁 Documenti
-            </button>
-
-            <button
-              *ngIf="globalService.hasPermission('NOTIFICATIONS_VIEW')"
-              class="btn btn-glass-dark btn-sm btn-round"
-              (click)="openEmpNotifications(emp, empNotifModal)"
-            >
-              🔔 Notifiche
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="employee-card-list mobile-only" *ngIf="employees.length > 0">
-    <article class="employee-card" *ngFor="let emp of employees">
-      <div class="employee-card__top">
-        <label class="employee-card__selector">
-          <input
-            type="checkbox"
-            class="form-check-input"
-            [checked]="isSelected(emp.id)"
-            (change)="toggleEmployee(emp.id)"
-          />
-          <span>Seleziona</span>
-        </label>
-        <span class="employee-card__id">#{{ emp.id }}</span>
+      <div class="employee-meta-row">
+        <span *ngIf="emp.email" class="meta-item">
+          <i class="fas fa-envelope"></i>{{ emp.email }}
+        </span>
+        <span *ngIf="emp.cellulare" class="meta-item">
+          <i class="fas fa-phone"></i>{{ emp.cellulare }}
+        </span>
       </div>
 
-      <div class="employee-card__identity">
-        <h3>{{ emp.nome }} {{ emp.cognome }}</h3>
-        <p *ngIf="emp.email">{{ emp.email }}</p>
-        <p *ngIf="emp.cellulare">{{ emp.cellulare }}</p>
-      </div>
+      <div class="employee-actions" *ngIf="isEmployeeOpen(emp.id)">
+        <div class="employee-actions-inner">
+          <button
+            *ngIf="globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE')"
+            class="btn btn-employee-action btn-employee-permits action-with-tooltip"
+            (click)="goToPermessiAssenze(emp.id)"
+            title="Apri permessi e assenze del dipendente"
+            aria-label="Apri permessi e assenze del dipendente"
+            data-tooltip="Permessi e assenze"
+          >
+            <i class="fas fa-calendar-check"></i>
+          </button>
 
-      <div class="employee-card__actions">
-        <button
-          *ngIf="globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE')"
-          class="btn btn-outline-brand btn-sm btn-round"
-          (click)="goToPermessiAssenze(emp.id)"
-        >
-          🗓️ Permessi e assenze
-        </button>
+          <button
+            *ngIf="globalService.hasPermission('EMPLOYEE_DOCS_MANAGE')"
+            class="btn btn-employee-action btn-employee-docs action-with-tooltip"
+            (click)="goToDocument(emp.id)"
+            title="Apri i documenti caricati per questo dipendente"
+            aria-label="Apri documenti dipendente"
+            data-tooltip="Documenti dipendente"
+          >
+            <i class="fas fa-folder-open"></i>
+          </button>
 
-        <button
-          *ngIf="globalService.hasPermission('EMPLOYEE_DOCS_MANAGE')"
-          class="btn btn-brand-secondary btn-sm btn-round"
-          (click)="goToDocument(emp.id)"
-        >
-          📁 Documenti
-        </button>
+          <button
+            *ngIf="globalService.hasPermission('NOTIFICATIONS_VIEW')"
+            class="btn btn-employee-action btn-employee-notifications action-with-tooltip"
+            (click)="openEmpNotifications(emp, empNotifModal)"
+            title="Vedi le notifiche inviate a questo dipendente"
+            aria-label="Vedi notifiche dipendente"
+            data-tooltip="Notifiche inviate"
+          >
+            <i class="fas fa-bell"></i>
+          </button>
 
-        <button
-          *ngIf="globalService.hasPermission('NOTIFICATIONS_VIEW')"
-          class="btn btn-glass-dark btn-sm btn-round"
-          (click)="openEmpNotifications(emp, empNotifModal)"
-        >
-          🔔 Notifiche
-        </button>
+          <button
+            class="btn btn-employee-action btn-employee-whatsapp action-with-tooltip"
+            (click)="openEmployeeWhatsApp(emp)"
+            title="Apri la chat WhatsApp del dipendente senza messaggio precompilato"
+            aria-label="Apri WhatsApp"
+            data-tooltip="Apri WhatsApp"
+          >
+            <i class="fab fa-whatsapp"></i>
+          </button>
+
+          <button
+            *ngIf="globalService.hasPermission('EMAIL_VIEW')"
+            class="btn btn-employee-action btn-employee-email action-with-tooltip"
+            (click)="composeEmployeeEmail(emp)"
+            title="Crea una nuova email con il dipendente già come destinatario"
+            aria-label="Scrivi email"
+            data-tooltip="Scrivi email"
+          >
+            <i class="fas fa-envelope"></i>
+          </button>
+        </div>
       </div>
     </article>
   </div>

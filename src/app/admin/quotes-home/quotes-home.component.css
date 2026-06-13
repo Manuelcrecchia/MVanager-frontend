@@ -6,7 +6,7 @@
   box-shadow: 0 20px 60px rgba(2,6,23,.14);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .quote-card.notification-target {
@@ -92,6 +92,10 @@
 }
 
 .btn-quote-action {
+  position: relative;
+  overflow: visible !important;
+  min-width: 46px;
+  min-height: 40px;
   border-radius: 14px !important;
   font-weight: 950 !important;
   color: #000 !important;
@@ -99,6 +103,49 @@
   border: 0 !important;
   padding: 8px 14px;
   font-size: 14px;
+}
+
+.btn-quote-action i,
+.btn-pdf i,
+.btn-notes i {
+  min-width: 16px;
+  text-align: center;
+}
+
+.action-with-tooltip {
+  position: relative;
+  overflow: visible !important;
+}
+
+.action-with-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  transform: translateX(-50%) translateY(4px);
+  z-index: 80;
+  width: max-content;
+  max-width: 220px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .14s ease, transform .14s ease;
+}
+
+.action-with-tooltip:hover::after,
+.action-with-tooltip:focus-visible::after,
+.action-with-tooltip:active::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .btn-quote-edit {
@@ -113,6 +160,16 @@
 
 .btn-quote-chat {
   background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+}
+
+.btn-quote-whatsapp {
+  background: linear-gradient(135deg, #25d366, #d9fbe6) !important;
+  border: 1px solid rgba(37, 211, 102, .30) !important;
+}
+
+.btn-quote-email {
+  background: linear-gradient(135deg, rgba(142,197,255,.85), rgba(255,255,255,.45)) !important;
+  border: 1px solid rgba(13,110,253,.18) !important;
 }
 
 .btn-quote-send {

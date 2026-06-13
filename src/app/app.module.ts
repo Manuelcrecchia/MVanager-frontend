@@ -1,4 +1,4 @@
-import { NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { ErrorHandler, NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 
 import { registerLocaleData } from '@angular/common';
@@ -101,6 +101,7 @@ import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work
 import { EmailHomeComponent } from './admin/email-home/email-home.component';
 import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
 import { NotificationSettingsComponent } from './admin/notification-settings/notification-settings.component';
+import { AppErrorHandler } from './app-error-handler';
 
 registerLocaleData(localeIt);
 
@@ -196,6 +197,7 @@ registerLocaleData(localeIt);
       useClass: AuthInterceptorService,
       multi: true,
     },
+    { provide: ErrorHandler, useClass: AppErrorHandler },
     { provide: LOCALE_ID, useValue: 'it-IT' },
     { provide: MAT_DATE_LOCALE, useValue: 'it-IT' },
     { provide: DateAdapter, useClass: ItalianDateAdapter },

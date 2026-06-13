@@ -8,7 +8,19 @@ import { PopupServiceService } from '../popup-service.service';
 })
 export class PopupComponentComponent {
   constructor(private popup: PopupServiceService){}
-  text = this.popup.text;
+
+  get text(): string {
+    return this.popup.text;
+  }
+
+  get title(): string {
+    return this.popup.title;
+  }
+
+  get type(): string {
+    return this.popup.type;
+  }
+
   closeDialog(){
     this.popup.closePopup();
   }

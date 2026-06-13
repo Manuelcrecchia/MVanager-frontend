@@ -11,6 +11,7 @@ import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 })
 export class GestioneEmployeesComponent implements OnInit {
   employees: any[] = [];
+  private openEmployees = new Set<number>();
 
   // ✅ selezione
   selected = new Set<number>();
@@ -196,6 +197,65 @@ export class GestioneEmployeesComponent implements OnInit {
     } catch {
       return iso;
     }
+  }
+
+  toggleEmployeeOpen(id: any): void {
+    const employeeId = Number(id);
+    if (this.openEmployees.has(employeeId)) {
+      this.openEmployees.delete(employeeId);
+    } else {
+      this.openEmployees.add(employeeId);
+    }
+  }
+
+  isEmployeeOpen(id: any): boolean {
+    return this.openEmployees.has(Number(id));
+  }
+
+  openEmployeeWhatsApp(emp: any): void {
+    const normalizedPhone = this.normalizePhoneForWhatsApp(emp?.cellulare || emp?.telefono || '');
+    if (!normalizedPhone) {
+      alert('Numero di telefono non disponibile.');
+      return;
+    }
+
+    window.open(`https://wa.me/${normalizedPhone}`, '_blank', 'noopener,noreferrer');
+  }
+
+  composeEmployeeEmail(emp: any): void {
+    const email = String(emp?.email || '').trim();
+    if (!email) {
+      alert('Indirizzo email non disponibile per questo dipendente.');
+      return;
+    }
+
+    if (!this.isValidEmail(email)) {
+      alert('Indirizzo email dipendente non valido.');
+      return;
+    }
+
+    const name = `${emp?.nome || ''} ${emp?.cognome || ''}`.trim();
+    this.router.navigate(['/email'], {
+      queryParams: {
+        composeTo: email,
+        composeSubject: name ? `Dipendente ${name}` : '',
+      },
+    });
+  }
+
+  private normalizePhoneForWhatsApp(phone: string): string {
+    let cleaned = String(phone || '').replace(/[^\d+]/g, '');
+    if (!cleaned) return '';
+    if (cleaned.startsWith('+')) cleaned = cleaned.slice(1);
+    if (cleaned.startsWith('00')) cleaned = cleaned.slice(2);
+    if (!cleaned.startsWith('39') && cleaned.length <= 10) {
+      cleaned = `39${cleaned}`;
+    }
+    return cleaned;
+  }
+
+  private isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
   // ---- NAV ----

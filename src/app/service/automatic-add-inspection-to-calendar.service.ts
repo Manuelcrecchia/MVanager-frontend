@@ -9,6 +9,10 @@ export class AutomaticAddInspectionToCalendarService {
   numeroPreventivo: string = '';
   telefono: string = '';
   nominativo: string = '';
+  pendingCustomerEvent = false;
+  numeroCliente: string = '';
+  customerEventCategory: string = '';
+  customerEventDescription: string = '';
 
   constructor() { }
 }

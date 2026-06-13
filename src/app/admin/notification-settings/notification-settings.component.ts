@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 interface NotificationCategory {
   key: string;
@@ -32,6 +33,7 @@ export class NotificationSettingsComponent implements OnInit {
     private http: HttpClient,
     private router: Router,
     public global: GlobalService,
+    private popup: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -65,6 +67,7 @@ export class NotificationSettingsComponent implements OnInit {
           console.error('Errore caricamento preferenze notifiche:', err);
           this.error =
             err?.error?.error || 'Errore durante il caricamento delle preferenze.';
+          this.popup.showError(this.error);
           this.loading = false;
         },
       });
@@ -101,6 +104,7 @@ export class NotificationSettingsComponent implements OnInit {
           console.error('Errore salvataggio preferenze notifiche:', err);
           this.error =
             err?.error?.error || 'Errore durante il salvataggio delle preferenze.';
+          this.popup.showError(this.error);
           this.saving = false;
         },
       });

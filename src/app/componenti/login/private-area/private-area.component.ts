@@ -5,11 +5,15 @@ import { Router } from '@angular/router';
 import { PopupServiceService } from '../../popup/popup-service.service';
 import { AuthServiceService } from '../../../auth-service.service';
 import { BiometricService } from '../../../service/biometric.service';
-import { TenantId, TenantService } from '../../../service/tenant.service';
+import {
+  CompanyRegistryOption,
+  TenantId,
+  TenantService,
+} from '../../../service/tenant.service';
 import { jwtDecode } from 'jwt-decode';
 import { NotificationNavigationService } from '../../../service/notification-navigation.service';
-import { App as CapacitorApp } from '@capacitor/app';
-import { Capacitor, PluginListenerHandle } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-private-area',
@@ -20,13 +24,16 @@ export class PrivateAreaComponent {
   version = this.globalService.version;
   isMobile = this.globalService.forMobile;
   selectedTenant: TenantId | null = null;
+  companies: CompanyRegistryOption[] = [];
+  companiesLoading = false;
+  companiesError = '';
+  companyDropdownOpen = false;
   loginReady = false;
   checkingLoginState = false;
   biometricAvailable = false;
   private autoBiometricAttempted = false;
   private biometricLoginInProgress = false;
   private viewReady = false;
-  private appStateListener?: PluginListenerHandle;
   private autoBiometricTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
@@ -42,6 +49,21 @@ export class PrivateAreaComponent {
 
   async ngOnInit() {
     await this.tenantService.ready;
+
+    if (this.isMobile) {
+      const loaded = await this.loadCompanies();
+      if (!loaded) {
+        this.tenantService.clearTenant();
+        this.authService.logout();
+        this.selectedTenant = null;
+        this.loginReady = false;
+        this.biometricAvailable = false;
+        return;
+      }
+    } else {
+      this.loadCompanies();
+    }
+
     this.selectedTenant = this.tenantService.selectedTenant;
 
     if (this.tenantService.requiresTenantSelection) {
@@ -50,16 +72,6 @@ export class PrivateAreaComponent {
 
     await this.initializeLoginState();
 
-    if (Capacitor.getPlatform() !== 'web') {
-      this.appStateListener = await CapacitorApp.addListener(
-        'appStateChange',
-        ({ isActive }) => {
-          if (isActive) {
-            this.startAutomaticBiometricLogin('app-active');
-          }
-        },
-      );
-    }
   }
 
   ngAfterViewInit(): void {
@@ -68,7 +80,6 @@ export class PrivateAreaComponent {
   }
 
   ngOnDestroy(): void {
-    this.appStateListener?.remove();
     if (this.autoBiometricTimer) {
       clearTimeout(this.autoBiometricTimer);
     }
@@ -77,7 +88,18 @@ export class PrivateAreaComponent {
   /**
    * LOGIN STANDARD + BIOMETRICO
    */
+  submitLogin(event: Event, email: string, password: string): void {
+    event.preventDefault();
+    this.loginFunction(email, password);
+  }
+
   async loginFunction(email: string, password: string, automatic = false) {
+    if (this.isMobile && this.companiesError) {
+      this.popup.text = 'Impossibile caricare le aziende. Riprova più tardi.';
+      this.popup.openPopup();
+      return;
+    }
+
     if (this.tenantService.requiresTenantSelection) {
       this.popup.text = 'Seleziona prima l\'azienda.';
       this.popup.openPopup();
@@ -189,6 +211,26 @@ export class PrivateAreaComponent {
     input.type = input.type === 'password' ? 'text' : 'password';
   }
 
+  toggleCompanyDropdown(): void {
+    if (this.companiesLoading || this.companiesError || !this.companies.length) {
+      this.companyDropdownOpen = false;
+      return;
+    }
+
+    this.companyDropdownOpen = !this.companyDropdownOpen;
+  }
+
+  get selectedCompanyLabel(): string {
+    if (this.selectedTenant) {
+      const selectedCompany = this.companies.find((company) =>
+        this.isCompanySelected(company),
+      );
+      return selectedCompany?.name || this.tenantService.tenantLabel;
+    }
+
+    return this.companiesLoading ? 'Caricamento aziende...' : 'Seleziona azienda';
+  }
+
   async selectTenant(tenant: TenantId): Promise<void> {
     const previousTenant = this.getTokenTenant();
 
@@ -203,6 +245,85 @@ export class PrivateAreaComponent {
     }
 
     await this.initializeLoginState();
+  }
+
+  isCompanySelected(company: CompanyRegistryOption): boolean {
+    const tenant = this.getCompanyTenant(company);
+    return !!tenant && tenant === this.selectedTenant;
+  }
+
+  async selectCompany(company: CompanyRegistryOption): Promise<void> {
+    const tenant = this.getCompanyTenant(company);
+    if (!tenant) {
+      this.popup.text = 'Azienda non configurata correttamente.';
+      this.popup.openPopup();
+      return;
+    }
+
+    const previousTenant = this.getTokenTenant();
+    const selectedCompany = this.normalizeCompanyForCurrentBuild(company);
+
+    try {
+      await this.tenantService.setCompany(selectedCompany);
+    } catch {
+      this.popup.text = 'Azienda non configurata correttamente.';
+      this.popup.openPopup();
+      return;
+    }
+
+    this.selectedTenant = tenant;
+    this.companyDropdownOpen = false;
+    this.loginReady = false;
+    this.autoBiometricAttempted = false;
+
+    if (previousTenant && previousTenant !== tenant) {
+      this.authService.logout();
+      return;
+    }
+
+    await this.initializeLoginState();
+  }
+
+  private loadCompanies(): Promise<boolean> {
+    this.companiesLoading = true;
+    this.companiesError = '';
+
+    return new Promise((resolve) => {
+      this.http
+        .get<CompanyRegistryOption[]>(environment.companyRegistryEndpoint)
+        .subscribe({
+          next: (companies) => {
+            this.companies = Array.isArray(companies) ? companies : [];
+            this.companiesLoading = false;
+            if (!this.companies.length) {
+              this.companiesError = 'Nessuna azienda disponibile.';
+              resolve(false);
+              return;
+            }
+            resolve(true);
+          },
+          error: (error) => {
+            console.error('Errore caricamento aziende:', error);
+            this.companiesLoading = false;
+            this.companiesError = 'Impossibile caricare le aziende.';
+            resolve(false);
+          },
+        });
+    });
+  }
+
+  private getCompanyTenant(company: CompanyRegistryOption): TenantId | null {
+    const tenant = String(company.tenantId || '').trim().toLowerCase();
+    return tenant === 'sami' || tenant === 'emmeci' ? tenant : null;
+  }
+
+  private normalizeCompanyForCurrentBuild(
+    company: CompanyRegistryOption,
+  ): CompanyRegistryOption {
+    return {
+      ...company,
+      serverUrl: environment.apiUrl || environment.mobileDevApiUrl,
+    };
   }
 
   async biometricLogin(silent = false): Promise<void> {
@@ -229,6 +350,15 @@ export class PrivateAreaComponent {
   }
 
   private async initializeLoginState(): Promise<void> {
+    if (
+      this.isMobile &&
+      (this.companiesError || this.tenantService.requiresTenantSelection)
+    ) {
+      this.loginReady = false;
+      this.biometricAvailable = false;
+      return;
+    }
+
     if (this.checkingLoginState) {
       return;
     }
@@ -273,6 +403,7 @@ export class PrivateAreaComponent {
       !this.viewReady ||
       !this.loginReady ||
       !this.biometricAvailable ||
+      this.authService.isBiometricAutoLoginSuppressed() ||
       !!this.authService.token ||
       this.biometricLoginInProgress
     ) {

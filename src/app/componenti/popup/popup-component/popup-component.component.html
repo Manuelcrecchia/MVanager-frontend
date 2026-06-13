@@ -1,7 +1,18 @@
-<h1 mat-dialog-title>ATTENZIONE</h1>
-<div mat-dialog-content>
-  <p>{{text}}</p>
-</div>
-<div mat-dialog-actions>
-  <button mat-button (click)="closeDialog()">Close</button>
+<div class="app-alert" [ngClass]="'app-alert-' + type">
+  <div class="app-alert-icon">
+    <mat-icon *ngIf="type === 'error'">error_outline</mat-icon>
+    <mat-icon *ngIf="type === 'warning'">warning_amber</mat-icon>
+    <mat-icon *ngIf="type === 'success'">check_circle_outline</mat-icon>
+    <mat-icon *ngIf="type === 'info'">info_outline</mat-icon>
+  </div>
+
+  <h2 mat-dialog-title>{{ title }}</h2>
+
+  <div mat-dialog-content>
+    <p>{{ text }}</p>
+  </div>
+
+  <div mat-dialog-actions align="end">
+    <button mat-button class="app-alert-button" (click)="closeDialog()">Ok</button>
+  </div>
 </div>

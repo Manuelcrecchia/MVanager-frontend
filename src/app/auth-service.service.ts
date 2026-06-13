@@ -10,6 +10,7 @@ import { Capacitor } from '@capacitor/core';
   providedIn: 'root'
 })
 export class AuthServiceService {
+  private readonly BIOMETRIC_SUPPRESS_KEY = 'mvanager_biometric_suppressed_after_logout';
   private readonly TOKEN_KEY = 'token';
   private readonly USER_CODE_KEY = 'userCode';
   private readonly PERMISSIONS_KEY = 'permissions';
@@ -44,6 +45,7 @@ export class AuthServiceService {
   set token(value: string | null) {
     this._token = value;
     if (value) {
+      this.clearBiometricAutoLoginSuppression();
       this.persistValue(this.TOKEN_KEY, value);
       this.syncTenantFromToken(value);
       const remainingTime = this.getTokenRemainingTime(value);
@@ -157,6 +159,7 @@ export class AuthServiceService {
 
   logout(): void {
     console.log('[AuthService] Logout eseguito o automatico');
+    this.suppressBiometricAutoLoginUntilRestart();
     this.clearSessionState();
 
     if (this.isPublicQuoteAcceptanceRoute()) {
@@ -164,6 +167,20 @@ export class AuthServiceService {
     }
 
     this.router.navigateByUrl('/', { replaceUrl: true });
+  }
+
+  isBiometricAutoLoginSuppressed(): boolean {
+    return sessionStorage.getItem(this.BIOMETRIC_SUPPRESS_KEY) === '1';
+  }
+
+  private suppressBiometricAutoLoginUntilRestart(): void {
+    if (Capacitor.getPlatform() !== 'web') {
+      sessionStorage.setItem(this.BIOMETRIC_SUPPRESS_KEY, '1');
+    }
+  }
+
+  private clearBiometricAutoLoginSuppression(): void {
+    sessionStorage.removeItem(this.BIOMETRIC_SUPPRESS_KEY);
   }
 
   private persistValue(key: string, value: string): void {

@@ -35,6 +35,8 @@ export class QuotesHomeComponent implements OnDestroy {
     signaturePresent?: boolean;
     needsOfficeReview?: boolean;
     officeConfirmedAt?: string | null;
+    email?: string;
+    telefono?: string;
   }[] = [];
 
   private allQuotes: {
@@ -46,6 +48,8 @@ export class QuotesHomeComponent implements OnDestroy {
     signaturePresent?: boolean;
     needsOfficeReview?: boolean;
     officeConfirmedAt?: string | null;
+    email?: string;
+    telefono?: string;
   }[] = [];
 
   pdfPrev!: string;
@@ -235,38 +239,25 @@ export class QuotesHomeComponent implements OnDestroy {
       !!quote.officeConfirmedAt ||
       !!quote.needsOfficeReview;
 
-    if (!shouldOpenSignedPdf) {
-      this.router.navigate(['/view-pdf'], {
-        queryParams: { numeroPreventivo },
-      });
-      return;
-    }
+    this.router.navigate(['/view-pdf'], {
+      queryParams: shouldOpenSignedPdf
+        ? { numeroPreventivo, signed: 1 }
+        : { numeroPreventivo },
+    });
+  }
 
-    this.http
-      .post<{
-        pdfUrl?: string;
-      }>(
-        this.globalService.url + 'quotes/getAcceptanceStatus',
-        { numeroPreventivo },
-        { headers: this.globalService.headers },
-      )
-      .subscribe({
-        next: (response) => {
-          if (response?.pdfUrl) {
-            window.open(response.pdfUrl, '_blank', 'noopener,noreferrer');
-            return;
-          }
+  reviewSignedQuoteAndCreateCustomer(quote: {
+    numeroPreventivo: string;
+    acceptanceStatus?: string | null;
+    signaturePresent?: boolean;
+    needsOfficeReview?: boolean;
+    officeConfirmedAt?: string | null;
+  }) {
+    const numeroPreventivo = quote.numeroPreventivo;
 
-          this.router.navigate(['/view-pdf'], {
-            queryParams: { numeroPreventivo },
-          });
-        },
-        error: () => {
-          this.router.navigate(['/view-pdf'], {
-            queryParams: { numeroPreventivo },
-          });
-        },
-      });
+    this.router.navigate(['/view-pdf'], {
+      queryParams: { numeroPreventivo, signed: 1, confirmCustomer: 1 },
+    });
   }
 
   private normalize(s: string): string {
@@ -554,87 +545,7 @@ export class QuotesHomeComponent implements OnDestroy {
             return;
           }
 
-          // SAMI
-          this.customerModelService.tipoCliente =
-            quote.tipoPreventivo === 'S' ? 'S' : 'O';
-          this.customerModelService.nominativo = quote.nominativo || '';
-          this.customerModelService.cfpi = quote.cfpi || '';
-          this.customerModelService.cittaDiFatturazione =
-            quote.cittaDiFatturazione || '';
-          this.customerModelService.selettorePrefissoViaDiFatturazione =
-            quote.selettorePrefissoViaDiFatturazione || '';
-          this.customerModelService.viaDiFatturazione =
-            quote.viaDiFatturazione || '';
-          this.customerModelService.capDiFatturazione =
-            quote.capDiFatturazione || '';
-          this.customerModelService.citta = quote.citta || '';
-          this.customerModelService.selettorePrefissoVia =
-            quote.selettorePrefissoVia || '';
-          this.customerModelService.via = quote.via || '';
-          this.customerModelService.cap = quote.cap || '';
-          this.customerModelService.email = quote.email || '';
-          this.customerModelService.telefono = quote.telefono || '';
-          this.customerModelService.referente = quote.referente || '';
-          this.customerModelService.descrizioneImmobile =
-            quote.descrizioneImmobile || '';
-          this.customerModelService.servizi = this.parseMaybeJsonArray(
-            quote.servizi,
-          );
-          this.customerModelService.interventi = this.parseMaybeJsonArray(
-            quote.interventi,
-          );
-          this.customerModelService.imponibile = quote.imponibile
-            ? parseFloat(quote.imponibile).toFixed(2)
-            : '0.00';
-          this.customerModelService.iva = quote.iva || '';
-          this.customerModelService.pagamento = quote.pagamento || '';
-          this.customerModelService.tempistica = quote.tempistica || '';
-          this.customerModelService.note = quote.note || '';
-
-          (this.customerModelService as any).ragSociale = quote.ragSociale || '';
-          (this.customerModelService as any).data = quote.data || '';
-          (this.customerModelService as any).cittaDiPartenza = quote.cittaDiPartenza || '';
-          (this.customerModelService as any).selettorePrefissoViaDiPartenza = quote.selettorePrefissoViaDiPartenza || '';
-          (this.customerModelService as any).viaDiPartenza = quote.viaDiPartenza || '';
-          (this.customerModelService as any).pianoDiPartenza = quote.pianoDiPartenza || '';
-          (this.customerModelService as any).occupazioneSuoloPubblicoDiPartenza = quote.occupazioneSuoloPubblicoDiPartenza || '';
-          (this.customerModelService as any).capDiPartenza = quote.capDiPartenza || '';
-
-          (this.customerModelService as any).cittaDiArrivo = quote.cittaDiArrivo || '';
-          (this.customerModelService as any).selettorePrefissoViaDiArrivo = quote.selettorePrefissoViaDiArrivo || '';
-          (this.customerModelService as any).viaDiArrivo = quote.viaDiArrivo || '';
-          (this.customerModelService as any).pianoDiArrivo = quote.pianoDiArrivo || '';
-          (this.customerModelService as any).occupazioneSuoloPubblicoDiArrivo = quote.occupazioneSuoloPubblicoDiArrivo || '';
-          (this.customerModelService as any).capDiArrivo = quote.capDiArrivo || '';
-
-          (this.customerModelService as any).altreDestinazioni = quote.altreDestinazioni || '';
-          (this.customerModelService as any).stanzeEOggetti = this.parseMaybeJsonArray(quote.stanzeEOggetti);
-
-          (this.customerModelService as any).lampadari = !!quote.lampadari;
-          (this.customerModelService as any).imballaggio = !!quote.imballaggio;
-          (this.customerModelService as any).smaltimentoMaterialiDiRisulta = !!quote.smaltimentoMaterialiDiRisulta;
-          (this.customerModelService as any).riposizionamentoContenutiDegliArredi = !!quote.riposizionamentoContenutiDegliArredi;
-          (this.customerModelService as any).smontaggioEImballaggioDegliArredi = !!quote.smontaggioEImballaggioDegliArredi;
-          (this.customerModelService as any).caricoSuNostroMezzoIdoneo = !!quote.caricoSuNostroMezzoIdoneo;
-          (this.customerModelService as any).trasporto = !!quote.trasporto;
-          (this.customerModelService as any).scaricoEConsegnaAlPiano = !!quote.scaricoEConsegnaAlPiano;
-          (this.customerModelService as any).montaggioDegliArredi = !!quote.montaggioDegliArredi;
-          (this.customerModelService as any).ausilioDiElevatoreEsternoOvePossibile = !!quote.ausilioDiElevatoreEsternoOvePossibile;
-          (this.customerModelService as any).assicurazioneControIRischiDiTrasporto = !!quote.assicurazioneControIRischiDiTrasporto;
-          (this.customerModelService as any).fornituraMaterialiDaImballo = !!quote.fornituraMaterialiDaImballo;
-          (this.customerModelService as any).imballaggioDeiContenuti = !!quote.imballaggioDeiContenuti;
-          (this.customerModelService as any).custodiaInDeposito = !!quote.custodiaInDeposito;
-          (this.customerModelService as any).ospCarico = !!quote.ospCarico;
-          (this.customerModelService as any).ospScarico = !!quote.ospScarico;
-
-          (this.customerModelService as any).prezzoTrasloco = quote.prezzoTrasloco || 0;
-          (this.customerModelService as any).prezzoFornituraMaterialiDaImballo = quote.prezzoFornituraMaterialiDaImballo || 0;
-          (this.customerModelService as any).prezzoImballaggioDeiContenuti = quote.prezzoImballaggioDeiContenuti || 0;
-          (this.customerModelService as any).prezzoPassaggioInDeposito = quote.prezzoPassaggioInDeposito || 0;
-          (this.customerModelService as any).prezzoOccupazioneSuoloPubblico = quote.prezzoOccupazioneSuoloPubblico || 0;
-          (this.customerModelService as any).prezzoMensileCustodiaMobili = quote.prezzoMensileCustodiaMobili || 0;
-
-          this.customerModelService.numeroPreventivo = numeroPreventivo;
+          this.customerModelService.populateFromQuote(quote, numeroPreventivo);
 
           this.http
             .post(
@@ -754,6 +665,102 @@ export class QuotesHomeComponent implements OnDestroy {
           alert(this.parseServerError(err));
         },
       });
+  }
+
+  openQuoteWhatsApp(quote: { numeroPreventivo: string; telefono?: string }) {
+    if (quote.telefono) {
+      this.openWhatsApp(quote.telefono);
+      return;
+    }
+
+    this.getQuoteContact(quote.numeroPreventivo, (detail) => {
+      this.openWhatsApp(detail?.telefono || '');
+    });
+  }
+
+  composeQuoteEmail(quote: {
+    numeroPreventivo: string;
+    nominativo: string;
+    email?: string;
+  }) {
+    if (quote.email) {
+      this.openEmailComposer(
+        quote.email,
+        `Preventivo ${quote.numeroPreventivo} - ${quote.nominativo}`,
+      );
+      return;
+    }
+
+    this.getQuoteContact(quote.numeroPreventivo, (detail) => {
+      this.openEmailComposer(
+        detail?.email || '',
+        `Preventivo ${quote.numeroPreventivo} - ${quote.nominativo}`,
+      );
+    });
+  }
+
+  private getQuoteContact(
+    numeroPreventivo: string,
+    callback: (quote: any | null) => void,
+  ): void {
+    this.http
+      .post<any[]>(
+        this.globalService.url + 'quotes/getQuote',
+        { numeroPreventivo },
+        { headers: this.globalService.headers },
+      )
+      .subscribe({
+        next: (response) => callback(Array.isArray(response) ? response[0] : null),
+        error: (err) => {
+          console.error('Errore recupero contatto preventivo:', err);
+          alert(this.parseServerError(err));
+        },
+      });
+  }
+
+  private openWhatsApp(phone: string): void {
+    const normalizedPhone = this.normalizePhoneForWhatsApp(phone);
+    if (!normalizedPhone) {
+      this.popup.text = 'Numero di telefono non disponibile.';
+      this.popup.openPopup();
+      return;
+    }
+
+    window.open(`https://wa.me/${normalizedPhone}`, '_blank', 'noopener,noreferrer');
+  }
+
+  private openEmailComposer(to: string, subject = ''): void {
+    const email = String(to || '').trim();
+    if (!email) {
+      this.popup.text = 'Indirizzo email non disponibile per questo preventivo.';
+      this.popup.openPopup();
+      return;
+    }
+
+    if (!this.isValidEmail(email)) {
+      this.popup.text = 'Indirizzo email preventivo non valido.';
+      this.popup.openPopup();
+      return;
+    }
+
+    this.router.navigate(['/email'], {
+      queryParams: { composeTo: email, composeSubject: subject },
+    });
+  }
+
+  private normalizePhoneForWhatsApp(phone: string): string {
+    let cleaned = String(phone || '').replace(/[^\d+]/g, '');
+    if (!cleaned) return '';
+    if (cleaned.startsWith('+')) cleaned = cleaned.slice(1);
+    if (cleaned.startsWith('00')) cleaned = cleaned.slice(2);
+    if (!cleaned.startsWith('39') && cleaned.length <= 10) {
+      cleaned = `39${cleaned}`;
+    }
+    return cleaned;
+  }
+
+  private isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
   back() {

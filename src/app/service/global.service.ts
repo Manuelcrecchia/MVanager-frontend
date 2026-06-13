@@ -21,15 +21,7 @@ export class GlobalService {
   }
 
   get url(): string {
-    const tenantUrl = this.tenantService.isEmmeci
-      ? environment.apiUrls.emmeci
-      : environment.apiUrls.sami;
-
-    if (this.forMobile) {
-      return environment.mobileDevApiUrl || tenantUrl;
-    }
-
-    return tenantUrl;
+    return environment.apiUrl || environment.mobileDevApiUrl;
   }
 
   checkVersion(): Promise<boolean> {
@@ -39,8 +31,17 @@ export class GlobalService {
         this.url +
         `api/version?app=MVanager&platform=${platform}&version=${encodeURIComponent(this.version)}`;
 
-      fetch(url)
-        .then((res) => res.json())
+      fetch(url, {
+        headers: {
+          'X-Tenant-Id': this.tenantService.tenant,
+        },
+      })
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          return res.json();
+        })
         .then((data) => {
           const supported =
             typeof data.supported === 'boolean'
@@ -62,7 +63,7 @@ export class GlobalService {
         })
         .catch((error) => {
           console.error('Errore verifica versione server', url, error);
-          alert('Impossibile verificare la versione del server.');
+          alert(`Impossibile verificare la versione del server.\n${url}`);
           resolve(false);
         });
     });
@@ -105,14 +106,7 @@ export function resolveApiBaseUrl(options: {
   forMobile: boolean;
   tenant: string;
   host: string;
+  selectedCompanyServerUrl?: string | null;
 }): string {
-  const { host, tenant, forMobile } = options;
-  const tenantUrl =
-    tenant === 'emmeci' ? environment.apiUrls.emmeci : environment.apiUrls.sami;
-
-  if (forMobile) {
-    return environment.mobileDevApiUrl || tenantUrl;
-  }
-
-  return tenantUrl;
+  return environment.apiUrl || environment.mobileDevApiUrl;
 }

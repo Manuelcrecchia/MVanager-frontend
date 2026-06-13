@@ -61,7 +61,7 @@ mat-toolbar button[mat-icon-button] mat-icon { color: #000 !important; }
 mat-toolbar .mat-mdc-form-field {
   background: rgba(255,255,255,.55);
   border-radius: 14px;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid rgba(255,255,255,.55);
 }
 
@@ -201,12 +201,57 @@ mat-toolbar .mat-mdc-form-field {
 
 /* Material buttons */
 button[mat-raised-button] {
+  position: relative;
+  overflow: visible !important;
+  min-width: 46px;
+  min-height: 40px;
   border-radius: 14px !important;
   font-weight: 950 !important;
   color: #000 !important;
   box-shadow: 0 10px 22px rgba(2,6,23,.10) !important;
 }
-button[mat-raised-button] mat-icon { color: #000 !important; }
+button[mat-raised-button] mat-icon,
+button[mat-raised-button] i {
+  color: #000 !important;
+  min-width: 20px;
+  text-align: center;
+}
+
+.action-with-tooltip {
+  position: relative;
+  overflow: visible !important;
+}
+
+.action-with-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  transform: translateX(-50%) translateY(4px);
+  z-index: 80;
+  width: max-content;
+  max-width: 220px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .14s ease, transform .14s ease;
+}
+
+.action-with-tooltip:hover::after,
+.action-with-tooltip:focus-visible::after,
+.action-with-tooltip:active::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
 
 button[mat-raised-button][color="primary"] {
   background: linear-gradient(135deg, var(--brand-orange), var(--brand-orange-2)) !important;

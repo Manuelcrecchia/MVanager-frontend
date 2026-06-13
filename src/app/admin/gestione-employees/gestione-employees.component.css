@@ -1,119 +1,287 @@
-/* =========================
-   FORZA TESTI NERI SU BIANCO
-   ========================= */
-
-/* Se hai wrapper chiaro (table-wrapper / card / modal-body-glass ecc) */
-.table-wrapper,
-.table-wrapper *,
-.modal-body-glass,
-.modal-body-glass *,
-.list-item-glass,
-.list-item-glass *,
-.alert,
-.alert *,
-.card,
-.card * {
-  color: #000 !important;
+:host {
+  display: block;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 520px at 50% 0%, rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
+    linear-gradient(180deg, #8ec5ff 0%, #cfe7ff 35%, #eef6ff 100%);
 }
 
-/* Bootstrap utility che spesso rende “grigio chiaro” o bianco */
-.text-muted,
-.small.text-muted,
-small.text-muted,
-.table-wrapper .text-muted,
-.modal-body-glass .text-muted {
-  color: rgba(0, 0, 0, 0.60) !important;
+.clouds {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: .22;
+  background:
+    radial-gradient(600px 220px at 20% 78%, rgba(255,255,255,.8), transparent 70%),
+    radial-gradient(700px 260px at 80% 80%, rgba(255,255,255,.8), transparent 70%),
+    radial-gradient(820px 300px at 50% 92%, rgba(255,255,255,.8), transparent 70%);
+  filter: blur(3px);
 }
 
-/* Placeholder sempre visibile */
-.table-wrapper input::placeholder,
-.table-wrapper textarea::placeholder,
-.modal-body-glass input::placeholder,
-.modal-body-glass textarea::placeholder,
-.form-control::placeholder,
-.form-select::placeholder {
-  color: rgba(0, 0, 0, 0.55) !important;
+.page-wrap {
+  position: relative;
+  z-index: 1;
 }
 
-/* Badge: spesso bootstrap mette testo bianco */
-.badge,
-.badge * {
-  color: #000 !important;
+.page-title {
+  font-weight: 950;
 }
-
-/* Se hai header tabella con gradiente: mantieni testo nero */
-.table thead th,
-table thead th {
-  color: #000 !important;
-}
-
-
-/* ==========================================
-   MOBILE: "AZIONI" SEMPRE VISIBILI (NO HTML)
-   ========================================== */
-
-/* 1) la tabella deve poter scorrere se serve */
-.table-wrapper {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* 2) evita che la colonna azioni collassi */
-.table td:last-child,
-.table th:last-child,
-table td:last-child,
-table th:last-child {
-  min-width: 280px;  /* aumenta se ancora stringe */
-  white-space: normal;
-}
-
-/* 3) i bottoni dentro la cella azioni devono andare a capo e non sparire */
-.actions-cell,
-td.actions-cell {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 8px !important;
-  justify-content: center !important;
-}
-
-/* 4) MOBILE: bottoni full width (così si vedono sempre) */
-@media (max-width: 576px) {
-  .actions-cell,
-  td.actions-cell {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    justify-content: flex-start !important;
-    min-width: 280px !important;
-  }
-
-  .actions-cell .btn,
-  td.actions-cell .btn {
-    width: 100% !important;
-  }
-}
-
-
-/* =========================
-   BOTTONI: TESTO SEMPRE NERO
-   ========================= */
 
 .btn,
 .btn * {
   color: #000 !important;
 }
 
-/* Se avevi hover che faceva testo bianco, lo neutralizziamo */
-.btn:hover,
-.btn:hover * {
+.btn-back-glass,
+.btn-glass,
+.btn-round {
+  border-radius: 14px !important;
+  font-weight: 900 !important;
+}
+
+.btn-back-glass,
+.btn-glass {
+  border: 1px solid rgba(255,255,255,.7) !important;
+  background: rgba(255,255,255,.72) !important;
+  box-shadow: 0 12px 28px rgba(2,6,23,.10);
+}
+
+.btn-primary,
+.btn-brand-primary {
+  border: 0 !important;
+  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+  box-shadow: 0 14px 34px rgba(255,122,0,.26);
+}
+
+.badge-dark {
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: rgba(15,23,42,.90);
+  color: #fff !important;
+  font-weight: 900;
+}
+
+.employee-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.employee-card {
+  overflow: visible;
+  border: 1px solid rgba(255,255,255,.70);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(13,110,253,.10), rgba(255,122,0,.08)),
+    rgba(255,255,255,.58);
+  box-shadow: 0 20px 60px rgba(2,6,23,.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.employee-header-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 22px 22px 0 0;
+  background: linear-gradient(135deg, rgba(13,110,253,.22), rgba(255,122,0,.14));
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #000;
+  text-align: left;
+  cursor: pointer;
+}
+
+.employee-header-btn:hover {
+  background: linear-gradient(135deg, rgba(13,110,253,.30), rgba(255,122,0,.20));
+}
+
+.employee-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.employee-selector {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  cursor: pointer;
+}
+
+.employee-selector .form-check-input {
+  width: 20px;
+  height: 20px;
+}
+
+.employee-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.employee-name {
+  font-weight: 950;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(520px, 62vw);
+}
+
+.employee-id {
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: rgba(15,23,42,.08);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.chev {
+  flex-shrink: 0;
+  font-size: 18px;
+  color: #000;
+  transition: transform .2s ease;
+}
+
+.chev--open {
+  transform: rotate(180deg);
+}
+
+.employee-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 8px 14px;
+  border-top: 1px solid rgba(0,0,0,.04);
+  background: rgba(255,255,255,.18);
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(15,23,42,.66);
+  font-size: .84rem;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.meta-item i {
+  color: rgba(15,23,42,.45);
+}
+
+.employee-actions {
+  border-top: 1px solid rgba(0,0,0,.06);
+  background: rgba(255,255,255,.22);
+}
+
+.employee-actions-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px 14px;
+}
+
+.btn-employee-action {
+  position: relative;
+  overflow: visible !important;
+  min-width: 46px;
+  min-height: 40px;
+  border-radius: 14px !important;
+  border: 0 !important;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 950 !important;
+  box-shadow: 0 10px 22px rgba(2,6,23,.10) !important;
+}
+
+.btn-employee-action i {
+  min-width: 18px;
+  text-align: center;
+}
+
+.btn-employee-permits,
+.btn-employee-email {
+  background: linear-gradient(135deg, rgba(142,197,255,.85), rgba(13,110,253,.25)) !important;
+  border: 1px solid rgba(13,110,253,.18) !important;
+}
+
+.btn-employee-docs {
+  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+}
+
+.btn-employee-notifications {
+  background: linear-gradient(135deg, rgba(255,122,0,.55), rgba(255,255,255,.35)) !important;
+  border: 1px solid rgba(255,122,0,.25) !important;
+}
+
+.btn-employee-whatsapp {
+  background: linear-gradient(135deg, #25d366, #d9fbe6) !important;
+  border: 1px solid rgba(37, 211, 102, .30) !important;
+}
+
+.action-with-tooltip {
+  position: relative;
+  overflow: visible !important;
+}
+
+.action-with-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  transform: translateX(-50%) translateY(4px);
+  z-index: 80;
+  width: max-content;
+  max-width: 220px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(15,23,42,.94);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+  box-shadow: 0 12px 30px rgba(2,6,23,.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .14s ease, transform .14s ease;
+}
+
+.action-with-tooltip:hover::after,
+.action-with-tooltip:focus-visible::after,
+.action-with-tooltip:active::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.modal-brand {
+  background: linear-gradient(135deg, #ff7a00, #0d6efd);
+}
+
+.modal-brand,
+.modal-brand * {
   color: #000 !important;
+  font-weight: 900;
 }
 
-.mobile-only {
-  display: none;
+.modal-body-glass,
+.list-item-glass {
+  color: #000 !important;
+  background: rgba(255,255,255,.82);
 }
 
-.selection-actions {
-  justify-content: flex-end;
+.text-muted,
+.small.text-muted,
+small.text-muted {
+  color: rgba(0,0,0,.62) !important;
 }
 
 @media (max-width: 767.98px) {
@@ -137,65 +305,21 @@ td.actions-cell {
     text-align: center;
   }
 
-  .desktop-table {
-    display: none;
+  .employee-header-btn {
+    align-items: flex-start;
   }
 
-  .mobile-only {
-    display: grid;
-    gap: 16px;
+  .employee-name {
+    max-width: 68vw;
   }
 
-  .employee-card {
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 22px;
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.08);
+  .employee-actions-inner button {
+    width: calc(50% - 6px);
   }
+}
 
-  .employee-card__top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-
-  .employee-card__selector {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 700;
-  }
-
-  .employee-card__id {
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.06);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .employee-card__identity h3 {
-    margin: 0 0 6px;
-    font-size: 1.15rem;
-    font-weight: 800;
-  }
-
-  .employee-card__identity p {
-    margin: 0 0 4px;
-    color: rgba(0, 0, 0, 0.68);
-    word-break: break-word;
-  }
-
-  .employee-card__actions {
-    display: grid;
-    gap: 10px;
-    margin-top: 14px;
-  }
-
-  .employee-card__actions .btn {
+@media (max-width: 420px) {
+  .employee-actions-inner button {
     width: 100%;
   }
 }

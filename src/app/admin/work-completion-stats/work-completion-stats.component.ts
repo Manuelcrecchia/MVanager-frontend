@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 interface FeedbackRecord {
   id: number;
@@ -65,6 +66,7 @@ export class WorkCompletionStatsComponent implements OnInit {
     private http: HttpClient,
     private router: Router,
     public global: GlobalService,
+    private popup: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -109,6 +111,7 @@ export class WorkCompletionStatsComponent implements OnInit {
         error: (err) => {
           console.error('Errore caricamento statistiche fine lavoro:', err);
           this.error = 'Non riesco a caricare le statistiche.';
+          this.popup.showHttpError(err, this.error);
           this.loading = false;
         },
       });

@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { HostListener } from '@angular/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { GlobalService } from './service/global.service';
@@ -7,6 +8,7 @@ import { BiometricService } from './service/biometric.service';
 import { Router } from '@angular/router';
 import { InspectionAlarmSyncService } from './service/inspection-alarm-sync.service';
 import { AuthServiceService } from './auth-service.service';
+import { PopupServiceService } from './componenti/popup/popup-service.service';
 
 @Component({
   selector: 'app-root',
@@ -26,8 +28,11 @@ export class AppComponent {
     private router: Router,
     private inspectionAlarmSync: InspectionAlarmSyncService,
     private authService: AuthServiceService,
+    private popupService: PopupServiceService,
   ) {}
   ngOnInit() {
+    this.popupService.installBrowserAlertBridge();
+
     const platform = Capacitor.getPlatform();
     document.body.classList.toggle('cap-ios', platform === 'ios');
     document.body.classList.toggle('cap-android', platform === 'android');
@@ -113,5 +118,14 @@ export class AppComponent {
   private isLoginRoute(): boolean {
     const url = this.router.url.split('?')[0];
     return url === '/' || url === '/loginPrivateArea';
+  }
+
+  @HostListener('window:unhandledrejection', ['$event'])
+  onUnhandledRejection(event: PromiseRejectionEvent): void {
+    console.error('[App] Promise non gestita:', event.reason);
+    this.popupService.showError(
+      this.popupService.parseServerError(event.reason, 'Operazione non completata. Riprova.'),
+      'Errore imprevisto',
+    );
   }
 }

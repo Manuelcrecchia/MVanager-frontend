@@ -176,7 +176,10 @@
               [checked]="(target.permissions || []).includes(p.key)"
               (change)="togglePermission(target, p.key)"
             />
-            <span>{{ p.label }}</span>
+            <span>
+              <span class="d-block">{{ p.label }}</span>
+              <small class="text-muted" *ngIf="p.description">{{ p.description }}</small>
+            </span>
           </label>
         </div>
       </div>

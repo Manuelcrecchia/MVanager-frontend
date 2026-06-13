@@ -156,6 +156,7 @@ export class InspectionAlarmSyncService {
       forMobile: Capacitor.getPlatform() !== 'web',
       tenant: this.tenantService.tenant,
       host,
+      selectedCompanyServerUrl: this.tenantService.selectedCompanyServerUrl,
     });
   }
 

@@ -5,6 +5,7 @@ import { GlobalService } from '../../service/global.service';
 import { CustomerModelService } from '../../service/customer-model.service';
 import { TenantService } from '../../service/tenant.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+import { AutomaticAddInspectionToCalendarService } from '../../service/automatic-add-inspection-to-calendar.service';
 
 @Component({
   selector: 'app-add-customer',
@@ -161,6 +162,7 @@ export class AddCustomerComponent {
     private http: HttpClient,
     private router: Router,
     private popup: PopupServiceService,
+    private autoInspectionService: AutomaticAddInspectionToCalendarService,
   ) {}
 
   private buildSamiBody() {
@@ -286,6 +288,13 @@ export class AddCustomerComponent {
       : this.buildSamiBody();
 
     const numeroPreventivo = this.customerModelService.numeroPreventivo;
+    const sourceCustomerName = this.customerModelService.nominativo;
+    const sourceCustomerPhone = this.customerModelService.telefono;
+    const sourceCustomerEmail = this.customerModelService.email;
+    const sourceCustomerCategory =
+      this.tenantService.isSami && this.customerModelService.tipoCliente === 'S'
+        ? 'straordinario'
+        : 'ordinario';
 
     this.http
       .post<{
@@ -310,6 +319,21 @@ export class AddCustomerComponent {
               alert(
                 `Cliente creato e preventivo firmato archiviato in Documenti cliente > ${signedQuoteArchivePath || 'Preventivi Firmati'}`,
               );
+            }
+
+            if (numeroPreventivo && numeroCliente) {
+              this.autoInspectionService.pendingCustomerEvent = true;
+              this.autoInspectionService.numeroCliente = numeroCliente;
+              this.autoInspectionService.nominativo = sourceCustomerName;
+              this.autoInspectionService.telefono = sourceCustomerPhone;
+              this.autoInspectionService.customerEventCategory = sourceCustomerCategory;
+              this.autoInspectionService.customerEventDescription = [
+                `Cliente ${sourceCustomerName}`,
+                sourceCustomerPhone ? `Telefono: ${sourceCustomerPhone}` : '',
+                sourceCustomerEmail ? `Email: ${sourceCustomerEmail}` : '',
+              ].filter(Boolean).join('   ');
+              this.router.navigateByUrl('/homeAdmin/calendarHome', { replaceUrl: true });
+              return;
             }
 
             this.router.navigateByUrl('/listCustomer', { replaceUrl: true });

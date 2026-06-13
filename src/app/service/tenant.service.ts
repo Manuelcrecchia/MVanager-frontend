@@ -4,12 +4,27 @@ import { Capacitor } from '@capacitor/core';
 
 export type TenantId = 'sami' | 'emmeci';
 
+export interface CompanyRegistryOption {
+  id: number;
+  name: string;
+  serverUrl: string;
+  tenantId?: TenantId | string | null;
+}
+
 @Injectable({
   providedIn: 'root',
 })
 export class TenantService {
   private readonly TENANT_KEY = 'selectedTenant';
+  private readonly COMPANY_NAME_KEY = 'selectedCompanyName';
+  private readonly COMPANY_SERVER_URL_KEY = 'selectedCompanyServerUrl';
   private _selectedTenant: TenantId | null = this.readStoredTenantSync();
+  private _selectedCompanyName: string | null = this.readStoredValueSync(
+    this.COMPANY_NAME_KEY,
+  );
+  private _selectedCompanyServerUrl: string | null = this.normalizeServerUrl(
+    this.readStoredValueSync(this.COMPANY_SERVER_URL_KEY),
+  );
   readonly ready: Promise<void> = this.restorePersistedTenant();
 
   private isNative(): boolean {
@@ -27,6 +42,18 @@ export class TenantService {
     return null;
   }
 
+  private normalizeServerUrl(value: string | null | undefined): string | null {
+    let url = String(value || '').trim();
+    if (!url) return null;
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    return url.replace(/\/+$/, '') + '/';
+  }
+
+  private readStoredValueSync(key: string): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(key) || sessionStorage.getItem(key);
+  }
+
   private readStoredTenantSync(): TenantId | null {
     if (typeof window === 'undefined') return null;
 
@@ -40,16 +67,55 @@ export class TenantService {
     try {
       const { value } = await Preferences.get({ key: this.TENANT_KEY });
       const tenant = this.normalizeTenant(value);
+      const company = await Preferences.get({ key: this.COMPANY_NAME_KEY });
+      const serverUrl = await Preferences.get({
+        key: this.COMPANY_SERVER_URL_KEY,
+      });
 
-      if (!tenant || this._selectedTenant === tenant) {
-        return;
+      if (company.value) {
+        this._selectedCompanyName = company.value;
+        this.persistValueSync(this.COMPANY_NAME_KEY, company.value);
       }
 
-      this._selectedTenant = tenant;
-      this.persistTenantSync(tenant);
+      const normalizedServerUrl = this.normalizeServerUrl(serverUrl.value);
+      if (normalizedServerUrl) {
+        this._selectedCompanyServerUrl = normalizedServerUrl;
+        this.persistValueSync(
+          this.COMPANY_SERVER_URL_KEY,
+          normalizedServerUrl,
+        );
+      }
+
+      if (tenant && this._selectedTenant !== tenant) {
+        this._selectedTenant = tenant;
+        this.persistTenantSync(tenant);
+      }
     } catch (error) {
       console.error('[TenantService] Errore ripristino tenant:', error);
     }
+  }
+
+  private persistValueSync(key: string, value: string | null): void {
+    if (typeof window === 'undefined') return;
+
+    if (value) {
+      localStorage.setItem(key, value);
+      sessionStorage.setItem(key, value);
+      return;
+    }
+
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  }
+
+  private persistValueAsync(key: string, value: string | null): void {
+    const action = value
+      ? Preferences.set({ key, value })
+      : Preferences.remove({ key });
+
+    action.catch((error) => {
+      console.error('[TenantService] Errore persistenza valore:', error);
+    });
   }
 
   private persistTenantSync(tenant: TenantId | null): void {
@@ -130,11 +196,15 @@ export class TenantService {
       return queryTenant;
     }
 
+    if (this.isNative()) {
+      return this._selectedCompanyServerUrl ? this._selectedTenant : null;
+    }
+
     if (this._selectedTenant) {
       return this._selectedTenant;
     }
 
-    return this.isNative() ? null : this.resolveTenantFromHost();
+    return this.resolveTenantFromHost();
   }
 
   get tenant(): TenantId {
@@ -142,23 +212,65 @@ export class TenantService {
   }
 
   get requiresTenantSelection(): boolean {
-    return this.isNative() && !this.selectedTenant;
+    return this.isNative() && !this.selectedCompanyServerUrl;
   }
 
   get tenantLabel(): string {
-    return this.tenant === 'emmeci' ? 'Emmeci' : 'SAMI';
+    return this._selectedCompanyName || (this.tenant === 'emmeci' ? 'Emmeci' : 'SAMI');
+  }
+
+  get selectedCompanyName(): string | null {
+    return this._selectedCompanyName;
+  }
+
+  get selectedCompanyServerUrl(): string | null {
+    return this._selectedCompanyServerUrl;
   }
 
   async setTenant(tenant: TenantId): Promise<void> {
     this._selectedTenant = tenant;
+    this._selectedCompanyName = null;
+    this._selectedCompanyServerUrl = null;
     this.persistTenantSync(tenant);
     this.persistTenantAsync(tenant);
+    this.persistValueSync(this.COMPANY_NAME_KEY, null);
+    this.persistValueSync(this.COMPANY_SERVER_URL_KEY, null);
+    this.persistValueAsync(this.COMPANY_NAME_KEY, null);
+    this.persistValueAsync(this.COMPANY_SERVER_URL_KEY, null);
+  }
+
+  async setCompany(company: CompanyRegistryOption): Promise<void> {
+    const tenant = this.normalizeTenant(
+      typeof company.tenantId === 'string' ? company.tenantId : null,
+    );
+    const serverUrl = this.normalizeServerUrl(company.serverUrl);
+
+    if (!tenant || !serverUrl) {
+      throw new Error('Azienda non configurata correttamente');
+    }
+
+    this._selectedTenant = tenant;
+    this._selectedCompanyName = company.name;
+    this._selectedCompanyServerUrl = serverUrl;
+
+    this.persistTenantSync(tenant);
+    this.persistTenantAsync(tenant);
+    this.persistValueSync(this.COMPANY_NAME_KEY, company.name);
+    this.persistValueSync(this.COMPANY_SERVER_URL_KEY, serverUrl);
+    this.persistValueAsync(this.COMPANY_NAME_KEY, company.name);
+    this.persistValueAsync(this.COMPANY_SERVER_URL_KEY, serverUrl);
   }
 
   clearTenant(): void {
     this._selectedTenant = null;
+    this._selectedCompanyName = null;
+    this._selectedCompanyServerUrl = null;
     this.persistTenantSync(null);
     this.persistTenantAsync(null);
+    this.persistValueSync(this.COMPANY_NAME_KEY, null);
+    this.persistValueSync(this.COMPANY_SERVER_URL_KEY, null);
+    this.persistValueAsync(this.COMPANY_NAME_KEY, null);
+    this.persistValueAsync(this.COMPANY_SERVER_URL_KEY, null);
   }
 
   setTenantFromToken(tenant: unknown): void {

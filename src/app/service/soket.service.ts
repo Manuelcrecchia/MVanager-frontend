@@ -15,7 +15,10 @@ export class SocketService {
     private tenantService: TenantService,
   ) {
     this.socket = io(global.url, {
-      auth: { tenantId: this.tenantService.tenant },
+      auth: {
+        tenantId: this.tenantService.tenant,
+        token: this.global.token,
+      },
       query: { tenantId: this.tenantService.tenant },
     });
   }

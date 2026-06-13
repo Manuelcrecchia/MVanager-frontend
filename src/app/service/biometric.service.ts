@@ -22,16 +22,16 @@ export class BiometricService {
     return `mvanager-login-${tenant}`;
   }
 
-  private getAndroidEmailKey(tenant: TenantId): string {
+  private getAndroidStoredMarkerKey(tenant: TenantId): string {
+    return `mvanager-biometric-stored-${tenant}`;
+  }
+
+  private getLegacyAndroidEmailKey(tenant: TenantId): string {
     return `mvanager-biometric-email-${tenant}`;
   }
 
-  private getAndroidPasswordKey(tenant: TenantId): string {
+  private getLegacyAndroidPasswordKey(tenant: TenantId): string {
     return `mvanager-biometric-password-${tenant}`;
-  }
-
-  private getAndroidStoredMarkerKey(tenant: TenantId): string {
-    return `mvanager-biometric-stored-${tenant}`;
   }
 
   isAndroidPlatform(): boolean {
@@ -59,19 +59,11 @@ export class BiometricService {
 
     if (this.isAndroid()) {
       try {
-        const [storedMarker, emailResult, passwordResult] = await Promise.all([
-          Preferences.get({
-            key: this.getAndroidStoredMarkerKey(resolvedTenant),
-          }),
-          Preferences.get({
-            key: this.getAndroidEmailKey(resolvedTenant),
-          }),
-          Preferences.get({
-            key: this.getAndroidPasswordKey(resolvedTenant),
-          }),
-        ]);
+        const storedMarker = await Preferences.get({
+          key: this.getAndroidStoredMarkerKey(resolvedTenant),
+        });
 
-        return storedMarker.value === '1' || (!!emailResult.value && !!passwordResult.value);
+        return storedMarker.value === '1';
       } catch (error) {
         console.error(
           '[BiometricService] hasStoredCredentials failed on Android',
@@ -100,14 +92,7 @@ export class BiometricService {
           key: this.getAndroidStoredMarkerKey(resolvedTenant),
           value: '1',
         }),
-        Preferences.set({
-          key: this.getAndroidEmailKey(resolvedTenant),
-          value: email,
-        }),
-        Preferences.set({
-          key: this.getAndroidPasswordKey(resolvedTenant),
-          value: password,
-        }),
+        this.deleteLegacyAndroidPreferences(resolvedTenant),
       ]);
       return;
     }
@@ -148,38 +133,12 @@ export class BiometricService {
           };
         } catch (nativeError) {
           console.warn(
-            '[BiometricService] Credenziali native Android non trovate, provo fallback Preferences',
+            '[BiometricService] Credenziali native Android non trovate',
             nativeError,
           );
-        }
-
-        const [emailResult, passwordResult] = await Promise.all([
-          Preferences.get({
-            key: this.getAndroidEmailKey(resolvedTenant),
-          }),
-          Preferences.get({
-            key: this.getAndroidPasswordKey(resolvedTenant),
-          }),
-        ]);
-
-        const email = emailResult.value;
-        const password = passwordResult.value;
-
-        if (!email || !password) {
+          await this.deleteLegacyAndroidPreferences(resolvedTenant);
           return null;
         }
-
-        await NativeBiometric.setCredentials({
-          server: this.getServerKey(resolvedTenant),
-          username: email,
-          password,
-        });
-        await Preferences.set({
-          key: this.getAndroidStoredMarkerKey(resolvedTenant),
-          value: '1',
-        });
-
-        return { email, password };
       }
 
       const creds = await NativeBiometric.getCredentials({
@@ -225,12 +184,7 @@ export class BiometricService {
         Preferences.remove({
           key: this.getAndroidStoredMarkerKey(resolvedTenant),
         }),
-        Preferences.remove({
-          key: this.getAndroidEmailKey(resolvedTenant),
-        }),
-        Preferences.remove({
-          key: this.getAndroidPasswordKey(resolvedTenant),
-        }),
+        this.deleteLegacyAndroidPreferences(resolvedTenant),
       ]);
       await NativeBiometric.deleteCredentials({
         server: this.getServerKey(resolvedTenant),
@@ -241,5 +195,16 @@ export class BiometricService {
     await NativeBiometric.deleteCredentials({
       server: this.getServerKey(resolvedTenant),
     });
+  }
+
+  private async deleteLegacyAndroidPreferences(tenant: TenantId): Promise<void> {
+    await Promise.all([
+      Preferences.remove({
+        key: this.getLegacyAndroidEmailKey(tenant),
+      }),
+      Preferences.remove({
+        key: this.getLegacyAndroidPasswordKey(tenant),
+      }),
+    ]).catch(() => undefined);
   }
 }

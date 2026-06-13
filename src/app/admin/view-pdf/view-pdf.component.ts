@@ -1,8 +1,8 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { GlobalService } from '../../service/global.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { NgxExtendedPdfViewerComponent } from 'ngx-extended-pdf-viewer';
+import { CustomerModelService } from '../../service/customer-model.service';
 
 @Component({
   selector: 'app-view-pdf',
@@ -14,12 +14,17 @@ export class ViewPdfComponent implements OnInit {
   downloadName = 'document.pdf';
 
   numeroPreventivo!: string;
+  signedPdfMode = false;
+  confirmCustomerMode = false;
+  loadingPdf = false;
+  private signedPdfBlob: Blob | null = null;
 
   constructor(
     private globalService: GlobalService,
     private http: HttpClient,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private customerModelService: CustomerModelService,
   ) {}
 
   private sanitizeFilename(name: string): string {
@@ -37,6 +42,11 @@ export class ViewPdfComponent implements OnInit {
 
       const body = { numeroPreventivo };
       this.numeroPreventivo = params['numeroPreventivo'];
+      this.signedPdfMode = params['signed'] === '1' || params['signed'] === 'true';
+      this.confirmCustomerMode =
+        params['confirmCustomer'] === '1' || params['confirmCustomer'] === 'true';
+      this.pdfPrev = '';
+      this.signedPdfBlob = null;
 
       // Nome file
       this.http
@@ -55,7 +65,9 @@ export class ViewPdfComponent implements OnInit {
             const base = this.sanitizeFilename(
               `${numeroPreventivo} ${nominativo}`
             );
-            this.downloadName = `${base}.pdf`;
+            this.downloadName = this.signedPdfMode
+              ? `${base} firmato.pdf`
+              : `${base}.pdf`;
           },
           error: (err) => {
             console.error('Errore caricamento preventivo:', err);
@@ -63,7 +75,13 @@ export class ViewPdfComponent implements OnInit {
           },
         });
 
+      if (this.signedPdfMode) {
+        this.loadSignedPdf(body);
+        return;
+      }
+
       // PDF base64
+      this.loadingPdf = true;
       this.http
         .post(this.globalService.url + 'pdfs/sendQuote', body, {
           headers: this.globalService.headers,
@@ -76,20 +94,29 @@ export class ViewPdfComponent implements OnInit {
             } else {
               this.router.navigateByUrl('/');
             }
+            this.loadingPdf = false;
           },
           error: (err) => {
             console.error('Errore caricamento PDF:', err);
             alert(this.parseServerError(err));
+            this.loadingPdf = false;
           },
         });
     });
   }
 
   back() {
-    this.router.navigateByUrl('/quotesHome');
+    this.router.navigate(['/quotesHome'], {
+      queryParams: this.signedPdfMode ? { showCompleted: 1 } : {},
+    });
   }
 
   downloadPdf() {
+    if (this.signedPdfMode && this.signedPdfBlob) {
+      this.downloadBlob(this.signedPdfBlob);
+      return;
+    }
+
     const body = { numeroPreventivo: this.numeroPreventivo };
 
     this.http
@@ -99,12 +126,7 @@ export class ViewPdfComponent implements OnInit {
       })
       .subscribe({
         next: (blob) => {
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = this.downloadName;
-          a.click();
-          window.URL.revokeObjectURL(url);
+          this.downloadBlob(blob);
         },
         error: (err) => {
           console.error('Errore download:', err);
@@ -113,6 +135,11 @@ export class ViewPdfComponent implements OnInit {
       });
   }
   printPdf() {
+    if (this.signedPdfMode && this.signedPdfBlob) {
+      this.printBlob(this.signedPdfBlob);
+      return;
+    }
+
     const body = { numeroPreventivo: this.numeroPreventivo };
 
     this.http
@@ -122,36 +149,125 @@ export class ViewPdfComponent implements OnInit {
       })
       .subscribe({
         next: (blob) => {
-          const pdfUrl = URL.createObjectURL(blob);
-
-          // Apri in nuova scheda
-          const newWindow = window.open(pdfUrl);
-
-          if (!newWindow) {
-            alert(
-              '⚠️ Il browser ha bloccato il popup. Attiva i popup per permettere la stampa.'
-            );
-            return;
-          }
-
-          // Aspettiamo che la nuova scheda abbia caricato il PDF
-          newWindow.onload = () => {
-            newWindow.focus();
-
-            // Provare in loop perché Safari impiega sempre tempo
-            const tryPrint = setInterval(() => {
-              try {
-                newWindow.print();
-                clearInterval(tryPrint);
-              } catch {}
-            }, 300);
-          };
+          this.printBlob(blob);
         },
         error: (err) => {
           console.error('Errore stampa:', err);
           alert('Errore durante la stampa del PDF');
         },
       });
+  }
+
+  confirmAndCreateCustomer(): void {
+    const numeroPreventivo = this.numeroPreventivo;
+    const body = { numeroPreventivo };
+
+    this.http
+      .post<any[]>(this.globalService.url + 'quotes/getQuote', body, {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (response) => {
+          const quote = Array.isArray(response) ? response[0] : null;
+
+          if (!quote) {
+            alert('Preventivo non trovato');
+            return;
+          }
+
+          this.customerModelService.populateFromQuote(quote, numeroPreventivo);
+
+          this.http
+            .post(
+              this.globalService.url + 'quotes/setComplete',
+              { numeroPreventivo },
+              {
+                headers: this.globalService.headers,
+                responseType: 'text',
+              },
+            )
+            .subscribe({
+              next: () => {
+                this.router.navigateByUrl('/addCustomer');
+              },
+              error: (err) => {
+                console.error('Errore setComplete:', err);
+                alert(this.parseServerError(err));
+              },
+            });
+        },
+        error: (err) => {
+          console.error('Errore conferma preventivo:', err);
+          alert(this.parseServerError(err));
+        },
+      });
+  }
+
+  private loadSignedPdf(body: { numeroPreventivo: string }): void {
+    this.loadingPdf = true;
+
+    this.http
+      .post(
+        this.globalService.url + 'quotes/downloadSignedAcceptancePdf',
+        body,
+        {
+          headers: this.globalService.headers,
+          responseType: 'blob',
+        },
+      )
+      .subscribe({
+        next: async (blob) => {
+          this.signedPdfBlob = blob;
+          this.pdfPrev = await this.blobToBase64(blob);
+          this.loadingPdf = false;
+        },
+        error: (err) => {
+          console.error('Errore caricamento PDF firmato:', err);
+          alert(this.parseServerError(err));
+          this.loadingPdf = false;
+        },
+      });
+  }
+
+  private downloadBlob(blob: Blob): void {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = this.downloadName;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  private printBlob(blob: Blob): void {
+    const pdfUrl = URL.createObjectURL(blob);
+    const newWindow = window.open(pdfUrl);
+
+    if (!newWindow) {
+      alert('Il browser ha bloccato il popup. Attiva i popup per permettere la stampa.');
+      return;
+    }
+
+    newWindow.onload = () => {
+      newWindow.focus();
+      const tryPrint = setInterval(() => {
+        try {
+          newWindow.print();
+          clearInterval(tryPrint);
+        } catch {}
+      }, 300);
+    };
+  }
+
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || '');
+        resolve(result.includes(',') ? result.split(',')[1] : result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 
   private parseServerError(err: any): string {

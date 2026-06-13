@@ -1,0 +1,93 @@
+.app-alert {
+  padding: 24px;
+  color: #172033;
+  text-align: center;
+}
+
+.app-alert-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.app-alert-icon mat-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 32px;
+}
+
+.app-alert h2 {
+  margin: 0 0 10px;
+  padding: 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.app-alert p {
+  margin: 0;
+  color: #4b5565;
+  font-size: 0.98rem;
+  line-height: 1.45;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.app-alert [mat-dialog-content] {
+  margin: 0;
+  padding: 0;
+}
+
+.app-alert [mat-dialog-actions] {
+  margin: 22px 0 0;
+  padding: 0;
+  min-height: 0;
+  justify-content: center;
+}
+
+.app-alert-button {
+  min-width: 128px;
+  height: 42px;
+  border-radius: 999px;
+  font-weight: 700;
+  color: #fff !important;
+}
+
+.app-alert-error .app-alert-icon {
+  color: #b42318;
+  background: #fee4e2;
+}
+
+.app-alert-error .app-alert-button {
+  background: #d92d20;
+}
+
+.app-alert-warning .app-alert-icon {
+  color: #b54708;
+  background: #fef0c7;
+}
+
+.app-alert-warning .app-alert-button {
+  background: #dc6803;
+}
+
+.app-alert-success .app-alert-icon {
+  color: #067647;
+  background: #d1fadf;
+}
+
+.app-alert-success .app-alert-button {
+  background: #079455;
+}
+
+.app-alert-info .app-alert-icon {
+  color: #175cd3;
+  background: #dbeafe;
+}
+
+.app-alert-info .app-alert-button {
+  background: #2563eb;
+}

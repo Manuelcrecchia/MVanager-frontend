@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
 import { Location } from '@angular/common';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 declare var bootstrap: any;
 
 @Component({
@@ -39,7 +40,8 @@ export class TimbratureDettaglioComponent implements OnInit {
     private http: HttpClient,
     public global: GlobalService,
     private location: Location,
-    private router: Router
+    private router: Router,
+    private popup: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -66,6 +68,7 @@ export class TimbratureDettaglioComponent implements OnInit {
         },
         error: (err) => {
           console.error('Errore caricamento timbrature:', err);
+          this.popup.showHttpError(err, 'Errore durante il caricamento delle timbrature.');
           this.loading = false;
         },
       });
@@ -83,9 +86,15 @@ export class TimbratureDettaglioComponent implements OnInit {
         },
         headers: this.global.headers,
       })
-      .subscribe((res: any) => {
-        this.notes = res.notes || [];
-        this.showNotesModal = true;
+      .subscribe({
+        next: (res: any) => {
+          this.notes = res.notes || [];
+          this.showNotesModal = true;
+        },
+        error: (err) => {
+          console.error('Errore caricamento note timbratura:', err);
+          this.popup.showHttpError(err, 'Errore durante il caricamento delle note.');
+        },
       });
   }
   closeNotesModal() {

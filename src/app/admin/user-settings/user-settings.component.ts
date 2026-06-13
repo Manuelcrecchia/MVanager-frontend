@@ -6,6 +6,7 @@ import { Router } from '@angular/router';
 interface PermissionOption {
   key: string;
   label: string;
+  description?: string;
 }
 
 interface AdminRow {
@@ -50,6 +51,7 @@ export class UserSettingsComponent implements OnInit {
     title: string;
     items: PermissionOption[];
   }> = [];
+  availablePermissionKeys = new Set<string>();
 
   private permissionDeps: Record<string, string[]> = {
     // Note: richiedono prima la VIEW della sezione padre
@@ -118,31 +120,49 @@ export class UserSettingsComponent implements OnInit {
             parsed = response;
           }
 
-          // ✅ deve diventare SEMPRE un array [{key,label}, ...]
+          const backendGroups = Array.isArray(parsed?.groups)
+            ? parsed.groups
+                .map((g: any) => ({
+                  title: String(g.title || ''),
+                  items: Array.isArray(g.items) ? g.items : [],
+                }))
+                .filter((g: any) => g.title && g.items.length)
+            : [];
+
           const arr = Array.isArray(parsed)
             ? parsed
             : Array.isArray(parsed?.data)
               ? parsed.data
               : Array.isArray(parsed?.permissions)
-                ? parsed.permissions
+                ? parsed.permissions.map((key: string) => ({ key, label: key }))
                 : parsed && typeof parsed === 'object'
                   ? Object.values(parsed)
                   : [];
 
-          this.permissionOptions = arr;
-          this.permissionGroups = this.buildPermissionGroups(
-            this.permissionOptions,
+          this.permissionGroups = backendGroups.length
+            ? backendGroups
+            : this.buildPermissionGroups(arr as PermissionOption[]);
+          this.permissionOptions = this.permissionGroups.flatMap((g) => g.items);
+          this.availablePermissionKeys = new Set(
+            this.permissionOptions.map((permission) => permission.key),
           );
+          this.admins = this.admins.map((admin) => ({
+            ...admin,
+            permissions: this.filterAvailablePermissions(admin.permissions),
+          }));
         },
         error: (err) => {
           console.error('Errore permissions/list:', err);
           this.permissionOptions = [];
+          alert(err?.error?.error || 'Errore durante il caricamento dei permessi disponibili.');
         },
       });
   }
 
   togglePermission(target: { permissions: string[] }, key: string) {
     if (!target.permissions) target.permissions = [];
+    if (!this.availablePermissionKeys.has(key)) return;
+
     const idx = target.permissions.indexOf(key);
     const willBeChecked = idx < 0;
     if (idx >= 0) target.permissions.splice(idx, 1);
@@ -176,16 +196,17 @@ export class UserSettingsComponent implements OnInit {
           // ✅ QUI È LA FIX VERA
           this.admins = arr.map((a: any) => ({
             ...a,
-            permissions: Array.isArray(a.permissions)
+            permissions: this.filterAvailablePermissions(Array.isArray(a.permissions)
               ? a.permissions
               : typeof a.permissions === 'string'
                 ? JSON.parse(a.permissions || '[]')
-                : [],
+                : []),
           }));
         },
         error: (err) => {
           console.error('Errore admin/getAll:', err);
           this.admins = [];
+          alert(err?.error?.error || 'Errore durante il caricamento degli amministratori.');
         },
       });
   }
@@ -299,6 +320,7 @@ export class UserSettingsComponent implements OnInit {
     if (checked) {
       // child selezionato -> aggiungi tutti i parent (ricorsivo per catene transitive)
       for (const p of this.permissionDeps[key] || []) {
+        if (!this.availablePermissionKeys.has(p)) continue;
         if (!target.permissions.includes(p)) {
           target.permissions.push(p);
           this.ensurePermissionDeps(target, p, true);
@@ -325,7 +347,7 @@ export class UserSettingsComponent implements OnInit {
       cognome: this.adminAdd.cognome,
       email: this.adminAdd.email,
       codiceOperatore: this.adminAdd.codiceOperatore,
-      permissions: this.adminAdd.permissions || [],
+      permissions: this.filterAvailablePermissions(this.adminAdd.permissions || []),
     };
 
     this.http
@@ -394,7 +416,7 @@ export class UserSettingsComponent implements OnInit {
       cognome: this.adminEdit.cognome,
       email: this.adminEdit.email,
       codiceOperatore: this.adminEdit.codiceOperatore,
-      permissions: this.adminEdit.permissions || [],
+      permissions: this.filterAvailablePermissions(this.adminEdit.permissions || []),
     };
 
     this.http
@@ -439,5 +461,12 @@ export class UserSettingsComponent implements OnInit {
     } catch {}
     if (err.status === 0) return 'Impossibile connettersi al server';
     return 'Errore imprevisto. Riprova.';
+  }
+
+  private filterAvailablePermissions(permissions: string[]): string[] {
+    if (!this.availablePermissionKeys.size) return permissions || [];
+    return [...new Set(permissions || [])].filter((permission) =>
+      this.availablePermissionKeys.has(permission),
+    );
   }
 }

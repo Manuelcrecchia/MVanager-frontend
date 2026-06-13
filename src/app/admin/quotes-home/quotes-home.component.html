@@ -83,19 +83,24 @@
           <span class="d-flex align-items-center gap-2">
             <button
               type="button"
-              class="btn btn-sm btn-pdf"
+              class="btn btn-sm btn-pdf action-with-tooltip"
               (click)="viewPdf(quote); $event.stopPropagation()"
+              title="Apri il PDF del preventivo"
+              aria-label="Apri il PDF del preventivo"
+              data-tooltip="Apre il PDF del preventivo"
             >
               <i class="fas fa-file-pdf"></i>
             </button>
             <button
               *ngIf="globalService.hasPermission('QUOTES_NOTES_VIEW')"
               type="button"
-              class="btn btn-sm btn-notes"
+              class="btn btn-sm btn-notes action-with-tooltip"
               (click)="navigateToNotes(quote.numeroPreventivo, quote.nominativo); $event.stopPropagation()"
-              title="Note"
+              title="Apri le note del preventivo"
+              aria-label="Apri le note del preventivo"
+              data-tooltip="Note del preventivo"
             >
-              <i class="fas fa-sticky-note"></i>
+              <i class="fas fa-note-sticky"></i>
             </button>
             <span class="chev" [class.chev--open]="isQuoteOpen(quote.numeroPreventivo)">▾</span>
           </span>
@@ -105,80 +110,132 @@
           <div class="quote-actions-inner">
             <button
               *ngIf="!showCompletedQuotes && globalService.hasPermission('QUOTES_MANAGE') && !quote.isLocked"
-              class="btn btn-quote-action btn-quote-edit"
+              class="btn btn-quote-action btn-quote-edit action-with-tooltip"
               (click)="navigateToEditQuote(quote.numeroPreventivo)"
+              title="Modifica il preventivo"
+              aria-label="Modifica il preventivo"
+              data-tooltip="Modifica preventivo"
             >
-              <i class="fas fa-edit"></i>
+              <i class="fas fa-pen-to-square"></i>
             </button>
 
             <button
               *ngIf="globalService.hasPermission('QUOTES_MANAGE') && !quote.isLocked"
-              class="btn btn-quote-action btn-quote-delete"
+              class="btn btn-quote-action btn-quote-delete action-with-tooltip"
               (click)="delete(quote.numeroPreventivo)"
+              title="Elimina il preventivo"
+              aria-label="Elimina il preventivo"
+              data-tooltip="Elimina preventivo"
             >
               <i class="fas fa-trash"></i>
             </button>
 
             <button
               *ngIf="!showCompletedQuotes"
-              class="btn btn-quote-action btn-quote-chat"
-              (click)="sendAcceptanceLink(quote.numeroPreventivo)"
+              class="btn btn-quote-action btn-quote-whatsapp action-with-tooltip"
+              (click)="openQuoteWhatsApp(quote)"
+              title="Apri la chat WhatsApp del cliente senza messaggio precompilato"
+              aria-label="Apri WhatsApp"
+              data-tooltip="Apri WhatsApp"
             >
-              <i class="fas fa-comment-dots"></i>
+              <i class="fab fa-whatsapp"></i>
             </button>
 
             <button
-              *ngIf="!showCompletedQuotes && !quote.isLocked"
-              class="btn btn-quote-action btn-quote-send"
-              (click)="invio(quote.numeroPreventivo)"
+              *ngIf="!showCompletedQuotes && globalService.hasPermission('EMAIL_VIEW')"
+              class="btn btn-quote-action btn-quote-email action-with-tooltip"
+              (click)="composeQuoteEmail(quote)"
+              title="Crea una nuova email con il cliente già come destinatario"
+              aria-label="Scrivi email"
+              data-tooltip="Scrivi email"
             >
-              <i class="fas fa-paper-plane"></i>
+              <i class="fas fa-envelope"></i>
             </button>
 
             <button
               *ngIf="!showCompletedQuotes"
-              class="btn btn-quote-action btn-quote-calendar"
+              class="btn btn-quote-action btn-quote-chat action-with-tooltip"
+              (click)="sendAcceptanceLink(quote.numeroPreventivo)"
+              title="Genera e invia su WhatsApp il link per far accettare il preventivo"
+              aria-label="Invia link accettazione"
+              data-tooltip="Link accettazione"
+            >
+              <i class="fas fa-file-signature"></i>
+            </button>
+
+            <button
+              *ngIf="!showCompletedQuotes && !quote.isLocked"
+              class="btn btn-quote-action btn-quote-send action-with-tooltip"
+              (click)="invio(quote.numeroPreventivo)"
+              title="Invia il PDF del preventivo via email"
+              aria-label="Invia PDF preventivo via email"
+              data-tooltip="Invia PDF via email"
+            >
+              <i class="fas fa-file-export"></i>
+            </button>
+
+            <button
+              *ngIf="!showCompletedQuotes"
+              class="btn btn-quote-action btn-quote-calendar action-with-tooltip"
               (click)="addInspection(quote.numeroPreventivo, quote.nominativo)"
+              title="Crea un sopralluogo in calendario da questo preventivo"
+              aria-label="Crea sopralluogo"
+              data-tooltip="Crea sopralluogo"
             >
               <i class="fas fa-calendar-alt"></i>
             </button>
 
             <button
               *ngIf="!showCompletedQuotes && !quote.isLocked"
-              class="btn btn-quote-action btn-quote-confirm"
+              class="btn btn-quote-action btn-quote-confirm action-with-tooltip"
               (click)="conferm(quote.numeroPreventivo)"
+              title="Conferma il preventivo e crea il cliente"
+              aria-label="Conferma preventivo"
+              data-tooltip="Conferma e crea cliente"
             >
               <i class="fas fa-check"></i>
             </button>
 
             <button
               *ngIf="!showCompletedQuotes && (!quote.isLocked || quote.acceptanceStatus === 'pending')"
-              class="btn btn-quote-action btn-quote-refuse"
+              class="btn btn-quote-action btn-quote-refuse action-with-tooltip"
               (click)="refuse(quote.numeroPreventivo)"
+              title="Segna il preventivo come rifiutato"
+              aria-label="Rifiuta preventivo"
+              data-tooltip="Rifiuta preventivo"
             >
               <i class="fas fa-times"></i>
             </button>
 
             <button
               *ngIf="quote.isLocked && globalService.hasPermission('QUOTES_MANAGE')"
-              class="btn btn-quote-action btn-quote-copy"
+              class="btn btn-quote-action btn-quote-copy action-with-tooltip"
               (click)="duplicateQuote(quote.numeroPreventivo)"
+              title="Duplica il preventivo bloccato in una nuova bozza modificabile"
+              aria-label="Duplica preventivo"
+              data-tooltip="Duplica preventivo"
             >
               <i class="fas fa-copy"></i>
             </button>
 
             <button
               *ngIf="showCompletedQuotes && quote.needsOfficeReview"
-              class="btn btn-quote-action btn-quote-verify"
-              (click)="conferm(quote.numeroPreventivo)"
+              class="btn btn-quote-action btn-quote-verify action-with-tooltip"
+              (click)="reviewSignedQuoteAndCreateCustomer(quote)"
+              title="Apre il preventivo firmato; dopo la verifica puoi creare il cliente"
+              aria-label="Verifica preventivo"
+              data-tooltip="Verifica firmato"
             >
-              <i class="fas fa-check-double"></i>
+              <i class="fas fa-file-signature"></i>
             </button>
 
             <button
               *ngIf="showCompletedQuotes && !quote.needsOfficeReview"
-              class="btn btn-quote-action btn-quote-restore"
+              class="btn btn-quote-action btn-quote-restore action-with-tooltip"
               (click)="restore(quote.numeroPreventivo)"
+              title="Riporta il preventivo tra quelli aperti"
+              aria-label="Ripristina preventivo"
+              data-tooltip="Ripristina preventivo"
             >
               <i class="fas fa-undo"></i>
             </button>

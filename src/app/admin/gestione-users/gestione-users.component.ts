@@ -167,6 +167,7 @@ export class GestioneUsersComponent implements OnInit {
             err?.error?.error ||
             err?.error?.message ||
             'Errore durante l’invio della notifica.';
+          alert(this.notifyError);
         },
       });
   }
@@ -190,6 +191,7 @@ export class GestioneUsersComponent implements OnInit {
         },
         error: (err) => {
           console.error('Errore notifiche admin:', err);
+          alert(err?.error?.error || 'Errore durante il caricamento delle notifiche admin.');
           this.adminNotifLoading = false;
         },
       });

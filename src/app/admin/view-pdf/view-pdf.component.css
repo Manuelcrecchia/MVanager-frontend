@@ -38,11 +38,21 @@
   border: 1px solid rgba(255,255,255,.75);
   box-shadow: 0 20px 60px rgba(2,6,23,.14);
   backdrop-filter: blur(12px);
+  position: relative;
 }
 
 /* viewer dentro */
 .pdf-viewer{
   height: 100% !important;
+}
+
+.pdf-loading{
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 950;
+  color: #000;
 }
 
 /* toolbar custom: sticky e bella */
@@ -90,6 +100,22 @@
   border: 1px solid rgba(13,110,253,.18) !important;
 }
 
+.confirm-panel{
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 0 0;
+}
+
+.btn-confirm-customer{
+  border: 0 !important;
+  border-radius: 14px !important;
+  padding: 11px 18px;
+  font-weight: 950 !important;
+  color: #000 !important;
+  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+  box-shadow: 0 14px 34px rgba(255,122,0,.28);
+}
+
 /* responsive: su mobile toolbar in colonna + viewer più alto */
 @media (max-width: 768px){
   .pdf-shell{
@@ -105,7 +131,12 @@
     justify-content: stretch;
   }
 
-  .btn-pdf-action{
+  .btn-pdf-action,
+  .btn-confirm-customer{
     width: 100%;
+  }
+
+  .confirm-panel{
+    justify-content: stretch;
   }
 }

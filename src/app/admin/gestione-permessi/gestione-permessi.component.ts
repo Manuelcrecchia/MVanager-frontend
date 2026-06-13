@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
 import { Router } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 declare var bootstrap: any;
 
 @Component({
@@ -44,7 +45,8 @@ export class GestionePermessiComponent implements OnInit {
     private http: HttpClient,
     public globalService: GlobalService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private popup: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -59,7 +61,10 @@ export class GestionePermessiComponent implements OnInit {
   loadEmployees(): void {
     this.http.get<any[]>(this.globalService.url + 'employees/getAll').subscribe({
       next: (res) => { this.employees = res.filter((e) => e.active !== false); },
-      error: () => {},
+      error: (err) => {
+        console.error('Errore caricamento dipendenti per permessi:', err);
+        this.popup.showHttpError(err, 'Errore durante il caricamento dei dipendenti.');
+      },
     });
   }
 
@@ -164,6 +169,7 @@ export class GestionePermessiComponent implements OnInit {
       },
       error: (err) => {
         console.error('Errore nel recupero permessi:', err);
+        this.popup.showHttpError(err, 'Errore durante il caricamento dei permessi in attesa.');
         this.loading = false;
       },
     });
@@ -179,6 +185,7 @@ export class GestionePermessiComponent implements OnInit {
       },
       error: (err) => {
         console.error('Errore nel recupero storico permessi:', err);
+        this.popup.showHttpError(err, 'Errore durante il caricamento dello storico permessi.');
       },
     });
   }
@@ -289,7 +296,7 @@ export class GestionePermessiComponent implements OnInit {
         },
         error: (err) => {
           console.error('Errore durante rifiuto:', err);
-          this.showToast('❌ Errore durante il rifiuto', true);
+          this.showToast('❌ ' + this.parseServerError(err), true);
         },
       });
   }

@@ -83,11 +83,13 @@
                 <button
                   *ngIf="globalService.hasPermission('CUSTOMERS_NOTES_VIEW')"
                   type="button"
-                  class="btn btn-sm btn-notes"
+                  class="btn btn-sm btn-notes action-with-tooltip"
                   (click)="navigateToNotes(customer.numeroCliente, customer.nominativo); $event.stopPropagation()"
-                  title="Note"
+                  title="Apri le note del cliente"
+                  aria-label="Apri le note del cliente"
+                  data-tooltip="Note cliente"
                 >
-                  <mat-icon>notes</mat-icon>
+                  <mat-icon>sticky_note_2</mat-icon>
                 </button>
                 <span class="chev">▾</span>
               </span>
@@ -114,6 +116,10 @@
                   mat-raised-button
                   color="accent"
                   [routerLink]="['/gestioneTagCliente', customer.numeroCliente]"
+                  class="action-with-tooltip"
+                  title="Gestisci i tag del cliente"
+                  aria-label="Gestisci tag cliente"
+                  data-tooltip="Gestisci tag"
                 >
                   <mat-icon>label</mat-icon>
                 </button>
@@ -123,6 +129,10 @@
                   mat-raised-button
                   color="accent"
                   (click)="navigateToEditCustomer(customer.numeroCliente)"
+                  class="action-with-tooltip"
+                  title="Modifica i dati del cliente"
+                  aria-label="Modifica cliente"
+                  data-tooltip="Modifica cliente"
                 >
                   <mat-icon>edit</mat-icon>
                 </button>
@@ -132,6 +142,10 @@
                   mat-raised-button
                   color="warn"
                   (click)="exportAndDeleteCustomer(customer)"
+                  class="action-with-tooltip"
+                  title="Esporta il cliente in ZIP e poi lo elimina"
+                  aria-label="Esporta ed elimina cliente"
+                  data-tooltip="Esporta ed elimina"
                 >
                   <mat-icon>delete</mat-icon>
                 </button>
@@ -140,6 +154,10 @@
                   mat-raised-button
                   color="primary"
                   (click)="viewDocuments(customer.numeroCliente)"
+                  class="action-with-tooltip"
+                  title="Apri i documenti caricati per questo cliente"
+                  aria-label="Apri documenti cliente"
+                  data-tooltip="Documenti cliente"
                 >
                   <mat-icon>folder</mat-icon>
                 </button>
@@ -148,8 +166,37 @@
                   mat-raised-button
                   color="accent"
                   [routerLink]="['/schedaCliente', customer.numeroCliente]"
+                  class="action-with-tooltip"
+                  title="Apri la scheda riepilogativa del cliente"
+                  aria-label="Apri scheda cliente"
+                  data-tooltip="Scheda cliente"
                 >
-                  <mat-icon>person</mat-icon>
+                  <mat-icon>badge</mat-icon>
+                </button>
+
+                <button
+                  mat-raised-button
+                  color="primary"
+                  (click)="openCustomerWhatsApp(customer)"
+                  class="action-with-tooltip"
+                  title="Apri la chat WhatsApp del cliente senza messaggio precompilato"
+                  aria-label="Apri WhatsApp"
+                  data-tooltip="Apri WhatsApp"
+                >
+                  <i class="fab fa-whatsapp"></i>
+                </button>
+
+                <button
+                  *ngIf="globalService.hasPermission('EMAIL_VIEW')"
+                  mat-raised-button
+                  color="accent"
+                  (click)="composeCustomerEmail(customer)"
+                  class="action-with-tooltip"
+                  title="Crea una nuova email con il cliente già come destinatario"
+                  aria-label="Scrivi email"
+                  data-tooltip="Scrivi email"
+                >
+                  <mat-icon>mail</mat-icon>
                 </button>
 
               </div>

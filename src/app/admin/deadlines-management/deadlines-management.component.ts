@@ -2,6 +2,7 @@ import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 type DeadlineKind = 'employee' | 'vehicle';
 type DeadlineStatus = 'ok' | 'warning' | 'expired';
@@ -102,6 +103,7 @@ export class DeadlinesManagementComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     public globalService: GlobalService,
+    private popup: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -231,6 +233,7 @@ export class DeadlinesManagementComponent implements OnInit {
         console.error('Errore caricamento entita scadenze:', err);
         this.entitiesLoading = false;
         this.error = this.parseServerError(err);
+        this.popup.showError(this.error);
       },
     });
   }
@@ -251,6 +254,7 @@ export class DeadlinesManagementComponent implements OnInit {
         console.error('Errore caricamento scadenze:', err);
         this.loading = false;
         this.error = this.parseServerError(err);
+        this.popup.showError(this.error);
       },
     });
   }
@@ -387,6 +391,7 @@ export class DeadlinesManagementComponent implements OnInit {
         console.error('Errore salvataggio scadenza:', err);
         this.saving = false;
         this.error = this.parseServerError(err);
+        this.popup.showError(this.error);
       },
     });
   }
@@ -412,6 +417,7 @@ export class DeadlinesManagementComponent implements OnInit {
         error: (err) => {
           console.error('Errore eliminazione scadenza:', err);
           this.error = this.parseServerError(err);
+          this.popup.showError(this.error);
         },
       });
   }
@@ -449,6 +455,7 @@ export class DeadlinesManagementComponent implements OnInit {
         error: (err) => {
           console.error('Errore eliminazione allegato:', err);
           this.error = this.parseServerError(err);
+          this.popup.showError(this.error);
         },
       });
   }
@@ -478,6 +485,7 @@ export class DeadlinesManagementComponent implements OnInit {
         error: (err) => {
           console.error('Errore download allegato:', err);
           this.error = this.parseServerError(err);
+          this.popup.showError(this.error);
         },
       });
   }
