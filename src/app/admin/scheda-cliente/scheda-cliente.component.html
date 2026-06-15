@@ -1,17 +1,14 @@
 <div class="container py-4">
-  <!-- 🔙 Torna indietro -->
   <div class="d-flex justify-content-start align-items-center mb-3">
     <button class="btn btn-outline-primary rounded-pill" (click)="back()">
-      ⬅ Torna Indietro
+      Torna indietro
     </button>
   </div>
 
-  <!-- Titolo -->
   <h2 class="text-center mb-4 text-primary">
-    <i class="fas fa-user me-2"></i>Scheda Cliente
+    <i class="fas fa-user me-2"></i>Scheda cliente
   </h2>
 
-  <!-- Loading / errore -->
   <div
     *ngIf="!cliente"
     class="alert alert-warning text-center shadow-sm rounded-pill"
@@ -19,227 +16,46 @@
     Caricamento in corso o cliente non trovato...
   </div>
 
-  <!-- Dati cliente -->
   <div
     *ngIf="cliente"
     class="card border-0 shadow-sm rounded-4 bg-white mx-auto"
-    style="max-width: 700px"
+    style="max-width: 760px"
   >
     <div class="card-body p-4">
       <h4 class="mb-3 text-center text-secondary">
-        {{ cliente.nominativo || "Cliente Sconosciuto" }}
+        {{ getDisplayName() }}
       </h4>
 
-      <div class="row">
+      <div class="row mb-3">
         <div class="col-md-6 mb-2">
-          <strong>Numero Cliente:</strong> {{ cliente.numeroCliente }}
+          <strong>Numero cliente:</strong> {{ cliente.numeroCliente }}
         </div>
-        <div class="col-md-6 mb-2">
-          <strong>Tipo Cliente:</strong>
-          {{ cliente.tipoCliente === "O" ? "Ordinario" : "Straordinario" }}
-        </div>
-        <div class="col-md-6 mb-2">
-          <strong>CF/P.IVA:</strong> {{ cliente.cfpi }}
-        </div>
-        <div class="col-md-6 mb-2">
-          <strong>Email:</strong> {{ cliente.email }}
-        </div>
-        <div class="col-md-6 mb-2">
-          <strong>Telefono:</strong> {{ cliente.telefono }}
-        </div>
-        <div class="col-md-6 mb-2">
-          <strong>Referente:</strong> {{ cliente.referente }}
+        <div class="col-md-6 mb-2" *ngIf="cliente.tipoCliente">
+          <strong>Tipo cliente:</strong> {{ cliente.tipoCliente }}
         </div>
       </div>
 
       <hr />
 
-      <!-- SEZIONE SAMI -->
-      <ng-container *ngIf="isSami()">
-        <h5 class="mt-3 mb-2 text-primary">📍 Dati Fatturazione</h5>
-        <p class="mb-1">
-          <strong>Città:</strong> {{ cliente.cittaDiFatturazione }}
-        </p>
-        <p class="mb-1">
-          <strong>Indirizzo:</strong>
-          {{ cliente.selettorePrefissoViaDiFatturazione }}
-          {{ cliente.viaDiFatturazione }}
-        </p>
-        <p class="mb-1"><strong>CAP:</strong> {{ cliente.capDiFatturazione }}</p>
-
-        <h5 class="mt-3 mb-2 text-primary">🏠 Dati Sede Operativa</h5>
-        <p class="mb-1"><strong>Città:</strong> {{ cliente.citta }}</p>
-        <p class="mb-1">
-          <strong>Indirizzo:</strong> {{ cliente.selettorePrefissoVia }}
-          {{ cliente.via }}
-        </p>
-        <p class="mb-3"><strong>CAP:</strong> {{ cliente.cap }}</p>
-
-        <h5 class="mt-3 mb-2 text-primary">🧾 Servizi</h5>
-        <ul
-          *ngIf="parseJson(cliente.servizi).length > 0"
-          class="list-group list-group-flush mb-3"
-        >
-          <li
-            class="list-group-item py-2"
-            *ngFor="let s of parseJson(cliente.servizi)"
-          >
-            <i class="fas fa-check text-success me-2"></i>{{ s }}
-          </li>
-        </ul>
-        <p
-          *ngIf="parseJson(cliente.servizi).length === 0"
-          class="text-muted small"
-        >
-          Nessun servizio registrato
-        </p>
-
+      <div class="row" *ngIf="getVisibleFields().length > 0; else noFields">
         <div
-          *ngIf="
-            cliente.tipoCliente === 'O' &&
-            parseJson(cliente.interventi).length > 0
-          "
+          class="col-md-6 mb-3"
+          *ngFor="let field of getVisibleFields()"
         >
-          <h5 class="mt-3 mb-2 text-primary">🧹 Interventi</h5>
-          <ul class="list-group list-group-flush mb-3">
-            <li
-              class="list-group-item py-2"
-              *ngFor="let i of parseJson(cliente.interventi)"
-            >
-              <i class="fas fa-arrow-right text-secondary me-2"></i>{{ i }}
-            </li>
-          </ul>
-        </div>
-      </ng-container>
-
-      <!-- SEZIONE EMMECI -->
-      <ng-container *ngIf="isEmmeci()">
-        <h5 class="mt-3 mb-2 text-primary">🏢 Ragione Sociale</h5>
-        <p class="mb-3"><strong>{{ cliente.ragSociale }}</strong></p>
-
-        <h5 class="mt-3 mb-2 text-primary">📤 Luogo di Partenza</h5>
-        <p class="mb-1"><strong>Città:</strong> {{ cliente.cittaDiPartenza }}</p>
-        <p class="mb-1">
-          <strong>Indirizzo:</strong>
-          {{ cliente.selettorePrefissoViaDiPartenza }}
-          {{ cliente.viaDiPartenza }}
-        </p>
-        <p class="mb-1"><strong>Piano:</strong> {{ cliente.pianoDiPartenza || '-' }}</p>
-        <p class="mb-1"><strong>Occupazione Suolo Pubblico:</strong> {{ cliente.occupazioneSuoloPubblicoDiPartenza || '-' }}</p>
-        <p class="mb-3"><strong>CAP:</strong> {{ cliente.capDiPartenza }}</p>
-
-        <h5 class="mt-3 mb-2 text-primary">📥 Luogo di Arrivo</h5>
-        <p class="mb-1"><strong>Città:</strong> {{ cliente.cittaDiArrivo }}</p>
-        <p class="mb-1">
-          <strong>Indirizzo:</strong>
-          {{ cliente.selettorePrefissoViaDiArrivo }}
-          {{ cliente.viaDiArrivo }}
-        </p>
-        <p class="mb-1"><strong>Piano:</strong> {{ cliente.pianoDiArrivo || '-' }}</p>
-        <p class="mb-1"><strong>Occupazione Suolo Pubblico:</strong> {{ cliente.occupazioneSuoloPubblicoDiArrivo || '-' }}</p>
-        <p class="mb-3"><strong>CAP:</strong> {{ cliente.capDiArrivo }}</p>
-
-        <div *ngIf="cliente.altreDestinazioni">
-          <h5 class="mt-3 mb-2 text-primary">📍 Altre Destinazioni</h5>
-          <p class="mb-3">{{ cliente.altreDestinazioni }}</p>
-        </div>
-
-        <div *ngIf="parseStanzeEOggetti(cliente.stanzeEOggetti).length > 0">
-          <h5 class="mt-3 mb-2 text-primary">🚪 Stanze e Oggetti</h5>
-          <table class="table table-sm" style="background: #f8f9fa; border-radius: 6px; overflow: hidden; margin-bottom: 1.5rem;">
-            <thead style="background: #e9ecef;">
-              <tr>
-                <th style="border: none; padding: 12px; width: 40%;">Stanza</th>
-                <th style="border: none; padding: 12px; width: 60%;">Oggetti</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of parseStanzeEOggetti(cliente.stanzeEOggetti)">
-                <td style="padding: 12px; border: 1px solid #e0e0e0;">{{ item.stanza || '-' }}</td>
-                <td style="padding: 12px; border: 1px solid #e0e0e0;">{{ item.oggetti || '-' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h5 class="mt-3 mb-2 text-primary">🧾 Servizi Richiesti</h5>
-        <div class="row">
-          <div class="col-md-6 mb-2" *ngIf="cliente.lampadari !== undefined">
-            <strong>Lampadari:</strong> {{ cliente.lampadari ? '✓ Sì' : '✗ No' }}
+          <div class="text-muted small fw-semibold">
+            {{ field.label || field.dbColumn || field.key }}
           </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.imballaggio !== undefined">
-            <strong>Imballaggio:</strong> {{ cliente.imballaggio ? '✓ Sì' : '✗ No' }}
+          <div class="fs-6">
+            {{ formatFieldValue(field) }}
           </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.smaltimentoMaterialiDiRisulta !== undefined">
-            <strong>Smaltimento Materiali:</strong> {{ cliente.smaltimentoMaterialiDiRisulta ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.riposizionamentoContenutiDegliArredi !== undefined">
-            <strong>Riposizionamento Contenuti:</strong> {{ cliente.riposizionamentoContenutiDegliArredi ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.smontaggioEImballaggioDegliArredi !== undefined">
-            <strong>Smontaggio/Imballaggio:</strong> {{ cliente.smontaggioEImballaggioDegliArredi ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.caricoSuNostroMezzoIdoneo !== undefined">
-            <strong>Carico su Nostro Mezzo:</strong> {{ cliente.caricoSuNostroMezzoIdoneo ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.trasporto !== undefined">
-            <strong>Trasporto:</strong> {{ cliente.trasporto ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.scaricoEConsegnaAlPiano !== undefined">
-            <strong>Scarico e Consegna:</strong> {{ cliente.scaricoEConsegnaAlPiano ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.montaggioDegliArredi !== undefined">
-            <strong>Montaggio Arredi:</strong> {{ cliente.montaggioDegliArredi ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.ausilioDiElevatoreEsternoOvePossibile !== undefined">
-            <strong>Ausilio Elevatore:</strong> {{ cliente.ausilioDiElevatoreEsternoOvePossibile ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.assicurazioneControIRischiDiTrasporto !== undefined">
-            <strong>Assicurazione Trasporto:</strong> {{ cliente.assicurazioneControIRischiDiTrasporto ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.fornituraMaterialiDaImballo !== undefined">
-            <strong>Fornitura Materiali:</strong> {{ cliente.fornituraMaterialiDaImballo ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.imballaggioDeiContenuti !== undefined">
-            <strong>Imballaggio Contenuti:</strong> {{ cliente.imballaggioDeiContenuti ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.custodiaInDeposito !== undefined">
-            <strong>Custodia in Deposito:</strong> {{ cliente.custodiaInDeposito ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.ospCarico !== undefined">
-            <strong>OSP Carico:</strong> {{ cliente.ospCarico ? '✓ Sì' : '✗ No' }}
-          </div>
-          <div class="col-md-6 mb-2" *ngIf="cliente.ospScarico !== undefined">
-            <strong>OSP Scarico:</strong> {{ cliente.ospScarico ? '✓ Sì' : '✗ No' }}
-          </div>
-        </div>
-      </ng-container>
-
-      <h5 class="mt-3 mb-2 text-primary">💰 Dati Contrattuali</h5>
-      <div class="row">
-        <div class="col-md-6 mb-2">
-          <strong>Imponibile:</strong> {{ cliente.imponibile }}
-        </div>
-        <div class="col-md-6 mb-2"><strong>IVA:</strong> {{ cliente.iva }}</div>
-        <div class="col-md-6 mb-2">
-          <strong>Pagamento:</strong> {{ cliente.pagamento }}
-        </div>
-        <div class="col-md-6 mb-2">
-          <strong>Tempistica:</strong> {{ cliente.tempistica }}
-        </div>
-        <div class="col-md-6 mb-2">
-          <strong>Operatori:</strong> {{ cliente.nOperatori }}
-        </div>
-        <div class="col-md-6 mb-2">
-          <strong>Chiavi:</strong> {{ cliente.key ? "Sì" : "No" }}
         </div>
       </div>
 
-      <hr />
-      <p><strong>Note:</strong> {{ cliente.note }}</p>
-      <p>
-        <strong>Descrizione Immobile:</strong> {{ cliente.descrizioneImmobile }}
-      </p>
+      <ng-template #noFields>
+        <div class="alert alert-light border mb-0">
+          Nessun campo cliente configurato in MVControl.
+        </div>
+      </ng-template>
     </div>
   </div>
 </div>

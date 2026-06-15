@@ -17,13 +17,7 @@ export class GestioneAssenzeComponent implements OnInit {
     categoria: '',
     oreGiornaliere: '',
   };
-  categorie = [
-    'Malattia',
-    'Ferie',
-    'Permessi/ROL',
-    'Assenza Ingiustificata',
-    'Infortunio',
-  ];
+  categorie: string[] = [];
 
   constructor(
     private http: HttpClient,
@@ -33,6 +27,12 @@ export class GestioneAssenzeComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.global.loadTenantConfig(false, { showError: false }).then(() => {
+      this.categorie = this.global.getLeaveCategories().map((category) => category.key);
+      if (!this.nuovaAssenza.categoria && this.categorie.length) {
+        this.nuovaAssenza.categoria = this.categorie[0];
+      }
+    });
     this.route.queryParams.subscribe((params) => {
       this.employeeId = params['employeeId'];
       if (this.employeeId) this.loadAssenze();

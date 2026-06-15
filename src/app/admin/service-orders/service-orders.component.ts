@@ -74,9 +74,6 @@ export class ServiceOrdersComponent implements OnInit {
 
   customerName(order: any): string {
     const customer = order?.customer || {};
-    return [customer.nominativo, customer.ragSociale]
-      .filter(Boolean)
-      .join(' ')
-      .trim() || '-';
+    return this.global.getRecordDisplayName('customer', customer) || '-';
   }
 }

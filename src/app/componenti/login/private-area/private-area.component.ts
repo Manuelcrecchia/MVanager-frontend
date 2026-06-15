@@ -80,9 +80,7 @@ export class PrivateAreaComponent {
   }
 
   ngOnDestroy(): void {
-    if (this.autoBiometricTimer) {
-      clearTimeout(this.autoBiometricTimer);
-    }
+    this.clearAutoBiometricTimer();
   }
 
   /**
@@ -94,6 +92,7 @@ export class PrivateAreaComponent {
   }
 
   async loginFunction(email: string, password: string, automatic = false) {
+    const tenant = this.tenantService.tenant;
     if (this.isMobile && this.companiesError) {
       this.popup.text = 'Impossibile caricare le aziende. Riprova più tardi.';
       this.popup.openPopup();
@@ -112,11 +111,13 @@ export class PrivateAreaComponent {
       return;
     }
 
+    console.log('[Login] Tenant selezionato:', tenant);
+
     this.http
       .post<{ response?: string; token?: string; codiceOperatore?: string; permissions?: string[] }>(
         this.globalService.url + 'login/admin',
         { email, password },
-        { headers: this.globalService.headers }
+        { headers: this.globalService.headers.set('X-Tenant-Id', tenant) }
       )
       .subscribe({
         next: async (response) => {
@@ -144,6 +145,14 @@ export class PrivateAreaComponent {
           if (!this.authService.token) {
             this.popup.text = 'Risposta login non valida. Riprova.';
             this.popup.openPopup();
+            return;
+          }
+
+          const tenantConfig = await this.globalService.loadTenantConfig(true);
+          if (!tenantConfig) {
+            this.clearAutoBiometricTimer();
+            this.globalService.logout();
+            this.loginReady = false;
             return;
           }
 
@@ -240,6 +249,7 @@ export class PrivateAreaComponent {
     this.autoBiometricAttempted = false;
 
     if (previousTenant && previousTenant !== tenant) {
+      this.clearAutoBiometricTimer();
       this.authService.logout();
       return;
     }
@@ -277,6 +287,7 @@ export class PrivateAreaComponent {
     this.autoBiometricAttempted = false;
 
     if (previousTenant && previousTenant !== tenant) {
+      this.clearAutoBiometricTimer();
       this.authService.logout();
       return;
     }
@@ -314,7 +325,7 @@ export class PrivateAreaComponent {
 
   private getCompanyTenant(company: CompanyRegistryOption): TenantId | null {
     const tenant = String(company.tenantId || '').trim().toLowerCase();
-    return tenant === 'sami' || tenant === 'emmeci' ? tenant : null;
+    return /^[a-z0-9][a-z0-9_-]{1,79}$/.test(tenant) ? tenant : null;
   }
 
   private normalizeCompanyForCurrentBuild(
@@ -369,6 +380,7 @@ export class PrivateAreaComponent {
     try {
       const ok = await this.globalService.checkVersion();
       if (!ok) {
+        this.clearAutoBiometricTimer();
         this.globalService.logout();
         return;
       }
@@ -412,9 +424,17 @@ export class PrivateAreaComponent {
 
     this.autoBiometricAttempted = true;
     console.log(`[Biometric] Avvio automatico (${reason})`);
+    this.clearAutoBiometricTimer();
     this.autoBiometricTimer = setTimeout(() => {
       this.biometricLogin(true);
     }, Capacitor.getPlatform() === 'android' ? 900 : 350);
+  }
+
+  private clearAutoBiometricTimer(): void {
+    if (this.autoBiometricTimer) {
+      clearTimeout(this.autoBiometricTimer);
+      this.autoBiometricTimer = undefined;
+    }
   }
 
   private getTokenTenant(): TenantId | null {
@@ -423,8 +443,8 @@ export class PrivateAreaComponent {
 
     try {
       const decoded: any = jwtDecode(token);
-      const tenant = decoded?.tenantId;
-      return tenant === 'sami' || tenant === 'emmeci' ? tenant : null;
+      const tenant = String(decoded?.tenantId || '').trim().toLowerCase();
+      return /^[a-z0-9][a-z0-9_-]{1,79}$/.test(tenant) ? tenant : null;
     } catch {
       return null;
     }

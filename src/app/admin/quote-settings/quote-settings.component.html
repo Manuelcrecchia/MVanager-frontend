@@ -1,65 +1,143 @@
 <div class="container py-4 page-wrap">
   <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
     <button class="btn btn-back-glass" type="button" (click)="back()">
-      &larr; Torna Indietro
+      &larr; Torna indietro
     </button>
   </div>
 
   <h2 class="text-center page-title mb-4 text-dark">Impostazioni preventivi</h2>
 
-  <!-- SAMI: Frasi precompilate -->
-  <section class="admin-card mb-4" *ngIf="!tenantService.isEmmeci">
+  <section class="admin-card mb-4">
     <div class="card-header py-3 px-4">
-      <h3 class="mb-0 fs-5">Aggiungi frase precompilata</h3>
-      <p class="mb-0 text-muted small">Inserisci una nuova frase da usare nei preventivi</p>
-    </div>
-    <div class="card-body p-4">
-      <div class="row g-3 align-items-end">
-        <div class="col-12 col-md-9">
-          <label class="form-label fw-bold">Frase *</label>
-          <input class="form-control form-control-glass" [(ngModel)]="newPhraseText" placeholder="Es. Spazzaggio e lavaggio pavimentazione" />
-        </div>
-        <div class="col-12 col-md-3 d-grid">
-          <button class="btn btn-primary btn-round" (click)="addPhrase()">➕ Aggiungi</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- EMMECI: Aggiungi stanza -->
-  <section class="admin-card mb-4" *ngIf="tenantService.isEmmeci">
-    <div class="card-header py-3 px-4">
-      <h3 class="mb-0 fs-5">Aggiungi stanza</h3>
-      <p class="mb-0 text-muted small">Inserisci una nuova stanza per i preventivi</p>
+      <h3 class="mb-0 fs-5">Aggiungi gruppo</h3>
+      <p class="mb-0 text-muted small">Crea un gruppo opzionale per organizzare le frasi precompilate.</p>
     </div>
     <div class="card-body p-4">
       <div class="row g-3 align-items-end">
         <div class="col-12 col-md-5">
-          <label class="form-label fw-bold">Nome stanza *</label>
+          <label class="form-label fw-bold">Nome gruppo *</label>
           <input class="form-control form-control-glass" [(ngModel)]="newRoomName" placeholder="Es. Camera matrimoniale" />
         </div>
         <div class="col-12 col-md-4">
-          <label class="form-label fw-bold">Tipo preventivo *</label>
+          <label class="form-label fw-bold">Tipo *</label>
           <select class="form-select form-select-glass" [(ngModel)]="newRoomType">
-            <option value="R">Residenziale</option>
-            <option value="U">Ufficio</option>
+            <option *ngFor="let type of getQuoteTypeOptions()" [value]="type.key">
+              {{ type.label || type.key }}
+            </option>
           </select>
+          <small *ngIf="getQuoteTypeOptions().length === 0" class="text-danger">
+            Configura prima i tipi preventivo da MVControl.
+          </small>
         </div>
         <div class="col-12 col-md-3 d-grid">
-          <button class="btn btn-primary btn-round" (click)="addRoom()">➕ Aggiungi</button>
+          <button class="btn btn-primary btn-round" (click)="addRoom()" [disabled]="getQuoteTypeOptions().length === 0">Aggiungi</button>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- SAMI: Elenco frasi -->
-  <section class="admin-card mb-4" *ngIf="!tenantService.isEmmeci">
+  <section class="admin-card mb-4">
+    <div class="card-header py-3 px-4 d-flex justify-content-between align-items-center">
+      <div>
+        <h3 class="mb-0 fs-5">Gruppi configurati</h3>
+        <p class="mb-0 text-muted small">Riordina, modifica o elimina i gruppi disponibili.</p>
+      </div>
+      <button class="btn btn-glass btn-round btn-sm" (click)="loadRooms()">Aggiorna</button>
+    </div>
+    <div class="card-body p-0">
+      <div *ngIf="loading" class="text-center text-muted py-4">Caricamento...</div>
+      <div class="table-wrapper m-0 border-0 shadow-none rounded-0" *ngIf="!loading">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th style="width: 36px"></th>
+              <th>Gruppo</th>
+              <th>Tipo</th>
+              <th>Frasi associate</th>
+              <th style="min-width: 160px">Azioni</th>
+            </tr>
+          </thead>
+          <tbody cdkDropList [cdkDropListData]="rooms" (cdkDropListDropped)="dropRoom($event)">
+            <tr *ngFor="let room of rooms" cdkDrag>
+              <td class="drag-handle" cdkDragHandle>⠿</td>
+              <td>
+                <ng-container *ngIf="editingRoomId !== room.id; else editRoomView">
+                  <strong>{{ room.nome }}</strong>
+                </ng-container>
+                <ng-template #editRoomView>
+                  <input class="form-control form-control-sm" [(ngModel)]="editRoomName" />
+                </ng-template>
+              </td>
+              <td>
+                <ng-container *ngIf="editingRoomId !== room.id; else editRoomTypeView">
+                  {{ getQuoteTypeLabel(room.tipoPreventivo) }}
+                </ng-container>
+                <ng-template #editRoomTypeView>
+                  <select class="form-select form-select-sm" [(ngModel)]="editRoomType">
+                    <option *ngFor="let type of getQuoteTypeOptions()" [value]="type.key">
+                      {{ type.label || type.key }}
+                    </option>
+                  </select>
+                </ng-template>
+              </td>
+              <td>
+                <small class="text-muted" *ngIf="getPhrasesForRoom(room.id).length === 0">(nessuna)</small>
+                <div *ngFor="let p of getPhrasesForRoom(room.id)" class="mb-1">
+                  <span class="badge" style="background: rgba(47,183,255,0.12); color: #1a6fa8; font-weight: 600;">{{ p.testo }}</span>
+                </div>
+              </td>
+              <td class="actions-cell">
+                <ng-container *ngIf="editingRoomId !== room.id; else roomEditActions">
+                  <button class="btn btn-glass btn-round btn-sm" (click)="startEditRoom(room)">Modifica</button>
+                  <button class="btn btn-glass-dark btn-round btn-sm" (click)="deleteRoom(room)">Elimina</button>
+                </ng-container>
+                <ng-template #roomEditActions>
+                  <button class="btn btn-primary btn-round btn-sm" (click)="saveEditRoom()">Salva</button>
+                  <button class="btn btn-glass btn-round btn-sm" (click)="cancelEditRoom()">Annulla</button>
+                </ng-template>
+              </td>
+            </tr>
+            <tr *ngIf="rooms.length === 0">
+              <td colspan="5" class="text-center text-muted py-4">Nessun gruppo inserito</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="admin-card mb-4">
+    <div class="card-header py-3 px-4">
+      <h3 class="mb-0 fs-5">Aggiungi frase precompilata</h3>
+      <p class="mb-0 text-muted small">Inserisci una frase e, se serve, associala a un gruppo.</p>
+    </div>
+    <div class="card-body p-4">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-5">
+          <label class="form-label fw-bold">Frase *</label>
+          <input class="form-control form-control-glass" [(ngModel)]="newPhraseText" placeholder="Es. Servizio concordato con il cliente" />
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-bold">Gruppo</label>
+          <select class="form-select form-select-glass" [(ngModel)]="editPhraseRoomId">
+            <option [ngValue]="null">Nessuno</option>
+            <option *ngFor="let room of rooms" [ngValue]="room.id">{{ room.nome }}</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-3 d-grid">
+          <button class="btn btn-primary btn-round" (click)="addPhrase()">Aggiungi</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="admin-card">
     <div class="card-header py-3 px-4 d-flex justify-content-between align-items-center">
       <div>
         <h3 class="mb-0 fs-5">Frasi precompilate</h3>
-        <p class="mb-0 text-muted small">Gestisci le frasi per i servizi</p>
+        <p class="mb-0 text-muted small">Gestisci tutte le frasi disponibili.</p>
       </div>
-      <button class="btn btn-glass btn-round btn-sm" (click)="loadPhrases()">↻ Aggiorna</button>
+      <button class="btn btn-glass btn-round btn-sm" (click)="loadPhrases()">Aggiorna</button>
     </div>
     <div class="card-body p-0">
       <div *ngIf="loading" class="text-center text-muted py-4">Caricamento...</div>
@@ -70,6 +148,7 @@
             <tr>
               <th style="width: 36px"></th>
               <th>Frase</th>
+              <th>Gruppo</th>
               <th style="min-width: 160px">Azioni</th>
             </tr>
           </thead>
@@ -84,250 +163,26 @@
                   <input class="form-control form-control-sm" [(ngModel)]="editPhraseText" />
                 </ng-template>
               </td>
-              <td class="actions-cell">
-                <ng-container *ngIf="editingPhraseId !== phrase.id; else phraseEditActions">
-                  <button class="btn btn-glass btn-round btn-sm" (click)="startEditPhrase(phrase)">✏️ Modifica</button>
-                  <button class="btn btn-glass-dark btn-round btn-sm" (click)="deletePhrase(phrase)">🗑️ Elimina</button>
-                </ng-container>
-                <ng-template #phraseEditActions>
-                  <button class="btn btn-primary btn-round btn-sm" (click)="saveEditPhrase()">✅ Salva</button>
-                  <button class="btn btn-glass btn-round btn-sm" (click)="cancelEditPhrase()">✖ Annulla</button>
-                </ng-template>
-              </td>
-            </tr>
-            <tr *ngIf="phrases.length === 0">
-              <td colspan="3" class="text-center text-muted py-4">Nessuna frase inserita</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="mobile-only p-3" *ngIf="!loading && phrases.length > 0">
-        <div class="employee-card" *ngFor="let phrase of phrases">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="drag-handle" style="cursor: grab;">⠿</span>
-            <span class="fw-semibold flex-grow-1">{{ phrase.testo }}</span>
-          </div>
-          <div class="employee-card__actions">
-            <ng-container *ngIf="editingPhraseId !== phrase.id; else phraseEditMobile">
-              <button class="btn btn-glass btn-round btn-sm w-100" (click)="startEditPhrase(phrase)">✏️ Modifica</button>
-              <button class="btn btn-glass-dark btn-round btn-sm w-100" (click)="deletePhrase(phrase)">🗑️ Elimina</button>
-            </ng-container>
-            <ng-template #phraseEditMobile>
-              <input class="form-control form-control-sm mb-2" [(ngModel)]="editPhraseText" placeholder="Frase" />
-              <button class="btn btn-primary btn-round btn-sm w-100 mb-1" (click)="saveEditPhrase()">✅ Salva</button>
-              <button class="btn btn-glass btn-round btn-sm w-100" (click)="cancelEditPhrase()">✖ Annulla</button>
-            </ng-template>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- EMMECI: Stanze con accordion -->
-  <section class="admin-card mb-4" *ngIf="tenantService.isEmmeci">
-    <div class="card-header py-3 px-4 d-flex justify-content-between align-items-center">
-      <div>
-        <h3 class="mb-0 fs-5">Stanze e frasi associate</h3>
-        <p class="mb-0 text-muted small">Gestisci le stanze per tipo preventivo</p>
-      </div>
-      <button class="btn btn-glass btn-round btn-sm" (click)="loadData()">↻ Aggiorna</button>
-    </div>
-    <div class="card-body p-4">
-      <div *ngIf="loading" class="text-center text-muted py-4">Caricamento...</div>
-      <div *ngIf="!loading && rooms.length === 0" class="text-center text-muted py-4">Nessuna stanza inserita</div>
-
-      <div class="accordion-wrapper" *ngIf="!loading && rooms.length > 0">
-        <div class="accordion-item">
-          <button class="accordion-header" (click)="toggleAccordion('R')" [class.active]="expandedType === 'R'">
-            <span class="accordion-title">
-              <strong>Residenziale</strong>
-              <span class="badge" style="background: rgba(47,183,255,0.12); color: #1a6fa8;">{{ getRoomsByType('R').length }}</span>
-            </span>
-            <span class="accordion-icon">▼</span>
-          </button>
-
-          <div class="accordion-body" *ngIf="expandedType === 'R'">
-            <div class="table-wrapper m-0 border-0 shadow-none rounded-0">
-              <table class="table align-middle mb-0">
-                <thead>
-                  <tr>
-                    <th style="width: 36px"></th>
-                    <th>Stanza</th>
-                    <th>Frasi associate</th>
-                    <th style="min-width: 160px">Azioni</th>
-                  </tr>
-                </thead>
-                <tbody cdkDropList [cdkDropListData]="roomsR" (cdkDropListDropped)="dropRoom($event, 'R')">
-                  <tr *ngFor="let room of roomsR" cdkDrag>
-                    <td class="drag-handle" cdkDragHandle>⠿</td>
-                    <td>
-                      <ng-container *ngIf="editingRoomId !== room.id; else editRoomView">
-                        <strong>{{ room.nome }}</strong>
-                      </ng-container>
-                      <ng-template #editRoomView>
-                        <input class="form-control form-control-sm" [(ngModel)]="editRoomName" />
-                      </ng-template>
-                    </td>
-                    <td>
-                      <small class="text-muted" *ngIf="getPhrasesForRoom(room.id).length === 0">(nessuna)</small>
-                      <div *ngFor="let p of getPhrasesForRoom(room.id)" class="mb-1">
-                        <span class="badge" style="background: rgba(47,183,255,0.12); color: #1a6fa8; font-weight: 600;">{{ p.testo }}</span>
-                      </div>
-                    </td>
-                    <td class="actions-cell">
-                      <ng-container *ngIf="editingRoomId !== room.id; else roomEditActions">
-                        <button class="btn btn-glass btn-round btn-sm" (click)="startEditRoom(room)">✏️ Modifica</button>
-                        <button class="btn btn-glass-dark btn-round btn-sm" (click)="deleteRoom(room)">🗑️ Elimina</button>
-                      </ng-container>
-                      <ng-template #roomEditActions>
-                        <button class="btn btn-primary btn-round btn-sm" (click)="saveEditRoom()">✅ Salva</button>
-                        <button class="btn btn-glass btn-round btn-sm" (click)="cancelEditRoom()">✖ Annulla</button>
-                      </ng-template>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div class="accordion-item">
-          <button class="accordion-header" (click)="toggleAccordion('U')" [class.active]="expandedType === 'U'">
-            <span class="accordion-title">
-              <strong>Ufficio</strong>
-              <span class="badge" style="background: rgba(47,183,255,0.12); color: #1a6fa8;">{{ getRoomsByType('U').length }}</span>
-            </span>
-            <span class="accordion-icon">▼</span>
-          </button>
-
-          <div class="accordion-body" *ngIf="expandedType === 'U'">
-            <div class="table-wrapper m-0 border-0 shadow-none rounded-0">
-              <table class="table align-middle mb-0">
-                <thead>
-                  <tr>
-                    <th style="width: 36px"></th>
-                    <th>Stanza</th>
-                    <th>Frasi associate</th>
-                    <th style="min-width: 160px">Azioni</th>
-                  </tr>
-                </thead>
-                <tbody cdkDropList [cdkDropListData]="roomsU" (cdkDropListDropped)="dropRoom($event, 'U')">
-                  <tr *ngFor="let room of roomsU" cdkDrag>
-                    <td class="drag-handle" cdkDragHandle>⠿</td>
-                    <td>
-                      <ng-container *ngIf="editingRoomId !== room.id; else editRoomViewU">
-                        <strong>{{ room.nome }}</strong>
-                      </ng-container>
-                      <ng-template #editRoomViewU>
-                        <input class="form-control form-control-sm" [(ngModel)]="editRoomName" />
-                      </ng-template>
-                    </td>
-                    <td>
-                      <small class="text-muted" *ngIf="getPhrasesForRoom(room.id).length === 0">(nessuna)</small>
-                      <div *ngFor="let p of getPhrasesForRoom(room.id)" class="mb-1">
-                        <span class="badge" style="background: rgba(47,183,255,0.12); color: #1a6fa8; font-weight: 600;">{{ p.testo }}</span>
-                      </div>
-                    </td>
-                    <td class="actions-cell">
-                      <ng-container *ngIf="editingRoomId !== room.id; else roomEditActionsU">
-                        <button class="btn btn-glass btn-round btn-sm" (click)="startEditRoom(room)">✏️ Modifica</button>
-                        <button class="btn btn-glass-dark btn-round btn-sm" (click)="deleteRoom(room)">🗑️ Elimina</button>
-                      </ng-container>
-                      <ng-template #roomEditActionsU>
-                        <button class="btn btn-primary btn-round btn-sm" (click)="saveEditRoom()">✅ Salva</button>
-                        <button class="btn btn-glass btn-round btn-sm" (click)="cancelEditRoom()">✖ Annulla</button>
-                      </ng-template>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- EMMECI: Aggiungi frase -->
-  <section class="admin-card mb-4" *ngIf="tenantService.isEmmeci">
-    <div class="card-header py-3 px-4">
-      <h3 class="mb-0 fs-5">Aggiungi frase precompilata</h3>
-      <p class="mb-0 text-muted small">Inserisci una frase associata a una stanza</p>
-    </div>
-    <div class="card-body p-4">
-      <div class="row g-3 align-items-end">
-        <div class="col-12 col-md-5">
-          <label class="form-label fw-bold">Frase *</label>
-          <input class="form-control form-control-glass" [(ngModel)]="newPhraseText" placeholder="Es. Letto matrimoniale + 2 comodini" />
-        </div>
-        <div class="col-12 col-md-4">
-          <label class="form-label fw-bold">Stanza associata (opzionale)</label>
-          <select class="form-select form-select-glass" [(ngModel)]="editPhraseRoomId">
-            <option [value]="null">—</option>
-            <option *ngFor="let room of rooms" [value]="room.id">{{ room.nome }}</option>
-          </select>
-        </div>
-        <div class="col-12 col-md-3 d-grid">
-          <button class="btn btn-primary btn-round" (click)="addPhrase()">➕ Aggiungi</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- EMMECI: Elenco frasi -->
-  <section class="admin-card" *ngIf="tenantService.isEmmeci">
-    <div class="card-header py-3 px-4 d-flex justify-content-between align-items-center">
-      <div>
-        <h3 class="mb-0 fs-5">Frasi precompilate</h3>
-        <p class="mb-0 text-muted small">Gestisci tutte le frasi per le stanze</p>
-      </div>
-      <button class="btn btn-glass btn-round btn-sm" (click)="loadPhrases()">↻ Aggiorna</button>
-    </div>
-    <div class="card-body p-0">
-      <div *ngIf="loading" class="text-center text-muted py-4">Caricamento...</div>
-
-      <div class="table-wrapper m-0 border-0 shadow-none rounded-0" *ngIf="!loading">
-        <table class="table align-middle text-center mb-0">
-          <thead>
-            <tr>
-              <th style="width: 36px"></th>
-              <th>Frase</th>
-              <th>Stanza</th>
-              <th style="min-width: 160px">Azioni</th>
-            </tr>
-          </thead>
-          <tbody cdkDropList (cdkDropListDropped)="dropPhrase($event)">
-            <tr *ngFor="let phrase of phrases" cdkDrag>
-              <td class="drag-handle" cdkDragHandle>⠿</td>
-              <td>
-                <ng-container *ngIf="editingPhraseId !== phrase.id; else editPhraseViewEmmeci">
-                  <span>{{ phrase.testo }}</span>
-                </ng-container>
-                <ng-template #editPhraseViewEmmeci>
-                  <input class="form-control form-control-sm" [(ngModel)]="editPhraseText" />
-                </ng-template>
-              </td>
               <td>
                 <ng-container *ngIf="editingPhraseId !== phrase.id; else editRoomDropdown">
-                  <span *ngIf="!phrase.roomId" class="text-muted">—</span>
-                  <strong *ngIf="phrase.roomId">{{ getRoomById(phrase.roomId)?.nome || 'Stanza rimossa' }}</strong>
+                  <span *ngIf="!phrase.roomId" class="text-muted">Nessuno</span>
+                  <strong *ngIf="phrase.roomId">{{ getRoomById(phrase.roomId)?.nome || 'Gruppo rimosso' }}</strong>
                 </ng-container>
                 <ng-template #editRoomDropdown>
                   <select class="form-select form-select-sm" [(ngModel)]="editPhraseRoomId">
-                    <option [value]="null">—</option>
-                    <option *ngFor="let room of rooms" [value]="room.id">{{ room.nome }}</option>
+                    <option [ngValue]="null">Nessuno</option>
+                    <option *ngFor="let room of rooms" [ngValue]="room.id">{{ room.nome }}</option>
                   </select>
                 </ng-template>
               </td>
               <td class="actions-cell">
-                <ng-container *ngIf="editingPhraseId !== phrase.id; else phraseEditActionsEmmeci">
-                  <button class="btn btn-glass btn-round btn-sm" (click)="startEditPhrase(phrase)">✏️ Modifica</button>
-                  <button class="btn btn-glass-dark btn-round btn-sm" (click)="deletePhrase(phrase)">🗑️ Elimina</button>
+                <ng-container *ngIf="editingPhraseId !== phrase.id; else phraseEditActions">
+                  <button class="btn btn-glass btn-round btn-sm" (click)="startEditPhrase(phrase)">Modifica</button>
+                  <button class="btn btn-glass-dark btn-round btn-sm" (click)="deletePhrase(phrase)">Elimina</button>
                 </ng-container>
-                <ng-template #phraseEditActionsEmmeci>
-                  <button class="btn btn-primary btn-round btn-sm" (click)="saveEditPhrase()">✅ Salva</button>
-                  <button class="btn btn-glass btn-round btn-sm" (click)="cancelEditPhrase()">✖ Annulla</button>
+                <ng-template #phraseEditActions>
+                  <button class="btn btn-primary btn-round btn-sm" (click)="saveEditPhrase()">Salva</button>
+                  <button class="btn btn-glass btn-round btn-sm" (click)="cancelEditPhrase()">Annulla</button>
                 </ng-template>
               </td>
             </tr>
@@ -336,31 +191,6 @@
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <div class="mobile-only p-3" *ngIf="!loading && phrases.length > 0">
-        <div class="employee-card" *ngFor="let phrase of phrases">
-          <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-            <span class="drag-handle" style="cursor: grab;">⠿</span>
-            <span class="fw-semibold flex-grow-1">{{ phrase.testo }}</span>
-            <span *ngIf="phrase.roomId" class="badge" style="background: rgba(47,183,255,0.12); color: #1a6fa8;">{{ getRoomById(phrase.roomId)?.nome || '?' }}</span>
-          </div>
-          <div class="employee-card__actions">
-            <ng-container *ngIf="editingPhraseId !== phrase.id; else phraseEditMobileE">
-              <button class="btn btn-glass btn-round btn-sm w-100" (click)="startEditPhrase(phrase)">✏️ Modifica</button>
-              <button class="btn btn-glass-dark btn-round btn-sm w-100" (click)="deletePhrase(phrase)">🗑️ Elimina</button>
-            </ng-container>
-            <ng-template #phraseEditMobileE>
-              <input class="form-control form-control-sm mb-2" [(ngModel)]="editPhraseText" placeholder="Frase" />
-              <select class="form-select form-select-sm mb-2" [(ngModel)]="editPhraseRoomId">
-                <option [value]="null">—</option>
-                <option *ngFor="let room of rooms" [value]="room.id">{{ room.nome }}</option>
-              </select>
-              <button class="btn btn-primary btn-round btn-sm w-100 mb-1" (click)="saveEditPhrase()">✅ Salva</button>
-              <button class="btn btn-glass btn-round btn-sm w-100" (click)="cancelEditPhrase()">✖ Annulla</button>
-            </ng-template>
-          </div>
-        </div>
       </div>
     </div>
   </section>

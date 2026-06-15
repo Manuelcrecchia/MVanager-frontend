@@ -41,7 +41,9 @@
       >
         <strong>{{ customer.numeroCliente }}</strong>
         - {{ customerName(customer) }}
-        <span class="text-muted" *ngIf="customer.telefono"> - {{ customer.telefono }}</span>
+        <span class="text-muted" *ngIf="hasCustomerRole(customer, 'customerPhone')">
+          - {{ customerRoleValue(customer, 'customerPhone') }}
+        </span>
       </button>
     </div>
 
@@ -52,25 +54,17 @@
         <span>Cliente</span>
         <strong>{{ selectedCustomer.numeroCliente }} - {{ customerName(selectedCustomer) }}</strong>
       </div>
-      <div>
+      <div *ngIf="hasCustomerRole(selectedCustomer, 'customerPhone')">
         <span>Telefono</span>
-        <strong>{{ selectedCustomer.telefono || '-' }}</strong>
+        <strong>{{ customerRoleValue(selectedCustomer, 'customerPhone') }}</strong>
       </div>
-      <div>
+      <div *ngIf="hasCustomerRole(selectedCustomer, 'customerEmail')">
         <span>Email</span>
-        <strong>{{ selectedCustomer.email || '-' }}</strong>
+        <strong>{{ customerRoleValue(selectedCustomer, 'customerEmail') }}</strong>
       </div>
-      <div *ngIf="isEmmeciCustomer()">
-        <span>Partenza</span>
-        <strong>{{ address('Partenza') }}</strong>
-      </div>
-      <div *ngIf="isEmmeciCustomer()">
-        <span>Destinazione</span>
-        <strong>{{ address('Arrivo') }}</strong>
-      </div>
-      <div *ngIf="!isEmmeciCustomer()">
+      <div *ngIf="hasCustomerRole(selectedCustomer, 'customerAddress')">
         <span>Indirizzo</span>
-        <strong>{{ samiAddress() }}</strong>
+        <strong>{{ customerRoleValue(selectedCustomer, 'customerAddress') }}</strong>
       </div>
     </div>
   </section>

@@ -1,1061 +1,120 @@
 <div class="container py-4">
   <div class="d-flex justify-content-start mb-3">
-    <button
-      class="btn btn-outline-primary rounded-pill"
-      type="button"
-      (click)="back()"
-    >
-      ⬅ Torna Indietro
+    <button class="btn btn-outline-primary rounded-pill" type="button" (click)="back()">
+      Indietro
     </button>
   </div>
 
   <h2 class="text-center mb-4">Nuovo Preventivo</h2>
 
   <form #form="ngForm">
-    <!-- =========================
-         SAMI
-    ========================== -->
-    <ng-container *ngIf="tenantService.isSami">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Tipo del preventivo</mat-label>
-            <mat-select
-              name="tipoPreventivo"
-              [(ngModel)]="quoteModelService.tipoPreventivo"
-            >
-              <mat-option value="O">Ordinario</mat-option>
-              <mat-option value="S">Straordinario</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-      </div>
+    <div
+      class="alert alert-warning"
+      *ngIf="!globalService.hasConfiguredFieldMapping('quote')"
+    >
+      Nessun campo preventivo configurato in MVControl.
+    </div>
 
-      <div class="row g-3 mt-1">
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Nominativo</mat-label>
-            <input
-              matInput
-              name="nominativo"
-              [(ngModel)]="quoteModelService.nominativo"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>CF / P.IVA</mat-label>
-            <input matInput name="cfpi" [(ngModel)]="quoteModelService.cfpi" />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Città lavoro</mat-label>
-            <input
-              matInput
-              name="citta"
-              [(ngModel)]="quoteModelService.citta"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Prefisso via lavoro</mat-label>
-            <mat-select
-              name="selettorePrefissoVia"
-              [(ngModel)]="quoteModelService.selettorePrefissoVia"
-            >
-              <mat-option value="VIA">VIA</mat-option>
-              <mat-option value="STRADA">STRADA</mat-option>
-              <mat-option value="PIAZZA">PIAZZA</mat-option>
-              <mat-option value="VIALE">VIALE</mat-option>
-              <mat-option value="CORSO">CORSO</mat-option>
-              <mat-option value="CONTRADA">CONTRADA</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-8">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Via lavoro</mat-label>
-            <input matInput name="via" [(ngModel)]="quoteModelService.via" />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>CAP lavoro</mat-label>
-            <input matInput name="cap" [(ngModel)]="quoteModelService.cap" />
-          </mat-form-field>
-        </div>
-      </div>
-
-      <div class="form-check my-3">
-        <input
-          class="form-check-input"
-          type="checkbox"
-          id="sameAddressAddQuote"
-          [(ngModel)]="sameAddress"
-          name="sameAddress"
-        />
-        <label class="form-check-label" for="sameAddressAddQuote">
-          Indirizzo di fatturazione uguale alla sede del lavoro
-        </label>
-      </div>
-
-      <div *ngIf="!sameAddress" class="row g-3">
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Città di fatturazione</mat-label>
-            <input
-              matInput
-              name="cittaDiFatturazione"
-              [(ngModel)]="quoteModelService.cittaDiFatturazione"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Prefisso via di fatturazione</mat-label>
-            <mat-select
-              name="selettorePrefissoViaDiFatturazione"
-              [(ngModel)]="quoteModelService.selettorePrefissoViaDiFatturazione"
-            >
-              <mat-option value="VIA">VIA</mat-option>
-              <mat-option value="STRADA">STRADA</mat-option>
-              <mat-option value="PIAZZA">PIAZZA</mat-option>
-              <mat-option value="VIALE">VIALE</mat-option>
-              <mat-option value="CORSO">CORSO</mat-option>
-              <mat-option value="CONTRADA">CONTRADA</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-8">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Via di fatturazione</mat-label>
-            <input
-              matInput
-              name="viaDiFatturazione"
-              [(ngModel)]="quoteModelService.viaDiFatturazione"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>CAP di fatturazione</mat-label>
-            <input
-              matInput
-              name="capDiFatturazione"
-              [(ngModel)]="quoteModelService.capDiFatturazione"
-            />
-          </mat-form-field>
-        </div>
-      </div>
-
-      <div class="row g-3 mt-1">
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Email</mat-label>
-            <input
-              matInput
-              name="email"
-              [(ngModel)]="quoteModelService.email"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Telefono</mat-label>
-            <input
-              matInput
-              name="telefono"
-              [(ngModel)]="quoteModelService.telefono"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Referente</mat-label>
-            <input
-              matInput
-              name="referente"
-              [(ngModel)]="quoteModelService.referente"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Descrizione immobile</mat-label>
-            <input
-              matInput
-              name="descrizioneImmobile"
-              [(ngModel)]="quoteModelService.descrizioneImmobile"
-            />
-          </mat-form-field>
-        </div>
-      </div>
-
-      <div class="row g-3 mt-2">
-        <ng-container *ngFor="let i of [].constructor(14); let idx = index">
-          <div class="col-md-6">
-            <mat-form-field class="w-100" appearance="fill">
-              <mat-label>Servizi {{ idx + 1 }}</mat-label>
-              <input
-                type="text"
-                matInput
-                [matAutocomplete]="autoServizio"
-                [(ngModel)]="quoteModelService.servizi[idx]"
-                [name]="'servizi' + idx"
-                maxlength="255"
-              />
-              <mat-autocomplete
-                #autoServizio="matAutocomplete"
-                autoActiveFirstOption
-              >
-                <mat-option
-                  *ngFor="let option of serviziOptions"
-                  [value]="option"
-                >
-                  {{ option }}
-                </mat-option>
-              </mat-autocomplete>
-            </mat-form-field>
-          </div>
-
-          <div
-            class="col-md-6"
-            *ngIf="quoteModelService.tipoPreventivo === 'O'"
-          >
-            <mat-form-field class="w-100" appearance="fill">
-              <mat-label>Interventi {{ idx + 1 }}</mat-label>
-              <mat-select
-                [name]="'interventi' + idx"
-                [(ngModel)]="quoteModelService.interventi[idx]"
-              >
-                <mat-option value="G">G</mat-option>
-                <mat-option value="1S">1S</mat-option>
-                <mat-option value="2S">2S</mat-option>
-                <mat-option value="3S">3S</mat-option>
-                <mat-option value="4S">4S</mat-option>
-                <mat-option value="Q">Q</mat-option>
-                <mat-option value="1M">1M</mat-option>
-                <mat-option value="2M">2M</mat-option>
-                <mat-option value="3M">3M</mat-option>
-                <mat-option value="4M">4M</mat-option>
-                <mat-option value="TM">TM</mat-option>
-                <mat-option value="SM">SM</mat-option>
-                <mat-option value="A">A</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-        </ng-container>
-      </div>
-
-      <div class="row g-3 mt-2">
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Imponibile</mat-label>
-            <input
-              matInput
-              name="imponibile"
-              [(ngModel)]="quoteModelService.imponibile"
-              (blur)="formatImponibile()"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>IVA</mat-label>
-            <mat-select name="iva" [(ngModel)]="quoteModelService.iva">
-              <mat-option value="N">22</mat-option>
-              <mat-option value="RC">RC</mat-option>
-              <mat-option value="SP">SP</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Pagamento</mat-label>
-            <mat-select
-              name="pagamento"
-              [(ngModel)]="quoteModelService.pagamento"
-            >
-              <mat-option value="C">Contanti</mat-option>
-              <mat-option value="B">Bonifico bancario</mat-option>
-              <mat-option value="E">Elettronico</mat-option>
-              <mat-option value="A">Assegno</mat-option>
-              <mat-option value=""></mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Tempistica</mat-label>
-            <input
-              matInput
-              name="tempistica"
-              [(ngModel)]="quoteModelService.tempistica"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Data inizio contratto</mat-label>
-            <input
-              matInput
-              [matDatepicker]="pickerAdd"
-              name="dataInizioContratto"
-              [(ngModel)]="quoteModelService.dataInizioContratto"
-            />
-            <mat-datepicker-toggle
-              matSuffix
-              [for]="pickerAdd"
-            ></mat-datepicker-toggle>
-            <mat-datepicker #pickerAdd></mat-datepicker>
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Durata contratto</mat-label>
-            <input
-              matInput
-              name="durataContratto"
-              [(ngModel)]="quoteModelService.durataContratto"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-12">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Note</mat-label>
-            <textarea
-              matInput
-              rows="3"
-              name="note"
-              [(ngModel)]="quoteModelService.note"
-            ></textarea>
-          </mat-form-field>
-        </div>
-      </div>
-    </ng-container>
-
-    <!-- =========================
-         EMMECI
-    ========================== -->
-    <ng-container *ngIf="tenantService.isEmmeci">
-      <div class="row g-3">
-        <div class="col-md-6 d-flex align-items-center">
-          <div class="w-100">
-            <strong>Data:</strong> {{ quoteModelService.data }}
-          </div>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Tipo preventivo</mat-label>
-            <mat-select
-              name="tipoPreventivo"
-              [(ngModel)]="quoteModelService.tipoPreventivo"
-              (ngModelChange)="updateNomiStanze()"
-            >
-              <mat-option value="R">Residenziale</mat-option>
-              <mat-option value="U">Ufficio</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Ragione sociale</mat-label>
-            <input
-              matInput
-              name="ragSociale"
-              [(ngModel)]="quoteModelService.ragSociale"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Nominativo</mat-label>
-            <input
-              matInput
-              name="nominativoEmmeci"
-              [(ngModel)]="quoteModelService.nominativo"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>CF / P.IVA</mat-label>
-            <input
-              matInput
-              name="cfpiEmmeci"
-              [(ngModel)]="quoteModelService.cfpi"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Email</mat-label>
-            <input
-              matInput
-              name="emailEmmeci"
-              [(ngModel)]="quoteModelService.email"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Telefono</mat-label>
-            <input
-              matInput
-              name="telefonoEmmeci"
-              [(ngModel)]="quoteModelService.telefono"
-            />
-          </mat-form-field>
-        </div>
-      </div>
-
-      <div class="mt-4 mb-2">
-        <h5>Indirizzo di partenza</h5>
-      </div>
-
-      <div class="row g-3">
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Città di partenza</mat-label>
-            <input
-              matInput
-              name="cittaDiPartenza"
-              [(ngModel)]="quoteModelService.cittaDiPartenza"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Prefisso via di partenza</mat-label>
-            <mat-select
-              name="selettorePrefissoViaDiPartenza"
-              [(ngModel)]="quoteModelService.selettorePrefissoViaDiPartenza"
-            >
-              <mat-option value="VIA">VIA</mat-option>
-              <mat-option value="STRADA">STRADA</mat-option>
-              <mat-option value="PIAZZA">PIAZZA</mat-option>
-              <mat-option value="VIALE">VIALE</mat-option>
-              <mat-option value="CORSO">CORSO</mat-option>
-              <mat-option value="CONTRADA">CONTRADA</mat-option>
-              <mat-option value="LOCALITA'">LOCALITA'</mat-option>
-              <mat-option value="VICOLO">VICOLO</mat-option>
-              <mat-option value="LARGO">LARGO</mat-option>
-              <mat-option value="ROTONDA">ROTONDA</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-8">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Via di partenza</mat-label>
-            <input
-              matInput
-              name="viaDiPartenza"
-              [(ngModel)]="quoteModelService.viaDiPartenza"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-2">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Piano</mat-label>
-            <input
-              matInput
-              name="pianoDiPartenza"
-              [(ngModel)]="quoteModelService.pianoDiPartenza"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-2">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>CAP</mat-label>
-            <input
-              matInput
-              name="capDiPartenza"
-              [(ngModel)]="quoteModelService.capDiPartenza"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-12">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Occupazione suolo pubblico partenza</mat-label>
-            <input
-              matInput
-              name="occupazioneSuoloPubblicoDiPartenza"
-              [(ngModel)]="quoteModelService.occupazioneSuoloPubblicoDiPartenza"
-            />
-          </mat-form-field>
-        </div>
-      </div>
-
-      <div class="mt-4 mb-2">
-        <h5>Indirizzo di arrivo</h5>
-      </div>
-
-      <div class="row g-3">
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Città di arrivo</mat-label>
-            <input
-              matInput
-              name="cittaDiArrivo"
-              [(ngModel)]="quoteModelService.cittaDiArrivo"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-6">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Prefisso via di arrivo</mat-label>
-            <mat-select
-              name="selettorePrefissoViaDiArrivo"
-              [(ngModel)]="quoteModelService.selettorePrefissoViaDiArrivo"
-            >
-              <mat-option value="VIA">VIA</mat-option>
-              <mat-option value="STRADA">STRADA</mat-option>
-              <mat-option value="PIAZZA">PIAZZA</mat-option>
-              <mat-option value="VIALE">VIALE</mat-option>
-              <mat-option value="CORSO">CORSO</mat-option>
-              <mat-option value="CONTRADA">CONTRADA</mat-option>
-              <mat-option value="LOCALITA'">LOCALITA'</mat-option>
-              <mat-option value="VICOLO">VICOLO</mat-option>
-              <mat-option value="LARGO">LARGO</mat-option>
-              <mat-option value="ROTONDA">ROTONDA</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-8">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Via di arrivo</mat-label>
-            <input
-              matInput
-              name="viaDiArrivo"
-              [(ngModel)]="quoteModelService.viaDiArrivo"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-2">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Piano</mat-label>
-            <input
-              matInput
-              name="pianoDiArrivo"
-              [(ngModel)]="quoteModelService.pianoDiArrivo"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-2">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>CAP</mat-label>
-            <input
-              matInput
-              name="capDiArrivo"
-              [(ngModel)]="quoteModelService.capDiArrivo"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-12">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Occupazione suolo pubblico arrivo</mat-label>
-            <input
-              matInput
-              name="occupazioneSuoloPubblicoDiArrivo"
-              [(ngModel)]="quoteModelService.occupazioneSuoloPubblicoDiArrivo"
-            />
-          </mat-form-field>
-        </div>
-      </div>
-
-      <div class="row g-3 mt-2">
-        <div class="col-12">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Altre destinazioni</mat-label>
-            <input
-              matInput
-              name="altreDestinazioni"
-              [(ngModel)]="quoteModelService.altreDestinazioni"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="border rounded p-3 bg-light">
-          <h5 class="mb-3">Stanze e oggetti</h5>
-
-          <div class="row g-2 align-items-end mb-3">
-            <div class="col-md-8">
+    <div class="row g-3">
+      <div
+        class="col-md-6"
+        *ngFor="let field of visibleQuoteFields"
+      >
+        <ng-container *ngIf="field.displayRole === 'quoteRooms'; else standardField">
+          <div class="border rounded-3 p-3 h-100">
+            <label class="form-label fw-bold d-block">{{ field.label || field.dbColumn }}</label>
+            <div class="d-flex gap-2 align-items-start mb-3">
               <mat-form-field appearance="fill" class="w-100">
-                <mat-label>Seleziona una stanza</mat-label>
-                <mat-select [(value)]="stanzaSelezionata">
-                  <mat-option *ngFor="let nome of nomiStanze" [value]="nome">
-                    {{ nome }}
+                <mat-label>Stanza</mat-label>
+                <mat-select [(ngModel)]="selectedRoomByField[field.dbColumn]" [name]="field.dbColumn + '_selectedRoom'">
+                  <mat-option [value]="null">Seleziona</mat-option>
+                  <mat-option *ngFor="let room of getRoomsForCurrentQuoteType()" [value]="room.id">
+                    {{ room.nome }}
                   </mat-option>
                 </mat-select>
               </mat-form-field>
-            </div>
-
-            <div class="col-md-4">
-              <button
-                mat-raised-button
-                color="primary"
-                type="button"
-                (click)="aggiungiCampoStanza()"
-              >
-                Aggiungi stanza
+              <button mat-raised-button color="primary" type="button" class="mt-2" (click)="addRoomRow(field)">
+                Aggiungi
               </button>
             </div>
+            <div class="alert alert-light border" *ngIf="getRepeatableRoomRows(field).length === 0">
+              Nessuna stanza aggiunta.
+            </div>
+            <div class="border rounded-3 p-2 mb-2" *ngFor="let row of getRepeatableRoomRows(field); let rowIndex = index">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong>{{ row.stanza }}</strong>
+                <button mat-button color="warn" type="button" (click)="removeRoomRow(field, rowIndex)">Rimuovi</button>
+              </div>
+              <mat-form-field appearance="fill" class="w-100">
+                <mat-label>Oggetti / dettagli</mat-label>
+                <textarea
+                  matInput
+                  rows="2"
+                  [name]="field.dbColumn + '_objects_' + rowIndex"
+                  [ngModel]="row.oggetti"
+                  (ngModelChange)="updateRoomRow(field, rowIndex, 'oggetti', $event)"
+                ></textarea>
+              </mat-form-field>
+            </div>
           </div>
+        </ng-container>
 
-          <div
-            *ngFor="let stanza of stanzeEOggettiList; let i = index"
-            class="border rounded p-3 mb-3 bg-white"
+        <ng-template #standardField>
+        <ng-container [ngSwitch]="field.type">
+          <mat-checkbox
+            *ngSwitchCase="'boolean'"
+            [name]="field.dbColumn"
+            [ngModel]="$any(quoteModelService)[field.dbColumn]"
+            (ngModelChange)="updateField(field, $event)"
           >
-            <div
-              class="d-flex justify-content-between align-items-center mb-2 text-black"
-            >
-              <h6 class="mb-0">{{ stanza.stanza }}</h6>
+            {{ field.label || field.dbColumn }}
+          </mat-checkbox>
 
-              <button
-                mat-icon-button
-                color="warn"
-                type="button"
-                (click)="rimuoviStanzaEOggetti(i)"
-              >
-                <mat-icon>delete</mat-icon>
-              </button>
-            </div>
-
-            <mat-form-field appearance="fill" class="w-100">
-              <mat-label>Oggetti</mat-label>
-              <input
-                matInput
-                [matAutocomplete]="autoOggetti"
-                [(ngModel)]="stanza.oggetti"
-                [name]="'oggettiAdd' + i"
-                placeholder="Es: Divano, Letto, Tavolo"
-              />
-              <mat-autocomplete #autoOggetti="matAutocomplete" autoActiveFirstOption>
-                <mat-option
-                  *ngFor="let frase of getPhrasesForStanza(stanza.stanza)"
-                  [value]="frase"
-                >
-                  {{ frase }}
-                </mat-option>
-              </mat-autocomplete>
-            </mat-form-field>
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-4 mb-2 text-black">
-        <h5>Servizi inclusi</h5>
-      </div>
-
-      <div class="row g-2 text-black">
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="lampadariAdd"
-              name="lampadari"
-              [(ngModel)]="quoteModelService.lampadari"
-            />
-            <label class="form-check-label" for="lampadariAdd">
-              Lampadari
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="imballaggioAdd"
-              name="imballaggio"
-              [(ngModel)]="quoteModelService.imballaggio"
-            />
-            <label class="form-check-label" for="imballaggioAdd">
-              Imballaggio
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="smaltimentoMaterialiDiRisultaAdd"
-              name="smaltimentoMaterialiDiRisulta"
-              [(ngModel)]="quoteModelService.smaltimentoMaterialiDiRisulta"
-            />
-            <label
-              class="form-check-label"
-              for="smaltimentoMaterialiDiRisultaAdd"
-            >
-              Smaltimento materiali di risulta
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="riposizionamentoContenutiDegliArrediAdd"
-              name="riposizionamentoContenutiDegliArredi"
-              [(ngModel)]="
-                quoteModelService.riposizionamentoContenutiDegliArredi
-              "
-            />
-            <label
-              class="form-check-label"
-              for="riposizionamentoContenutiDegliArrediAdd"
-            >
-              Riposizionamento contenuti arredi
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="smontaggioEImballaggioDegliArrediAdd"
-              name="smontaggioEImballaggioDegliArredi"
-              [(ngModel)]="quoteModelService.smontaggioEImballaggioDegliArredi"
-            />
-            <label
-              class="form-check-label"
-              for="smontaggioEImballaggioDegliArrediAdd"
-            >
-              Smontaggio e imballaggio arredi
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="caricoSuNostroMezzoIdoneoAdd"
-              name="caricoSuNostroMezzoIdoneo"
-              [(ngModel)]="quoteModelService.caricoSuNostroMezzoIdoneo"
-            />
-            <label class="form-check-label" for="caricoSuNostroMezzoIdoneoAdd">
-              Carico su nostro mezzo idoneo
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="trasportoAdd"
-              name="trasporto"
-              [(ngModel)]="quoteModelService.trasporto"
-            />
-            <label class="form-check-label" for="trasportoAdd">
-              Trasporto
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="scaricoEConsegnaAlPianoAdd"
-              name="scaricoEConsegnaAlPiano"
-              [(ngModel)]="quoteModelService.scaricoEConsegnaAlPiano"
-            />
-            <label class="form-check-label" for="scaricoEConsegnaAlPianoAdd">
-              Scarico e consegna al piano
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="montaggioDegliArrediAdd"
-              name="montaggioDegliArredi"
-              [(ngModel)]="quoteModelService.montaggioDegliArredi"
-            />
-            <label class="form-check-label" for="montaggioDegliArrediAdd">
-              Montaggio arredi
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="ausilioDiElevatoreEsternoOvePossibileAdd"
-              name="ausilioDiElevatoreEsternoOvePossibile"
-              [(ngModel)]="
-                quoteModelService.ausilioDiElevatoreEsternoOvePossibile
-              "
-            />
-            <label
-              class="form-check-label"
-              for="ausilioDiElevatoreEsternoOvePossibileAdd"
-            >
-              Ausilio elevatore esterno
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="assicurazioneControIRischiDiTrasportoAdd"
-              name="assicurazioneControIRischiDiTrasporto"
-              [(ngModel)]="
-                quoteModelService.assicurazioneControIRischiDiTrasporto
-              "
-            />
-            <label
-              class="form-check-label"
-              for="assicurazioneControIRischiDiTrasportoAdd"
-            >
-              Assicurazione rischi trasporto
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="fornituraMaterialiDaImballoAdd"
-              name="fornituraMaterialiDaImballo"
-              [(ngModel)]="quoteModelService.fornituraMaterialiDaImballo"
-            />
-            <label
-              class="form-check-label"
-              for="fornituraMaterialiDaImballoAdd"
-            >
-              Fornitura materiali da imballo
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="imballaggioDeiContenutiAdd"
-              name="imballaggioDeiContenuti"
-              [(ngModel)]="quoteModelService.imballaggioDeiContenuti"
-            />
-            <label class="form-check-label" for="imballaggioDeiContenutiAdd">
-              Imballaggio dei contenuti
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="custodiaInDepositoAdd"
-              name="custodiaInDeposito"
-              [(ngModel)]="quoteModelService.custodiaInDeposito"
-            />
-            <label class="form-check-label" for="custodiaInDepositoAdd">
-              Custodia in deposito
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="ospCaricoAdd"
-              name="ospCarico"
-              [(ngModel)]="quoteModelService.ospCarico"
-            />
-            <label class="form-check-label" for="ospCaricoAdd">
-              OSP carico
-            </label>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="ospScaricoAdd"
-              name="ospScarico"
-              [(ngModel)]="quoteModelService.ospScarico"
-            />
-            <label class="form-check-label" for="ospScaricoAdd">
-              OSP scarico
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-4 mb-2">
-        <h5>Prezzi</h5>
-      </div>
-
-      <div class="row g-3">
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Prezzo trasloco</mat-label>
-            <input
-              matInput
-              type="number"
-              name="prezzoTrasloco"
-              [(ngModel)]="quoteModelService.prezzoTrasloco"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Prezzo fornitura materiali</mat-label>
-            <input
-              matInput
-              type="number"
-              name="prezzoFornituraMaterialiDaImballo"
-              [(ngModel)]="quoteModelService.prezzoFornituraMaterialiDaImballo"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Prezzo imballaggio contenuti</mat-label>
-            <input
-              matInput
-              type="number"
-              name="prezzoImballaggioDeiContenuti"
-              [(ngModel)]="quoteModelService.prezzoImballaggioDeiContenuti"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Prezzo passaggio in deposito</mat-label>
-            <input
-              matInput
-              type="number"
-              name="prezzoPassaggioInDeposito"
-              [(ngModel)]="quoteModelService.prezzoPassaggioInDeposito"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Prezzo occupazione suolo pubblico</mat-label>
-            <input
-              matInput
-              type="number"
-              name="prezzoOccupazioneSuoloPubblico"
-              [(ngModel)]="quoteModelService.prezzoOccupazioneSuoloPubblico"
-            />
-          </mat-form-field>
-        </div>
-
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Prezzo mensile custodia mobili</mat-label>
-            <input
-              matInput
-              type="number"
-              name="prezzoMensileCustodiaMobili"
-              [(ngModel)]="quoteModelService.prezzoMensileCustodiaMobili"
-            />
-          </mat-form-field>
-        </div>
-      </div>
-
-      <div class="row g-3 mt-2">
-        <div class="col-md-4">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Pagamento</mat-label>
-            <mat-select
-              name="pagamentoEmmeci"
-              [(ngModel)]="quoteModelService.pagamento"
-            >
-              <mat-option value="C">Contanti</mat-option>
-              <mat-option value="B">Bonifico bancario</mat-option>
-              <mat-option value="E">Elettronico</mat-option>
-              <mat-option value="A">Assegno</mat-option>
-              <mat-option value=""></mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="col-12">
-          <mat-form-field appearance="fill" class="w-100">
-            <mat-label>Note</mat-label>
+          <mat-form-field *ngSwitchCase="'textarea'" appearance="fill" class="w-100">
+            <mat-label>{{ field.label || field.dbColumn }}</mat-label>
             <textarea
               matInput
               rows="3"
-              name="noteEmmeci"
-              [(ngModel)]="quoteModelService.note"
+              [name]="field.dbColumn"
+              [required]="field.required === true"
+              [ngModel]="$any(quoteModelService)[field.dbColumn]"
+              (ngModelChange)="updateField(field, $event)"
             ></textarea>
           </mat-form-field>
-        </div>
+
+          <mat-form-field *ngSwitchCase="'enum'" appearance="fill" class="w-100">
+            <mat-label>{{ field.label || field.dbColumn }}</mat-label>
+            <mat-select
+              [name]="field.dbColumn"
+              [required]="field.required === true"
+              [ngModel]="$any(quoteModelService)[field.dbColumn]"
+              (ngModelChange)="updateField(field, $event)"
+            >
+              <mat-option value="">Seleziona</mat-option>
+              <mat-option
+                *ngFor="let option of globalService.getEnumOptions(field)"
+                [value]="option"
+              >
+                {{ option }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field *ngSwitchDefault appearance="fill" class="w-100">
+            <mat-label>{{ field.label || field.dbColumn }}</mat-label>
+            <input
+              matInput
+              [type]="globalService.getDynamicInputType(field)"
+              [name]="field.dbColumn"
+              [required]="field.required === true"
+              [ngModel]="$any(quoteModelService)[field.dbColumn]"
+              (ngModelChange)="updateField(field, $event)"
+            />
+          </mat-form-field>
+        </ng-container>
+        </ng-template>
       </div>
-    </ng-container>
+    </div>
 
     <div class="mt-4 d-flex justify-content-end">
       <button

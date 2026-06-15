@@ -428,6 +428,7 @@
           class="form-control"
           placeholder="Inserisci la tua email..."
           [disabled]="!loginReady"
+          (keydown.enter)="submitLogin($event, email.value, password.value)"
           required
         />
       </div>
@@ -443,6 +444,7 @@
             class="form-control"
             placeholder="Inserisci la password..."
             [disabled]="!loginReady"
+            (keydown.enter)="submitLogin($event, email.value, password.value)"
             required
           />
 

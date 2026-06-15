@@ -45,6 +45,20 @@ interface AdminOption {
   email: string;
 }
 
+interface CalendarCategoryOption {
+  id: string;
+  text: string;
+  color: string;
+  defaultForTenant?: boolean;
+  withCustomerLink?: boolean;
+  forShifts?: boolean;
+  source?: 'none' | 'customers' | 'quotes';
+  customerType?: string;
+  inspection?: boolean;
+  serviceOrder?: boolean;
+  keyRequired?: boolean;
+}
+
 interface DayCell {
   date: Date;
   isCurrentMonth: boolean;
@@ -123,7 +137,7 @@ export class CalendarHomeComponent implements OnInit {
     ['FR','Ven'],['SA','Sab'],['SU','Dom'],
   ];
 
-  categories: { id: string; text: string }[] = [];
+  categories: CalendarCategoryOption[] = [];
 
   constructor(
     private http: HttpClient,
@@ -136,11 +150,23 @@ export class CalendarHomeComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.categories = this.getCategoriesForTenant();
-    this.loadAll();
+    this.globalService.loadTenantConfig(false, { showError: false }).then(() => {
+      this.categories = this.getCategoriesForTenant();
+      this.loadAll();
+    });
   }
 
   private quotesMap: Map<string, any> = new Map();
+
+  private quoteLabel(quote: any): string {
+    const title = this.globalService.getRecordDisplayName('quote', quote || {});
+    return `${quote?.numeroPreventivo || ''} - ${title || 'Preventivo'}`.trim();
+  }
+
+  private customerLabel(customer: any): string {
+    const title = this.globalService.getRecordDisplayName('customer', customer || {});
+    return `${customer?.numeroCliente || ''} - ${title || 'Cliente'}`.trim();
+  }
 
   loadAll() {
     this.http.get(this.globalService.url + 'appointments/getAll', {
@@ -150,10 +176,11 @@ export class CalendarHomeComponent implements OnInit {
       this.buildGrid();
       if (this.autoInspectionService.pass) {
         this.autoInspectionService.pass = false;
+        const inspectionCategory = this.categories.find((category) => category.inspection === true)?.id || '';
         this.openNewPopup(
-          new Date(), 'sopralluogo',
-          `${this.autoInspectionService.numeroPreventivo} - ${this.autoInspectionService.nominativo}`,
-          `Contatto ${this.autoInspectionService.nominativo}   Telefono: ${this.autoInspectionService.telefono}`,
+          new Date(), inspectionCategory,
+          `${this.autoInspectionService.numeroPreventivo} - ${this.autoInspectionService.displayName}`,
+          `Contatto ${this.autoInspectionService.displayName}   Telefono: ${this.autoInspectionService.telefono}`,
         );
       }
     });
@@ -167,7 +194,7 @@ export class CalendarHomeComponent implements OnInit {
         this.quotesMap.set(this.normalize(q.numeroPreventivo), q);
       });
       this.nPreventiviArray = data.filter((q: any) => !q.complete)
-        .map((q: any) => `${q.numeroPreventivo} - ${q.nominativo}`);
+        .map((q: any) => this.quoteLabel(q));
     });
 
     this.http.get(this.globalService.url + 'customers/getAll', {
@@ -461,7 +488,7 @@ export class CalendarHomeComponent implements OnInit {
     this.isNewEvent=true; this.editingEventId=null; this.isRecurringInstance=false; this.hasRecurrenceRule=false;
     this.popupTitle=title; this.popupDescription=description;
     this.popupStartDate=this.toInputDatetime(start); this.popupEndDate=this.toInputDatetime(end);
-    this.popupCategory=category||this.categories[0]?.id||'';
+    this.popupCategory=category||this.globalService.getDefaultAppointmentCategory(this.categories[0]?.id || '')||'';
     this.popupInspectionAdminIds = [];
     this.popupInspectionReminderMinutes = 30;
     this.recurrenceEnabled=false; this.recurrenceFreq='DAILY'; this.recurrenceInterval=1;
@@ -475,16 +502,17 @@ export class CalendarHomeComponent implements OnInit {
     }
 
     const numeroCliente = this.autoInspectionService.numeroCliente;
-    const nominativo = this.autoInspectionService.nominativo;
-    const category = this.autoInspectionService.customerEventCategory || 'ordinario';
+    const displayName = this.autoInspectionService.displayName;
+    const category = this.autoInspectionService.customerEventCategory || this.getDefaultCustomerLinkedCategory();
     const description = this.autoInspectionService.customerEventDescription;
 
     this.autoInspectionService.pendingCustomerEvent = false;
     this.autoInspectionService.numeroCliente = '';
+    this.autoInspectionService.displayName = '';
     this.autoInspectionService.customerEventCategory = '';
     this.autoInspectionService.customerEventDescription = '';
 
-    if (!numeroCliente || !nominativo) {
+    if (!numeroCliente || !displayName) {
       return;
     }
 
@@ -494,7 +522,7 @@ export class CalendarHomeComponent implements OnInit {
     this.openNewPopup(
       new Date(),
       category,
-      `${numeroCliente} - ${nominativo}`,
+      `${numeroCliente} - ${displayName}`,
       description,
     );
   }
@@ -544,8 +572,9 @@ export class CalendarHomeComponent implements OnInit {
   onEventClick(ev: CalEvent, event: MouseEvent) {
     event.stopPropagation();
     const codice = ev.title?.split(' - ')[0];
-    if (ev.categories==='sopralluogo') { this.router.navigate(['/editQuote',codice]); return; }
-    if (ev.categories==='ordinario'||ev.categories==='straordinario') this.router.navigate(['/editCustomer',codice]);
+    const category = this.getCategoryOption(ev.categories);
+    if (this.isQuoteCategory(category)) { this.router.navigate(['/editQuote',codice]); return; }
+    if (this.isCustomerCategory(category)) this.router.navigate(['/editCustomer',codice]);
   }
 
   onEventDblClick(ev: CalEvent, event: MouseEvent) { event.stopPropagation(); this.openEditPopup(ev); }
@@ -572,34 +601,33 @@ export class CalendarHomeComponent implements OnInit {
 
     const codice = val.split(' - ')[0];
 
-    // Se la categoria è "sopralluogo", cerca il preventivo
-    if (this.popupCategory === 'sopralluogo') {
+    const category = this.getCategoryOption(this.popupCategory);
+
+    if (this.isQuoteCategory(category)) {
       const preventivoData = this.quotesMap.get(this.normalize(codice));
       if (preventivoData) {
-        this.popupDescription = `Sopralluogo – Contatto: ${preventivoData.nominativo} Telefono: ${preventivoData.telefono}`;
+        const name = this.globalService.getRecordDisplayName('quote', preventivoData);
+        const phone = this.globalService.getRecordValueByRole('quote', preventivoData, 'quotePhone') || '';
+        this.popupDescription = `${category?.text || 'Preventivo'} - Contatto: ${name || 'Cliente'}${phone ? ` Telefono: ${phone}` : ''}`;
         return;
       }
     }
 
-    // Se la categoria è "ordinario" o "straordinario", cerca il cliente
-    if (this.popupCategory === 'ordinario' || this.popupCategory === 'straordinario') {
-      const cliente = this.clientiArray.find(c=>this.normalize(`${c.numeroCliente} - ${c.nominativo}`)===this.normalize(val));
-      if (cliente) {
-        // Categoria già impostata, non cambiarla
-        return;
-      }
+    if (this.isCustomerCategory(category)) {
+      this.clientiArray.find(c=>this.normalize(this.customerLabel(c))===this.normalize(val));
+      return;
     }
   }
 
   getAutocompleteSource(categoria: string): string[] {
-    if (categoria==='sopralluogo') return this.nPreventiviArray;
-    if (categoria==='ordineServizio') return this.clientiArray.map(c=>`${c.numeroCliente} - ${c.nominativo}`);
-    if (categoria==='ordinario') {
-      if (this.tenantService.isEmmeci) return this.clientiArray.map(c=>`${c.numeroCliente} - ${c.nominativo}`);
-      return this.clientiArray.filter(c=>c.tipoCliente==='O').map(c=>`${c.numeroCliente} - ${c.nominativo}`);
+    const category = this.getCategoryOption(categoria);
+    if (this.isQuoteCategory(category)) return this.nPreventiviArray;
+    if (this.isCustomerCategory(category)) {
+      const customerType = String(category?.customerType || '').trim();
+      return this.clientiArray
+        .filter((customer) => !customerType || customer.tipoCliente === customerType)
+        .map(c=>this.customerLabel(c));
     }
-    if (categoria==='straordinario'&&this.tenantService.isSami)
-      return this.clientiArray.filter(c=>c.tipoCliente==='S').map(c=>`${c.numeroCliente} - ${c.nominativo}`);
     return [];
   }
 
@@ -651,7 +679,9 @@ export class CalendarHomeComponent implements OnInit {
     if (!this.popupTitle||!this.popupStartDate||!this.popupEndDate||!this.popupCategory) {
       this.popupService.text='Compilare tutti i campi obbligatori'; this.popupService.openPopup(); return;
     }
-    if (this.popupCategory === 'sopralluogo') {
+    const category = this.getCategoryOption(this.popupCategory);
+    const isInspection = this.isInspectionCategory(category);
+    if (isInspection) {
       if (!this.popupInspectionAdminIds.length) {
         this.popupService.text='Seleziona almeno un utente per il sopralluogo'; this.popupService.openPopup(); return;
       }
@@ -670,9 +700,9 @@ export class CalendarHomeComponent implements OnInit {
       recurrenceRule: this.buildRRule(),
       dayLong: false, description: this.popupDescription,
       categories: this.popupCategory, recurrenceException: null,
-      inspectionAdminIds: this.popupCategory === 'sopralluogo' ? this.popupInspectionAdminIds : [],
+      inspectionAdminIds: isInspection ? this.popupInspectionAdminIds : [],
       inspectionReminderMinutes:
-        this.popupCategory === 'sopralluogo'
+        isInspection
           ? this.popupInspectionReminderMinutes
           : null,
     };
@@ -682,7 +712,7 @@ export class CalendarHomeComponent implements OnInit {
     }).subscribe(()=>{
       this.closePopup();
       this.loadAll();
-      if (body.categories === 'sopralluogo') {
+      if (isInspection) {
         this.inspectionAlarmSync.setToken(this.globalService.token);
         this.inspectionAlarmSync.syncSoon('calendar-save', true).catch((err) => {
           console.error('[Calendar] Errore sync sveglie sopralluogo:', err);
@@ -693,9 +723,17 @@ export class CalendarHomeComponent implements OnInit {
   }
 
   validateCodice(codice: string, categoria: string): boolean {
-    if (categoria==='altro'||categoria==='lavoriSvolti') return true;
-    if (categoria==='sopralluogo') return this.nPreventiviArray.some(p=>this.normalize(p).startsWith(this.normalize(codice+' -')));
-    if (categoria==='ordinario'||categoria==='straordinario'||categoria==='ordineServizio') return this.clientiArray.some(c=>this.normalize(c.numeroCliente.toString())===this.normalize(codice));
+    const category = this.getCategoryOption(categoria);
+    if (this.isQuoteCategory(category)) {
+      return this.nPreventiviArray.some(p=>this.normalize(p).startsWith(this.normalize(codice+' -')));
+    }
+    if (this.isCustomerCategory(category)) {
+      const customerType = String(category?.customerType || '').trim();
+      return this.clientiArray.some((customer) => {
+        const sameCode = this.normalize(customer.numeroCliente?.toString() || '') === this.normalize(codice);
+        return sameCode && (!customerType || customer.tipoCliente === customerType);
+      });
+    }
     return true;
   }
 
@@ -728,7 +766,22 @@ export class CalendarHomeComponent implements OnInit {
   // ── UTILS ──────────────────────────────────────────────────────────────
 
   getCategoryClass(cat: string): string {
-    return ['sopralluogo','ordinario','ordineServizio','straordinario','lavoriSvolti','altro'].includes(cat)?`cat-${cat}`:'cat-default';
+    return cat ? `cat-${cat}` : 'cat-default';
+  }
+
+  getCategoryStyle(cat: string): {[key: string]: string} {
+    const color = this.getCategoryColor(cat);
+    return {
+      background: color,
+      color: this.getReadableTextColor(color),
+    };
+  }
+
+  getEventBlockStyle(ev: CalEvent, layout?: Map<number, {col: number, totalCols: number}>): {[key: string]: string} {
+    return {
+      ...this.getEventPositionStyle(ev, layout),
+      ...this.getCategoryStyle(ev.categories),
+    };
   }
 
   formatTime(date: Date): string { return `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`; }
@@ -740,9 +793,72 @@ export class CalendarHomeComponent implements OnInit {
 
   normalize(s: string): string { return (s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim(); }
 
-  getCategoriesForTenant(): {id:string;text:string}[] {
-    if (this.tenantService.isEmmeci) return [{id:'ordinario',text:'Ordinario'},{id:'ordineServizio',text:'Ordine di servizio'},{id:'sopralluogo',text:'Sopralluogo'},{id:'altro',text:'Altro'}];
-    return [{id:'ordinario',text:'Ordinario'},{id:'straordinario',text:'Straordinario'},{id:'ordineServizio',text:'Ordine di servizio'},{id:'sopralluogo',text:'Sopralluogo'},{id:'lavoriSvolti',text:'Lavori svolti'},{id:'altro',text:'Altro'}];
+  getCategoriesForTenant(): CalendarCategoryOption[] {
+    const configured = this.globalService.getAppointmentCategoryDetails()
+      .filter((category) => category.key)
+      .map((category, index) => ({
+        id: category.key,
+        text: category.label || category.key,
+        color: this.normalizeColor(category.color, this.defaultCategoryColor(index)),
+        defaultForTenant: category.defaultForTenant === true,
+        withCustomerLink: category.withCustomerLink === true,
+        forShifts: category.forShifts === true,
+        source: category.source || 'none',
+        customerType: category.customerType || '',
+        inspection: category.inspection === true,
+        serviceOrder: category.serviceOrder === true,
+        keyRequired: category.keyRequired === true,
+      }));
+
+    return configured;
+  }
+
+  private getCategoryOption(categoryId: string): CalendarCategoryOption | undefined {
+    return this.categories.find((category) => category.id === categoryId);
+  }
+
+  private isQuoteCategory(category?: CalendarCategoryOption): boolean {
+    return category?.source === 'quotes' || category?.inspection === true;
+  }
+
+  private isCustomerCategory(category?: CalendarCategoryOption): boolean {
+    return category?.source === 'customers' || category?.withCustomerLink === true || category?.serviceOrder === true;
+  }
+
+  isInspectionCategory(category?: CalendarCategoryOption | string): boolean {
+    const option = typeof category === 'string' ? this.getCategoryOption(category) : category;
+    return option?.inspection === true;
+  }
+
+  private getDefaultCustomerLinkedCategory(): string {
+    return this.categories.find((category) => this.isCustomerCategory(category))?.id
+      || this.categories.find((category) => category.defaultForTenant)?.id
+      || this.categories[0]?.id
+      || '';
+  }
+
+  private getCategoryColor(cat: string): string {
+    const index = this.categories.findIndex((category) => category.id === cat);
+    return index >= 0 ? this.categories[index].color : this.defaultCategoryColor(6);
+  }
+
+  private normalizeColor(color: unknown, fallback: string): string {
+    const value = String(color || '').trim();
+    return /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+  }
+
+  private defaultCategoryColor(index: number): string {
+    const palette = ['#5fa878', '#d6b85a', '#2563eb', '#e86a6a', '#6f8fcf', '#9a7bc2', '#8a949e'];
+    return palette[Math.abs(index) % palette.length];
+  }
+
+  private getReadableTextColor(color: string): string {
+    const normalized = this.normalizeColor(color, '#8a949e').replace('#', '');
+    const r = parseInt(normalized.substring(0, 2), 16);
+    const g = parseInt(normalized.substring(2, 4), 16);
+    const b = parseInt(normalized.substring(4, 6), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 150 ? '#111827' : '#ffffff';
   }
 
   getEventTopPx(ev: CalEvent): number { return ((ev.start.getHours()*60+ev.start.getMinutes())/30)*26; }

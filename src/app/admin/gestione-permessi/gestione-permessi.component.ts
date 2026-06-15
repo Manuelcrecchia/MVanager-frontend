@@ -23,9 +23,10 @@ export class GestionePermessiComponent implements OnInit {
   selectedRequest: any = null;
   creaLoading = false;
   savingAllegati = false;
+  categoriePermesso: Array<{ key: string; label: string }> = [];
 
   modalData: any = {
-    categoria: 'Ferie',
+    categoria: '',
     oreGiornaliere: null,
     oraInizioModificata: '',
     oraFineModificata: '',
@@ -33,7 +34,7 @@ export class GestionePermessiComponent implements OnInit {
 
   creaData: any = {
     employeeId: '',
-    categoria: 'Ferie',
+    categoria: '',
     tipoPermesso: 'giornaliero',
     fromDate: '',
     toDate: '',
@@ -50,6 +51,15 @@ export class GestionePermessiComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.globalService.loadTenantConfig(false, { showError: false }).then(() => {
+      this.categoriePermesso = this.globalService.getLeaveCategories().map((category) => ({
+        key: category.key,
+        label: category.label || category.key,
+      }));
+      const firstCategory = this.categoriePermesso[0]?.key || '';
+      if (!this.modalData.categoria) this.modalData.categoria = firstCategory;
+      if (!this.creaData.categoria) this.creaData.categoria = firstCategory;
+    });
     this.route.queryParams.subscribe((params) => {
       this.selectedHistoryEmployeeId = params['employeeId'] || '';
       this.loadRequests();
@@ -71,7 +81,7 @@ export class GestionePermessiComponent implements OnInit {
   openCreaModal(): void {
     this.creaData = {
       employeeId: '',
-      categoria: 'Ferie',
+      categoria: this.categoriePermesso[0]?.key || '',
       tipoPermesso: 'giornaliero',
       fromDate: '',
       toDate: '',
@@ -197,7 +207,7 @@ export class GestionePermessiComponent implements OnInit {
   openModal(req: any): void {
     this.selectedRequest = req;
     this.modalData = {
-      categoria: req.categoria || 'Ferie',
+      categoria: req.categoria || this.categoriePermesso[0]?.key || '',
       oreGiornaliere: null,
       oraInizioModificata: req.tipoPermesso === 'parziale' ? (req.oraInizio || '') : '',
       oraFineModificata: req.tipoPermesso === 'parziale' ? (req.oraFine || '') : '',
@@ -210,7 +220,7 @@ export class GestionePermessiComponent implements OnInit {
     const body: any = {
       id: req.id,
       employeeId: req.employeeId,
-      categoria: req.categoria || 'Ferie',
+      categoria: req.categoria || this.categoriePermesso[0]?.key || '',
       dataInizio: req.fromDate,
       dataFine: req.toDate,
       oreGiornaliere: null,

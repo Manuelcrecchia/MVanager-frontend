@@ -197,12 +197,13 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     if (!a) return false;
     if (a.isExtra) return true;
 
-    if (this.tenantService.isEmmeci) {
-      return true;
-    }
-
     const category = String(a.categories || '').toLowerCase();
-    return category === 'ordinario' || category === 'straordinario' || category === 'ordineservizio';
+    const configured = this.globalService.getAppointmentCategoryDetails();
+    const shiftCategories = configured
+      .filter((item) => item.forShifts === true)
+      .map((item) => String(item.key || '').toLowerCase());
+
+    return shiftCategories.includes(category);
   }
 
   private scheduleAutosave(app: any, includeAssignments = false): void {

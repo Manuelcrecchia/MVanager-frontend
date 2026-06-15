@@ -1,12 +1,17 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, HostListener } from '@angular/core';
-import { GlobalService } from '../../service/global.service';
-import { QuoteModelService } from '../../service/quote-model.service';
 import { Router } from '@angular/router';
-import { PopupServiceService } from '../../componenti/popup/popup-service.service';
-import { DatePipe } from '@angular/common';
 import { Location } from '@angular/common';
-import { TenantService } from '../../service/tenant.service';
+import { GlobalService } from '../../service/global.service';
+import { TenantFieldMappingFieldConfig } from '../../service/global.service';
+import { QuoteModelService } from '../../service/quote-model.service';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+
+interface QuoteRoom {
+  id: number;
+  nome: string;
+  tipoPreventivo: string;
+}
 
 @Component({
   selector: 'app-edit-quote',
@@ -14,344 +19,45 @@ import { TenantService } from '../../service/tenant.service';
   styleUrls: ['./edit-quote.component.css'],
 })
 export class EditQuoteComponent {
+  quoteRooms: QuoteRoom[] = [];
+  selectedRoomByField: Record<string, number | null> = {};
+  visibleQuoteFields: TenantFieldMappingFieldConfig[] = [];
+
   constructor(
     public quoteModelService: QuoteModelService,
-    public tenantService: TenantService,
-    private datePipe: DatePipe,
+    public globalService: GlobalService,
     private http: HttpClient,
-    private globalService: GlobalService,
     private router: Router,
     private popup: PopupServiceService,
     private location: Location,
   ) {}
 
-  stanzaSelezionata: string = '';
-
-  nomiStanze: string[] = [];
-  serviziOptions: string[] = [];
-  stanzeEOggettiList: { stanza: string; oggetti: string }[] = [];
-
-  // Per EMMECI: mappa di frasi per stanza (roomId -> array di frasi)
-  frasePerStanza: Map<number, string[]> = new Map();
-  // Per EMMECI: mappa di stanze per ottenere l'ID da nome (nome -> id)
-  stanzaMap: Map<string, number> = new Map();
-  // Store all rooms for EMMECI
-  private allRooms: any[] = [];
-
-  aggiungiCampoStanza(): void {
-    if (this.stanzeEOggettiList.length >= 10) {
-      alert('Limite massimo di 10 stanze raggiunto');
-      return;
-    }
-
-    if (!this.stanzaSelezionata) return;
-
-    const numeroEsistenti = this.stanzeEOggettiList.filter((s) =>
-      s.stanza.startsWith(this.stanzaSelezionata),
-    ).length;
-
-    const nomeStanza =
-      numeroEsistenti > 0
-        ? `${this.stanzaSelezionata} ${numeroEsistenti + 1}`
-        : this.stanzaSelezionata;
-
-    this.stanzeEOggettiList.push({ stanza: nomeStanza, oggetti: '' });
-    this.stanzaSelezionata = '';
-  }
-
-  rimuoviStanzaEOggetti(index: number): void {
-    this.stanzeEOggettiList.splice(index, 1);
-  }
-
-  sameAddress = false;
-
   ngOnInit() {
-    this.loadQuoteSettings();
-
-    if (this.tenantService.isEmmeci) {
-      // Inizializza tipoPreventivo se non è impostato
-      if (!this.quoteModelService.tipoPreventivo) {
-        this.quoteModelService.tipoPreventivo = 'R';
-      }
-
-      const raw = this.quoteModelService.stanzeEOggetti;
-
-      if (Array.isArray(raw)) {
-        this.stanzeEOggettiList = raw;
-      } else if (typeof raw === 'string' && raw.trim()) {
-        try {
-          const parsed = JSON.parse(raw);
-          this.stanzeEOggettiList = Array.isArray(parsed) ? parsed : [];
-        } catch {
-          this.stanzeEOggettiList = [];
-        }
-      } else {
-        this.stanzeEOggettiList = [];
-      }
-
-      this.updateNomiStanze();
-    }
-  }
-
-  loadQuoteSettings(): void {
-    // Carica frasi e stanze dal backend
-    this.http
-      .get<any[]>(this.globalService.url + 'admin/quote-settings/phrases', {
-        headers: this.globalService.headers,
-      })
-      .subscribe({
-        next: (phrases) => {
-          if (this.tenantService.isEmmeci) {
-            // Per EMMECI: filtra le frasi per stanza
-            this.frasePerStanza.clear();
-            this.serviziOptions = [];
-
-            phrases.forEach((phrase) => {
-              if (phrase.roomId) {
-                if (!this.frasePerStanza.has(phrase.roomId)) {
-                  this.frasePerStanza.set(phrase.roomId, []);
-                }
-                this.frasePerStanza.get(phrase.roomId)!.push(phrase.testo);
-              }
-            });
-          } else {
-            // Per SAMI: tutte le frasi senza stanza
-            this.serviziOptions = phrases
-              .filter((p) => !p.roomId)
-              .map((p) => p.testo);
-          }
-        },
-        error: (err) => {
-          console.error('Errore caricamento frasi:', err);
-        },
-      });
-
-    // Per EMMECI: carica anche le stanze
-    if (this.tenantService.isEmmeci) {
-      this.http
-        .get<any[]>(this.globalService.url + 'admin/quote-settings/rooms', {
-          headers: this.globalService.headers,
-        })
-        .subscribe({
-          next: (rooms) => {
-            this.allRooms = rooms;
-            this.updateNomiStanze();
-          },
-          error: (err) => {
-            console.error('Errore caricamento stanze:', err);
-          },
-        });
-    }
-  }
-
-  // Aggiorna la lista di stanze in base al tipo preventivo corrente
-  updateNomiStanze(): void {
-    if (!this.tenantService.isEmmeci || this.allRooms.length === 0) return;
-
-    // Se tipoPreventivo non è impostato, default a 'R' (Residenziale)
-    const tipoPreventivo = this.quoteModelService.tipoPreventivo === 'U' ? 'U' : 'R';
-
-    this.nomiStanze = this.allRooms
-      .filter((r) => r.tipoPreventivo === tipoPreventivo)
-      .map((r) => r.nome)
-      .sort();
-
-    // Ricrea mappa nome -> id
-    this.stanzaMap.clear();
-    this.allRooms.forEach((room) => {
-      if (room.tipoPreventivo === tipoPreventivo) {
-        this.stanzaMap.set(room.nome, room.id);
-      }
+    this.globalService.loadTenantConfig(true, { showError: false }).then(() => {
+      this.refreshVisibleQuoteFields();
+      this.loadQuoteRooms();
     });
   }
 
-  // Ritorna le frasi precompilate per una specifica stanza (EMMECI)
-  getPhrasesForStanza(nomestanza: string): string[] {
-    if (!nomestanza) return [];
-
-    // Estrai il nome base della stanza (es: "Camera matrimoniale" da "Camera matrimoniale 1")
-    const nomeBase = nomestanza.split(' ').slice(0, -1).join(' ') || nomestanza;
-    const stanzaId = this.stanzaMap.get(nomeBase) || this.stanzaMap.get(nomestanza);
-
-    if (!stanzaId) return [];
-    return this.frasePerStanza.get(stanzaId) || [];
-  }
-
-  private parseContractStartDate(value: any): Date | null {
-    if (!value) return null;
-
-    if (value instanceof Date && !isNaN(value.getTime())) {
-      return new Date(value.getFullYear(), value.getMonth(), value.getDate());
-    }
-
-    const raw = String(value).trim();
-    if (!raw) return null;
-
-    const italianDateMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(raw);
-    if (italianDateMatch) {
-      const [, dd, mm, yyyy] = italianDateMatch;
-      return new Date(+yyyy, +mm - 1, +dd);
-    }
-
-    const isoDateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
-    if (isoDateOnlyMatch) {
-      const [, yyyy, mm, dd] = isoDateOnlyMatch;
-      return new Date(+yyyy, +mm - 1, +dd);
-    }
-
-    const parsed = new Date(raw);
-    if (isNaN(parsed.getTime())) {
-      return null;
-    }
-
-    return new Date(
-      parsed.getFullYear(),
-      parsed.getMonth(),
-      parsed.getDate(),
-    );
-  }
-
-  private formatContractStartDate(): string {
-    const parsed =
-      this.parseContractStartDate(
-        this.quoteModelService.dataInizioContrattoDate,
-      ) || this.parseContractStartDate(this.quoteModelService.dataInizioContratto);
-
-    if (parsed) {
-      return this.datePipe.transform(parsed, 'dd/MM/yyyy') || '';
-    }
-
-    return typeof this.quoteModelService.dataInizioContratto === 'string'
-      ? this.quoteModelService.dataInizioContratto.trim()
-      : '';
-  }
-
-  private buildSamiBody() {
-    if (this.sameAddress) {
-      this.quoteModelService.cittaDiFatturazione = this.quoteModelService.citta;
-      this.quoteModelService.selettorePrefissoViaDiFatturazione =
-        this.quoteModelService.selettorePrefissoVia;
-      this.quoteModelService.viaDiFatturazione = this.quoteModelService.via;
-      this.quoteModelService.capDiFatturazione = this.quoteModelService.cap;
-    }
-
-    return {
-      numeroPreventivo: this.quoteModelService.numeroPreventivo,
-      codiceOperatore: this.globalService.userCode,
-      tipoPreventivo: this.quoteModelService.tipoPreventivo,
-      nominativo: this.quoteModelService.nominativo,
-      cfpi: this.quoteModelService.cfpi,
-      cittaDiFatturazione: this.quoteModelService.cittaDiFatturazione,
-      selettorePrefissoViaDiFatturazione:
-        this.quoteModelService.selettorePrefissoViaDiFatturazione,
-      viaDiFatturazione: this.quoteModelService.viaDiFatturazione,
-      capDiFatturazione: this.quoteModelService.capDiFatturazione,
-      citta: this.quoteModelService.citta,
-      selettorePrefissoVia: this.quoteModelService.selettorePrefissoVia,
-      via: this.quoteModelService.via,
-      cap: this.quoteModelService.cap,
-      email: this.quoteModelService.email,
-      telefono: this.quoteModelService.telefono,
-      referente: this.quoteModelService.referente,
-      descrizioneImmobile: this.quoteModelService.descrizioneImmobile,
-      servizi: JSON.stringify(this.quoteModelService.servizi),
-      interventi: JSON.stringify(this.quoteModelService.interventi),
-      imponibile: Number(this.quoteModelService.imponibile || 0).toFixed(2),
-      iva: this.quoteModelService.iva,
-      pagamento: this.quoteModelService.pagamento,
-      tempistica: this.quoteModelService.tempistica,
-      dataInizioContratto: this.formatContractStartDate(),
-      durataContratto: this.quoteModelService.durataContratto,
-      note: this.quoteModelService.note,
-    };
-  }
-
-  private buildEmmeciBody() {
-    return {
-      numeroPreventivo: this.quoteModelService.numeroPreventivo,
-      codiceOperatore:
-        this.quoteModelService.codiceOperatore || this.globalService.userCode,
-      data: this.quoteModelService.data,
-      nominativo: this.quoteModelService.nominativo,
-      cfpi: this.quoteModelService.cfpi,
-      email: this.quoteModelService.email,
-      telefono: this.quoteModelService.telefono,
-      ragSociale: this.quoteModelService.ragSociale,
-
-      cittaDiPartenza: this.quoteModelService.cittaDiPartenza,
-      selettorePrefissoViaDiPartenza:
-        this.quoteModelService.selettorePrefissoViaDiPartenza,
-      viaDiPartenza: this.quoteModelService.viaDiPartenza,
-      pianoDiPartenza: this.quoteModelService.pianoDiPartenza,
-      occupazioneSuoloPubblicoDiPartenza:
-        this.quoteModelService.occupazioneSuoloPubblicoDiPartenza,
-      capDiPartenza: this.quoteModelService.capDiPartenza,
-
-      cittaDiArrivo: this.quoteModelService.cittaDiArrivo,
-      selettorePrefissoViaDiArrivo:
-        this.quoteModelService.selettorePrefissoViaDiArrivo,
-      viaDiArrivo: this.quoteModelService.viaDiArrivo,
-      pianoDiArrivo: this.quoteModelService.pianoDiArrivo,
-      occupazioneSuoloPubblicoDiArrivo:
-        this.quoteModelService.occupazioneSuoloPubblicoDiArrivo,
-      capDiArrivo: this.quoteModelService.capDiArrivo,
-
-      altreDestinazioni: this.quoteModelService.altreDestinazioni,
-      stanzeEOggetti: JSON.stringify(this.stanzeEOggettiList),
-      lampadari: this.quoteModelService.lampadari,
-      imballaggio: this.quoteModelService.imballaggio,
-      smaltimentoMaterialiDiRisulta:
-        this.quoteModelService.smaltimentoMaterialiDiRisulta,
-      riposizionamentoContenutiDegliArredi:
-        this.quoteModelService.riposizionamentoContenutiDegliArredi,
-      smontaggioEImballaggioDegliArredi:
-        this.quoteModelService.smontaggioEImballaggioDegliArredi,
-      caricoSuNostroMezzoIdoneo:
-        this.quoteModelService.caricoSuNostroMezzoIdoneo,
-      trasporto: this.quoteModelService.trasporto,
-      scaricoEConsegnaAlPiano: this.quoteModelService.scaricoEConsegnaAlPiano,
-      montaggioDegliArredi: this.quoteModelService.montaggioDegliArredi,
-      ausilioDiElevatoreEsternoOvePossibile:
-        this.quoteModelService.ausilioDiElevatoreEsternoOvePossibile,
-      assicurazioneControIRischiDiTrasporto:
-        this.quoteModelService.assicurazioneControIRischiDiTrasporto,
-      fornituraMaterialiDaImballo:
-        this.quoteModelService.fornituraMaterialiDaImballo,
-      imballaggioDeiContenuti: this.quoteModelService.imballaggioDeiContenuti,
-      custodiaInDeposito: this.quoteModelService.custodiaInDeposito,
-      ospCarico: this.quoteModelService.ospCarico,
-      ospScarico: this.quoteModelService.ospScarico,
-
-      prezzoTrasloco: this.quoteModelService.prezzoTrasloco,
-      prezzoFornituraMaterialiDaImballo:
-        this.quoteModelService.prezzoFornituraMaterialiDaImballo,
-      prezzoImballaggioDeiContenuti:
-        this.quoteModelService.prezzoImballaggioDeiContenuti,
-      prezzoPassaggioInDeposito:
-        this.quoteModelService.prezzoPassaggioInDeposito,
-      prezzoOccupazioneSuoloPubblico:
-        this.quoteModelService.prezzoOccupazioneSuoloPubblico,
-      prezzoMensileCustodiaMobili:
-        this.quoteModelService.prezzoMensileCustodiaMobili,
-
-      pagamento: this.quoteModelService.pagamento,
-      note: this.quoteModelService.note,
-    };
-  }
-
   editQuote() {
-    if (
-      this.tenantService.isSami &&
-      this.quoteModelService.tipoPreventivo === ''
-    ) {
-      this.popup.text = 'INSERISCI IL TIPO DI PREVENTIVO';
-      this.popup.openPopup();
+    const source = this.quoteModelService as unknown as Record<string, any>;
+    const missingFields = this.globalService.getMissingRequiredFields('quote', source);
+    if (missingFields.length) {
+      this.popup.text = `COMPILA I CAMPI OBBLIGATORI: ${missingFields.join(', ')}`;
+      this.popup.openPopup('Campi obbligatori', 'warning');
       return;
     }
 
-    const body = this.tenantService.isEmmeci
-      ? this.buildEmmeciBody()
-      : this.buildSamiBody();
+    const body = this.globalService.applyFieldMappingToPayload(
+      'quote',
+      {
+        numeroPreventivo: source['numeroPreventivo'],
+        codiceOperatore: source['codiceOperatore'] || this.globalService.userCode,
+        tipoPreventivo: source['tipoPreventivo'] || this.globalService.getDefaultQuoteType(''),
+        data: source['data'] || '',
+      },
+      source,
+    );
 
     this.http
       .post(this.globalService.url + 'quotes/edit', body, {
@@ -364,27 +70,110 @@ export class EditQuoteComponent {
           this.router.navigateByUrl('/quotesHome', { replaceUrl: true });
         },
         error: (err) => {
-          console.error('Errore editQuote:', err);
-
-          let msg = 'ERRORE DURANTE IL SALVATAGGIO DELLE MODIFICHE';
-
-          if (err?.error) {
-            if (typeof err.error === 'string') {
-              try {
-                const parsed = JSON.parse(err.error);
-                msg = parsed?.error || msg;
-              } catch {
-                msg = err.error;
-              }
-            } else if (typeof err.error === 'object') {
-              msg = err.error?.error || msg;
-            }
-          }
-
-          this.popup.text = msg.toUpperCase();
+          this.popup.text = this.parseError(err).toUpperCase();
           this.popup.openPopup();
         },
       });
+  }
+
+  updateField(field: { dbColumn: string; key?: string }, value: any): void {
+    const target = this.quoteModelService as unknown as Record<string, any>;
+    target[field.dbColumn] = value;
+    if (field.key && field.key !== field.dbColumn) {
+      target[field.key] = value;
+    }
+    this.globalService.clearHiddenFieldValues('quote', target);
+    this.globalService.applyFieldDefaults('quote', target);
+    this.quoteModelService = Object.assign(this.quoteModelService, target);
+    this.refreshVisibleQuoteFields();
+  }
+
+  refreshVisibleQuoteFields(): void {
+    this.visibleQuoteFields = this.globalService.getVisibleFieldMappingFields(
+      'quote',
+      this.quoteModelService as unknown as Record<string, any>,
+    );
+  }
+
+  loadQuoteRooms(): void {
+    this.http
+      .get<QuoteRoom[]>(this.globalService.url + 'admin/quote-settings/rooms', {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (rooms) => {
+          this.quoteRooms = rooms || [];
+        },
+        error: (err) => {
+          console.error('Errore caricamento stanze preventivo:', err);
+          this.quoteRooms = [];
+        },
+      });
+  }
+
+  getRoomsForCurrentQuoteType(): QuoteRoom[] {
+    const source = this.quoteModelService as unknown as Record<string, any>;
+    const quoteType =
+      this.globalService.getRecordValueByRole('quote', source, 'quoteType') ||
+      source['tipoPreventivo'] ||
+      this.globalService.getDefaultQuoteType('');
+    const normalizedQuoteType = String(quoteType || '').trim().toLowerCase();
+    return this.quoteRooms.filter((room) => (
+      String(room.tipoPreventivo || '').trim().toLowerCase() === normalizedQuoteType
+    ));
+  }
+
+  getRepeatableRoomRows(field: { dbColumn: string; key?: string }): any[] {
+    const source = this.quoteModelService as unknown as Record<string, any>;
+    const rawValue = source[field.dbColumn] ?? (field.key ? source[field.key] : undefined);
+    if (Array.isArray(rawValue)) return rawValue;
+    if (typeof rawValue === 'string' && rawValue.trim()) {
+      try {
+        const parsed = JSON.parse(rawValue);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  addRoomRow(field: { dbColumn: string; key?: string }): void {
+    const selectedId = this.selectedRoomByField[field.dbColumn];
+    const room = this.quoteRooms.find((item) => item.id === Number(selectedId));
+    if (!room) {
+      this.popup.text = 'SELEZIONA UNA STANZA DA AGGIUNGERE';
+      this.popup.openPopup('Stanza mancante', 'warning');
+      return;
+    }
+
+    this.setRepeatableRoomRows(field, [
+      ...this.getRepeatableRoomRows(field),
+      { stanza: room.nome, oggetti: '' },
+    ]);
+    this.selectedRoomByField[field.dbColumn] = null;
+  }
+
+  removeRoomRow(field: { dbColumn: string; key?: string }, index: number): void {
+    this.setRepeatableRoomRows(
+      field,
+      this.getRepeatableRoomRows(field).filter((_, rowIndex) => rowIndex !== index),
+    );
+  }
+
+  updateRoomRow(field: { dbColumn: string; key?: string }, index: number, key: string, value: string): void {
+    const rows = this.getRepeatableRoomRows(field).map((row, rowIndex) => (
+      rowIndex === index ? { ...row, [key]: value } : row
+    ));
+    this.setRepeatableRoomRows(field, rows);
+  }
+
+  private setRepeatableRoomRows(field: { dbColumn: string; key?: string }, rows: any[]): void {
+    const target = this.quoteModelService as unknown as Record<string, any>;
+    target[field.dbColumn] = rows;
+    if (field.key && field.key !== field.dbColumn) {
+      target[field.key] = rows;
+    }
   }
 
   back() {
@@ -398,5 +187,19 @@ export class EditQuoteComponent {
     this.quoteModelService.resetQuoteModel();
     this.location.replaceState('/quotesHome');
     this.router.navigateByUrl('/quotesHome');
+  }
+
+  private parseError(err: any): string {
+    if (err?.error) {
+      if (typeof err.error === 'string') {
+        try {
+          return JSON.parse(err.error)?.error || err.error;
+        } catch {
+          return err.error;
+        }
+      }
+      return err.error?.error || 'Errore durante il salvataggio delle modifiche';
+    }
+    return 'Errore durante il salvataggio delle modifiche';
   }
 }

@@ -49,7 +49,7 @@
           (click)="toggleQuoteOpen(quote.numeroPreventivo)"
         >
           <span class="quote-title">
-            {{ quote.numeroPreventivo }} - {{ quote.nominativo }}
+            {{ quote.numeroPreventivo }} - {{ getQuoteDisplayName(quote) }}
             <span
               *ngIf="quote.isLocked && quote.acceptanceStatus === 'pending' && !showCompletedQuotes"
               class="badge bg-warning text-dark ms-2"
@@ -95,7 +95,7 @@
               *ngIf="globalService.hasPermission('QUOTES_NOTES_VIEW')"
               type="button"
               class="btn btn-sm btn-notes action-with-tooltip"
-              (click)="navigateToNotes(quote.numeroPreventivo, quote.nominativo); $event.stopPropagation()"
+              (click)="navigateToNotes(quote.numeroPreventivo, getQuoteDisplayName(quote)); $event.stopPropagation()"
               title="Apri le note del preventivo"
               aria-label="Apri le note del preventivo"
               data-tooltip="Note del preventivo"
@@ -177,7 +177,7 @@
             <button
               *ngIf="!showCompletedQuotes"
               class="btn btn-quote-action btn-quote-calendar action-with-tooltip"
-              (click)="addInspection(quote.numeroPreventivo, quote.nominativo)"
+              (click)="addInspection(quote.numeroPreventivo, getQuoteDisplayName(quote))"
               title="Crea un sopralluogo in calendario da questo preventivo"
               aria-label="Crea sopralluogo"
               data-tooltip="Crea sopralluogo"

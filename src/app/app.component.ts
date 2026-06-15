@@ -57,6 +57,11 @@ export class AppComponent {
 
     CapacitorApp.addListener('appStateChange', ({ isActive }) => {
       if (isActive) {
+        if (!this.globalService.token) {
+          this.sessionUnlocked = false;
+          return;
+        }
+
         if (this.sessionUnlocked) {
           this.inspectionAlarmSync.syncSoon('app-active').catch((err) => {
             console.error('[App] Errore sync sveglie sopralluogo:', err);
@@ -84,7 +89,8 @@ export class AppComponent {
       this.biometricUnlockAttempted ||
       this.biometricUnlockInProgress ||
       Capacitor.getPlatform() === 'web' ||
-      !this.globalService.token
+      !this.globalService.token ||
+      this.authService.isBiometricAutoLoginSuppressed()
     ) {
       return;
     }
@@ -96,6 +102,12 @@ export class AppComponent {
     try {
       const ok = await this.biometricService.verifyIdentity();
       if (!ok) {
+        this.globalService.logout();
+        return;
+      }
+
+      const tenantConfig = await this.globalService.loadTenantConfig(true);
+      if (!tenantConfig) {
         this.globalService.logout();
         return;
       }

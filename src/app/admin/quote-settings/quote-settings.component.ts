@@ -1,14 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { GlobalService } from '../../service/global.service';
-import { TenantService } from '../../service/tenant.service';
+import { GlobalService, TenantQuoteTypeConfig } from '../../service/global.service';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 
 interface QuoteRoom {
   id: number;
   nome: string;
-  tipoPreventivo: 'R' | 'U';
+  tipoPreventivo: string;
   position: number;
   createdAt: string;
 }
@@ -29,15 +28,13 @@ interface QuotePhrase {
 export class QuoteSettingsComponent implements OnInit {
   // Data
   rooms: QuoteRoom[] = [];
-  roomsR: QuoteRoom[] = [];
-  roomsU: QuoteRoom[] = [];
   phrases: QuotePhrase[] = [];
   loading = false;
 
   // Add forms
   newPhraseText = '';
   newRoomName = '';
-  newRoomType: 'R' | 'U' = 'R';
+  newRoomType = '';
 
   // Edit state
   editingPhraseId: number | null = null;
@@ -46,19 +43,20 @@ export class QuoteSettingsComponent implements OnInit {
 
   editingRoomId: number | null = null;
   editRoomName = '';
-  editRoomType: 'R' | 'U' = 'R';
+  editRoomType = '';
 
-  // Accordion state for EMMECI
-  expandedType: 'R' | 'U' | null = null;
+  // Accordion state for room sections
+  expandedType: string | null = null;
 
   constructor(
     private http: HttpClient,
     private router: Router,
     public globalService: GlobalService,
-    public tenantService: TenantService,
   ) {}
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
+    await this.globalService.loadTenantConfig(true, { showError: false });
+    this.resetRoomTypeDefaults();
     this.loadData();
   }
 
@@ -69,9 +67,7 @@ export class QuoteSettingsComponent implements OnInit {
   loadData() {
     this.loading = true;
     this.loadPhrases();
-    if (this.tenantService.isEmmeci) {
-      this.loadRooms();
-    }
+    this.loadRooms();
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -108,9 +104,7 @@ export class QuoteSettingsComponent implements OnInit {
         this.globalService.url + 'admin/quote-settings/phrases',
         {
           testo: this.newPhraseText.trim(),
-          roomId: this.tenantService.isEmmeci
-            ? this.editPhraseRoomId || null
-            : null,
+          roomId: this.editPhraseRoomId || null,
         },
         { headers: this.globalService.headers },
       )
@@ -153,9 +147,7 @@ export class QuoteSettingsComponent implements OnInit {
           this.editingPhraseId,
         {
           testo: this.editPhraseText.trim(),
-          roomId: this.tenantService.isEmmeci
-            ? this.editPhraseRoomId || null
-            : null,
+          roomId: this.editPhraseRoomId || null,
         },
         { headers: this.globalService.headers },
       )
@@ -192,7 +184,7 @@ export class QuoteSettingsComponent implements OnInit {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // ROOMS (EMMECI only)
+  // ROOMS
   // ════════════════════════════════════════════════════════════════════════════
 
   loadRooms() {
@@ -204,8 +196,6 @@ export class QuoteSettingsComponent implements OnInit {
       .subscribe({
         next: (res) => {
           this.rooms = res || [];
-          this.roomsR = this.rooms.filter((r) => r.tipoPreventivo === 'R');
-          this.roomsU = this.rooms.filter((r) => r.tipoPreventivo === 'U');
         },
         error: (err) => {
           console.error('Errore loadRooms:', err);
@@ -229,7 +219,7 @@ export class QuoteSettingsComponent implements OnInit {
       .subscribe({
         next: () => {
           this.newRoomName = '';
-          this.newRoomType = 'R';
+          this.newRoomType = this.getDefaultQuoteType();
           this.loadRooms();
         },
         error: (err) => {
@@ -248,7 +238,7 @@ export class QuoteSettingsComponent implements OnInit {
   cancelEditRoom() {
     this.editingRoomId = null;
     this.editRoomName = '';
-    this.editRoomType = 'R';
+    this.editRoomType = this.getDefaultQuoteType();
   }
 
   saveEditRoom() {
@@ -319,10 +309,9 @@ export class QuoteSettingsComponent implements OnInit {
       });
   }
 
-  dropRoom(event: CdkDragDrop<QuoteRoom[]>, type: 'R' | 'U') {
-    const arr = type === 'R' ? this.roomsR : this.roomsU;
-    moveItemInArray(arr, event.previousIndex, event.currentIndex);
-    const order = arr.map((r, i) => ({ id: r.id, position: i }));
+  dropRoom(event: CdkDragDrop<QuoteRoom[]>) {
+    moveItemInArray(this.rooms, event.previousIndex, event.currentIndex);
+    const order = this.rooms.map((r, i) => ({ id: r.id, position: i }));
     this.http
       .put(
         this.globalService.url + 'admin/quote-settings/rooms/reorder',
@@ -353,11 +342,33 @@ export class QuoteSettingsComponent implements OnInit {
     return this.phrases.filter((p) => p.roomId === null);
   }
 
-  getRoomsByType(type: 'R' | 'U'): QuoteRoom[] {
-    return this.rooms.filter((r) => r.tipoPreventivo === type);
+  getRoomsByType(type: string): QuoteRoom[] {
+    const normalizedType = String(type || '').trim().toLowerCase();
+    return this.rooms.filter((r) => (
+      String(r.tipoPreventivo || '').trim().toLowerCase() === normalizedType
+    ));
   }
 
-  toggleAccordion(type: 'R' | 'U') {
+  toggleAccordion(type: string) {
     this.expandedType = this.expandedType === type ? null : type;
+  }
+
+  getQuoteTypeOptions(): TenantQuoteTypeConfig[] {
+    return this.globalService.getQuoteTypes();
+  }
+
+  getQuoteTypeLabel(key: string): string {
+    const type = this.getQuoteTypeOptions().find((item) => item.key === key);
+    return type?.label || key || 'Non configurato';
+  }
+
+  private getDefaultQuoteType(): string {
+    return this.globalService.getDefaultQuoteType(this.getQuoteTypeOptions()[0]?.key || '');
+  }
+
+  private resetRoomTypeDefaults(): void {
+    const defaultType = this.getDefaultQuoteType();
+    this.newRoomType = defaultType;
+    this.editRoomType = defaultType;
   }
 }

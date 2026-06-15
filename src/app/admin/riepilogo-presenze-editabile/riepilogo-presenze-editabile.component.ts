@@ -36,15 +36,21 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
 
   private noteChanges: { [id: number]: Subject<string> } = {};
 
-  // Mappa categorie codice -> nome tipologia
-  private catMap: { [key: string]: string } = {
-    O: 'Ordinario',
-    F: 'Ferie',
-    M: 'Malattia',
-    P: 'Permessi/ROL',
-    AI: 'Assenza Ingiustificata',
-    INF: 'Infortunio',
-  };
+  get categorieVoci(): string[] {
+    const keys = new Set<string>(['Ordinario']);
+    this.globalService.getLeaveCategories().forEach((category) => keys.add(category.key));
+    this.dipendenti.forEach((dip) => {
+      Object.keys(dip.tipologie || {}).forEach((key) => {
+        if (key !== '_hasCategory') keys.add(key);
+      });
+    });
+    return [...keys];
+  }
+
+  normalizeVoceCategoria(categoria: unknown): string {
+    const value = String(categoria || '').trim();
+    return value || 'Ordinario';
+  }
 
   constructor(
     private http: HttpClient,
@@ -96,13 +102,9 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
           Array.isArray(arr) ? arr : Array(numGiorni).fill('');
 
         d.tipologie.Ordinario = ensureArray(d.tipologie.Ordinario);
-        d.tipologie.Malattia = ensureArray(d.tipologie.Malattia);
-        d.tipologie.Ferie = ensureArray(d.tipologie.Ferie);
-        d.tipologie['Permessi/ROL'] = ensureArray(d.tipologie['Permessi/ROL']);
-        d.tipologie['Assenza Ingiustificata'] = ensureArray(
-          d.tipologie['Assenza Ingiustificata']
-        );
-        d.tipologie.Infortunio = ensureArray(d.tipologie.Infortunio);
+        Object.keys(d.tipologie).forEach((key) => {
+          d.tipologie[key] = ensureArray(d.tipologie[key]);
+        });
 
         if (!d.note) d.note = '';
       });
@@ -127,50 +129,28 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
           const voci: any[] = [];
 
           // Controlliamo ogni tipologia e creiamo voci per i valori presenti
-          const ordin = d.tipologie.Ordinario[i];
-          const ferie = d.tipologie.Ferie[i];
-          const mal = d.tipologie.Malattia[i];
-          const perm = d.tipologie['Permessi/ROL'][i];
-          const ass = d.tipologie['Assenza Ingiustificata'][i];
-          const inf = d.tipologie.Infortunio[i];
-
-          // 🔹 Ordinario (può essere numero o stringa vuota)
-          if (ordin && !isNaN(Number(ordin)) && Number(ordin) > 0) {
-            // ✅ SEMPRE con 2 decimali
-            voci.push({ categoria: 'O', ore: this.formatOreStr(ordin) });
-          }
-
-          // 🔹 Altre categorie - SEMPRE con 2 decimali
-          if (ferie && (String(ferie).trim() !== '' || ferie === 'F')) {
-            voci.push({ categoria: 'F', ore: !isNaN(Number(ferie)) ? this.formatOreStr(ferie) : '' });
-          }
-          if (mal && (String(mal).trim() !== '' || mal === 'M')) {
-            voci.push({ categoria: 'M', ore: !isNaN(Number(mal)) ? this.formatOreStr(mal) : '' });
-          }
-          if (perm && (String(perm).trim() !== '' || perm === 'P')) {
-            voci.push({ categoria: 'P', ore: !isNaN(Number(perm)) ? this.formatOreStr(perm) : '' });
-          }
-          if (ass && (String(ass).trim() !== '' || ass === 'AI')) {
-            voci.push({ categoria: 'AI', ore: !isNaN(Number(ass)) ? this.formatOreStr(ass) : '' });
-          }
-          if (inf && (String(inf).trim() !== '' || inf === 'INF')) {
-            voci.push({ categoria: 'INF', ore: !isNaN(Number(inf)) ? this.formatOreStr(inf) : '' });
-          }
+          Object.entries(d.tipologie).forEach(([categoria, values]: [string, any]) => {
+            if (!Array.isArray(values) || categoria === '_hasCategory') return;
+            const value = values[i];
+            if (value && !isNaN(Number(value)) && Number(value) > 0) {
+              voci.push({ categoria, ore: this.formatOreStr(value) });
+            }
+          });
 
           // Se non ci sono voci, aggiungiamo una voce vuota di default
           if (voci.length === 0) {
-            voci.push({ categoria: 'O', ore: '' });
+            voci.push({ categoria: 'Ordinario', ore: '' });
           }
 
           d.vociGiorno[i] = voci;
         }
 
-        // Manteniamo categorie e ore per retrocompatibilità
+        // Campi sintetici usati dalla UI per la prima voce del giorno.
         d.categorie = [];
         d.ore = [];
         for (let i = 0; i < this.giorni.length; i++) {
           const primaVoce = d.vociGiorno[i]?.[0];
-          d.categorie[i] = primaVoce?.categoria || 'O';
+          d.categorie[i] = primaVoce?.categoria || 'Ordinario';
           d.ore[i] = primaVoce?.ore || '';
         }
       });
@@ -198,62 +178,38 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
           }
         }
 
-        // 👇 Supporto nuovo formato con voci multiple
         if (Array.isArray(cellVoci)) {
-          // Nuovo formato: array di voci
           dip.vociGiorno[index] = cellVoci.map((v: any) => ({
-            categoria: v.categoria || 'O',
+            categoria: this.normalizeVoceCategoria(v.categoria),
             ore: v.ore || '',
           }));
         } else {
-          // Vecchio formato: singola categoria + ore
           dip.vociGiorno[index] = [
-            { categoria: cell.categoria || 'O', ore: cell.ore || '' },
+            { categoria: this.normalizeVoceCategoria(cell.categoria), ore: cell.ore || '' },
           ];
         }
 
-        // Aggiorna anche categorie/ore per retrocompatibilità
-        dip.categorie[index] = cell.categoria || 'O';
+        // Aggiorna i campi sintetici usati dalla UI.
+        dip.categorie[index] = this.normalizeVoceCategoria(cell.categoria);
         dip.ore[index] = cell.ore || '';
 
         // Sincronizza con tipologie
-        dip.tipologie.Ferie[index] = '';
-        dip.tipologie.Malattia[index] = '';
-        dip.tipologie['Permessi/ROL'][index] = '';
-        dip.tipologie['Assenza Ingiustificata'][index] = '';
-        dip.tipologie.Infortunio[index] = '';
-        dip.tipologie.Ordinario[index] = '';
+        Object.keys(dip.tipologie).forEach((category) => {
+          if (Array.isArray(dip.tipologie[category])) dip.tipologie[category][index] = '';
+        });
 
         // Processa tutte le voci per aggiornare le tipologie
         const voci = dip.vociGiorno[index];
         voci.forEach((voce: any) => {
           const oreVal = voce.ore || '';
-
-          switch (voce.categoria) {
-            case 'O':
-              if (oreVal) {
-                const curr = dip.tipologie.Ordinario[index];
-                const sum = (parseFloat(curr) || 0) + (parseFloat(oreVal) || 0);
-                // ✅ SEMPRE con 2 decimali
-                dip.tipologie.Ordinario[index] = this.formatOreStr(sum);
-              }
-              break;
-            case 'F':
-              // ✅ SEMPRE in decimale con 2 cifre
-              dip.tipologie.Ferie[index] = oreVal ? this.formatOreStr(oreVal) : '0.00';
-              break;
-            case 'M':
-              dip.tipologie.Malattia[index] = oreVal ? this.formatOreStr(oreVal) : '0.00';
-              break;
-            case 'P':
-              dip.tipologie['Permessi/ROL'][index] = oreVal ? this.formatOreStr(oreVal) : '0.00';
-              break;
-            case 'AI':
-              dip.tipologie['Assenza Ingiustificata'][index] = oreVal ? this.formatOreStr(oreVal) : '0.00';
-              break;
-            case 'INF':
-              dip.tipologie.Infortunio[index] = oreVal ? this.formatOreStr(oreVal) : '0.00';
-              break;
+          const categoria = this.normalizeVoceCategoria(voce.categoria);
+          if (!dip.tipologie[categoria]) dip.tipologie[categoria] = Array(this.giorni.length).fill('');
+          if (categoria === 'Ordinario' && oreVal) {
+            const curr = dip.tipologie.Ordinario[index];
+            const sum = (parseFloat(curr) || 0) + (parseFloat(oreVal) || 0);
+            dip.tipologie.Ordinario[index] = this.formatOreStr(sum);
+          } else if (categoria !== 'Ordinario') {
+            dip.tipologie[categoria][index] = oreVal ? this.formatOreStr(oreVal) : '0.00';
           }
         });
       });
@@ -331,7 +287,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
   onCellaChange(d: any, i: number) {
     const voci = d.vociGiorno[i] || [];
 
-    // Aggiorna categorie/ore per retrocompatibilità
+    // Aggiorna i campi sintetici usati dalla UI.
     const primaVoce = voci[0];
     if (primaVoce) {
       d.categorie[i] = primaVoce.categoria;
@@ -349,8 +305,8 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
         mese: this.meseSelezionato,
         anno: this.annoSelezionato,
         voci: voci.map((v: any) => ({ categoria: v.categoria, ore: v.ore })),
-        // Manteniamo anche i vecchi campi per retrocompatibilità
-        categoria: primaVoce?.categoria || 'O',
+        // Campi sintetici della prima voce, utili per query rapide e UI.
+        categoria: primaVoce?.categoria || 'Ordinario',
         ore: primaVoce?.ore || '',
       })
       .subscribe({
@@ -367,7 +323,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
     if (!d.vociGiorno[i]) {
       d.vociGiorno[i] = [];
     }
-    d.vociGiorno[i].push({ categoria: 'O', ore: '' });
+    d.vociGiorno[i].push({ categoria: 'Ordinario', ore: '' });
     this.onCellaChange(d, i);
   }
 
@@ -377,7 +333,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
       d.vociGiorno[i].splice(vIndex, 1);
       // Se non ci sono più voci, aggiungi una voce vuota di default
       if (d.vociGiorno[i].length === 0) {
-        d.vociGiorno[i].push({ categoria: 'O', ore: '' });
+        d.vociGiorno[i].push({ categoria: 'Ordinario', ore: '' });
       }
       this.onCellaChange(d, i);
     }
@@ -389,18 +345,10 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
     let totalCents = 0;
 
     for (let i = 0; i < numGiorni; i++) {
-      const ordinarioCents = Math.round((parseFloat(d.tipologie.Ordinario[i]) || 0) * 100);
-      const malattiaVal = parseFloat(d.tipologie.Malattia[i]) || 0;
-      const ferieVal = parseFloat(d.tipologie.Ferie[i]) || 0;
-      const permessiVal = parseFloat(d.tipologie['Permessi/ROL'][i]) || 0;
-      const infortunioVal = parseFloat(d.tipologie.Infortunio[i]) || 0;
-
-      const giornoCents = ordinarioCents +
-                         Math.round(malattiaVal * 100) +
-                         Math.round(ferieVal * 100) +
-                         Math.round(permessiVal * 100) +
-                         Math.round(infortunioVal * 100);
-      totalCents += giornoCents;
+      totalCents += Object.values(d.tipologie || {}).reduce((sum: number, values: any) => {
+        const dayValue = Array.isArray(values) ? values[i] : '';
+        return sum + Math.round((parseFloat(dayValue) || 0) * 100);
+      }, 0);
     }
 
     const h = Math.floor(totalCents / 100);
@@ -413,39 +361,21 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
   private sincronizzaTipologie(d: any, i: number) {
     const voci = d.vociGiorno[i] || [];
 
-    // Reset tipologie a 0.00
-    d.tipologie.Ordinario[i] = '0.00';
-    d.tipologie.Ferie[i] = '0.00';
-    d.tipologie.Malattia[i] = '0.00';
-    d.tipologie['Permessi/ROL'][i] = '0.00';
-    d.tipologie['Assenza Ingiustificata'][i] = '0.00';
-    d.tipologie.Infortunio[i] = '0.00';
+    Object.keys(d.tipologie).forEach((category) => {
+      if (Array.isArray(d.tipologie[category])) d.tipologie[category][i] = '0.00';
+    });
 
     // Accumula ore per categoria
     let oreOrdinario = 0;
     voci.forEach((voce: any) => {
       const ore = voce.ore ? parseFloat(voce.ore) : 0;
 
-      switch (voce.categoria) {
-        case 'O':
-          oreOrdinario += ore;
-          break;
-        case 'F':
-          // ✅ SEMPRE in decimale con 2 cifre
-          d.tipologie.Ferie[i] = voce.ore ? this.formatOreStr(voce.ore) : '0.00';
-          break;
-        case 'M':
-          d.tipologie.Malattia[i] = voce.ore ? this.formatOreStr(voce.ore) : '0.00';
-          break;
-        case 'P':
-          d.tipologie['Permessi/ROL'][i] = voce.ore ? this.formatOreStr(voce.ore) : '0.00';
-          break;
-        case 'AI':
-          d.tipologie['Assenza Ingiustificata'][i] = voce.ore ? this.formatOreStr(voce.ore) : '0.00';
-          break;
-        case 'INF':
-          d.tipologie.Infortunio[i] = voce.ore ? this.formatOreStr(voce.ore) : '0.00';
-          break;
+      const categoria = this.normalizeVoceCategoria(voce.categoria);
+      if (!d.tipologie[categoria]) d.tipologie[categoria] = Array(this.giorni.length).fill('0.00');
+      if (categoria === 'Ordinario') {
+        oreOrdinario += ore;
+      } else {
+        d.tipologie[categoria][i] = voce.ore ? this.formatOreStr(voce.ore) : '0.00';
       }
     });
 

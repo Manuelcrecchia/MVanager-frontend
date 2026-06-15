@@ -38,16 +38,6 @@
           />
         </mat-form-field>
 
-        <mat-form-field class="example-form-field" appearance="fill">
-          <mat-label>Filtro</mat-label>
-          <mat-select (selectionChange)="applyFiltro($event.value)">
-            <mat-option value="">Tutti</mat-option>
-            <mat-option value="chiave_si">Chiave: Sì</mat-option>
-            <mat-option value="chiave_no">Chiave: No</mat-option>
-            <mat-option value="ordinario">Ordinario</mat-option>
-            <mat-option value="straordinario">Straordinario</mat-option>
-          </mat-select>
-        </mat-form-field>
       </div>
     </mat-toolbar>
 
@@ -70,12 +60,7 @@
               <span class="customer-info">
                 <span class="customer-num">{{ customer.numeroCliente }}</span>
                 <span class="customer-sep">—</span>
-                <span class="customer-nom">{{ customer.nominativo }}</span>
-                <span class="badge-tipo ms-2"
-                  [ngClass]="customer.tipoCliente === 'S' ? 'badge-straord' : 'badge-ord'">
-                  {{ customer.tipoCliente === 'S' ? 'Straord.' : 'Ord.' }}
-                </span>
-                <span *ngIf="customer.key" class="badge-chiave ms-1">🔑</span>
+                <span class="customer-nom">{{ getCustomerDisplayName(customer) }}</span>
               </span>
 
               <span class="d-flex align-items-center gap-2">
@@ -84,7 +69,7 @@
                   *ngIf="globalService.hasPermission('CUSTOMERS_NOTES_VIEW')"
                   type="button"
                   class="btn btn-sm btn-notes action-with-tooltip"
-                  (click)="navigateToNotes(customer.numeroCliente, customer.nominativo); $event.stopPropagation()"
+                  (click)="navigateToNotes(customer.numeroCliente, getCustomerDisplayName(customer)); $event.stopPropagation()"
                   title="Apri le note del cliente"
                   aria-label="Apri le note del cliente"
                   data-tooltip="Note cliente"
@@ -97,11 +82,11 @@
 
             <!-- INFO RAPIDE (email + telefono) -->
             <div class="customer-meta-row">
-              <span *ngIf="customer.email" class="meta-item">
-                <mat-icon>email</mat-icon>{{ customer.email }}
+              <span *ngIf="getCustomerEmail(customer)" class="meta-item">
+                <mat-icon>email</mat-icon>{{ getCustomerEmail(customer) }}
               </span>
-              <span *ngIf="customer.telefono" class="meta-item">
-                <mat-icon>phone</mat-icon>{{ customer.telefono }}
+              <span *ngIf="getCustomerPhone(customer)" class="meta-item">
+                <mat-icon>phone</mat-icon>{{ getCustomerPhone(customer) }}
               </span>
             </div>
 

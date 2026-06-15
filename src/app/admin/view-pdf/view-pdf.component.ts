@@ -61,9 +61,9 @@ export class ViewPdfComponent implements OnInit {
               return;
             }
             const quote = JSON.parse(resp)[0];
-            const nominativo = String(quote?.nominativo ?? '').trim();
+            const displayName = this.globalService.getRecordDisplayName('quote', quote || {});
             const base = this.sanitizeFilename(
-              `${numeroPreventivo} ${nominativo}`
+              `${numeroPreventivo} ${displayName}`
             );
             this.downloadName = this.signedPdfMode
               ? `${base} firmato.pdf`

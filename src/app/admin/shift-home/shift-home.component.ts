@@ -172,7 +172,7 @@ export class ShiftHomeComponent implements OnInit {
   ngOnInit(): void {
     const dateParam = this.route.snapshot.queryParamMap.get('date');
     if (dateParam) this.selectedDate = this.parseLocalDate(dateParam);
-    this.loadShifts();
+    this.globalService.loadTenantConfig().finally(() => this.loadShifts());
   }
 
   groupedKeys(): string[] {
@@ -221,12 +221,19 @@ export class ShiftHomeComponent implements OnInit {
   }
 
   private resolveKeyRequired(shift: any): boolean {
-    if (!this.tenantService.isSami) return false;
+    if (!this.canShowKeyTag()) return false;
 
     return (
       shift?.keyRequired === true ||
       shift?.appointment?.keyRequired === true ||
       shift?.appointment?.customer?.key === true
+    );
+  }
+
+  canShowKeyTag(): boolean {
+    return (
+      this.globalService.hasTenantFeature('stamping') &&
+      this.globalService.hasPermission('STAMPING_VIEW')
     );
   }
 
@@ -522,7 +529,7 @@ export class ShiftHomeComponent implements OnInit {
   }
 
   handleClick(event: MouseEvent, appointmentId: number): void {
-    if (!this.tenantService.isSami) return;
+    if (!this.canShowKeyTag()) return;
 
     const target = event.target as HTMLElement;
     const dateStr = this.formatDate(this.selectedDate);

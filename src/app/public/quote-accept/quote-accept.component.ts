@@ -9,7 +9,6 @@ interface QuoteAcceptanceMeta {
   numeroPreventivo?: string;
   data?: string;
   displayName?: string;
-  nominativo?: string;
   recipientEmail?: string;
   recipientPhone?: string;
   paymentMethod?: string;
@@ -120,7 +119,6 @@ export class QuoteAcceptComponent implements OnInit {
   get displayName(): string {
     return (
       this.acceptance?.quoteMeta?.displayName ||
-      this.acceptance?.quoteMeta?.nominativo ||
       'Cliente'
     );
   }
@@ -280,7 +278,6 @@ export class QuoteAcceptComponent implements OnInit {
     this.acceptedByName =
       acceptance.acceptedByName ||
       acceptance.quoteMeta?.displayName ||
-      acceptance.quoteMeta?.nominativo ||
       '';
     this.acceptedByPhone =
       acceptance.acceptedByPhone ||

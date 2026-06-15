@@ -1,20 +1,61 @@
 import { Injectable } from '@angular/core';
 import { CanActivate, ActivatedRouteSnapshot, Router } from '@angular/router';
 import { GlobalService } from './service/global.service';
+import { PopupServiceService } from './componenti/popup/popup-service.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthLevelGuard implements CanActivate {
-  constructor(private global: GlobalService, private router: Router) {}
+  constructor(
+    private global: GlobalService,
+    private router: Router,
+    private popup: PopupServiceService,
+  ) {}
 
-  canActivate(route: ActivatedRouteSnapshot): boolean {
+  private readonly permissionFeatureMap: Record<string, string> = {
+    ADMIN_VIEW: 'administrators',
+    ADMIN_CREATE: 'administrators',
+    ADMIN_EDIT: 'administrators',
+    ADMIN_DELETE: 'administrators',
+    SETTINGS_ADMIN: 'deadlines',
+    SHIFTS_VIEW: 'shifts',
+    SHIFTS_MANAGE: 'shifts',
+    ATTENDANCE_MANAGE: 'leaveRequests',
+    EMPLOYEE_PERMITS_MANAGE: 'leaveRequests',
+    STAMPING_VIEW: 'stamping',
+    STAMPING_MANAGE: 'stamping',
+    CUSTOMERS_VIEW: 'customers',
+    CUSTOMERS_MANAGE: 'customers',
+    CUSTOMERS_NOTES_VIEW: 'customers',
+    CUSTOMERS_HOURS_VIEW: 'customers',
+    QUOTES_VIEW: 'quotes',
+    QUOTES_MANAGE: 'quotes',
+    QUOTES_NOTES_VIEW: 'quotes',
+    SETTINGS_QUOTES: 'quotes',
+    CALENDAR_VIEW: 'calendar',
+    SERVICE_ORDERS_VIEW: 'serviceOrders',
+    SERVICE_ORDERS_MANAGE: 'serviceOrders',
+    VEHICLE_DEADLINES_VIEW: 'deadlines',
+    EMPLOYEE_DEADLINES_VIEW: 'deadlines',
+    INTERNAL_DOCS_ACCESS: 'documents',
+    EMPLOYEE_DOCS_MANAGE: 'documents',
+    STATS_VIEW: 'stats',
+    EMAIL_VIEW: 'email',
+    EMAIL_SETTINGS: 'email',
+    EMPLOYEE_VIEW: 'employees',
+    EMPLOYEE_CREATE: 'employees',
+    EMPLOYEE_EDIT: 'employees',
+    EMPLOYEE_DELETE: 'employees',
+  };
+
+  async canActivate(route: ActivatedRouteSnapshot): Promise<boolean> {
     const required = route.data['permission'] as string | undefined;
     const requiredAny = route.data['permissionsAny'] as string[] | undefined;
 
     // non loggato
     if (!this.global.token) {
-      alert('Effettua il login per accedere.');
+      this.popup.show('Effettua il login per accedere.', 'Accesso richiesto', 'info');
       this.router.navigate(['/loginPrivateArea']);
       return false;
     }
@@ -22,15 +63,33 @@ export class AuthLevelGuard implements CanActivate {
     // nessun vincolo: solo autenticazione
     if (!required && !requiredAny) return true;
 
-    const userPerms = this.global.permissions || [];
+    const tenantConfig = await this.global.loadTenantConfig(true);
+    if (!tenantConfig) {
+      this.global.logout();
+      this.router.navigate(['/loginPrivateArea']);
+      return false;
+    }
 
     const ok =
-      (required ? userPerms.includes(required) : false) ||
-      (Array.isArray(requiredAny) ? requiredAny.some((p) => userPerms.includes(p)) : false);
+      (required ? this.canUsePermission(required) : false) ||
+      (Array.isArray(requiredAny)
+        ? requiredAny.some((p) => this.canUsePermission(p))
+        : false);
 
     if (ok) return true;
 
-    alert('Accesso non autorizzato a questa sezione.');
+    this.popup.showError(
+      'Accesso non autorizzato a questa sezione.',
+      'Accesso negato',
+    );
     return false;
+  }
+
+  private canUsePermission(permission: string): boolean {
+    const feature = this.permissionFeatureMap[permission];
+    return (
+      this.global.hasPermission(permission) &&
+      (!feature || this.global.hasTenantFeature(feature))
+    );
   }
 }

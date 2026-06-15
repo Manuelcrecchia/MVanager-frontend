@@ -380,10 +380,9 @@
         <div class="mb-3">
           <label class="form-label">Categoria</label>
           <select class="form-select" [(ngModel)]="modalData.categoria">
-            <option value="Ferie">Ferie</option>
-            <option value="Permessi/ROL">Permessi/ROL</option>
-            <option value="Malattia">Malattia</option>
-            <option value="Infortunio">Infortunio</option>
+            <option *ngFor="let categoria of categoriePermesso" [value]="categoria.key">
+              {{ categoria.label }}
+            </option>
           </select>
         </div>
 
@@ -523,11 +522,9 @@
         <div class="mb-3">
           <label class="form-label">Categoria *</label>
           <select class="form-select" [(ngModel)]="creaData.categoria">
-            <option value="Ferie">Ferie</option>
-            <option value="Permessi/ROL">Permessi/ROL</option>
-            <option value="Malattia">Malattia</option>
-            <option value="Infortunio">Infortunio</option>
-            <option value="Assenza Ingiustificata">Assenza Ingiustificata</option>
+            <option *ngFor="let categoria of categoriePermesso" [value]="categoria.key">
+              {{ categoria.label }}
+            </option>
           </select>
         </div>
 

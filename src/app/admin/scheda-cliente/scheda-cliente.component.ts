@@ -2,7 +2,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { GlobalService } from '../../service/global.service';
+import { GlobalService, TenantFieldMappingFieldConfig } from '../../service/global.service';
 import { Router } from '@angular/router';
 
 @Component({
@@ -51,22 +51,25 @@ export class SchedaClienteComponent implements OnInit {
     }
   }
 
-  isSami(): boolean {
-    return this.cliente && (!!this.cliente.citta || !!this.cliente.via || !!this.cliente.cap);
+  getDisplayName(): string {
+    return this.globalService.getRecordDisplayName('customer', this.cliente || {}) || 'Cliente sconosciuto';
   }
 
-  isEmmeci(): boolean {
-    return this.cliente && (!!this.cliente.cittaDiPartenza || !!this.cliente.viaDiPartenza || !!this.cliente.ragSociale || this.cliente.stanzeEOggetti);
+  getVisibleFields(): TenantFieldMappingFieldConfig[] {
+    return this.globalService.getVisibleFieldMappingFields('customer');
   }
 
-  parseStanzeEOggetti(value: any): any[] {
-    if (!value) return [];
-    try {
-      const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
+  getFieldValue(field: TenantFieldMappingFieldConfig): any {
+    return this.globalService.getRecordValueForField(this.cliente || {}, field);
+  }
+
+  formatFieldValue(field: TenantFieldMappingFieldConfig): string {
+    const value = this.getFieldValue(field);
+    if (value === undefined || value === null || value === '') return '-';
+    if (Array.isArray(value)) return value.filter(Boolean).join(', ') || '-';
+    if (typeof value === 'object') return JSON.stringify(value);
+    if (field.type === 'boolean') return value === true || value === 'true' || value === 1 ? 'Sì' : 'No';
+    return String(value);
   }
 
   back() {

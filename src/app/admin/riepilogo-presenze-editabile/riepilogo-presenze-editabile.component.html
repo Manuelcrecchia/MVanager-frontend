@@ -348,12 +348,9 @@ html, body{
               [(ngModel)]="voce.categoria"
               (change)="onCellaChange(d, selectedDayIndex)"
             >
-              <option value="O">O</option>
-              <option value="F">F</option>
-              <option value="M">M</option>
-              <option value="P">P</option>
-              <option value="AI">AI</option>
-              <option value="INF">INF</option>
+              <option *ngFor="let categoria of categorieVoci" [value]="categoria">
+                {{ categoria }}
+              </option>
             </select>
 
             <input
@@ -431,12 +428,9 @@ html, body{
                   [(ngModel)]="voce.categoria"
                   (change)="onCellaChange(d, i)"
                 >
-                  <option value="O">O</option>
-                  <option value="F">F</option>
-                  <option value="M">M</option>
-                  <option value="P">P</option>
-                  <option value="AI">AI</option>
-                  <option value="INF">INF</option>
+                  <option *ngFor="let categoria of categorieVoci" [value]="categoria">
+                    {{ categoria }}
+                  </option>
                 </select>
                 <input
                   type="text"

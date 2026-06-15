@@ -68,8 +68,26 @@ export class ListCustomerComponent {
   searchNominativo(v: string): void {
     const q = this.normalize(v);
     this.customersFrEnd = q
-      ? this.customers.filter((c) => this.normalize(c?.nominativo).includes(q))
+      ? this.customers.filter((c) =>
+          this.normalize(this.getCustomerDisplayName(c)).includes(q),
+        )
       : [...this.customers];
+  }
+
+  getCustomerDisplayName(customer: any): string {
+    return this.globalService.getRecordDisplayName('customer', customer);
+  }
+
+  getCustomerEmail(customer: any): string {
+    return String(
+      this.globalService.getRecordValueByRole?.('customer', customer, 'customerEmail') || '',
+    ).trim();
+  }
+
+  getCustomerPhone(customer: any): string {
+    return String(
+      this.globalService.getRecordValueByRole?.('customer', customer, 'customerPhone') || '',
+    ).trim();
   }
 
   navigateToEditCustomer(numeroCliente: string): void {
@@ -86,43 +104,8 @@ export class ListCustomerComponent {
           this.router.navigateByUrl('/');
         } else {
           const cliente = JSON.parse(response)[0];
-          this.customerModelService.numeroCliente = cliente.numeroCliente;
-          this.customerModelService.tipoCliente = cliente.tipoCliente;
-          this.customerModelService.nominativo = cliente.nominativo;
-          this.customerModelService.cfpi = cliente.cfpi;
-          this.customerModelService.cittaDiFatturazione =
-            cliente.cittaDiFatturazione;
-          this.customerModelService.selettorePrefissoViaDiFatturazione =
-            cliente.selettorePrefissoViaDiFatturazione;
-          this.customerModelService.viaDiFatturazione =
-            cliente.viaDiFatturazione;
-          this.customerModelService.capDiFatturazione =
-            cliente.capDiFatturazione;
-          this.customerModelService.citta = cliente.citta;
-          this.customerModelService.selettorePrefissoVia =
-            cliente.selettorePrefissoVia;
-          this.customerModelService.via = cliente.via;
-          this.customerModelService.cap = cliente.cap;
-          this.customerModelService.email = cliente.email;
-          this.customerModelService.telefono = cliente.telefono;
-          this.customerModelService.referente = cliente.referente;
-          this.customerModelService.descrizioneImmobile =
-            cliente.descrizioneImmobile;
-          this.customerModelService.servizi = JSON.parse(
-            cliente.servizi || '[]',
-          );
-          this.customerModelService.interventi = JSON.parse(
-            cliente.interventi || '[]',
-          );
-          this.customerModelService.imponibile = parseFloat(
-            cliente.imponibile,
-          ).toFixed(2);
-          this.customerModelService.iva = cliente.iva;
-          this.customerModelService.pagamento = cliente.pagamento;
-          this.customerModelService.note = cliente.note;
-          this.customerModelService.key = cliente.key;
-          this.customerModelService.tempistica = cliente.tempistica;
-          this.customerModelService.nOperatori = cliente.nOperatori;
+          this.customerModelService.reset();
+          Object.assign(this.customerModelService as any, cliente);
 
           this.router.navigateByUrl('/editCustomer');
         }
@@ -137,7 +120,7 @@ export class ListCustomerComponent {
   exportAndDeleteCustomer(customer: any): void {
     if (
       !confirm(
-        `Vuoi esportare e cancellare il cliente "${customer.nominativo}"?`,
+        `Vuoi esportare e cancellare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}"?`,
       )
     )
       return;
@@ -168,35 +151,16 @@ export class ListCustomerComponent {
   }
 
   applyFiltro(valore: string): void {
-    switch (valore) {
-      case 'chiave_si':
-        this.customersFrEnd = this.customers.filter((c) => c.key === true);
-        break;
-      case 'chiave_no':
-        this.customersFrEnd = this.customers.filter((c) => c.key === false);
-        break;
-      case 'ordinario':
-        this.customersFrEnd = this.customers.filter(
-          (c) => c.tipoCliente === 'O',
-        );
-        break;
-      case 'straordinario':
-        this.customersFrEnd = this.customers.filter(
-          (c) => c.tipoCliente === 'S',
-        );
-        break;
-      default:
-        this.customersFrEnd = [...this.customers];
-    }
+    this.customersFrEnd = [...this.customers];
   }
 
   navigateToAddCustomer() {
     this.router.navigateByUrl('/addCustomer');
   }
 
-  navigateToNotes(numeroCliente: string, nominativo: string) {
+  navigateToNotes(numeroCliente: string, displayName: string) {
     this.router.navigate(['/customerNotes'], {
-      queryParams: { numeroCliente, nominativo },
+      queryParams: { numeroCliente, displayName },
     });
   }
   viewDocuments(numeroCliente: string) {
@@ -205,7 +169,7 @@ export class ListCustomerComponent {
   }
 
   openCustomerWhatsApp(customer: any): void {
-    const normalizedPhone = this.normalizePhoneForWhatsApp(customer?.telefono || '');
+    const normalizedPhone = this.normalizePhoneForWhatsApp(this.getCustomerPhone(customer));
     if (!normalizedPhone) {
       alert('Numero di telefono non disponibile.');
       return;
@@ -215,7 +179,7 @@ export class ListCustomerComponent {
   }
 
   composeCustomerEmail(customer: any): void {
-    const email = String(customer?.email || '').trim();
+    const email = this.getCustomerEmail(customer);
     if (!email) {
       alert('Indirizzo email non disponibile per questo cliente.');
       return;
@@ -229,8 +193,8 @@ export class ListCustomerComponent {
     this.router.navigate(['/email'], {
       queryParams: {
         composeTo: email,
-        composeSubject: customer?.nominativo
-          ? `Cliente ${customer.nominativo}`
+        composeSubject: this.getCustomerDisplayName(customer)
+          ? `Cliente ${this.getCustomerDisplayName(customer)}`
           : '',
       },
     });

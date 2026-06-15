@@ -28,7 +28,7 @@ export interface NotaPreventivo {
 })
 export class QuoteNotesComponent implements OnInit {
   numeroPreventivo = '';
-  nominativo = '';
+  displayName = '';
   note: NotaPreventivo[] = [];
   nuovaNota = '';
   nuoviAllegati: AllegatoNota[] = [];
@@ -109,8 +109,8 @@ export class QuoteNotesComponent implements OnInit {
   ngOnInit() {
     this.numeroPreventivo =
       this.route.snapshot.queryParamMap.get('numeroPreventivo') || '';
-    this.nominativo =
-      this.route.snapshot.queryParamMap.get('nominativo') || '';
+    this.displayName =
+      this.route.snapshot.queryParamMap.get('displayName') || '';
     this.loadNote();
   }
 

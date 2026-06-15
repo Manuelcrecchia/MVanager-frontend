@@ -284,7 +284,7 @@ html, body{
     <div class="mobile-hours-list">
       <article class="mobile-hours-card" *ngFor="let cliente of clienti">
         <div class="mobile-hours-card__head">
-          <h5>{{ cliente.nominativo }}</h5>
+          <h5>{{ cliente.customerName }}</h5>
           <span class="mobile-hours-card__value">{{ getClienteOre(cliente, selectedDayIndex) }}</span>
         </div>
 
@@ -317,7 +317,7 @@ html, body{
       <tbody>
         <tr *ngFor="let cliente of clienti">
           <td class="sticky-col emp-name">
-            {{ cliente.nominativo }}
+            {{ cliente.customerName }}
           </td>
 
           <td *ngFor="let g of giorni; let i = index" class="text-center ore-cell"

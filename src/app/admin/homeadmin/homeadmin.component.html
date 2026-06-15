@@ -1263,28 +1263,28 @@
             <i class="fas fa-chevron-down settings-chevron"></i>
           </button>
           <div class="sidebar-settings-menu" *ngIf="settingsMenuOpen && !sidebarCollapsed">
-            <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('ADMIN_CREATE')" (click)="navigateToUserSettings()">
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">
               <i class="fas fa-user-plus"></i> <span class="sidebar-btn-text">Aggiungi utenti</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('ADMIN_VIEW')" (click)="navigateToGestioneUsers()">
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToGestioneUsers()">
               <i class="fas fa-users-cog"></i> <span class="sidebar-btn-text">Gestione users</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('EMPLOYEE_CREATE')" (click)="navigateToSettingsEmployees()">
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">
               <i class="fas fa-user-tie"></i> <span class="sidebar-btn-text">Aggiungi dipendenti</span>
             </button>
             <button class="sidebar-bottom-btn" (click)="navigateToCambiapassword()">
               <i class="fas fa-key"></i> <span class="sidebar-btn-text">Cambia password</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('EMPLOYEE_PERMITS_MANAGE')" (click)="navigateToLeaveSettings()">
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">
               <i class="fas fa-clipboard-check"></i> <span class="sidebar-btn-text">Permessi e assenze</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('SETTINGS_ADMIN')" (click)="navigateToVehiclesSettings()">
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('SETTINGS_ADMIN', 'deadlines')" (click)="navigateToVehiclesSettings()">
               <i class="fas fa-truck"></i> <span class="sidebar-btn-text">Gestione mezzi</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('SETTINGS_QUOTES')" (click)="navigateToQuoteSettings()">
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">
               <i class="fas fa-file-invoice-dollar"></i> <span class="sidebar-btn-text">Impostazioni preventivi</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="global.hasPermission('EMAIL_SETTINGS')" (click)="navigateToEmailSettings()">
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSettings()">
               <i class="fas fa-envelope-open-text"></i> <span class="sidebar-btn-text">Impostazioni email</span>
             </button>
           </div>
@@ -1418,14 +1418,14 @@
         </div>
 
         <div *ngIf="isMenuOpen" class="mobile-menu">
-          <a *ngIf="global.hasPermission('ADMIN_CREATE')" (click)="navigateToUserSettings()">Aggiungi utenti</a>
-          <a *ngIf="global.hasPermission('ADMIN_VIEW')" (click)="navigateToGestioneUsers()">Gestione users</a>
-          <a *ngIf="global.hasPermission('EMPLOYEE_CREATE')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</a>
+          <a *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">Aggiungi utenti</a>
+          <a *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToGestioneUsers()">Gestione users</a>
+          <a *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</a>
           <a (click)="navigateToCambiapassword()">Cambia password</a>
-          <a *ngIf="global.hasPermission('EMPLOYEE_PERMITS_MANAGE')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</a>
-          <a *ngIf="global.hasPermission('SETTINGS_ADMIN')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
-          <a *ngIf="global.hasPermission('SETTINGS_QUOTES')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>
-          <a *ngIf="global.hasPermission('EMAIL_SETTINGS')" (click)="navigateToEmailSettings()">Impostazioni email</a>
+          <a *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</a>
+          <a *ngIf="canUsePermission('SETTINGS_ADMIN', 'deadlines')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
+          <a *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>
+          <a *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSettings()">Impostazioni email</a>
           <a *ngIf="global.forMobile" (click)="navigateToNotificationSettings()">Notifiche mobile</a>
           <a (click)="changeTenant()">Cambia azienda</a>
           <a class="menu-logout" (click)="back()">Logout</a>

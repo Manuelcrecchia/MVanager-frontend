@@ -28,7 +28,7 @@ export interface NotaCliente {
 })
 export class CustomerNotesComponent implements OnInit {
   numeroCliente = '';
-  nominativo = '';
+  displayName = '';
   note: NotaCliente[] = [];
   nuovaNota = '';
   nuoviAllegati: AllegatoNota[] = [];
@@ -109,8 +109,8 @@ export class CustomerNotesComponent implements OnInit {
   ngOnInit() {
     this.numeroCliente =
       this.route.snapshot.queryParamMap.get('numeroCliente') || '';
-    this.nominativo =
-      this.route.snapshot.queryParamMap.get('nominativo') || '';
+    this.displayName =
+      this.route.snapshot.queryParamMap.get('displayName') || '';
     this.loadNote();
   }
 

@@ -198,7 +198,7 @@
             </span>
 
             <span
-              *ngIf="tenantService.isSami && turno.keyRequired"
+              *ngIf="canShowKeyTag() && turno.keyRequired"
               class="key-icon ms-2"
               (click)="handleClick($event, turno.appointmentId)"
               title="Chiavi richieste"
@@ -268,7 +268,7 @@
             </span>
 
             <span
-              *ngIf="tenantService.isSami && row.keyRequired"
+              *ngIf="canShowKeyTag() && row.keyRequired"
               class="key-icon ms-2"
               (click)="handleClick($event, row.appointmentId)"
               title="Chiavi richieste"

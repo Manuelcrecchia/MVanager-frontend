@@ -54,7 +54,12 @@
       <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.text }}</option>
     </select>
     <div class="cat-legend">
-      <span *ngFor="let cat of categories" class="legend-dot" [ngClass]="getCategoryClass(cat.id)">{{ cat.text }}</span>
+      <span
+        *ngFor="let cat of categories"
+        class="legend-dot"
+        [ngClass]="getCategoryClass(cat.id)"
+        [ngStyle]="getCategoryStyle(cat.id)"
+      >{{ cat.text }}</span>
     </div>
   </div>
 
@@ -78,6 +83,7 @@
               *ngFor="let ev of cell.events.slice(0,3)"
               class="ev-pill"
               [ngClass]="getCategoryClass(ev.categories)"
+              [ngStyle]="getCategoryStyle(ev.categories)"
               (click)="onEventClick(ev,$event)"
               (dblclick)="onEventDblClick(ev,$event)">
               <span class="ev-pill-time">{{ formatTime(ev.start) }}</span>
@@ -129,7 +135,7 @@
             *ngFor="let ev of cell.events.slice(0, MAX_VISIBLE_EVENTS)"
             class="ev-block"
             [ngClass]="getCategoryClass(ev.categories)"
-            [ngStyle]="getEventPositionStyle(ev, cell.eventLayout)"
+            [ngStyle]="getEventBlockStyle(ev, cell.eventLayout)"
             [title]="ev.title"
             (click)="onEventClick(ev,$event)"
             (dblclick)="onEventDblClick(ev,$event)">
@@ -177,7 +183,7 @@
             *ngFor="let ev of weekCells[0].events.slice(0, MAX_VISIBLE_EVENTS)"
             class="ev-block"
             [ngClass]="getCategoryClass(ev.categories)"
-            [ngStyle]="getEventPositionStyle(ev, weekCells[0].eventLayout)"
+            [ngStyle]="getEventBlockStyle(ev, weekCells[0].eventLayout)"
             [title]="ev.title"
             (click)="onEventClick(ev,$event)"
             (dblclick)="onEventDblClick(ev,$event)">
@@ -204,7 +210,8 @@
     </div>
     <div class="popup-body">
       <div class="day-event-row" *ngFor="let ev of dayPopupEvents"
-        [ngClass]="getCategoryClass(ev.categories)">
+        [ngClass]="getCategoryClass(ev.categories)"
+        [ngStyle]="getCategoryStyle(ev.categories)">
         <div class="day-event-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</div>
         <div class="day-event-title">{{ ev.title }}</div>
         <div class="day-event-desc" *ngIf="ev.description">{{ ev.description }}</div>
@@ -272,7 +279,7 @@
         </select>
       </div>
 
-      <div class="inspection-settings" *ngIf="popupCategory === 'sopralluogo'">
+      <div class="inspection-settings" *ngIf="isInspectionCategory(popupCategory)">
         <div class="form-group">
           <label>Utenti incaricati *</label>
           <div class="inspection-users-list">

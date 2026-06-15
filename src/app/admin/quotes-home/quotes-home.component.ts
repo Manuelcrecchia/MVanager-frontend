@@ -28,7 +28,7 @@ export class QuotesHomeComponent implements OnDestroy {
 
   quotesFrEnd: {
     numeroPreventivo: string;
-    nominativo: string;
+    displayName?: string;
     complete: string;
     isLocked?: boolean;
     acceptanceStatus?: string | null;
@@ -41,7 +41,7 @@ export class QuotesHomeComponent implements OnDestroy {
 
   private allQuotes: {
     numeroPreventivo: string;
-    nominativo: string;
+    displayName?: string;
     complete: string;
     isLocked?: boolean;
     acceptanceStatus?: string | null;
@@ -73,9 +73,9 @@ export class QuotesHomeComponent implements OnDestroy {
     private socketService: SocketService,
   ) {}
 
-  addInspection(numeroPreventivo: string, nominativo: string) {
+  addInspection(numeroPreventivo: string, displayName: string) {
     this.automaticAddInspectionToCalendarService.pass = true;
-    this.automaticAddInspectionToCalendarService.nominativo = nominativo;
+    this.automaticAddInspectionToCalendarService.displayName = displayName;
     this.automaticAddInspectionToCalendarService.numeroPreventivo =
       numeroPreventivo;
 
@@ -89,7 +89,7 @@ export class QuotesHomeComponent implements OnDestroy {
         next: (response) => {
           const temp = Array.isArray(response) ? response : [];
           this.automaticAddInspectionToCalendarService.telefono =
-            temp[0]?.telefono || '';
+            this.getQuotePhone(temp[0]) || '';
           this.router.navigateByUrl('/homeAdmin/calendarHome');
         },
         error: (err) => {
@@ -103,15 +103,17 @@ export class QuotesHomeComponent implements OnDestroy {
     this.router.navigateByUrl('/addQuote');
   }
 
-  navigateToNotes(numeroPreventivo: string, nominativo: string) {
+  navigateToNotes(numeroPreventivo: string, displayName: string) {
     this.router.navigate(['/quoteNotes'], {
-      queryParams: { numeroPreventivo, nominativo },
+      queryParams: { numeroPreventivo, displayName },
     });
   }
 
   ngOnInit() {
     this.applyNotificationQueryParams();
-    this.loadQuotes();
+    this.globalService
+      .loadTenantConfig(true, { showError: false })
+      .finally(() => this.loadQuotes());
     this.bindQuoteAcceptanceUpdates();
   }
 
@@ -283,9 +285,21 @@ export class QuotesHomeComponent implements OnDestroy {
 
     this.quotesFrEnd = q
       ? this.allQuotes.filter((quote) =>
-          this.normalize(quote?.nominativo).includes(q),
+          this.normalize(this.getQuoteDisplayName(quote)).includes(q),
         )
       : [...this.allQuotes];
+  }
+
+  getQuoteDisplayName(quote: Record<string, any>): string {
+    return this.globalService.getRecordDisplayName('quote', quote);
+  }
+
+  getQuoteEmail(quote: Record<string, any>): string {
+    return String(this.globalService.getRecordValueByRole('quote', quote, 'quoteEmail') || '').trim();
+  }
+
+  getQuotePhone(quote: Record<string, any>): string {
+    return String(this.globalService.getRecordValueByRole('quote', quote, 'quotePhone') || '').trim();
   }
 
   navigateToEditQuote(numeroPreventivo: string) {
@@ -305,133 +319,8 @@ export class QuotesHomeComponent implements OnDestroy {
             return;
           }
 
-          this.quoteModel.numeroPreventivo = quoteJson['numeroPreventivo'];
-          this.quoteModel.codiceOperatore = quoteJson['codiceOperatore'];
-          this.quoteModel.tipoPreventivo = quoteJson['tipoPreventivo'];
-          this.quoteModel.data = quoteJson['data'];
-          this.quoteModel.nominativo = quoteJson['nominativo'];
-          this.quoteModel.cfpi = quoteJson['cfpi'];
-
-          // campi SAMI
-          this.quoteModel.cittaDiFatturazione =
-            quoteJson['cittaDiFatturazione'] || '';
-          this.quoteModel.selettorePrefissoViaDiFatturazione =
-            quoteJson['selettorePrefissoViaDiFatturazione'] || '';
-          this.quoteModel.viaDiFatturazione =
-            quoteJson['viaDiFatturazione'] || '';
-          this.quoteModel.capDiFatturazione =
-            quoteJson['capDiFatturazione'] || '';
-          this.quoteModel.citta = quoteJson['citta'] || '';
-          this.quoteModel.selettorePrefissoVia =
-            quoteJson['selettorePrefissoVia'] || '';
-          this.quoteModel.via = quoteJson['via'] || '';
-          this.quoteModel.cap = quoteJson['cap'] || '';
-          this.quoteModel.referente = quoteJson['referente'] || '';
-          this.quoteModel.descrizioneImmobile =
-            quoteJson['descrizioneImmobile'] || '';
-
-          // campi comuni
-          this.quoteModel.email = quoteJson['email'] || '';
-          this.quoteModel.telefono = quoteJson['telefono'] || '';
-          this.quoteModel.pagamento = quoteJson['pagamento'] || '';
-          this.quoteModel.note = quoteJson['note'] || '';
-
-          // array SAMI
-          this.quoteModel.servizi = this.parseMaybeJsonArray(
-            quoteJson['servizi'],
-          );
-          this.quoteModel.interventi = this.parseMaybeJsonArray(
-            quoteJson['interventi'],
-          );
-
-          this.quoteModel.imponibile = quoteJson['imponibile']
-            ? parseFloat(quoteJson['imponibile']).toFixed(2)
-            : '0.00';
-
-          this.quoteModel.iva = quoteJson['iva'] || '';
-          this.quoteModel.dataInizioContratto =
-            quoteJson['dataInizioContratto'] || '';
-          this.quoteModel.dataInizioContrattoDate = quoteJson[
-            'dataInizioContratto'
-          ]
-            ? this.parseDateIT(quoteJson['dataInizioContratto'])
-            : null;
-
-          this.quoteModel.durataContratto = quoteJson['durataContratto'] || '';
-
-          // campi EMMECI
-          (this.quoteModel as any).ragSociale = quoteJson['ragSociale'] || '';
-          (this.quoteModel as any).cittaDiPartenza =
-            quoteJson['cittaDiPartenza'] || '';
-          (this.quoteModel as any).selettorePrefissoViaDiPartenza =
-            quoteJson['selettorePrefissoViaDiPartenza'] || '';
-          (this.quoteModel as any).viaDiPartenza =
-            quoteJson['viaDiPartenza'] || '';
-          (this.quoteModel as any).pianoDiPartenza =
-            quoteJson['pianoDiPartenza'] || '';
-          (this.quoteModel as any).occupazioneSuoloPubblicoDiPartenza =
-            quoteJson['occupazioneSuoloPubblicoDiPartenza'] || '';
-          (this.quoteModel as any).capDiPartenza =
-            quoteJson['capDiPartenza'] || '';
-
-          (this.quoteModel as any).cittaDiArrivo =
-            quoteJson['cittaDiArrivo'] || '';
-          (this.quoteModel as any).selettorePrefissoViaDiArrivo =
-            quoteJson['selettorePrefissoViaDiArrivo'] || '';
-          (this.quoteModel as any).viaDiArrivo = quoteJson['viaDiArrivo'] || '';
-          (this.quoteModel as any).pianoDiArrivo =
-            quoteJson['pianoDiArrivo'] || '';
-          (this.quoteModel as any).occupazioneSuoloPubblicoDiArrivo =
-            quoteJson['occupazioneSuoloPubblicoDiArrivo'] || '';
-          (this.quoteModel as any).capDiArrivo = quoteJson['capDiArrivo'] || '';
-
-          (this.quoteModel as any).altreDestinazioni =
-            quoteJson['altreDestinazioni'] || '';
-          (this.quoteModel as any).stanzeEOggetti = this.parseMaybeJsonArray(
-            quoteJson['stanzeEOggetti'],
-          );
-
-          (this.quoteModel as any).lampadari = !!quoteJson['lampadari'];
-          (this.quoteModel as any).imballaggio = !!quoteJson['imballaggio'];
-          (this.quoteModel as any).smaltimentoMaterialiDiRisulta =
-            !!quoteJson['smaltimentoMaterialiDiRisulta'];
-          (this.quoteModel as any).riposizionamentoContenutiDegliArredi =
-            !!quoteJson['riposizionamentoContenutiDegliArredi'];
-          (this.quoteModel as any).smontaggioEImballaggioDegliArredi =
-            !!quoteJson['smontaggioEImballaggioDegliArredi'];
-          (this.quoteModel as any).caricoSuNostroMezzoIdoneo =
-            !!quoteJson['caricoSuNostroMezzoIdoneo'];
-          (this.quoteModel as any).trasporto = !!quoteJson['trasporto'];
-          (this.quoteModel as any).scaricoEConsegnaAlPiano =
-            !!quoteJson['scaricoEConsegnaAlPiano'];
-          (this.quoteModel as any).montaggioDegliArredi =
-            !!quoteJson['montaggioDegliArredi'];
-          (this.quoteModel as any).ausilioDiElevatoreEsternoOvePossibile =
-            !!quoteJson['ausilioDiElevatoreEsternoOvePossibile'];
-          (this.quoteModel as any).assicurazioneControIRischiDiTrasporto =
-            !!quoteJson['assicurazioneControIRischiDiTrasporto'];
-          (this.quoteModel as any).fornituraMaterialiDaImballo =
-            !!quoteJson['fornituraMaterialiDaImballo'];
-          (this.quoteModel as any).imballaggioDeiContenuti =
-            !!quoteJson['imballaggioDeiContenuti'];
-          (this.quoteModel as any).custodiaInDeposito =
-            !!quoteJson['custodiaInDeposito'];
-          (this.quoteModel as any).ospCarico = !!quoteJson['ospCarico'];
-          (this.quoteModel as any).ospScarico = !!quoteJson['ospScarico'];
-
-          (this.quoteModel as any).prezzoTrasloco =
-            quoteJson['prezzoTrasloco'] || 0;
-          (this.quoteModel as any).prezzoFornituraMaterialiDaImballo =
-            quoteJson['prezzoFornituraMaterialiDaImballo'] || 0;
-          (this.quoteModel as any).prezzoImballaggioDeiContenuti =
-            quoteJson['prezzoImballaggioDeiContenuti'] || 0;
-          (this.quoteModel as any).prezzoPassaggioInDeposito =
-            quoteJson['prezzoPassaggioInDeposito'] || 0;
-          (this.quoteModel as any).prezzoOccupazioneSuoloPubblico =
-            quoteJson['prezzoOccupazioneSuoloPubblico'] || 0;
-          (this.quoteModel as any).prezzoMensileCustodiaMobili =
-            quoteJson['prezzoMensileCustodiaMobili'] || 0;
-          (this.quoteModel as any).stato = quoteJson['stato'] || '';
+          this.quoteModel.resetQuoteModel();
+          Object.assign(this.quoteModel as any, quoteJson);
 
           this.router.navigateByUrl('/editQuote');
         },
@@ -667,34 +556,36 @@ export class QuotesHomeComponent implements OnDestroy {
       });
   }
 
-  openQuoteWhatsApp(quote: { numeroPreventivo: string; telefono?: string }) {
-    if (quote.telefono) {
-      this.openWhatsApp(quote.telefono);
+  openQuoteWhatsApp(quote: { numeroPreventivo: string }) {
+    const phone = this.getQuotePhone(quote as any);
+    if (phone) {
+      this.openWhatsApp(phone);
       return;
     }
 
     this.getQuoteContact(quote.numeroPreventivo, (detail) => {
-      this.openWhatsApp(detail?.telefono || '');
+      this.openWhatsApp(this.getQuotePhone(detail || {}));
     });
   }
 
   composeQuoteEmail(quote: {
     numeroPreventivo: string;
-    nominativo: string;
-    email?: string;
   }) {
-    if (quote.email) {
+    const displayName = this.getQuoteDisplayName(quote as any);
+    const email = this.getQuoteEmail(quote as any);
+    if (email) {
       this.openEmailComposer(
-        quote.email,
-        `Preventivo ${quote.numeroPreventivo} - ${quote.nominativo}`,
+        email,
+        `Preventivo ${quote.numeroPreventivo} - ${displayName}`,
       );
       return;
     }
 
     this.getQuoteContact(quote.numeroPreventivo, (detail) => {
+      const detailDisplayName = this.getQuoteDisplayName(detail || quote as any) || displayName;
       this.openEmailComposer(
-        detail?.email || '',
-        `Preventivo ${quote.numeroPreventivo} - ${quote.nominativo}`,
+        this.getQuoteEmail(detail || {}),
+        `Preventivo ${quote.numeroPreventivo} - ${detailDisplayName}`,
       );
     });
   }

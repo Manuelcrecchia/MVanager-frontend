@@ -26,6 +26,7 @@ interface HomeButton {
   label: string;
   icon: string;
   permission: string;
+  feature?: string;
   action: () => void;
   desktopPath?: string;
   badgeCount?: () => number;
@@ -92,17 +93,21 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   todoError = '';
 
   ngOnInit(): void {
+    this.global.loadTenantConfig().finally(() => {
+      this.checkPermessiInAttesa();
+      this.loadDeadlineSummary();
+      this.loadPendingQuoteReviews();
+      this.loadEmailUnreadSummary();
+      this.loadAdminTodos();
+      setTimeout(() => this.loadEmailUnreadSummary(), 1500);
+    }).catch((err) => {
+      console.error('Errore caricamento config tenant:', err);
+    });
     this.updateDesktopHomeState();
     this.bindRouterState();
-    this.checkPermessiInAttesa();
-    this.loadDeadlineSummary();
-    this.loadPendingQuoteReviews();
-    this.loadEmailUnreadSummary();
-    this.loadAdminTodos();
     this.bindQuoteAcceptanceUpdates();
     this.bindAdminTodoUpdates();
     this.bindEmailUnreadPolling();
-    setTimeout(() => this.loadEmailUnreadSummary(), 1500);
   }
 
   ngOnDestroy(): void {
@@ -116,6 +121,11 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   checkPermessiInAttesa(): void {
+    if (!this.canUsePermission('EMPLOYEE_PERMITS_MANAGE')) {
+      this.permessiInAttesa = 0;
+      return;
+    }
+
     this.http
       .get<{ pending: number }>(this.global.url + 'permission/notify')
       .subscribe({
@@ -145,6 +155,15 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   loadDeadlineSummary(): void {
+    if (
+      !this.canUsePermission('EMPLOYEE_DEADLINES_VIEW') &&
+      !this.canUsePermission('VEHICLE_DEADLINES_VIEW')
+    ) {
+      this.employeeDeadlineSummary = this.emptyDeadlineSummary();
+      this.vehicleDeadlineSummary = this.emptyDeadlineSummary();
+      return;
+    }
+
     this.http
       .get<any>(this.global.url + 'admin/deadlines/summary')
       .subscribe({
@@ -163,6 +182,11 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   loadPendingQuoteReviews(): void {
+    if (!this.canUsePermission('QUOTES_VIEW')) {
+      this.pendingQuoteReviews = 0;
+      return;
+    }
+
     this.http
       .get<{ count: number }>(
         this.global.url + 'quotes/pendingOfficeReviewCount',
@@ -184,7 +208,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   loadEmailUnreadSummary(): void {
-    if (!this.global.hasPermission('EMAIL_VIEW')) {
+    if (!this.canUsePermission('EMAIL_VIEW')) {
       this.emailUnreadCount = 0;
       return;
     }
@@ -207,7 +231,9 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     }
 
     this.emailUnreadIntervalId = setInterval(() => {
-      this.loadEmailUnreadSummary();
+      if (this.canUsePermission('EMAIL_VIEW')) {
+        this.loadEmailUnreadSummary();
+      }
     }, 30000);
   }
 
@@ -348,6 +374,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Turni',
             icon: 'fas fa-tasks',
             permission: 'SHIFTS_VIEW',
+            feature: 'shifts',
             action: () => this.goToShifts(),
             desktopPath: 'shifts',
           },
@@ -355,6 +382,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Gestione Timbrature',
             icon: 'fas fa-fingerprint',
             permission: 'STAMPING_VIEW',
+            feature: 'stamping',
             action: () => this.navigateToTimbrature(),
             desktopPath: 'timbratureHome',
           },
@@ -362,6 +390,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Scadenze Mezzi',
             icon: 'fas fa-car',
             permission: 'VEHICLE_DEADLINES_VIEW',
+            feature: 'deadlines',
             action: () => this.navigateToVehicleDeadlines(),
             desktopPath: 'vehicle-deadlines',
             badgeCount: () => this.vehicleDeadlineSummary.alertCount,
@@ -371,6 +400,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Ordini di servizio',
             icon: 'fas fa-clipboard-list',
             permission: 'SERVICE_ORDERS_VIEW',
+            feature: 'serviceOrders',
             action: () => this.navigateToServiceOrders(),
             desktopPath: 'service-orders',
           },
@@ -378,6 +408,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Riepilogo ore clienti',
             icon: 'fas fa-user-clock',
             permission: 'CUSTOMERS_HOURS_VIEW',
+            feature: 'customers',
             action: () => this.goToRiepilogoOreClienti(),
             desktopPath: 'riepilogo-ore-clienti',
           },
@@ -392,6 +423,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Gestione Clienti',
             icon: 'fas fa-users',
             permission: 'CUSTOMERS_VIEW',
+            feature: 'customers',
             action: () => this.navigateToListCustomer(),
             desktopPath: 'listCustomer',
           },
@@ -399,6 +431,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Gestione Preventivi',
             icon: 'fas fa-file-alt',
             permission: 'QUOTES_VIEW',
+            feature: 'quotes',
             action: () => this.navigateToQuotesHome(),
             desktopPath: 'quotesHome',
             badgeCount: () => this.pendingQuoteReviews,
@@ -408,6 +441,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Calendario',
             icon: 'fas fa-calendar',
             permission: 'CALENDAR_VIEW',
+            feature: 'calendar',
             action: () => this.navigateToCalendarHome(),
             desktopPath: 'calendarHome',
           },
@@ -415,6 +449,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Email',
             icon: 'fas fa-envelope',
             permission: 'EMAIL_VIEW',
+            feature: 'email',
             action: () => this.router.navigateByUrl('/email'),
             desktopPath: 'email',
             badgeCount: () => this.emailUnreadCount,
@@ -431,6 +466,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Gestione Dipendenti',
             icon: 'fas fa-user',
             permission: 'EMPLOYEE_VIEW',
+            feature: 'employees',
             action: () => this.navigateToGestioneemployees(),
             desktopPath: 'gestioneemployees',
           },
@@ -438,6 +474,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Scadenze Dipendenti',
             icon: 'fas fa-id-card',
             permission: 'EMPLOYEE_DEADLINES_VIEW',
+            feature: 'deadlines',
             action: () => this.navigateToEmployeeDeadlines(),
             desktopPath: 'employee-deadlines',
             badgeCount: () => this.employeeDeadlineSummary.alertCount,
@@ -447,6 +484,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Riepilogo presenze personalizzabile',
             icon: 'fas fa-clock',
             permission: 'ATTENDANCE_MANAGE',
+            feature: 'leaveRequests',
             action: () => this.goToEditableHours(),
             desktopPath: 'riepilogo-presenze-editabile',
           },
@@ -454,6 +492,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Gestione permessi e assenze',
             icon: 'fas fa-clipboard-check',
             permission: 'EMPLOYEE_PERMITS_MANAGE',
+            feature: 'leaveRequests',
             action: () => this.navigateToGestionePermessi(),
             desktopPath: 'gestionepermessi',
             badgeCount: () => this.permessiInAttesa,
@@ -470,6 +509,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Gestione Users',
             icon: 'fas fa-users-cog',
             permission: 'ADMIN_VIEW',
+            feature: 'administrators',
             action: () => this.navigateToGestioneUsers(),
             desktopPath: 'gestioneusers',
           },
@@ -477,6 +517,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Documenti interni',
             icon: 'fas fa-file',
             permission: 'INTERNAL_DOCS_ACCESS',
+            feature: 'documents',
             action: () => this.navigateToInternalDocuments(),
             desktopPath: 'internal-documents',
           },
@@ -484,6 +525,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Statistiche',
             icon: 'fas fa-chart-line',
             permission: 'STATS_VIEW',
+            feature: 'stats',
             action: () => this.navigateToWorkCompletionStats(),
             desktopPath: 'statistiche',
           },
@@ -708,9 +750,18 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   visibleHomeButtons(category: HomeCategory): HomeButton[] {
-    return category.buttons.filter((button) =>
-      this.global.hasPermission(button.permission),
+    return category.buttons.filter((button) => this.canUseHomeButton(button));
+  }
+
+  canUsePermission(permission: string, feature?: string): boolean {
+    return (
+      this.global.hasPermission(permission) &&
+      (!feature || this.global.hasTenantFeature(feature))
     );
+  }
+
+  private canUseHomeButton(button: HomeButton): boolean {
+    return this.canUsePermission(button.permission, button.feature);
   }
 
   categoryBadgeCount(category: HomeCategory): number {
@@ -730,7 +781,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   @HostListener('window:popstate', ['$event'])
   onPopState(event: PopStateEvent) {
     console.log('[AppComponent] Freccia indietro rilevata');
-    this.authService.logout();
+    this.global.logout();
   }
 
   deadlineBadgeClass(summary: DeadlineSummary): string {

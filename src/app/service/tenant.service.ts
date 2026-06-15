@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
 
-export type TenantId = 'sami' | 'emmeci';
+export type TenantId = string;
 
 export interface CompanyRegistryOption {
   id: number;
@@ -35,11 +35,9 @@ export class TenantService {
     if (!value) return null;
 
     const normalized = value.trim().toLowerCase();
-    if (normalized === 'sami' || normalized === 'emmeci') {
-      return normalized;
-    }
-
-    return null;
+    return /^[a-z0-9][a-z0-9_-]{1,79}$/.test(normalized)
+      ? normalized
+      : null;
   }
 
   private normalizeServerUrl(value: string | null | undefined): string | null {
@@ -153,8 +151,8 @@ export class TenantService {
     const isLocalHost =
       host.includes('localhost') ||
       host.includes('127.0.0.1') ||
-      host.includes('sami.local') ||
-      host.includes('emmeci.local');
+      host.endsWith('.local') ||
+      host.endsWith('.localhost');
 
     if (!isLocalHost) {
       return null;
@@ -165,26 +163,24 @@ export class TenantService {
       ?.trim()
       .toLowerCase();
 
-    if (tenant === 'sami' || tenant === 'emmeci') {
-      return tenant;
-    }
-
-    return null;
+    return this.normalizeTenant(tenant);
   }
 
   private resolveTenantFromHost(): TenantId | null {
     const host = this.resolveHost();
 
-    if (
-      host.includes('emmeci') ||
-      host.includes('mcmoving') ||
-      host.includes('moving')
-    ) {
-      return 'emmeci';
-    }
-
-    if (host.includes('sami')) {
-      return 'sami';
+    const isLocalTenantHost =
+      host.endsWith('.local') ||
+      host.endsWith('.localhost');
+    if (isLocalTenantHost) {
+      const tenantCandidate = host.split('.')[0];
+      if (
+        tenantCandidate &&
+        tenantCandidate !== 'mvanager' &&
+        tenantCandidate !== 'localhost'
+      ) {
+        return this.normalizeTenant(tenantCandidate);
+      }
     }
 
     return null;
@@ -200,15 +196,16 @@ export class TenantService {
       return this._selectedCompanyServerUrl ? this._selectedTenant : null;
     }
 
-    if (this._selectedTenant) {
-      return this._selectedTenant;
+    const hostTenant = this.resolveTenantFromHost();
+    if (hostTenant) {
+      return hostTenant;
     }
 
-    return this.resolveTenantFromHost();
+    return this._selectedTenant;
   }
 
   get tenant(): TenantId {
-    return this.selectedTenant || this.resolveTenantFromHost() || 'sami';
+    return this.selectedTenant || this.resolveTenantFromHost() || '';
   }
 
   get requiresTenantSelection(): boolean {
@@ -216,7 +213,7 @@ export class TenantService {
   }
 
   get tenantLabel(): string {
-    return this._selectedCompanyName || (this.tenant === 'emmeci' ? 'Emmeci' : 'SAMI');
+    return this._selectedCompanyName || this.selectedTenant || 'Azienda';
   }
 
   get selectedCompanyName(): string | null {
@@ -287,11 +284,4 @@ export class TenantService {
     this.persistTenantAsync(normalized);
   }
 
-  get isSami(): boolean {
-    return this.tenant === 'sami';
-  }
-
-  get isEmmeci(): boolean {
-    return this.tenant === 'emmeci';
-  }
 }

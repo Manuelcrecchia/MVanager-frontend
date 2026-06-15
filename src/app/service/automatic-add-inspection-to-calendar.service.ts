@@ -8,7 +8,7 @@ export class AutomaticAddInspectionToCalendarService {
   pass=false;
   numeroPreventivo: string = '';
   telefono: string = '';
-  nominativo: string = '';
+  displayName: string = '';
   pendingCustomerEvent = false;
   numeroCliente: string = '';
   customerEventCategory: string = '';

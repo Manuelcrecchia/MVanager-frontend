@@ -63,9 +63,9 @@ export class AssignDialogComponent implements OnInit {
 
           if (!isParziale) {
             // Giornaliero o settimanale → blocca sempre
-            const categoria = leave.categoria || 'Ferie';
+            const categoria = leave.categoria || 'Permesso';
             this.leaveMap.set(empId, {
-              label: categoria === 'Ferie' ? 'Ferie' : 'Permesso giornaliero',
+              label: categoria,
               isFullDay: true,
             });
           } else {

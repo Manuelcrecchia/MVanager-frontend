@@ -188,45 +188,16 @@ export class AddServiceOrderComponent implements OnInit, OnDestroy {
   }
 
   customerName(customer: any): string {
-    return [customer?.nominativo, customer?.ragSociale]
-      .filter(Boolean)
-      .join(' ')
-      .trim() || '-';
+    return this.global.getRecordDisplayName('customer', customer || {}) || '-';
   }
 
-  isEmmeciCustomer(): boolean {
-    return !!(
-      this.selectedCustomer?.viaDiPartenza ||
-      this.selectedCustomer?.viaDiArrivo ||
-      this.selectedCustomer?.cittaDiPartenza ||
-      this.selectedCustomer?.cittaDiArrivo
-    );
+  customerRoleValue(customer: any, role: string): string {
+    const value = this.global.getRecordValueByRole('customer', customer || {}, role);
+    return value === undefined || value === null || value === '' ? '-' : String(value);
   }
 
-  samiAddress(): string {
-    const customer = this.selectedCustomer || {};
-    return [
-      customer.selettorePrefissoVia,
-      customer.via,
-      customer.cap,
-      customer.citta,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .trim() || '-';
-  }
-
-  address(prefix: string): string {
-    const customer = this.selectedCustomer || {};
-    return [
-      customer[`selettorePrefissoViaDi${prefix}`],
-      customer[`viaDi${prefix}`],
-      customer[`capDi${prefix}`],
-      customer[`cittaDi${prefix}`],
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .trim() || '-';
+  hasCustomerRole(customer: any, role: string): boolean {
+    return this.customerRoleValue(customer, role) !== '-';
   }
 
   private toInputDate(value: any): string {
