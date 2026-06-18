@@ -70,6 +70,8 @@ export interface TenantFieldCalculationConfig {
   sourceFields?: string | string[];
   vatField?: string;
   vatRate?: number | string | null;
+  vatValueRates?: Record<string, number> | string | null;
+  vatRatesByValue?: Record<string, number> | string | null;
   decimals?: number | string | null;
 }
 
@@ -705,15 +707,59 @@ export class GlobalService {
 
     let total = subtotal;
     if (mode === 'sum_with_vat') {
-      const vatRate = String(calculation.vatField || '').trim()
-        ? this.parseNumericValue(this.readCalculationSourceValue(source, fields, calculation.vatField || ''))
-        : this.parseNumericValue(calculation.vatRate);
+      const vatRate = this.resolveVatRate(source, fields, calculation);
       total = subtotal * (1 + (vatRate / 100));
     }
 
     const decimals = this.normalizeCalculationDecimals(calculation.decimals);
     const factor = 10 ** decimals;
     return Math.round((total + Number.EPSILON) * factor) / factor;
+  }
+
+  private resolveVatRate(
+    source: Record<string, any>,
+    fields: TenantFieldMappingFieldConfig[],
+    calculation: TenantFieldCalculationConfig,
+  ): number {
+    const vatField = String(calculation.vatField || '').trim();
+    if (vatField) {
+      const rawVatValue = this.readCalculationSourceValue(source, fields, vatField);
+      const vatValueRates = this.parseVatValueRates(calculation.vatValueRates || calculation.vatRatesByValue);
+      const mappedRate = vatValueRates[String(rawVatValue || '').trim().toLowerCase()];
+      if (Number.isFinite(mappedRate)) {
+        return mappedRate;
+      }
+      return this.parseNumericValue(rawVatValue);
+    }
+
+    return this.parseNumericValue(calculation.vatRate);
+  }
+
+  private parseVatValueRates(value: unknown): Record<string, number> {
+    if (!value) return {};
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      return Object.entries(value as Record<string, unknown>).reduce((acc, [key, rate]) => {
+        const normalizedKey = String(key || '').trim().toLowerCase();
+        const normalizedRate = Number(rate);
+        if (normalizedKey && Number.isFinite(normalizedRate)) {
+          acc[normalizedKey] = normalizedRate;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+    }
+
+    return String(value || '')
+      .split(/[,;\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .reduce((acc, item) => {
+        const [key, rate] = item.split(/[:=]/).map((part) => String(part || '').trim());
+        const normalizedRate = Number(String(rate || '').replace(',', '.'));
+        if (key && Number.isFinite(normalizedRate)) {
+          acc[key.toLowerCase()] = normalizedRate;
+        }
+        return acc;
+      }, {} as Record<string, number>);
   }
 
   private parseCalculationSourceFields(value: unknown): string[] {

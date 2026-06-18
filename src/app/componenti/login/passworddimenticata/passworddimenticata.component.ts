@@ -24,6 +24,13 @@ resetPassword(newPassword:string, code:string){
           else{
             this.router.navigateByUrl('/loginPrivateArea');
           }
+        }, (err) => {
+          const serverMessage =
+            err?.error?.error ||
+            err?.error?.response ||
+            (typeof err?.error === 'string' ? err.error : '');
+          this.popup.text = serverMessage || 'Errore durante il reset password. Riprova.';
+          this.popup.openPopup();
         })
 }
 

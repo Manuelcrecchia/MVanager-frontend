@@ -210,6 +210,13 @@ export class PrivateAreaComponent {
       })
       .subscribe(() => {
         this.router.navigateByUrl('passworddimenticata');
+      }, (err) => {
+        const serverMessage =
+          err?.error?.error ||
+          err?.error?.response ||
+          (typeof err?.error === 'string' ? err.error : '');
+        this.popup.text = serverMessage || 'Errore durante l’invio del codice. Riprova.';
+        this.popup.openPopup();
       });
   }
 

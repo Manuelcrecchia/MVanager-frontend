@@ -41,4 +41,10 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# Mobile/native generated build outputs
+/android/.gradle/
+/android/**/build/
+/ios/**/build/
+/ios/App/Pods/
+
 .codegpt
