@@ -139,8 +139,8 @@ export class PrivateAreaComponent {
           // --- LOGIN OK ---
           this.authService.email = email;
           this.authService.userCode = res['codiceOperatore'] || null;
-          this.authService.token = res['token'] || null;
           this.authService.permissions = res['permissions'] || [];
+          this.authService.token = res['token'] || null;
 
           if (!this.authService.token) {
             this.popup.text = 'Risposta login non valida. Riprova.';
@@ -148,7 +148,7 @@ export class PrivateAreaComponent {
             return;
           }
 
-          const tenantConfig = await this.globalService.loadTenantConfig(true);
+          const tenantConfig = await this.globalService.loadTenantConfig(false);
           if (!tenantConfig) {
             this.clearAutoBiometricTimer();
             this.globalService.logout();

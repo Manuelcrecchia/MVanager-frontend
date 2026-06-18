@@ -74,6 +74,10 @@ export class QuotesHomeComponent implements OnDestroy {
   ) {}
 
   addInspection(numeroPreventivo: string, displayName: string) {
+    if (!this.canCreateCalendarEvents()) {
+      return;
+    }
+
     this.automaticAddInspectionToCalendarService.pass = true;
     this.automaticAddInspectionToCalendarService.displayName = displayName;
     this.automaticAddInspectionToCalendarService.numeroPreventivo =
@@ -112,7 +116,7 @@ export class QuotesHomeComponent implements OnDestroy {
   ngOnInit() {
     this.applyNotificationQueryParams();
     this.globalService
-      .loadTenantConfig(true, { showError: false })
+      .loadTenantConfig(false, { showError: false })
       .finally(() => this.loadQuotes());
     this.bindQuoteAcceptanceUpdates();
   }
@@ -256,6 +260,12 @@ export class QuotesHomeComponent implements OnDestroy {
     officeConfirmedAt?: string | null;
   }) {
     const numeroPreventivo = quote.numeroPreventivo;
+    if (!this.canCreateCustomersFromQuote()) {
+      this.router.navigate(['/view-pdf'], {
+        queryParams: { numeroPreventivo, signed: 1 },
+      });
+      return;
+    }
 
     this.router.navigate(['/view-pdf'], {
       queryParams: { numeroPreventivo, signed: 1, confirmCustomer: 1 },
@@ -419,6 +429,7 @@ export class QuotesHomeComponent implements OnDestroy {
 
   conferm(numeroPreventivo: string) {
     const body = { numeroPreventivo };
+    const canCreateCustomer = this.canCreateCustomersFromQuote();
 
     this.http
       .post<any[]>(this.globalService.url + 'quotes/getQuote', body, {
@@ -434,7 +445,9 @@ export class QuotesHomeComponent implements OnDestroy {
             return;
           }
 
-          this.customerModelService.populateFromQuote(quote, numeroPreventivo);
+          if (canCreateCustomer) {
+            this.customerModelService.populateFromQuote(quote, numeroPreventivo);
+          }
 
           this.http
             .post(
@@ -447,7 +460,12 @@ export class QuotesHomeComponent implements OnDestroy {
             )
             .subscribe({
               next: () => {
-                this.router.navigateByUrl('/addCustomer');
+                if (canCreateCustomer) {
+                  this.router.navigateByUrl('/addCustomer');
+                  return;
+                }
+
+                this.loadQuotes();
               },
               error: (err) => {
                 console.error('Errore setComplete:', err);
@@ -460,6 +478,14 @@ export class QuotesHomeComponent implements OnDestroy {
           alert(this.parseServerError(err));
         },
       });
+  }
+
+  canCreateCustomersFromQuote(): boolean {
+    return this.globalService.canCreateCustomers();
+  }
+
+  canCreateCalendarEvents(): boolean {
+    return this.globalService.canCreateCalendarEvents();
   }
 
   refuse(numeroPreventivo: string) {

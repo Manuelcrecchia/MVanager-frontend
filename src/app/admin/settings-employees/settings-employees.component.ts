@@ -139,17 +139,23 @@ export class SettingsEmployeesComponent implements OnInit {
           this.isLoading = false;
           console.error("Errore durante l'aggiunta del dipendente:", error);
           if (error.status === 409) {
-            try {
-              const body = JSON.parse(error.error);
-              alert(body.error);
-            } catch {
-              alert('Un dipendente con questa email esiste già');
-            }
+            alert(this.parseServerError(error, 'Un dipendente con questa email esiste già'));
           } else {
-            alert("Errore durante l'aggiunta del dipendente");
+            alert(this.parseServerError(error, "Errore durante l'aggiunta del dipendente"));
           }
         },
       });
+  }
+
+  private parseServerError(error: any, fallback: string): string {
+    try {
+      const body = typeof error?.error === 'string'
+        ? JSON.parse(error.error)
+        : error?.error;
+      return body?.error || fallback;
+    } catch {
+      return fallback;
+    }
   }
 
   unarchiveEmployee(emp: Employee): void {

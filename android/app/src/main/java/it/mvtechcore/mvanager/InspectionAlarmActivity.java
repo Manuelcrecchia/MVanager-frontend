@@ -91,7 +91,7 @@ public class InspectionAlarmActivity extends Activity {
         content.addView(eyebrow, matchWrap());
 
         TextView title = new TextView(this);
-        title.setText(getStringExtra("notificationTitle", "Promemoria sopralluogo"));
+        title.setText(getStringExtra("notificationTitle", "Promemoria appuntamento"));
         title.setTextColor(Color.WHITE);
         title.setTextSize(29);
         title.setTypeface(Typeface.DEFAULT_BOLD);
@@ -100,7 +100,7 @@ public class InspectionAlarmActivity extends Activity {
         content.addView(title, matchWrap());
 
         TextView body = new TextView(this);
-        body.setText(getStringExtra("notificationBody", "Hai un sopralluogo da effettuare."));
+        body.setText(getStringExtra("notificationBody", "Hai un appuntamento da effettuare."));
         body.setTextColor(Color.rgb(226, 232, 240));
         body.setTextSize(18);
         body.setGravity(Gravity.CENTER);
@@ -124,7 +124,7 @@ public class InspectionAlarmActivity extends Activity {
         });
         content.addView(dismiss, buttonParams());
 
-        Button open = button("Spegni e apri sopralluogo", Color.rgb(56, 189, 248), Color.rgb(8, 47, 73));
+        Button open = button("Spegni e apri appuntamento", Color.rgb(56, 189, 248), Color.rgb(8, 47, 73));
         open.setOnClickListener(v -> {
             InspectionAlarmNotifier.dismiss(this, extras);
             InspectionAlarmNotifier.storePendingNavigation(this, extras);

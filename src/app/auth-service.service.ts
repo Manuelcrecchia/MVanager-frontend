@@ -51,7 +51,7 @@ export class AuthServiceService {
       const remainingTime = this.getTokenRemainingTime(value);
       if (remainingTime > 0) {
         this.setLogoutTimer(remainingTime);
-        this.initializePostLoginServices(value);
+        this.initializePostLoginServices(value, this._permissions);
       } else {
         this.clearSessionState();
       }
@@ -145,13 +145,13 @@ export class AuthServiceService {
     this.postLoginServicesToken = null;
   }
 
-  initializePostLoginServices(token = this._token): void {
+  initializePostLoginServices(token = this._token, permissions = this._permissions): void {
     if (!token || this.postLoginServicesToken === token) {
       return;
     }
 
     this.postLoginServicesToken = token;
-    this.mobilePush.initAfterLogin(token).catch((err) => {
+    this.mobilePush.initAfterLogin(token, permissions).catch((err) => {
       this.postLoginServicesToken = null;
       console.error('[AuthService] Errore inizializzazione push:', err);
     });
@@ -223,7 +223,7 @@ export class AuthServiceService {
         this.persistValue(this.TOKEN_KEY, this._token);
         this.setLogoutTimer(remainingTime);
         if (Capacitor.getPlatform() === 'web') {
-          this.initializePostLoginServices(this._token);
+          this.initializePostLoginServices(this._token, this._permissions);
         }
       } else {
         this.clearSessionState();

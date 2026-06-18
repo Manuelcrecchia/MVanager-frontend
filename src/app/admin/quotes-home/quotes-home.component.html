@@ -175,12 +175,12 @@
             </button>
 
             <button
-              *ngIf="!showCompletedQuotes"
+              *ngIf="!showCompletedQuotes && canCreateCalendarEvents()"
               class="btn btn-quote-action btn-quote-calendar action-with-tooltip"
               (click)="addInspection(quote.numeroPreventivo, getQuoteDisplayName(quote))"
-              title="Crea un sopralluogo in calendario da questo preventivo"
-              aria-label="Crea sopralluogo"
-              data-tooltip="Crea sopralluogo"
+              title="Crea un appuntamento in calendario da questo preventivo"
+              aria-label="Crea appuntamento"
+              data-tooltip="Crea appuntamento"
             >
               <i class="fas fa-calendar-alt"></i>
             </button>
@@ -189,9 +189,9 @@
               *ngIf="!showCompletedQuotes && !quote.isLocked"
               class="btn btn-quote-action btn-quote-confirm action-with-tooltip"
               (click)="conferm(quote.numeroPreventivo)"
-              title="Conferma il preventivo e crea il cliente"
+              [title]="canCreateCustomersFromQuote() ? 'Conferma il preventivo e crea il cliente' : 'Segna il preventivo come accettato'"
               aria-label="Conferma preventivo"
-              data-tooltip="Conferma e crea cliente"
+              [attr.data-tooltip]="canCreateCustomersFromQuote() ? 'Conferma e crea cliente' : 'Accetta preventivo'"
             >
               <i class="fas fa-check"></i>
             </button>
@@ -219,7 +219,7 @@
             </button>
 
             <button
-              *ngIf="showCompletedQuotes && quote.needsOfficeReview"
+              *ngIf="showCompletedQuotes && quote.needsOfficeReview && canCreateCustomersFromQuote()"
               class="btn btn-quote-action btn-quote-verify action-with-tooltip"
               (click)="reviewSignedQuoteAndCreateCustomer(quote)"
               title="Apre il preventivo firmato; dopo la verifica puoi creare il cliente"

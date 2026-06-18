@@ -21,28 +21,42 @@ export class AuthLevelGuard implements CanActivate {
     SETTINGS_ADMIN: 'deadlines',
     SHIFTS_VIEW: 'shifts',
     SHIFTS_MANAGE: 'shifts',
-    ATTENDANCE_MANAGE: 'leaveRequests',
+    ATTENDANCE_VIEW: 'attendance',
+    ATTENDANCE_MANAGE: 'attendance',
     EMPLOYEE_PERMITS_MANAGE: 'leaveRequests',
     STAMPING_VIEW: 'stamping',
     STAMPING_MANAGE: 'stamping',
     CUSTOMERS_VIEW: 'customers',
     CUSTOMERS_MANAGE: 'customers',
     CUSTOMERS_NOTES_VIEW: 'customers',
+    CUSTOMERS_NOTES_MANAGE: 'customers',
     CUSTOMERS_HOURS_VIEW: 'customers',
     QUOTES_VIEW: 'quotes',
     QUOTES_MANAGE: 'quotes',
     QUOTES_NOTES_VIEW: 'quotes',
+    QUOTES_NOTES_MANAGE: 'quotes',
     SETTINGS_QUOTES: 'quotes',
     CALENDAR_VIEW: 'calendar',
+    CALENDAR_EVENT_MANAGE: 'calendar',
     SERVICE_ORDERS_VIEW: 'serviceOrders',
     SERVICE_ORDERS_MANAGE: 'serviceOrders',
     VEHICLE_DEADLINES_VIEW: 'deadlines',
+    VEHICLE_DEADLINES_CREATE: 'deadlines',
+    VEHICLE_DEADLINES_EDIT: 'deadlines',
+    VEHICLE_DEADLINES_DELETE: 'deadlines',
     EMPLOYEE_DEADLINES_VIEW: 'deadlines',
+    EMPLOYEE_DEADLINES_CREATE: 'deadlines',
+    EMPLOYEE_DEADLINES_EDIT: 'deadlines',
+    EMPLOYEE_DEADLINES_DELETE: 'deadlines',
     INTERNAL_DOCS_ACCESS: 'documents',
     EMPLOYEE_DOCS_MANAGE: 'documents',
     STATS_VIEW: 'stats',
     EMAIL_VIEW: 'email',
     EMAIL_SETTINGS: 'email',
+    NOTIFICATIONS_VIEW: 'notifications',
+    NOTIFICATIONS_MANAGE: 'notifications',
+    TODOS_VIEW: 'todos',
+    TODOS_MANAGE: 'todos',
     EMPLOYEE_VIEW: 'employees',
     EMPLOYEE_CREATE: 'employees',
     EMPLOYEE_EDIT: 'employees',
@@ -63,7 +77,9 @@ export class AuthLevelGuard implements CanActivate {
     // nessun vincolo: solo autenticazione
     if (!required && !requiredAny) return true;
 
-    const tenantConfig = await this.global.loadTenantConfig(true);
+    const tenantConfig =
+      await this.global.loadTenantConfig(false) ||
+      await this.global.loadTenantConfig(true);
     if (!tenantConfig) {
       this.global.logout();
       this.router.navigate(['/loginPrivateArea']);

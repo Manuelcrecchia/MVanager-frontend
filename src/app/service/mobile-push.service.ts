@@ -13,6 +13,21 @@ import { resolveApiBaseUrl } from './global.service';
 import { NotificationNavigationService } from './notification-navigation.service';
 import { InspectionAlarmSyncService } from './inspection-alarm-sync.service';
 
+interface TenantMobileConfig {
+  features?: string[];
+  permissions?: {
+    available?: string[];
+    permissions?: string[];
+    disabled?: string[];
+    disabledPermissions?: string[];
+  };
+}
+
+interface MobileCapabilities {
+  canUseNotifications: boolean;
+  canSyncInspectionAlarms: boolean;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -27,12 +42,23 @@ export class MobilePushService {
     private inspectionAlarmSync: InspectionAlarmSyncService,
   ) {}
 
-  async initAfterLogin(token: string): Promise<void> {
+  async initAfterLogin(token: string, permissions: string[] = []): Promise<void> {
     this.token = token;
-    this.inspectionAlarmSync.setToken(token);
-    await this.inspectionAlarmSync.syncSoon('after-login', true);
 
-    if (this.initialized || Capacitor.getPlatform() === 'web') {
+    const platform = Capacitor.getPlatform();
+    if (platform === 'web') {
+      return;
+    }
+
+    const capabilities = await this.resolveCapabilities(permissions);
+    if (capabilities.canSyncInspectionAlarms) {
+      this.inspectionAlarmSync.setToken(token);
+      await this.inspectionAlarmSync.syncSoon('after-login', true);
+    } else {
+      await this.inspectionAlarmSync.clearAll();
+    }
+
+    if (!capabilities.canUseNotifications || this.initialized) {
       return;
     }
 
@@ -53,7 +79,7 @@ export class MobilePushService {
       (notification: PushNotificationSchema) => {
         console.log('[Push] Notifica ricevuta', notification);
         this.inspectionAlarmSync.syncSoon('push-received').catch((err) => {
-          console.error('[Push] Errore sync sveglie sopralluogo:', err);
+          console.error('[Push] Errore sync promemoria appuntamento:', err);
         });
       },
     );
@@ -66,8 +92,6 @@ export class MobilePushService {
         await this.notificationNavigation.navigateFromPayload(action);
       },
     );
-
-    const platform = Capacitor.getPlatform();
 
     if (platform === 'ios') {
       const permission = await PushNotifications.requestPermissions();
@@ -98,7 +122,7 @@ export class MobilePushService {
     this.initialized = false;
     this.token = null;
     this.inspectionAlarmSync.clearAll().catch((err) => {
-      console.error('[Push] Errore reset sveglie sopralluogo:', err);
+      console.error('[Push] Errore reset promemoria appuntamento:', err);
     });
   }
 
@@ -120,6 +144,64 @@ export class MobilePushService {
           console.log('[Push] Token registrato sul backend', response),
         error: (err) => console.error('[Push] Errore registrazione token', err),
       });
+  }
+
+  private async resolveCapabilities(
+    userPermissions: string[],
+  ): Promise<MobileCapabilities> {
+    try {
+      const config = await this.fetchTenantConfig();
+      const userPermissionSet = new Set(Array.isArray(userPermissions) ? userPermissions : []);
+      const canUseNotifications =
+        this.hasFeature(config, 'notifications') &&
+        this.hasPermission(config, userPermissionSet, 'NOTIFICATIONS_VIEW');
+      const canSyncInspectionAlarms =
+        this.hasFeature(config, 'calendar') &&
+        this.hasPermission(config, userPermissionSet, 'CALENDAR_VIEW');
+
+      return { canUseNotifications, canSyncInspectionAlarms };
+    } catch (err) {
+      console.warn('[Push] Config tenant non disponibile, servizi mobile non inizializzati', err);
+      return { canUseNotifications: false, canSyncInspectionAlarms: false };
+    }
+  }
+
+  private fetchTenantConfig(): Promise<TenantMobileConfig> {
+    return new Promise((resolve, reject) => {
+      this.http
+        .get<TenantMobileConfig>(this.apiUrl + 'tenant/config?refresh=true', {
+          headers: this.headers,
+        })
+        .subscribe({ next: resolve, error: reject });
+    });
+  }
+
+  private hasFeature(config: TenantMobileConfig, feature: string): boolean {
+    const features = config?.features;
+    if (Array.isArray(features)) {
+      return features.includes(feature);
+    }
+    return true;
+  }
+
+  private hasPermission(
+    config: TenantMobileConfig,
+    userPermissionSet: Set<string>,
+    permission: string,
+  ): boolean {
+    const tenantPermissions = config?.permissions || {};
+    const available = tenantPermissions.available || tenantPermissions.permissions || [];
+    const disabled = tenantPermissions.disabled || tenantPermissions.disabledPermissions || [];
+
+    if (available.length && !available.includes(permission)) {
+      return false;
+    }
+
+    if (disabled.includes(permission)) {
+      return false;
+    }
+
+    return userPermissionSet.has(permission);
   }
 
   private get apiUrl(): string {

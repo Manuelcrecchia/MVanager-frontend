@@ -21,7 +21,7 @@
       </div>
       <div class="kpi">
         <strong>{{ stats?.satisfactionYesRate || 0 }}%</strong>
-        <span>Soddisfatti</span>
+        <span>Esiti positivi</span>
       </div>
     </div>
   </section>
@@ -50,41 +50,20 @@
 
   <ng-container *ngIf="!loading && stats">
     <section class="score-grid">
-      <article class="score-card">
+      <article class="score-card" *ngFor="let question of stats.questions">
         <div>
-          <span>Consulente</span>
-          <strong>{{ stats.averages.consulente }}</strong>
+          <span>{{ question.label }}</span>
+          <strong>{{ stats.averages[question.key] || 0 }}</strong>
         </div>
-        <div class="score-bar"><i [style.width.%]="scorePercent(stats.averages.consulente)"></i></div>
-      </article>
-      <article class="score-card">
-        <div>
-          <span>Personale tecnico</span>
-          <strong>{{ stats.averages.personale }}</strong>
-        </div>
-        <div class="score-bar"><i [style.width.%]="scorePercent(stats.averages.personale)"></i></div>
-      </article>
-      <article class="score-card">
-        <div>
-          <span>Igienizzazione</span>
-          <strong>{{ stats.averages.igienizzazione }}</strong>
-        </div>
-        <div class="score-bar"><i [style.width.%]="scorePercent(stats.averages.igienizzazione)"></i></div>
-      </article>
-      <article class="score-card">
-        <div>
-          <span>Soddisfazione</span>
-          <strong>{{ stats.averages.soddisfazione }}</strong>
-        </div>
-        <div class="score-bar"><i [style.width.%]="scorePercent(stats.averages.soddisfazione)"></i></div>
+        <div class="score-bar"><i [style.width.%]="scorePercentForQuestion(question, stats.averages[question.key] || 0)"></i></div>
       </article>
     </section>
 
     <section class="distribution-grid">
-      <article class="panel" *ngFor="let dimension of ['consulente', 'personale', 'igienizzazione', 'soddisfazione']">
-        <h3>{{ dimension | titlecase }}</h3>
-        <div class="distribution-row" *ngFor="let entry of distributionEntries($any(stats.dimensions)[dimension])">
-          <span>{{ ratingLabels[entry.key] || entry.key }}</span>
+      <article class="panel" *ngFor="let question of stats.questions">
+        <h3>{{ question.label }}</h3>
+        <div class="distribution-row" *ngFor="let entry of distributionEntries(stats.dimensions[question.key])">
+          <span>{{ getOptionLabel(question, entry.key) }}</span>
           <strong>{{ entry.value }}</strong>
         </div>
       </article>

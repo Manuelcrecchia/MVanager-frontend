@@ -43,9 +43,19 @@ export class AssignDialogComponent implements OnInit {
       });
     });
 
-    if (this.data.selectedDate) {
+    if (this.data.selectedDate && this.canLoadLeavesForShift()) {
       this.loadLeaves(this.data.selectedDate);
     }
+  }
+
+  private canLoadLeavesForShift(): boolean {
+    return (
+      this.globalService.hasTenantFeature('leaveRequests') &&
+      (
+        this.globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE') ||
+        this.globalService.hasPermission('SHIFTS_VIEW')
+      )
+    );
   }
 
   private loadLeaves(date: string): void {

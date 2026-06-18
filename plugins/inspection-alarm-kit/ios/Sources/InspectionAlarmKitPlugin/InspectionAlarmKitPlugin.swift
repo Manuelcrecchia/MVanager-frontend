@@ -188,7 +188,7 @@ public class InspectionAlarmKitPlugin: CAPPlugin, CAPBridgedPlugin {
                         id: alarmId,
                         configuration: finalConfiguration
                     )
-                    print("[InspectionAlarmKit] Sveglia sopralluogo schedulata: \(alarmIdString) \(fireDate)")
+                    print("[InspectionAlarmKit] Promemoria appuntamento schedulato: \(alarmIdString) \(fireDate)")
                     scheduled += 1
 
                     if !body.isEmpty {
@@ -205,7 +205,7 @@ public class InspectionAlarmKitPlugin: CAPPlugin, CAPBridgedPlugin {
                     "cancelled": cancelled
                 ])
             } catch {
-                call.reject("Errore sincronizzazione sveglie sopralluogo", nil, error)
+                call.reject("Errore sincronizzazione promemoria appuntamento", nil, error)
             }
         }
         #else

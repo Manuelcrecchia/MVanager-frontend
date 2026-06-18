@@ -66,10 +66,40 @@ export class SchedaClienteComponent implements OnInit {
   formatFieldValue(field: TenantFieldMappingFieldConfig): string {
     const value = this.getFieldValue(field);
     if (value === undefined || value === null || value === '') return '-';
+    const roomRowsValue = this.formatRoomRowsValue(value);
+    if (roomRowsValue) return roomRowsValue;
     if (Array.isArray(value)) return value.filter(Boolean).join(', ') || '-';
     if (typeof value === 'object') return JSON.stringify(value);
     if (field.type === 'boolean') return value === true || value === 'true' || value === 1 ? 'Sì' : 'No';
     return String(value);
+  }
+
+  private formatRoomRowsValue(value: any): string {
+    const rows = this.parseArrayValue(value);
+    if (!rows.length || !rows.some((row) => row && typeof row === 'object' && ('stanza' in row || 'oggetti' in row || 'roomId' in row))) {
+      return '';
+    }
+
+    return rows
+      .map((row) => {
+        if (!row || typeof row !== 'object') return String(row || '').trim();
+        const stanza = String(row.stanza || row.roomName || row.nome || row.name || '').trim();
+        const oggetti = String(row.oggetti || row.objects || row.elementi || row.details || '').trim();
+        return [stanza, oggetti].filter(Boolean).join(' - ');
+      })
+      .filter(Boolean)
+      .join('; ') || '-';
+  }
+
+  private parseArrayValue(value: any): any[] {
+    if (Array.isArray(value)) return value;
+    if (typeof value !== 'string' || !value.trim()) return [];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   }
 
   back() {

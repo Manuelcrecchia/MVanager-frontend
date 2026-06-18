@@ -98,6 +98,11 @@
               <div class="customer-actions-inner">
 
                 <button
+                  *ngIf="
+                    globalService.hasTenantFeature('stamping') &&
+                    globalService.hasPermission('CUSTOMERS_MANAGE') &&
+                    globalService.hasPermission('STAMPING_MANAGE')
+                  "
                   mat-raised-button
                   color="accent"
                   [routerLink]="['/gestioneTagCliente', customer.numeroCliente]"

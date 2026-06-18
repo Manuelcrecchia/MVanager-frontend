@@ -1178,7 +1178,7 @@
         <div class="sidebar-logo">
           <img
             src="../../../assets/logo.png"
-            alt="Logo Samy"
+            alt="Logo azienda"
             class="img-fluid logo"
           />
         </div>
@@ -1309,7 +1309,7 @@
                 <p class="admin-home-kicker">Home admin</p>
                 <h1 class="admin-home-title">Pannello principale</h1>
               </div>
-              <div class="admin-home-stats">
+              <div class="admin-home-stats" *ngIf="canUseTodoView()">
                 <div class="admin-home-stat">
                   <strong>{{ openAdminTodosCount }}</strong>
                   <span>Da fare</span>
@@ -1321,7 +1321,7 @@
               </div>
             </header>
 
-            <section class="todo-panel" aria-label="Todo list universale">
+            <section class="todo-panel" *ngIf="canUseTodoView()" aria-label="Todo list universale">
               <div class="todo-panel-header">
                 <h3>Todo list universale</h3>
                 <button class="todo-refresh-btn" type="button" (click)="loadAdminTodos()" title="Aggiorna">
@@ -1329,7 +1329,7 @@
                 </button>
               </div>
 
-              <div class="todo-form">
+              <div class="todo-form" *ngIf="canUseTodoManage()">
                 <input
                   class="todo-input"
                   type="text"
@@ -1350,11 +1350,11 @@
 
               <ul class="todo-list" *ngIf="!todoLoading && adminTodos.length > 0">
                 <li class="todo-item" *ngFor="let todo of adminTodos" [class.is-completed]="todo.completed">
-                  <button class="todo-check" type="button" (click)="toggleAdminTodo(todo)" [attr.title]="todo.completed ? 'Segna da fare' : 'Completa'">
+                  <button class="todo-check" type="button" (click)="toggleAdminTodo(todo)" [disabled]="!canUseTodoManage()" [attr.title]="todo.completed ? 'Segna da fare' : 'Completa'">
                     <i class="fas fa-check"></i>
                   </button>
                   <span class="todo-title">{{ todo.title }}</span>
-                  <button class="todo-delete-btn" type="button" (click)="deleteAdminTodo(todo)" title="Elimina">
+                  <button class="todo-delete-btn" *ngIf="canUseTodoManage()" type="button" (click)="deleteAdminTodo(todo)" title="Elimina">
                     <i class="fas fa-trash"></i>
                   </button>
                 </li>
@@ -1426,7 +1426,7 @@
           <a *ngIf="canUsePermission('SETTINGS_ADMIN', 'deadlines')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
           <a *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>
           <a *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSettings()">Impostazioni email</a>
-          <a *ngIf="global.forMobile" (click)="navigateToNotificationSettings()">Notifiche mobile</a>
+          <a *ngIf="global.forMobile && canUsePermission('NOTIFICATIONS_VIEW', 'notifications')" (click)="navigateToNotificationSettings()">Notifiche mobile</a>
           <a (click)="changeTenant()">Cambia azienda</a>
           <a class="menu-logout" (click)="back()">Logout</a>
         </div>
@@ -1434,7 +1434,7 @@
         <div class="logo-container text-center">
           <img
             src="../../../assets/logo.png"
-            alt="Logo Samy"
+            alt="Logo azienda"
             class="img-fluid logo"
           />
         </div>
@@ -1455,7 +1455,7 @@
             </div>
           </div>
 
-          <section class="todo-panel mobile-todo-panel" *ngIf="shouldShowHomeCategories" aria-label="Todo list universale">
+          <section class="todo-panel mobile-todo-panel" *ngIf="shouldShowHomeCategories && canUseTodoView()" aria-label="Todo list universale">
             <div class="todo-panel-header">
               <h3>Todo list universale</h3>
               <button class="todo-refresh-btn" type="button" (click)="loadAdminTodos()" title="Aggiorna">
@@ -1463,7 +1463,7 @@
               </button>
             </div>
 
-            <div class="todo-form">
+            <div class="todo-form" *ngIf="canUseTodoManage()">
               <input
                 class="todo-input"
                 type="text"
@@ -1484,11 +1484,11 @@
 
             <ul class="todo-list" *ngIf="!todoLoading && adminTodos.length > 0">
               <li class="todo-item" *ngFor="let todo of adminTodos" [class.is-completed]="todo.completed">
-                <button class="todo-check" type="button" (click)="toggleAdminTodo(todo)" [attr.title]="todo.completed ? 'Segna da fare' : 'Completa'">
+                <button class="todo-check" type="button" (click)="toggleAdminTodo(todo)" [disabled]="!canUseTodoManage()" [attr.title]="todo.completed ? 'Segna da fare' : 'Completa'">
                   <i class="fas fa-check"></i>
                 </button>
                 <span class="todo-title">{{ todo.title }}</span>
-                <button class="todo-delete-btn" type="button" (click)="deleteAdminTodo(todo)" title="Elimina">
+                <button class="todo-delete-btn" *ngIf="canUseTodoManage()" type="button" (click)="deleteAdminTodo(todo)" title="Elimina">
                   <i class="fas fa-trash"></i>
                 </button>
               </li>

@@ -1,137 +1,71 @@
-<div class="container py-4">
-  <div class="d-flex justify-content-start mb-3">
+<div class="quote-page">
+  <div class="quote-toolbar">
     <button class="btn btn-outline-primary rounded-pill" type="button" (click)="back()">
       Indietro
     </button>
   </div>
 
-  <h2 class="text-center mb-4">Modifica Preventivo</h2>
-
-  <form #form="ngForm">
-    <div class="row g-3 mb-3">
-      <div class="col-md-6 d-flex align-items-center">
-        <div class="w-100">
-          <strong>Numero preventivo:</strong>
-          {{ quoteModelService.numeroPreventivo }}
-        </div>
+  <header class="quote-header">
+    <div>
+      <span class="quote-kicker">Preventivi</span>
+      <h2>Modifica preventivo</h2>
+    </div>
+    <div class="quote-meta-grid">
+      <div class="quote-meta-item">
+        <span>Numero</span>
+        <strong>{{ quoteModelService.numeroPreventivo || '-' }}</strong>
       </div>
-      <div class="col-md-6 d-flex align-items-center">
-        <div class="w-100">
-          <strong>Codice operatore:</strong>
-          {{ quoteModelService.codiceOperatore || globalService.userCode }}
-        </div>
+      <div class="quote-meta-item">
+        <span>Operatore</span>
+        <strong>{{ quoteModelService.codiceOperatore || globalService.userCode || 'ADMIN' }}</strong>
+      </div>
+      <div class="quote-meta-item">
+        <span>Tipo</span>
+        <strong>{{ getCurrentQuoteType() || '-' }}</strong>
       </div>
     </div>
+  </header>
 
+  <form #form="ngForm" class="quote-form">
     <div
       class="alert alert-warning"
       *ngIf="!globalService.hasConfiguredFieldMapping('quote')"
     >
-      Nessun campo preventivo configurato in MVControl.
+      Nessun campo preventivo configurato.
     </div>
 
-    <div class="row g-3">
-      <div
-        class="col-md-6"
-        *ngFor="let field of visibleQuoteFields"
+    <ng-container *ngIf="visibleQuoteSections.length; else noQuoteLayout">
+      <section
+        class="quote-section"
+        *ngFor="let section of visibleQuoteSections; trackBy: trackByQuoteSection"
       >
-        <ng-container *ngIf="field.displayRole === 'quoteRooms'; else standardField">
-          <div class="border rounded-3 p-3 h-100">
-            <label class="form-label fw-bold d-block">{{ field.label || field.dbColumn }}</label>
-            <div class="d-flex gap-2 align-items-start mb-3">
-              <mat-form-field appearance="fill" class="w-100">
-                <mat-label>Stanza</mat-label>
-                <mat-select [(ngModel)]="selectedRoomByField[field.dbColumn]" [name]="field.dbColumn + '_selectedRoom'">
-                  <mat-option [value]="null">Seleziona</mat-option>
-                  <mat-option *ngFor="let room of getRoomsForCurrentQuoteType()" [value]="room.id">
-                    {{ room.nome }}
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-              <button mat-raised-button color="primary" type="button" class="mt-2" (click)="addRoomRow(field)">
-                Aggiungi
-              </button>
-            </div>
-            <div class="alert alert-light border" *ngIf="getRepeatableRoomRows(field).length === 0">
-              Nessuna stanza aggiunta.
-            </div>
-            <div class="border rounded-3 p-2 mb-2" *ngFor="let row of getRepeatableRoomRows(field); let rowIndex = index">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <strong>{{ row.stanza }}</strong>
-                <button mat-button color="warn" type="button" (click)="removeRoomRow(field, rowIndex)">Rimuovi</button>
-              </div>
-              <mat-form-field appearance="fill" class="w-100">
-                <mat-label>Oggetti / dettagli</mat-label>
-                <textarea
-                  matInput
-                  rows="2"
-                  [name]="field.dbColumn + '_objects_' + rowIndex"
-                  [ngModel]="row.oggetti"
-                  (ngModelChange)="updateRoomRow(field, rowIndex, 'oggetti', $event)"
-                ></textarea>
-              </mat-form-field>
-            </div>
-          </div>
-        </ng-container>
+        <div class="quote-section-heading">
+          <h3>{{ section.label }}</h3>
+          <span>{{ section.fields.length }}</span>
+        </div>
 
-        <ng-template #standardField>
-        <ng-container [ngSwitch]="field.type">
-          <mat-checkbox
-            *ngSwitchCase="'boolean'"
-            [name]="field.dbColumn"
-            [ngModel]="$any(quoteModelService)[field.dbColumn]"
-            (ngModelChange)="updateField(field, $event)"
+        <div class="quote-field-grid">
+          <div
+            class="quote-field-cell"
+            [class.quote-field-cell-wide]="isWideQuoteField(field)"
+            *ngFor="let field of section.fields; trackBy: trackByQuoteField"
           >
-            {{ field.label || field.dbColumn }}
-          </mat-checkbox>
+            <ng-container
+              [ngTemplateOutlet]="quoteFieldTemplate"
+              [ngTemplateOutletContext]="{ $implicit: field }"
+            ></ng-container>
+          </div>
+        </div>
+      </section>
+    </ng-container>
 
-          <mat-form-field *ngSwitchCase="'textarea'" appearance="fill" class="w-100">
-            <mat-label>{{ field.label || field.dbColumn }}</mat-label>
-            <textarea
-              matInput
-              rows="3"
-              [name]="field.dbColumn"
-              [required]="field.required === true"
-              [ngModel]="$any(quoteModelService)[field.dbColumn]"
-              (ngModelChange)="updateField(field, $event)"
-            ></textarea>
-          </mat-form-field>
-
-          <mat-form-field *ngSwitchCase="'enum'" appearance="fill" class="w-100">
-            <mat-label>{{ field.label || field.dbColumn }}</mat-label>
-            <mat-select
-              [name]="field.dbColumn"
-              [required]="field.required === true"
-              [ngModel]="$any(quoteModelService)[field.dbColumn]"
-              (ngModelChange)="updateField(field, $event)"
-            >
-              <mat-option value="">Seleziona</mat-option>
-              <mat-option
-                *ngFor="let option of globalService.getEnumOptions(field)"
-                [value]="option"
-              >
-                {{ option }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field *ngSwitchDefault appearance="fill" class="w-100">
-            <mat-label>{{ field.label || field.dbColumn }}</mat-label>
-            <input
-              matInput
-              [type]="globalService.getDynamicInputType(field)"
-              [name]="field.dbColumn"
-              [required]="field.required === true"
-              [ngModel]="$any(quoteModelService)[field.dbColumn]"
-              (ngModelChange)="updateField(field, $event)"
-            />
-          </mat-form-field>
-        </ng-container>
-        </ng-template>
+    <ng-template #noQuoteLayout>
+      <div class="quote-empty-state">
+        Nessun campo preventivo visibile.
       </div>
-    </div>
+    </ng-template>
 
-    <div class="mt-4 d-flex justify-content-end">
+    <div class="quote-actions">
       <button
         mat-raised-button
         color="primary"
@@ -141,5 +75,193 @@
         Salva modifiche
       </button>
     </div>
+
+    <ng-template #quoteFieldTemplate let-field>
+      <ng-container *ngIf="field.displayRole === 'quoteRooms'; else standardField">
+        <div class="quote-repeatable-panel">
+          <label class="quote-field-label">{{ field.label || field.dbColumn }}</label>
+          <div class="quote-inline-controls">
+            <mat-form-field appearance="fill" class="w-100">
+              <mat-label>Gruppo / stanza</mat-label>
+              <input
+                matInput
+                #roomTrigger="matAutocompleteTrigger"
+                placeholder="Scrivi o scegli"
+                [name]="field.dbColumn + '_selectedRoom'"
+                [ngModel]="selectedRoomTextByField[field.dbColumn] || ''"
+                (ngModelChange)="updateSelectedRoomText(field, $event)"
+                [matAutocomplete]="roomOptions"
+                (focus)="roomTrigger.openPanel()"
+              />
+              <mat-autocomplete #roomOptions="matAutocomplete">
+                <mat-option *ngFor="let room of getRoomsForCurrentQuoteType(field)" [value]="room.nome">
+                  {{ room.nome }}
+                </mat-option>
+              </mat-autocomplete>
+            </mat-form-field>
+            <button mat-raised-button color="primary" type="button" (click)="addRoomRow(field)">
+              Aggiungi
+            </button>
+          </div>
+          <div class="quote-empty-row" *ngIf="getRepeatableRoomRows(field).length === 0">
+            Nessun gruppo aggiunto.
+          </div>
+          <div
+            class="quote-room-row"
+            *ngFor="let row of getRepeatableRoomRows(field); let rowIndex = index; trackBy: trackByRoomRow"
+          >
+            <div class="quote-room-heading">
+              <strong>{{ getRoomDisplayName(row) }}</strong>
+              <button mat-button color="warn" type="button" (click)="removeRoomRow(field, rowIndex)">Rimuovi</button>
+            </div>
+            <div class="quote-inline-controls" *ngIf="getObjectPhrasesForRoom(row).length">
+              <mat-form-field appearance="fill" class="w-100">
+                <mat-label>Elemento preimpostato</mat-label>
+                <mat-select [(ngModel)]="selectedObjectPhraseByRow[getRoomRowKey(field, rowIndex)]" [name]="field.dbColumn + '_objectPreset_' + rowIndex">
+                  <mat-option [value]="null">Seleziona</mat-option>
+                  <mat-option *ngFor="let phrase of getObjectPhrasesForRoom(row)" [value]="phrase.id">
+                    {{ phrase.testo }}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+              <button mat-raised-button color="primary" type="button" (click)="appendObjectPhrase(field, rowIndex)">
+                Usa
+              </button>
+            </div>
+            <mat-form-field appearance="fill" class="w-100">
+              <mat-label>Elementi / dettagli</mat-label>
+              <textarea
+                matInput
+                rows="2"
+                [name]="field.dbColumn + '_objects_' + rowIndex"
+                [ngModel]="row.oggetti"
+                (ngModelChange)="updateRoomRow(field, rowIndex, 'oggetti', $event)"
+              ></textarea>
+            </mat-form-field>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-template #standardField>
+        <div class="quote-inline-controls" *ngIf="shouldShowStandalonePhrasePreset(field)">
+          <mat-form-field appearance="fill" class="w-100">
+            <mat-label>Frase preimpostata</mat-label>
+            <mat-select [(ngModel)]="selectedPhraseByField[field.dbColumn]" [name]="field.dbColumn + '_phrasePreset'">
+              <mat-option [value]="null">Seleziona</mat-option>
+              <mat-option *ngFor="let phrase of getPhrasePresetsForField(field)" [value]="phrase.id">
+                {{ phrase.testo }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+          <button mat-raised-button color="primary" type="button" (click)="applyPhrasePreset(field)">
+            Usa
+          </button>
+        </div>
+
+        <div *ngIf="globalService.isCalculatedField(field); else editableStandardField">
+          <mat-form-field appearance="fill" class="w-100">
+            <mat-label>{{ field.label || field.dbColumn }}</mat-label>
+            <input
+              matInput
+              readonly
+              [name]="field.dbColumn"
+              [ngModel]="globalService.getRecordValueForField($any(quoteModelService), field)"
+            />
+            <mat-hint>Calcolato automaticamente</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <ng-template #editableStandardField>
+          <ng-container [ngSwitch]="getEditableFieldType(field)">
+            <mat-checkbox
+              *ngSwitchCase="'boolean'"
+              [name]="field.dbColumn"
+              [ngModel]="$any(quoteModelService)[field.dbColumn]"
+              (ngModelChange)="updateField(field, $event)"
+            >
+              {{ field.label || field.dbColumn }}
+            </mat-checkbox>
+
+            <mat-form-field *ngSwitchCase="'textarea'" appearance="fill" class="w-100">
+              <mat-label>{{ field.label || field.dbColumn }}</mat-label>
+              <textarea
+                matInput
+                rows="3"
+                [name]="field.dbColumn"
+                [required]="globalService.isFieldRequired('quote', field.dbColumn || field.key)"
+                [ngModel]="$any(quoteModelService)[field.dbColumn]"
+                (ngModelChange)="updateField(field, $event)"
+              ></textarea>
+            </mat-form-field>
+
+            <mat-form-field *ngSwitchCase="'enum'" appearance="fill" class="w-100">
+              <mat-label>{{ field.label || field.dbColumn }}</mat-label>
+              <mat-select
+                [name]="field.dbColumn"
+                [required]="globalService.isFieldRequired('quote', field.dbColumn || field.key)"
+                [ngModel]="$any(quoteModelService)[field.dbColumn]"
+                (ngModelChange)="updateField(field, $event)"
+              >
+                <mat-option value="">Seleziona</mat-option>
+                <mat-option
+                  *ngFor="let option of globalService.getEnumOptions(field)"
+                  [value]="option"
+                >
+                  {{ option }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <div *ngSwitchCase="'list'" class="quote-repeatable-panel">
+              <label class="quote-field-label">{{ field.label || field.dbColumn }}</label>
+              <div class="quote-empty-row" *ngIf="getRepeatableTextRows(field).length === 0">
+                Nessuna voce aggiunta.
+              </div>
+              <div
+                class="quote-text-row"
+                *ngFor="let row of getRepeatableTextRows(field); let rowIndex = index; trackBy: trackByTextRowIndex"
+              >
+                <mat-form-field appearance="fill" class="w-100">
+                  <mat-label>Voce {{ rowIndex + 1 }}</mat-label>
+                  <input
+                    matInput
+                    #textListTrigger="matAutocompleteTrigger"
+                    placeholder="Scrivi o scegli una voce"
+                    [name]="field.dbColumn + '_row_' + rowIndex"
+                    [ngModel]="row"
+                    (ngModelChange)="updateTextRow(field, rowIndex, $event)"
+                    [matAutocomplete]="textListOptions"
+                    (focus)="textListTrigger.openPanel()"
+                  />
+                  <mat-autocomplete #textListOptions="matAutocomplete">
+                    <mat-option *ngFor="let option of getListOptionsForField(field)" [value]="option">
+                      {{ option }}
+                    </mat-option>
+                  </mat-autocomplete>
+                </mat-form-field>
+                <button mat-button color="warn" type="button" (click)="removeTextRow(field, rowIndex)">
+                  Rimuovi
+                </button>
+              </div>
+              <button mat-raised-button color="primary" type="button" (click)="addTextRow(field)">
+                Aggiungi voce
+              </button>
+            </div>
+
+            <mat-form-field *ngSwitchDefault appearance="fill" class="w-100">
+              <mat-label>{{ field.label || field.dbColumn }}</mat-label>
+              <input
+                matInput
+                [type]="globalService.getDynamicInputType(field)"
+                [name]="field.dbColumn"
+                [required]="globalService.isFieldRequired('quote', field.dbColumn || field.key)"
+                [ngModel]="$any(quoteModelService)[field.dbColumn]"
+                (ngModelChange)="updateField(field, $event)"
+              />
+            </mat-form-field>
+          </ng-container>
+        </ng-template>
+      </ng-template>
+    </ng-template>
   </form>
 </div>

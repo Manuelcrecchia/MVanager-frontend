@@ -38,7 +38,7 @@
             *ngSwitchCase="'boolean'"
             [name]="field.dbColumn"
             [ngModel]="$any(customerModelService)[field.dbColumn]"
-            (ngModelChange)="$any(customerModelService)[field.dbColumn] = $event"
+            (ngModelChange)="updateField(field, $event)"
           >
             {{ field.label || field.dbColumn }}
           </mat-checkbox>
@@ -49,11 +49,71 @@
               matInput
               rows="3"
               [name]="field.dbColumn"
-              [required]="field.required === true"
+              [required]="globalService.isFieldRequired('customer', field.dbColumn || field.key)"
               [ngModel]="$any(customerModelService)[field.dbColumn]"
-              (ngModelChange)="$any(customerModelService)[field.dbColumn] = $event"
+              (ngModelChange)="updateField(field, $event)"
             ></textarea>
           </mat-form-field>
+
+          <mat-form-field *ngSwitchCase="'enum'" appearance="fill" class="w-100">
+            <mat-label>{{ field.label || field.dbColumn }}</mat-label>
+            <mat-select
+              [name]="field.dbColumn"
+              [required]="globalService.isFieldRequired('customer', field.dbColumn || field.key)"
+              [ngModel]="$any(customerModelService)[field.dbColumn]"
+              (ngModelChange)="updateField(field, $event)"
+            >
+              <mat-option value="">Seleziona</mat-option>
+              <mat-option
+                *ngFor="let option of globalService.getEnumOptions(field)"
+                [value]="option"
+              >
+                {{ option }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <div *ngSwitchCase="'list'" class="border rounded-3 p-3 h-100">
+            <label class="form-label fw-bold d-block">{{ field.label || field.dbColumn }}</label>
+            <div class="alert alert-light border" *ngIf="getRepeatableTextRows(field).length === 0">
+              Nessuna voce aggiunta.
+            </div>
+            <div
+              class="d-flex gap-2 align-items-start mb-2"
+              *ngFor="let row of getRepeatableTextRows(field); let rowIndex = index; trackBy: trackByTextRowIndex"
+            >
+              <mat-form-field appearance="fill" class="w-100" *ngIf="globalService.getEnumOptions(field).length; else textListInput">
+                <mat-label>Voce {{ rowIndex + 1 }}</mat-label>
+                <mat-select
+                  [name]="field.dbColumn + '_row_' + rowIndex"
+                  [ngModel]="row"
+                  (ngModelChange)="updateTextRow(field, rowIndex, $event)"
+                >
+                  <mat-option value="">Seleziona</mat-option>
+                  <mat-option *ngFor="let option of globalService.getEnumOptions(field)" [value]="option">
+                    {{ option }}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+              <ng-template #textListInput>
+              <mat-form-field appearance="fill" class="w-100">
+                <mat-label>Voce {{ rowIndex + 1 }}</mat-label>
+                <input
+                  matInput
+                  [name]="field.dbColumn + '_row_' + rowIndex"
+                  [ngModel]="row"
+                  (ngModelChange)="updateTextRow(field, rowIndex, $event)"
+                />
+              </mat-form-field>
+              </ng-template>
+              <button mat-button color="warn" type="button" class="mt-2" (click)="removeTextRow(field, rowIndex)">
+                Rimuovi
+              </button>
+            </div>
+            <button mat-raised-button color="primary" type="button" (click)="addTextRow(field)">
+              Aggiungi voce
+            </button>
+          </div>
 
           <mat-form-field *ngSwitchDefault appearance="fill" class="w-100">
             <mat-label>{{ field.label || field.dbColumn }}</mat-label>
@@ -61,9 +121,9 @@
               matInput
               [type]="globalService.getDynamicInputType(field)"
               [name]="field.dbColumn"
-              [required]="field.required === true"
+              [required]="globalService.isFieldRequired('customer', field.dbColumn || field.key)"
               [ngModel]="$any(customerModelService)[field.dbColumn]"
-              (ngModelChange)="$any(customerModelService)[field.dbColumn] = $event"
+              (ngModelChange)="updateField(field, $event)"
             />
           </mat-form-field>
         </ng-container>

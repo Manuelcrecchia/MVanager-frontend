@@ -16,7 +16,7 @@ import { PopupServiceService } from './componenti/popup/popup-service.service';
   styleUrls: ['./app.component.css'],
 })
 export class AppComponent {
-  title = 'samyangularapp';
+  title = 'mvanager';
   private biometricUnlockAttempted = false;
   private biometricUnlockInProgress = false;
   private sessionUnlocked = false;
@@ -64,7 +64,7 @@ export class AppComponent {
 
         if (this.sessionUnlocked) {
           this.inspectionAlarmSync.syncSoon('app-active').catch((err) => {
-            console.error('[App] Errore sync sveglie sopralluogo:', err);
+            console.error('[App] Errore sync promemoria appuntamento:', err);
           });
           this.navigatePendingNotificationIfLoggedIn();
         } else {
@@ -106,7 +106,7 @@ export class AppComponent {
         return;
       }
 
-      const tenantConfig = await this.globalService.loadTenantConfig(true);
+      const tenantConfig = await this.globalService.loadTenantConfig(false);
       if (!tenantConfig) {
         this.globalService.logout();
         return;

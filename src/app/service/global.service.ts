@@ -21,6 +21,9 @@ interface TenantBackendConfig {
   leaveConfig?: {
     categories?: TenantLeaveCategoryConfig[];
   };
+  attendanceConfig?: {
+    workCategoryLabel?: string;
+  };
   quoteConfig?: TenantQuoteConfig;
 }
 
@@ -62,6 +65,14 @@ export interface TenantQuoteTypeConfig {
   default?: boolean;
 }
 
+export interface TenantFieldCalculationConfig {
+  mode?: string;
+  sourceFields?: string | string[];
+  vatField?: string;
+  vatRate?: number | string | null;
+  decimals?: number | string | null;
+}
+
 export interface TenantFieldMappingFieldConfig {
   key: string;
   label: string;
@@ -78,6 +89,7 @@ export interface TenantFieldMappingFieldConfig {
   };
   required?: boolean;
   visible?: boolean;
+  calculation?: TenantFieldCalculationConfig;
 }
 
 export interface TenantFieldMappingConfig {
@@ -224,7 +236,9 @@ export class GlobalService {
     })
       .then((res) => {
         if (!res.ok) {
-          throw new Error(`Configurazione azienda non disponibile (HTTP ${res.status}).`);
+          const error = new Error(`Configurazione azienda non disponibile (HTTP ${res.status}).`) as Error & { status?: number };
+          error.status = res.status;
+          throw error;
         }
         return res.json();
       })
@@ -234,7 +248,8 @@ export class GlobalService {
       })
       .catch((error) => {
         console.error('[GlobalService] Errore tenant/config:', error);
-        if (force) {
+        const status = Number((error as { status?: number })?.status || 0);
+        if (force && !this.tenantConfig && [401, 403, 404].includes(status)) {
           this.tenantConfig = null;
         }
         if (showError) {
@@ -266,10 +281,8 @@ export class GlobalService {
 
   hasTenantFeature(feature: string): boolean {
     const purchasedFeatures = this.tenantConfig?.features;
-    if (Array.isArray(purchasedFeatures) && purchasedFeatures.length > 0) {
-      if (!purchasedFeatures.includes(feature)) {
-        return false;
-      }
+    if (Array.isArray(purchasedFeatures)) {
+      return purchasedFeatures.includes(feature);
     }
 
     const employeeFeatures = this.tenantConfig?.employeeFeatures;
@@ -281,6 +294,14 @@ export class GlobalService {
     }
 
     return true;
+  }
+
+  canCreateCustomers(): boolean {
+    return this.hasTenantFeature('customers') && this.hasPermission('CUSTOMERS_MANAGE');
+  }
+
+  canCreateCalendarEvents(): boolean {
+    return this.hasTenantFeature('calendar') && this.hasPermission('CALENDAR_EVENT_MANAGE');
   }
 
   get tenantCompanyName(): string {
@@ -317,6 +338,36 @@ export class GlobalService {
     );
   }
 
+  getCustomerLinkedAppointmentCategory(customerType = '', fallback = ''): string {
+    const appointments = this.getTenantAppointmentsConfig();
+    const details = Array.isArray(appointments?.categoryDetails)
+      ? appointments.categoryDetails
+      : [];
+    const linkedDetails = details.filter((category) => (
+      category?.withCustomerLink === true ||
+      category?.source === 'customers' ||
+      category?.serviceOrder === true
+    ));
+    const normalizedCustomerType = String(customerType || '').trim().toLowerCase();
+
+    if (normalizedCustomerType) {
+      const exactMatch = linkedDetails.find((category) => (
+        String(category?.customerType || '').trim().toLowerCase() === normalizedCustomerType
+      ));
+      if (exactMatch?.key) return exactMatch.key;
+    }
+
+    const genericCustomerCategory = linkedDetails.find((category) => (
+      !String(category?.customerType || '').trim()
+    ));
+    if (genericCustomerCategory?.key) return genericCustomerCategory.key;
+
+    return (
+      appointments?.categoriesWithCustomerLink?.[0] ||
+      fallback
+    );
+  }
+
   getLeaveCategories(): TenantLeaveCategoryConfig[] {
     const categories = this.tenantConfig?.leaveConfig?.categories;
     if (!Array.isArray(categories)) return [];
@@ -329,6 +380,13 @@ export class GlobalService {
         usesAdvanceLimit: category?.usesAdvanceLimit === true,
       };
     }).filter((category) => category.key);
+  }
+
+  getAttendanceWorkCategoryLabel(fallback = 'Lavoro'): string {
+    const label = String(
+      this.tenantConfig?.attendanceConfig?.workCategoryLabel || fallback || 'Lavoro'
+    ).trim();
+    return label || 'Lavoro';
   }
 
   getQuoteTypes(): TenantQuoteTypeConfig[] {
@@ -392,6 +450,34 @@ export class GlobalService {
       .filter(Boolean);
   }
 
+  isCalculatedField(field: TenantFieldMappingFieldConfig): boolean {
+    return ['sum', 'sum_with_vat'].includes(
+      String(field?.calculation?.mode || '').trim().toLowerCase(),
+    );
+  }
+
+  applyCalculatedFields(
+    scope: 'quote' | 'customer',
+    target: Record<string, any>,
+  ): void {
+    const fields = this.getFieldMappingFields(scope);
+    fields.forEach((field) => {
+      if (!field.dbColumn || this.isTechnicalField(scope, field) || field.visible === false) {
+        return;
+      }
+      if (!this.matchesVisibleWhen(scope, field, target)) {
+        return;
+      }
+      const calculatedValue = this.calculateMappedFieldValue(field, fields, target);
+      if (calculatedValue === undefined) return;
+
+      target[field.dbColumn] = calculatedValue;
+      if (field.key && field.key !== field.dbColumn) {
+        target[field.key] = calculatedValue;
+      }
+    });
+  }
+
   getFieldConfig(
     scope: 'quote' | 'customer',
     keyOrDbColumn: string,
@@ -426,7 +512,10 @@ export class GlobalService {
   }
 
   isFieldRequired(scope: 'quote' | 'customer', keyOrDbColumn: string): boolean {
-    return this.getFieldConfig(scope, keyOrDbColumn)?.required === true;
+    const field = this.getFieldConfig(scope, keyOrDbColumn);
+    if (String(field?.type || '').trim().toLowerCase() === 'boolean') return false;
+    if (field && this.isCalculatedField(field)) return false;
+    return field?.required === true;
   }
 
   getFieldLabel(
@@ -472,9 +561,20 @@ export class GlobalService {
   ): any {
     const role = String(displayRole || '').trim();
     if (!record || !role) return undefined;
-    const roleField = this.getFieldMappingFields(scope).find(
+    const roleFields = this.getFieldMappingFields(scope).filter(
       (field) => String(field.displayRole || '').trim() === role,
     );
+    const roleField = role === 'quoteTotal'
+      ? roleFields.find((field) => this.isCalculatedField(field)) || roleFields[0]
+      : roleFields[0];
+    if (roleField && this.isCalculatedField(roleField)) {
+      const calculatedValue = this.calculateMappedFieldValue(
+        roleField,
+        this.getFieldMappingFields(scope),
+        record,
+      );
+      if (calculatedValue !== undefined) return calculatedValue;
+    }
     return roleField ? this.readMappedValue(record, roleField) : undefined;
   }
 
@@ -485,7 +585,9 @@ export class GlobalService {
     return this.getFieldMappingFields(scope)
       .filter((field) => !this.isTechnicalField(scope, field) &&
         field.visible !== false &&
+        !this.isCalculatedField(field) &&
         field.required === true &&
+        String(field.type || '').trim().toLowerCase() !== 'boolean' &&
         this.matchesVisibleWhen(scope, field, source))
       .filter((field) => this.isEmptyFieldValue(this.readMappedValue(source, field)))
       .map((field) => field.label || field.dbColumn || field.key);
@@ -496,7 +598,7 @@ export class GlobalService {
     target: Record<string, any>,
   ): void {
     this.getFieldMappingFields(scope).forEach((field) => {
-      if (!field.dbColumn || this.isTechnicalField(scope, field) || field.visible === false) {
+      if (!field.dbColumn || this.isTechnicalField(scope, field) || field.visible === false || this.isCalculatedField(field)) {
         return;
       }
       if (!this.matchesVisibleWhen(scope, field, target)) {
@@ -544,6 +646,7 @@ export class GlobalService {
     if (!fields.length) {
       return payload;
     }
+    this.applyCalculatedFields(scope, source);
 
     const mappedPayload: Record<string, any> = {};
     [
@@ -552,6 +655,7 @@ export class GlobalService {
       'codiceOperatore',
       'data',
       'complete',
+      'tipoCliente',
       'stato',
     ].forEach((key) => {
       if (Object.prototype.hasOwnProperty.call(payload, key)) {
@@ -581,6 +685,109 @@ export class GlobalService {
     field: TenantFieldMappingFieldConfig,
   ): any {
     return this.readMappedValue(source, field);
+  }
+
+  private calculateMappedFieldValue(
+    field: TenantFieldMappingFieldConfig,
+    fields: TenantFieldMappingFieldConfig[],
+    source: Record<string, any>,
+  ): number | undefined {
+    const calculation = field.calculation || {};
+    const mode = String(calculation.mode || '').trim().toLowerCase();
+    if (!['sum', 'sum_with_vat'].includes(mode)) return undefined;
+
+    const sourceFields = this.parseCalculationSourceFields(calculation.sourceFields);
+    if (!sourceFields.length) return undefined;
+
+    const subtotal = sourceFields.reduce((sum, sourceField) => (
+      sum + this.parseNumericValue(this.readCalculationSourceValue(source, fields, sourceField))
+    ), 0);
+
+    let total = subtotal;
+    if (mode === 'sum_with_vat') {
+      const vatRate = String(calculation.vatField || '').trim()
+        ? this.parseNumericValue(this.readCalculationSourceValue(source, fields, calculation.vatField || ''))
+        : this.parseNumericValue(calculation.vatRate);
+      total = subtotal * (1 + (vatRate / 100));
+    }
+
+    const decimals = this.normalizeCalculationDecimals(calculation.decimals);
+    const factor = 10 ** decimals;
+    return Math.round((total + Number.EPSILON) * factor) / factor;
+  }
+
+  private parseCalculationSourceFields(value: unknown): string[] {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item || '').trim()).filter(Boolean);
+    }
+    return String(value || '')
+      .split(/[,;\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  private normalizeCalculationDecimals(value: unknown): number {
+    if (value === null || value === undefined || String(value).trim() === '') {
+      return 2;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.max(0, Math.min(6, Math.round(parsed))) : 2;
+  }
+
+  private readCalculationSourceValue(
+    source: Record<string, any>,
+    fields: TenantFieldMappingFieldConfig[],
+    sourceField: string,
+  ): any {
+    const target = String(sourceField || '').trim();
+    if (!target) return undefined;
+
+    const mappedField = fields.find((field) => (
+      String(field.key || '').trim() === target ||
+      String(field.dbColumn || '').trim() === target
+    ));
+    const candidates = [
+      target,
+      mappedField?.dbColumn,
+      mappedField?.key,
+    ].map((item) => String(item || '').trim()).filter(Boolean);
+
+    for (const candidate of candidates) {
+      if (Object.prototype.hasOwnProperty.call(source, candidate)) {
+        return source[candidate];
+      }
+    }
+    return undefined;
+  }
+
+  private parseNumericValue(value: unknown): number {
+    if (Array.isArray(value)) {
+      return value.reduce((sum, item) => sum + this.parseNumericValue(item), 0);
+    }
+    if (value === null || value === undefined || value === '') return 0;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    if (typeof value === 'boolean') return value ? 1 : 0;
+    if (typeof value === 'object') return 0;
+
+    let normalized = String(value)
+      .trim()
+      .replace(/\s/g, '')
+      .replace(/[^\d,.-]/g, '');
+
+    if (!normalized) return 0;
+
+    const commaIndex = normalized.lastIndexOf(',');
+    const dotIndex = normalized.lastIndexOf('.');
+    if (commaIndex !== -1 && dotIndex !== -1) {
+      normalized = commaIndex > dotIndex
+        ? normalized.replace(/\./g, '').replace(',', '.')
+        : normalized.replace(/,/g, '');
+    } else if (commaIndex !== -1) {
+      normalized = normalized.replace(',', '.');
+    }
+
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   private readMappedValue(
@@ -668,7 +875,7 @@ export class GlobalService {
       return ['1', 'true', 'si', 'sì', 'yes'].includes(normalized);
     }
     if (type === 'number' || type === 'money') {
-      const parsed = Number(String(value).replace(',', '.'));
+      const parsed = this.parseNumericValue(value);
       return Number.isFinite(parsed) ? parsed : value;
     }
     return value;

@@ -201,6 +201,7 @@ const routes: Routes = [
     path: 'notificationSettings',
     component: NotificationSettingsComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
+    data: { permission: 'NOTIFICATIONS_VIEW' },
   },
 
   // preventivi
@@ -218,6 +219,12 @@ const routes: Routes = [
   },
   {
     path: 'editQuote',
+    component: EditQuoteComponent,
+    canActivate: [AuthGuard, AuthLevelGuard],
+    data: { permission: 'QUOTES_MANAGE' },
+  },
+  {
+    path: 'editQuote/:numeroPreventivo',
     component: EditQuoteComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
     data: { permission: 'QUOTES_MANAGE' },
@@ -273,6 +280,12 @@ const routes: Routes = [
     data: { permission: 'CUSTOMERS_MANAGE' },
   },
   {
+    path: 'editCustomer/:numeroCliente',
+    component: EditCustomerComponent,
+    canActivate: [AuthGuard, AuthLevelGuard],
+    data: { permission: 'CUSTOMERS_MANAGE' },
+  },
+  {
     path: 'schedaCliente/:numeroCliente',
     component: SchedaClienteComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
@@ -282,7 +295,7 @@ const routes: Routes = [
     path: 'gestioneTagCliente/:id',
     component: GestioneTagClienteComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
-    data: { permission: 'CUSTOMERS_MANAGE' },
+    data: { permission: 'STAMPING_MANAGE' },
   },
 
   // dipendenti

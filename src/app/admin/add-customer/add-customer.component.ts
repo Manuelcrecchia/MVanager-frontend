@@ -5,6 +5,7 @@ import { GlobalService } from '../../service/global.service';
 import { CustomerModelService } from '../../service/customer-model.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { AutomaticAddInspectionToCalendarService } from '../../service/automatic-add-inspection-to-calendar.service';
+import { TenantFieldMappingFieldConfig } from '../../service/global.service';
 
 @Component({
   selector: 'app-add-customer',
@@ -22,7 +23,63 @@ export class AddCustomerComponent {
   ) {}
 
   ngOnInit(): void {
-    this.globalService.loadTenantConfig(true, { showError: false });
+    this.globalService.loadTenantConfig(false, { showError: false });
+  }
+
+  updateField(field: TenantFieldMappingFieldConfig, value: any): void {
+    const target = this.customerModelService as unknown as Record<string, any>;
+    target[field.dbColumn] = value;
+    if (field.key && field.key !== field.dbColumn) {
+      target[field.key] = value;
+    }
+  }
+
+  getRepeatableTextRows(field: { dbColumn: string; key?: string }): string[] {
+    const source = this.customerModelService as unknown as Record<string, any>;
+    const rawValue = source[field.dbColumn] ?? (field.key ? source[field.key] : undefined);
+    if (Array.isArray(rawValue)) {
+      return rawValue.map((row) => String(row ?? ''));
+    }
+    if (typeof rawValue === 'string' && rawValue.trim()) {
+      try {
+        const parsed = JSON.parse(rawValue);
+        if (Array.isArray(parsed)) {
+          return parsed.map((row) => String(row ?? ''));
+        }
+      } catch {}
+      return [rawValue];
+    }
+    return [];
+  }
+
+  addTextRow(field: { dbColumn: string; key?: string }): void {
+    this.setRepeatableTextRows(field, [...this.getRepeatableTextRows(field), '']);
+  }
+
+  removeTextRow(field: { dbColumn: string; key?: string }, index: number): void {
+    this.setRepeatableTextRows(
+      field,
+      this.getRepeatableTextRows(field).filter((_, rowIndex) => rowIndex !== index),
+    );
+  }
+
+  updateTextRow(field: { dbColumn: string; key?: string }, index: number, value: string): void {
+    const rows = this.getRepeatableTextRows(field).map((row, rowIndex) => (
+      rowIndex === index ? value : row
+    ));
+    this.setRepeatableTextRows(field, rows);
+  }
+
+  trackByTextRowIndex(index: number): number {
+    return index;
+  }
+
+  private setRepeatableTextRows(field: { dbColumn: string; key?: string }, rows: string[]): void {
+    const target = this.customerModelService as unknown as Record<string, any>;
+    target[field.dbColumn] = rows;
+    if (field.key && field.key !== field.dbColumn) {
+      target[field.key] = rows;
+    }
   }
 
   addCustomer(): void {
@@ -41,13 +98,20 @@ export class AddCustomerComponent {
       {
         codiceOperatore: this.globalService.userCode,
         numeroCliente: source['numeroCliente'] || source['numeroPreventivo'] || undefined,
-        tipoCliente: source['tipoCliente'] || '',
+        tipoCliente: source['tipoCliente'] ||
+          source['tipoPreventivo'] ||
+          this.globalService.getDefaultQuoteType(''),
         data: source['data'] || '',
       },
       source,
     );
 
     const numeroPreventivo = source['numeroPreventivo'];
+    const sourceCustomerType = String(
+      source['tipoCliente'] ||
+        source['tipoPreventivo'] ||
+        this.globalService.getDefaultQuoteType(''),
+    ).trim();
     const sourceCustomerName = this.globalService.getRecordDisplayName('customer', source);
     const sourceCustomerPhone = String(
       this.globalService.getRecordValueByRole('customer', source, 'customerPhone') || '',
@@ -81,9 +145,17 @@ export class AddCustomerComponent {
               );
             }
 
-            if (numeroPreventivo && numeroCliente) {
+            if (numeroPreventivo && numeroCliente && this.globalService.canCreateCalendarEvents()) {
+              const customerEventCategory =
+                this.globalService.getCustomerLinkedAppointmentCategory(sourceCustomerType);
+              if (!customerEventCategory) {
+                this.router.navigateByUrl('/listCustomer', { replaceUrl: true });
+                return;
+              }
               this.autoInspectionService.pendingCustomerEvent = true;
               this.autoInspectionService.numeroCliente = numeroCliente;
+              this.autoInspectionService.customerType = sourceCustomerType;
+              this.autoInspectionService.customerEventCategory = customerEventCategory;
               this.autoInspectionService.displayName = sourceCustomerName;
               this.autoInspectionService.telefono = sourceCustomerPhone;
               this.autoInspectionService.customerEventDescription = [

@@ -14,27 +14,27 @@ interface FeedbackRecord {
   personale: string;
   igienizzazione: string;
   soddisfazione: string;
+  answers?: Record<string, string>;
+  scores?: Record<string, number>;
   averageScore: number;
   note: string;
   submittedByEmployeeName: string;
+}
+
+interface StatsQuestion {
+  key: string;
+  label: string;
+  type: 'rating' | 'choice';
+  options: Array<{ value: string; label: string; score: number }>;
 }
 
 interface StatsResponse {
   total: number;
   averageScore: number;
   satisfactionYesRate: number;
-  averages: {
-    consulente: number;
-    personale: number;
-    igienizzazione: number;
-    soddisfazione: number;
-  };
-  dimensions: {
-    consulente: Record<string, number>;
-    personale: Record<string, number>;
-    igienizzazione: Record<string, number>;
-    soddisfazione: Record<string, number>;
-  };
+  questions: StatsQuestion[];
+  averages: Record<string, number>;
+  dimensions: Record<string, Record<string, number>>;
   best: FeedbackRecord[];
   worst: FeedbackRecord[];
   notes: FeedbackRecord[];
@@ -126,6 +126,19 @@ export class WorkCompletionStatsComponent implements OnInit {
   scorePercent(score: number): number {
     if (!score) return 0;
     return Math.max(0, Math.min(100, (Number(score) / 3) * 100));
+  }
+
+  scorePercentForQuestion(question: StatsQuestion, score: number): number {
+    const maxScore = Math.max(1, ...((question.options || []).map((option) => Number(option.score) || 0)));
+    return Math.max(0, Math.min(100, (Number(score || 0) / maxScore) * 100));
+  }
+
+  getQuestionLabel(key: string): string {
+    return this.stats?.questions?.find((question) => question.key === key)?.label || key;
+  }
+
+  getOptionLabel(question: StatsQuestion, value: string): string {
+    return question.options?.find((option) => option.value === value)?.label || this.ratingLabels[value] || value;
   }
 
   distributionEntries(source: Record<string, number> | undefined): Array<{ key: string; value: number }> {

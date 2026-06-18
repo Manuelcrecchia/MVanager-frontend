@@ -1,13 +1,18 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { GlobalService, TenantQuoteTypeConfig } from '../../service/global.service';
+import {
+  GlobalService,
+  TenantFieldMappingFieldConfig,
+  TenantQuoteTypeConfig,
+} from '../../service/global.service';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 
 interface QuoteRoom {
   id: number;
   nome: string;
   tipoPreventivo: string;
+  fieldKey: string;
   position: number;
   createdAt: string;
 }
@@ -16,6 +21,8 @@ interface QuotePhrase {
   id: number;
   testo: string;
   roomId: number | null;
+  fieldKey: string;
+  quoteType: string;
   position: number;
   createdAt: string;
 }
@@ -33,17 +40,24 @@ export class QuoteSettingsComponent implements OnInit {
 
   // Add forms
   newPhraseText = '';
+  newPhraseFieldKey = '';
+  newPhraseQuoteType = '';
+  newPhraseRoomId: number | null = null;
   newRoomName = '';
   newRoomType = '';
+  newRoomFieldKey = '';
 
   // Edit state
   editingPhraseId: number | null = null;
   editPhraseText = '';
   editPhraseRoomId: number | null = null;
+  editPhraseFieldKey = '';
+  editPhraseQuoteType = '';
 
   editingRoomId: number | null = null;
   editRoomName = '';
   editRoomType = '';
+  editRoomFieldKey = '';
 
   // Accordion state for room sections
   expandedType: string | null = null;
@@ -55,8 +69,9 @@ export class QuoteSettingsComponent implements OnInit {
   ) {}
 
   async ngOnInit(): Promise<void> {
-    await this.globalService.loadTenantConfig(true, { showError: false });
+    await this.globalService.loadTenantConfig(false, { showError: false });
     this.resetRoomTypeDefaults();
+    this.resetPhraseDefaults();
     this.loadData();
   }
 
@@ -98,20 +113,26 @@ export class QuoteSettingsComponent implements OnInit {
       alert('Inserisci una frase valida');
       return;
     }
+    if (!this.newPhraseFieldKey) {
+      alert('Seleziona il campo preventivo per questa frase');
+      return;
+    }
 
     this.http
       .post(
         this.globalService.url + 'admin/quote-settings/phrases',
         {
           testo: this.newPhraseText.trim(),
-          roomId: this.editPhraseRoomId || null,
+          fieldKey: this.newPhraseFieldKey,
+          quoteType: this.newPhraseRoomId ? '' : this.newPhraseQuoteType,
+          roomId: this.newPhraseRoomId || null,
         },
         { headers: this.globalService.headers },
       )
       .subscribe({
         next: () => {
           this.newPhraseText = '';
-          this.editPhraseRoomId = null;
+          this.resetPhraseDefaults();
           this.loadPhrases();
         },
         error: (err) => {
@@ -125,18 +146,26 @@ export class QuoteSettingsComponent implements OnInit {
     this.editingPhraseId = phrase.id;
     this.editPhraseText = phrase.testo;
     this.editPhraseRoomId = phrase.roomId;
+    this.editPhraseFieldKey = phrase.fieldKey || this.getDefaultPhraseFieldKey();
+    this.editPhraseQuoteType = phrase.quoteType || '';
   }
 
   cancelEditPhrase() {
     this.editingPhraseId = null;
     this.editPhraseText = '';
     this.editPhraseRoomId = null;
+    this.editPhraseFieldKey = this.getDefaultPhraseFieldKey();
+    this.editPhraseQuoteType = '';
   }
 
   saveEditPhrase() {
     if (this.editingPhraseId == null) return;
     if (!this.editPhraseText || this.editPhraseText.trim().length === 0) {
       alert('Inserisci una frase valida');
+      return;
+    }
+    if (!this.editPhraseFieldKey) {
+      alert('Seleziona il campo preventivo per questa frase');
       return;
     }
 
@@ -147,6 +176,8 @@ export class QuoteSettingsComponent implements OnInit {
           this.editingPhraseId,
         {
           testo: this.editPhraseText.trim(),
+          fieldKey: this.editPhraseFieldKey,
+          quoteType: this.editPhraseRoomId ? '' : this.editPhraseQuoteType,
           roomId: this.editPhraseRoomId || null,
         },
         { headers: this.globalService.headers },
@@ -199,7 +230,7 @@ export class QuoteSettingsComponent implements OnInit {
         },
         error: (err) => {
           console.error('Errore loadRooms:', err);
-          alert('Errore nel caricamento delle stanze');
+          alert('Errore nel caricamento dei gruppi');
         },
       });
   }
@@ -209,22 +240,31 @@ export class QuoteSettingsComponent implements OnInit {
       alert('Inserisci un nome valido');
       return;
     }
+    if (!this.newRoomFieldKey) {
+      alert('Seleziona il campo preventivo per questo gruppo');
+      return;
+    }
 
     this.http
       .post(
         this.globalService.url + 'admin/quote-settings/rooms',
-        { nome: this.newRoomName.trim(), tipoPreventivo: this.newRoomType },
+        {
+          nome: this.newRoomName.trim(),
+          tipoPreventivo: this.newRoomType,
+          fieldKey: this.newRoomFieldKey,
+        },
         { headers: this.globalService.headers },
       )
       .subscribe({
         next: () => {
           this.newRoomName = '';
           this.newRoomType = this.getDefaultQuoteType();
+          this.newRoomFieldKey = this.getDefaultPhraseFieldKey();
           this.loadRooms();
         },
         error: (err) => {
           console.error('Errore addRoom:', err);
-          alert(err?.error?.error || 'Errore aggiunta stanza');
+          alert(err?.error?.error || 'Errore aggiunta gruppo');
         },
       });
   }
@@ -233,12 +273,14 @@ export class QuoteSettingsComponent implements OnInit {
     this.editingRoomId = room.id;
     this.editRoomName = room.nome;
     this.editRoomType = room.tipoPreventivo;
+    this.editRoomFieldKey = room.fieldKey || this.getDefaultPhraseFieldKey();
   }
 
   cancelEditRoom() {
     this.editingRoomId = null;
     this.editRoomName = '';
     this.editRoomType = this.getDefaultQuoteType();
+    this.editRoomFieldKey = this.getDefaultPhraseFieldKey();
   }
 
   saveEditRoom() {
@@ -247,13 +289,21 @@ export class QuoteSettingsComponent implements OnInit {
       alert('Inserisci un nome valido');
       return;
     }
+    if (!this.editRoomFieldKey) {
+      alert('Seleziona il campo preventivo per questo gruppo');
+      return;
+    }
 
     this.http
       .put(
         this.globalService.url +
           'admin/quote-settings/rooms/' +
           this.editingRoomId,
-        { nome: this.editRoomName.trim(), tipoPreventivo: this.editRoomType },
+        {
+          nome: this.editRoomName.trim(),
+          tipoPreventivo: this.editRoomType,
+          fieldKey: this.editRoomFieldKey,
+        },
         { headers: this.globalService.headers },
       )
       .subscribe({
@@ -263,13 +313,13 @@ export class QuoteSettingsComponent implements OnInit {
         },
         error: (err) => {
           console.error('Errore saveEditRoom:', err);
-          alert(err?.error?.error || 'Errore modifica stanza');
+          alert(err?.error?.error || 'Errore modifica gruppo');
         },
       });
   }
 
   deleteRoom(room: QuoteRoom) {
-    const ok = confirm(`Eliminare la stanza "${room.nome}"?`);
+    const ok = confirm(`Eliminare il gruppo "${room.nome}"?`);
     if (!ok) return;
 
     this.http
@@ -283,7 +333,7 @@ export class QuoteSettingsComponent implements OnInit {
         next: () => this.loadRooms(),
         error: (err) => {
           console.error('Errore deleteRoom:', err);
-          alert(err?.error?.error || 'Errore eliminazione stanza');
+          alert(err?.error?.error || 'Errore eliminazione gruppo');
         },
       });
   }
@@ -320,7 +370,7 @@ export class QuoteSettingsComponent implements OnInit {
       )
       .subscribe({
         error: (err) => {
-          console.error('Errore reorder stanze:', err);
+          console.error('Errore reorder gruppi:', err);
           alert('Errore durante il riordino');
         },
       });
@@ -357,9 +407,60 @@ export class QuoteSettingsComponent implements OnInit {
     return this.globalService.getQuoteTypes();
   }
 
+  getPhraseQuoteTypeOptions(): TenantQuoteTypeConfig[] {
+    return this.getQuoteTypeOptions();
+  }
+
   getQuoteTypeLabel(key: string): string {
     const type = this.getQuoteTypeOptions().find((item) => item.key === key);
-    return type?.label || key || 'Non configurato';
+    return type?.label || key || 'Tutti';
+  }
+
+  getPhraseEffectiveQuoteTypeLabel(phrase: QuotePhrase): string {
+    const room = this.getRoomById(phrase.roomId);
+    return this.getQuoteTypeLabel(room?.tipoPreventivo || phrase.quoteType);
+  }
+
+  getPhraseEffectiveFieldLabel(phrase: QuotePhrase): string {
+    const room = this.getRoomById(phrase.roomId);
+    return this.getQuoteFieldLabel(room?.fieldKey || phrase.fieldKey);
+  }
+
+  getSelectedNewPhraseRoom(): QuoteRoom | undefined {
+    return this.getRoomById(this.newPhraseRoomId);
+  }
+
+  getSelectedEditPhraseRoom(): QuoteRoom | undefined {
+    return this.getRoomById(this.editPhraseRoomId);
+  }
+
+  onNewPhraseRoomChange(): void {
+    const room = this.getSelectedNewPhraseRoom();
+    if (!room) return;
+    this.newPhraseFieldKey = room.fieldKey || this.newPhraseFieldKey;
+    this.newPhraseQuoteType = room.tipoPreventivo || this.newPhraseQuoteType;
+  }
+
+  onEditPhraseRoomChange(): void {
+    const room = this.getSelectedEditPhraseRoom();
+    if (!room) return;
+    this.editPhraseFieldKey = room.fieldKey || this.editPhraseFieldKey;
+    this.editPhraseQuoteType = room.tipoPreventivo || this.editPhraseQuoteType;
+  }
+
+  getQuoteFieldOptions(): TenantFieldMappingFieldConfig[] {
+    return this.globalService
+      .getVisibleFieldMappingFields('quote')
+      .filter((field) => !!(field.key || field.dbColumn));
+  }
+
+  getQuoteFieldLabel(key: string): string {
+    const normalized = String(key || '').trim().toLowerCase();
+    const field = this.getQuoteFieldOptions().find((item) => (
+      String(item.key || '').trim().toLowerCase() === normalized ||
+      String(item.dbColumn || '').trim().toLowerCase() === normalized
+    ));
+    return field?.label || key || 'Non configurato';
   }
 
   private getDefaultQuoteType(): string {
@@ -370,5 +471,20 @@ export class QuoteSettingsComponent implements OnInit {
     const defaultType = this.getDefaultQuoteType();
     this.newRoomType = defaultType;
     this.editRoomType = defaultType;
+    this.newRoomFieldKey = this.getDefaultPhraseFieldKey();
+    this.editRoomFieldKey = this.newRoomFieldKey;
+  }
+
+  private getDefaultPhraseFieldKey(): string {
+    const field = this.getQuoteFieldOptions()[0];
+    return field?.key || field?.dbColumn || '';
+  }
+
+  private resetPhraseDefaults(): void {
+    this.newPhraseFieldKey = this.getDefaultPhraseFieldKey();
+    this.editPhraseFieldKey = this.newPhraseFieldKey;
+    this.newPhraseQuoteType = '';
+    this.editPhraseQuoteType = '';
+    this.newPhraseRoomId = null;
   }
 }

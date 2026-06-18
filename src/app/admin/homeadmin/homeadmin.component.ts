@@ -98,7 +98,9 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       this.loadDeadlineSummary();
       this.loadPendingQuoteReviews();
       this.loadEmailUnreadSummary();
-      this.loadAdminTodos();
+      if (this.canUseTodoView()) {
+        this.loadAdminTodos();
+      }
       setTimeout(() => this.loadEmailUnreadSummary(), 1500);
     }).catch((err) => {
       console.error('Errore caricamento config tenant:', err);
@@ -106,7 +108,9 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.updateDesktopHomeState();
     this.bindRouterState();
     this.bindQuoteAcceptanceUpdates();
-    this.bindAdminTodoUpdates();
+    if (this.canUseTodoView()) {
+      this.bindAdminTodoUpdates();
+    }
     this.bindEmailUnreadPolling();
   }
 
@@ -484,7 +488,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Riepilogo presenze personalizzabile',
             icon: 'fas fa-clock',
             permission: 'ATTENDANCE_MANAGE',
-            feature: 'leaveRequests',
+            feature: 'attendance',
             action: () => this.goToEditableHours(),
             desktopPath: 'riepilogo-presenze-editabile',
           },
@@ -596,6 +600,11 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   loadAdminTodos(): void {
+    if (!this.canUseTodoView()) {
+      this.adminTodos = [];
+      return;
+    }
+
     this.todoLoading = true;
     this.todoError = '';
 
@@ -618,7 +627,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   addAdminTodo(): void {
     const title = this.newTodoTitle.trim();
-    if (!title || this.todoSaving) return;
+    if (!title || this.todoSaving || !this.canUseTodoManage()) return;
 
     this.todoSaving = true;
     this.todoError = '';
@@ -644,6 +653,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   toggleAdminTodo(todo: AdminTodo): void {
+    if (!this.canUseTodoManage()) return;
+
     const completed = !todo.completed;
     this.todoError = '';
 
@@ -665,6 +676,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   deleteAdminTodo(todo: AdminTodo): void {
+    if (!this.canUseTodoManage()) return;
+
     this.todoError = '';
 
     this.http
@@ -683,7 +696,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   private bindAdminTodoUpdates(): void {
-    if (this.adminTodoSubscription) {
+    if (this.adminTodoSubscription || !this.canUseTodoView()) {
       return;
     }
 
@@ -737,6 +750,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   get completedAdminTodosCount(): number {
     return this.adminTodos.filter((todo) => todo.completed).length;
+  }
+
+  canUseTodoView(): boolean {
+    return this.canUsePermission('TODOS_VIEW', 'todos');
+  }
+
+  canUseTodoManage(): boolean {
+    return this.canUsePermission('TODOS_MANAGE', 'todos');
   }
 
   @HostListener('window:resize')

@@ -11,6 +11,7 @@ export class AutomaticAddInspectionToCalendarService {
   displayName: string = '';
   pendingCustomerEvent = false;
   numeroCliente: string = '';
+  customerType: string = '';
   customerEventCategory: string = '';
   customerEventDescription: string = '';
 

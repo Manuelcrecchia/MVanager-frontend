@@ -36,8 +36,12 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
 
   private noteChanges: { [id: number]: Subject<string> } = {};
 
+  private get workCategoryLabel(): string {
+    return this.globalService.getAttendanceWorkCategoryLabel();
+  }
+
   get categorieVoci(): string[] {
-    const keys = new Set<string>(['Ordinario']);
+    const keys = new Set<string>([this.workCategoryLabel]);
     this.globalService.getLeaveCategories().forEach((category) => keys.add(category.key));
     this.dipendenti.forEach((dip) => {
       Object.keys(dip.tipologie || {}).forEach((key) => {
@@ -49,7 +53,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
 
   normalizeVoceCategoria(categoria: unknown): string {
     const value = String(categoria || '').trim();
-    return value || 'Ordinario';
+    return value || this.workCategoryLabel;
   }
 
   constructor(
@@ -101,7 +105,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
         const ensureArray = (arr: any) =>
           Array.isArray(arr) ? arr : Array(numGiorni).fill('');
 
-        d.tipologie.Ordinario = ensureArray(d.tipologie.Ordinario);
+        d.tipologie[this.workCategoryLabel] = ensureArray(d.tipologie[this.workCategoryLabel]);
         Object.keys(d.tipologie).forEach((key) => {
           d.tipologie[key] = ensureArray(d.tipologie[key]);
         });
@@ -139,7 +143,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
 
           // Se non ci sono voci, aggiungiamo una voce vuota di default
           if (voci.length === 0) {
-            voci.push({ categoria: 'Ordinario', ore: '' });
+            voci.push({ categoria: this.workCategoryLabel, ore: '' });
           }
 
           d.vociGiorno[i] = voci;
@@ -150,7 +154,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
         d.ore = [];
         for (let i = 0; i < this.giorni.length; i++) {
           const primaVoce = d.vociGiorno[i]?.[0];
-          d.categorie[i] = primaVoce?.categoria || 'Ordinario';
+          d.categorie[i] = primaVoce?.categoria || this.workCategoryLabel;
           d.ore[i] = primaVoce?.ore || '';
         }
       });
@@ -204,11 +208,11 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
           const oreVal = voce.ore || '';
           const categoria = this.normalizeVoceCategoria(voce.categoria);
           if (!dip.tipologie[categoria]) dip.tipologie[categoria] = Array(this.giorni.length).fill('');
-          if (categoria === 'Ordinario' && oreVal) {
-            const curr = dip.tipologie.Ordinario[index];
+          if (categoria === this.workCategoryLabel && oreVal) {
+            const curr = dip.tipologie[this.workCategoryLabel][index];
             const sum = (parseFloat(curr) || 0) + (parseFloat(oreVal) || 0);
-            dip.tipologie.Ordinario[index] = this.formatOreStr(sum);
-          } else if (categoria !== 'Ordinario') {
+            dip.tipologie[this.workCategoryLabel][index] = this.formatOreStr(sum);
+          } else if (categoria !== this.workCategoryLabel) {
             dip.tipologie[categoria][index] = oreVal ? this.formatOreStr(oreVal) : '0.00';
           }
         });
@@ -306,7 +310,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
         anno: this.annoSelezionato,
         voci: voci.map((v: any) => ({ categoria: v.categoria, ore: v.ore })),
         // Campi sintetici della prima voce, utili per query rapide e UI.
-        categoria: primaVoce?.categoria || 'Ordinario',
+        categoria: primaVoce?.categoria || this.workCategoryLabel,
         ore: primaVoce?.ore || '',
       })
       .subscribe({
@@ -323,7 +327,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
     if (!d.vociGiorno[i]) {
       d.vociGiorno[i] = [];
     }
-    d.vociGiorno[i].push({ categoria: 'Ordinario', ore: '' });
+    d.vociGiorno[i].push({ categoria: this.workCategoryLabel, ore: '' });
     this.onCellaChange(d, i);
   }
 
@@ -333,7 +337,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
       d.vociGiorno[i].splice(vIndex, 1);
       // Se non ci sono più voci, aggiungi una voce vuota di default
       if (d.vociGiorno[i].length === 0) {
-        d.vociGiorno[i].push({ categoria: 'Ordinario', ore: '' });
+        d.vociGiorno[i].push({ categoria: this.workCategoryLabel, ore: '' });
       }
       this.onCellaChange(d, i);
     }
@@ -341,7 +345,8 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
 
   // 🔵 RICALCOLA TOTALE: somma di TUTTE le categorie
   private ricalcolaTotale(d: any) {
-    const numGiorni = (d.tipologie.Ordinario || []).length;
+    const firstCategory = Object.values(d.tipologie || {}).find(Array.isArray) as any[] | undefined;
+    const numGiorni = (d.tipologie[this.workCategoryLabel] || firstCategory || []).length;
     let totalCents = 0;
 
     for (let i = 0; i < numGiorni; i++) {
@@ -366,21 +371,20 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
     });
 
     // Accumula ore per categoria
-    let oreOrdinario = 0;
+    let workCategoryHours = 0;
     voci.forEach((voce: any) => {
       const ore = voce.ore ? parseFloat(voce.ore) : 0;
 
       const categoria = this.normalizeVoceCategoria(voce.categoria);
       if (!d.tipologie[categoria]) d.tipologie[categoria] = Array(this.giorni.length).fill('0.00');
-      if (categoria === 'Ordinario') {
-        oreOrdinario += ore;
+      if (categoria === this.workCategoryLabel) {
+        workCategoryHours += ore;
       } else {
         d.tipologie[categoria][i] = voce.ore ? this.formatOreStr(voce.ore) : '0.00';
       }
     });
 
-    // ✅ Ordinario: SEMPRE in decimale con 2 cifre
-    d.tipologie.Ordinario[i] = oreOrdinario > 0 ? this.formatOreStr(oreOrdinario) : '0.00';
+    d.tipologie[this.workCategoryLabel][i] = workCategoryHours > 0 ? this.formatOreStr(workCategoryHours) : '0.00';
   }
 
   // 🔵 AUTOSAVE NOTE con debounce

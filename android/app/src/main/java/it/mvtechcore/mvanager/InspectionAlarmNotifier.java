@@ -37,8 +37,8 @@ final class InspectionAlarmNotifier {
     static void show(Context context, Bundle extras) {
         createChannel(context);
 
-        String title = getString(extras, "notificationTitle", "Promemoria sopralluogo");
-        String body = getString(extras, "notificationBody", "Hai un sopralluogo da effettuare.");
+        String title = getString(extras, "notificationTitle", "Promemoria appuntamento");
+        String body = getString(extras, "notificationBody", "Hai un appuntamento da effettuare.");
         int notificationId = notificationId(extras);
 
         Intent openIntent = openAppIntent(context, extras);
@@ -222,10 +222,10 @@ final class InspectionAlarmNotifier {
 
         NotificationChannel channel = new NotificationChannel(
             CHANNEL_ID,
-            "Promemoria sopralluoghi",
+            "Promemoria appuntamenti",
             NotificationManager.IMPORTANCE_HIGH
         );
-        channel.setDescription("Promemoria sopralluogo con azioni Posticipa e Spegni");
+        channel.setDescription("Promemoria appuntamento con azioni Posticipa e Spegni");
         channel.setSound(alarmSound(), audioAttributes);
         channel.enableVibration(true);
         channel.setVibrationPattern(new long[] { 0, 700, 300, 700, 300, 700 });

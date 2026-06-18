@@ -177,6 +177,11 @@ export class CalendarHomeComponent implements OnInit {
       if (this.autoInspectionService.pass) {
         this.autoInspectionService.pass = false;
         const inspectionCategory = this.categories.find((category) => category.inspection === true)?.id || '';
+        if (!inspectionCategory) {
+          this.popupService.text = 'Configura prima una categoria calendario per gli appuntamenti collegati ai preventivi';
+          this.popupService.openPopup();
+          return;
+        }
         this.openNewPopup(
           new Date(), inspectionCategory,
           `${this.autoInspectionService.numeroPreventivo} - ${this.autoInspectionService.displayName}`,
@@ -503,12 +508,15 @@ export class CalendarHomeComponent implements OnInit {
 
     const numeroCliente = this.autoInspectionService.numeroCliente;
     const displayName = this.autoInspectionService.displayName;
-    const category = this.autoInspectionService.customerEventCategory || this.getDefaultCustomerLinkedCategory();
+    const customerType = this.autoInspectionService.customerType;
+    const category = this.autoInspectionService.customerEventCategory ||
+      this.getDefaultCustomerLinkedCategory(customerType);
     const description = this.autoInspectionService.customerEventDescription;
 
     this.autoInspectionService.pendingCustomerEvent = false;
     this.autoInspectionService.numeroCliente = '';
     this.autoInspectionService.displayName = '';
+    this.autoInspectionService.customerType = '';
     this.autoInspectionService.customerEventCategory = '';
     this.autoInspectionService.customerEventDescription = '';
 
@@ -571,10 +579,7 @@ export class CalendarHomeComponent implements OnInit {
 
   onEventClick(ev: CalEvent, event: MouseEvent) {
     event.stopPropagation();
-    const codice = ev.title?.split(' - ')[0];
-    const category = this.getCategoryOption(ev.categories);
-    if (this.isQuoteCategory(category)) { this.router.navigate(['/editQuote',codice]); return; }
-    if (this.isCustomerCategory(category)) this.router.navigate(['/editCustomer',codice]);
+    this.openEditPopup(ev);
   }
 
   onEventDblClick(ev: CalEvent, event: MouseEvent) { event.stopPropagation(); this.openEditPopup(ev); }
@@ -623,9 +628,8 @@ export class CalendarHomeComponent implements OnInit {
     const category = this.getCategoryOption(categoria);
     if (this.isQuoteCategory(category)) return this.nPreventiviArray;
     if (this.isCustomerCategory(category)) {
-      const customerType = String(category?.customerType || '').trim();
       return this.clientiArray
-        .filter((customer) => !customerType || customer.tipoCliente === customerType)
+        .filter((customer) => this.customerMatchesCategoryType(customer, category))
         .map(c=>this.customerLabel(c));
     }
     return [];
@@ -683,7 +687,7 @@ export class CalendarHomeComponent implements OnInit {
     const isInspection = this.isInspectionCategory(category);
     if (isInspection) {
       if (!this.popupInspectionAdminIds.length) {
-        this.popupService.text='Seleziona almeno un utente per il sopralluogo'; this.popupService.openPopup(); return;
+        this.popupService.text='Seleziona almeno un utente per il promemoria'; this.popupService.openPopup(); return;
       }
       if (this.popupInspectionReminderMinutes === null || this.popupInspectionReminderMinutes < 0) {
         this.popupService.text='Specifica quanti minuti prima inviare il promemoria'; this.popupService.openPopup(); return;
@@ -715,7 +719,7 @@ export class CalendarHomeComponent implements OnInit {
       if (isInspection) {
         this.inspectionAlarmSync.setToken(this.globalService.token);
         this.inspectionAlarmSync.syncSoon('calendar-save', true).catch((err) => {
-          console.error('[Calendar] Errore sync sveglie sopralluogo:', err);
+          console.error('[Calendar] Errore sync promemoria appuntamento:', err);
         });
         this.sendInspectionConfirmation(body);
       }
@@ -728,10 +732,9 @@ export class CalendarHomeComponent implements OnInit {
       return this.nPreventiviArray.some(p=>this.normalize(p).startsWith(this.normalize(codice+' -')));
     }
     if (this.isCustomerCategory(category)) {
-      const customerType = String(category?.customerType || '').trim();
       return this.clientiArray.some((customer) => {
         const sameCode = this.normalize(customer.numeroCliente?.toString() || '') === this.normalize(codice);
-        return sameCode && (!customerType || customer.tipoCliente === customerType);
+        return sameCode && this.customerMatchesCategoryType(customer, category);
       });
     }
     return true;
@@ -825,15 +828,46 @@ export class CalendarHomeComponent implements OnInit {
     return category?.source === 'customers' || category?.withCustomerLink === true || category?.serviceOrder === true;
   }
 
+  private getCustomerType(customer: any): string {
+    return String(customer?.tipoCliente || '').trim();
+  }
+
+  private customerMatchesCategoryType(
+    customer: any,
+    category?: CalendarCategoryOption,
+  ): boolean {
+    const requiredType = String(category?.customerType || '').trim();
+    if (!requiredType) return true;
+
+    const customerType = this.getCustomerType(customer);
+    if (customerType) {
+      return this.normalize(customerType) === this.normalize(requiredType);
+    }
+
+    return this.normalize(this.globalService.getDefaultQuoteType('')) ===
+      this.normalize(requiredType);
+  }
+
   isInspectionCategory(category?: CalendarCategoryOption | string): boolean {
     const option = typeof category === 'string' ? this.getCategoryOption(category) : category;
     return option?.inspection === true;
   }
 
-  private getDefaultCustomerLinkedCategory(): string {
-    return this.categories.find((category) => this.isCustomerCategory(category))?.id
-      || this.categories.find((category) => category.defaultForTenant)?.id
-      || this.categories[0]?.id
+  private getDefaultCustomerLinkedCategory(customerType = ''): string {
+    const normalizedCustomerType = String(customerType || '').trim().toLowerCase();
+    if (normalizedCustomerType) {
+      const exactMatch = this.categories.find((category) => (
+        this.isCustomerCategory(category) &&
+        String(category.customerType || '').trim().toLowerCase() === normalizedCustomerType
+      ));
+      if (exactMatch?.id) return exactMatch.id;
+    }
+
+    return this.categories.find((category) => (
+      this.isCustomerCategory(category) &&
+      !String(category.customerType || '').trim()
+    ))?.id
+      || this.categories.find((category) => this.isCustomerCategory(category))?.id
       || '';
   }
 

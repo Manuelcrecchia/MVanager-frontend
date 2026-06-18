@@ -10,15 +10,26 @@
   <section class="admin-card mb-4">
     <div class="card-header py-3 px-4">
       <h3 class="mb-0 fs-5">Aggiungi gruppo</h3>
-      <p class="mb-0 text-muted small">Crea un gruppo opzionale per organizzare le frasi precompilate.</p>
+      <p class="mb-0 text-muted small">Crea un gruppo collegato a un campo preventivo e a un tipo preventivo.</p>
     </div>
     <div class="card-body p-4">
       <div class="row g-3 align-items-end">
-        <div class="col-12 col-md-5">
+        <div class="col-12 col-lg-4">
           <label class="form-label fw-bold">Nome gruppo *</label>
           <input class="form-control form-control-glass" [(ngModel)]="newRoomName" placeholder="Es. Camera matrimoniale" />
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-lg-3">
+          <label class="form-label fw-bold">Campo preventivo *</label>
+          <select class="form-select form-select-glass" [(ngModel)]="newRoomFieldKey">
+            <option *ngFor="let field of getQuoteFieldOptions()" [value]="field.key || field.dbColumn">
+              {{ field.label || field.key || field.dbColumn }}
+            </option>
+          </select>
+          <small *ngIf="getQuoteFieldOptions().length === 0" class="text-danger">
+            Configura prima i campi preventivo.
+          </small>
+        </div>
+        <div class="col-12 col-lg-3">
           <label class="form-label fw-bold">Tipo *</label>
           <select class="form-select form-select-glass" [(ngModel)]="newRoomType">
             <option *ngFor="let type of getQuoteTypeOptions()" [value]="type.key">
@@ -29,8 +40,8 @@
             Configura prima i tipi preventivo da MVControl.
           </small>
         </div>
-        <div class="col-12 col-md-3 d-grid">
-          <button class="btn btn-primary btn-round" (click)="addRoom()" [disabled]="getQuoteTypeOptions().length === 0">Aggiungi</button>
+        <div class="col-12 col-lg-2 d-grid">
+          <button class="btn btn-primary btn-round" (click)="addRoom()" [disabled]="getQuoteTypeOptions().length === 0 || getQuoteFieldOptions().length === 0">Aggiungi</button>
         </div>
       </div>
     </div>
@@ -52,6 +63,7 @@
             <tr>
               <th style="width: 36px"></th>
               <th>Gruppo</th>
+              <th>Campo</th>
               <th>Tipo</th>
               <th>Frasi associate</th>
               <th style="min-width: 160px">Azioni</th>
@@ -66,6 +78,18 @@
                 </ng-container>
                 <ng-template #editRoomView>
                   <input class="form-control form-control-sm" [(ngModel)]="editRoomName" />
+                </ng-template>
+              </td>
+              <td>
+                <ng-container *ngIf="editingRoomId !== room.id; else editRoomFieldView">
+                  {{ getQuoteFieldLabel(room.fieldKey) }}
+                </ng-container>
+                <ng-template #editRoomFieldView>
+                  <select class="form-select form-select-sm" [(ngModel)]="editRoomFieldKey">
+                    <option *ngFor="let field of getQuoteFieldOptions()" [value]="field.key || field.dbColumn">
+                      {{ field.label || field.key || field.dbColumn }}
+                    </option>
+                  </select>
                 </ng-template>
               </td>
               <td>
@@ -98,7 +122,7 @@
               </td>
             </tr>
             <tr *ngIf="rooms.length === 0">
-              <td colspan="5" class="text-center text-muted py-4">Nessun gruppo inserito</td>
+              <td colspan="6" class="text-center text-muted py-4">Nessun gruppo inserito</td>
             </tr>
           </tbody>
         </table>
@@ -109,23 +133,45 @@
   <section class="admin-card mb-4">
     <div class="card-header py-3 px-4">
       <h3 class="mb-0 fs-5">Aggiungi frase precompilata</h3>
-      <p class="mb-0 text-muted small">Inserisci una frase e, se serve, associala a un gruppo.</p>
+      <p class="mb-0 text-muted small">Inserisci una frase e associala al campo del preventivo in cui deve comparire.</p>
     </div>
     <div class="card-body p-4">
       <div class="row g-3 align-items-end">
-        <div class="col-12 col-md-5">
+        <div class="col-12 col-lg-4">
           <label class="form-label fw-bold">Frase *</label>
           <input class="form-control form-control-glass" [(ngModel)]="newPhraseText" placeholder="Es. Servizio concordato con il cliente" />
         </div>
-        <div class="col-12 col-md-4">
-          <label class="form-label fw-bold">Gruppo</label>
-          <select class="form-select form-select-glass" [(ngModel)]="editPhraseRoomId">
-            <option [ngValue]="null">Nessuno</option>
-            <option *ngFor="let room of rooms" [ngValue]="room.id">{{ room.nome }}</option>
+        <div class="col-12 col-lg-3">
+          <label class="form-label fw-bold">Campo preventivo *</label>
+          <select class="form-select form-select-glass" [(ngModel)]="newPhraseFieldKey" [disabled]="!!newPhraseRoomId">
+            <option *ngFor="let field of getQuoteFieldOptions()" [value]="field.key || field.dbColumn">
+              {{ field.label || field.key || field.dbColumn }}
+            </option>
+          </select>
+          <small *ngIf="getQuoteFieldOptions().length === 0" class="text-danger">
+            Configura prima i campi preventivo.
+          </small>
+        </div>
+        <div class="col-12 col-lg-2">
+          <label class="form-label fw-bold">Tipo senza gruppo</label>
+          <select class="form-select form-select-glass" [(ngModel)]="newPhraseQuoteType" [disabled]="!!newPhraseRoomId">
+            <option value="">Tutti</option>
+            <option *ngFor="let type of getPhraseQuoteTypeOptions()" [value]="type.key">
+              {{ type.label || type.key }}
+            </option>
           </select>
         </div>
-        <div class="col-12 col-md-3 d-grid">
-          <button class="btn btn-primary btn-round" (click)="addPhrase()">Aggiungi</button>
+        <div class="col-12 col-lg-2">
+          <label class="form-label fw-bold">Gruppo</label>
+          <select class="form-select form-select-glass" [(ngModel)]="newPhraseRoomId" (ngModelChange)="onNewPhraseRoomChange()">
+            <option [ngValue]="null">Nessuno</option>
+            <option *ngFor="let room of rooms" [ngValue]="room.id">
+              {{ room.nome }} · {{ getQuoteFieldLabel(room.fieldKey) }} · {{ getQuoteTypeLabel(room.tipoPreventivo) }}
+            </option>
+          </select>
+        </div>
+        <div class="col-12 col-lg-1 d-grid">
+          <button class="btn btn-primary btn-round" (click)="addPhrase()" [disabled]="getQuoteFieldOptions().length === 0">Aggiungi</button>
         </div>
       </div>
     </div>
@@ -148,6 +194,8 @@
             <tr>
               <th style="width: 36px"></th>
               <th>Frase</th>
+              <th>Campo</th>
+              <th>Tipo</th>
               <th>Gruppo</th>
               <th style="min-width: 160px">Azioni</th>
             </tr>
@@ -164,14 +212,41 @@
                 </ng-template>
               </td>
               <td>
+                <ng-container *ngIf="editingPhraseId !== phrase.id; else editPhraseFieldView">
+                  <strong>{{ getPhraseEffectiveFieldLabel(phrase) }}</strong>
+                </ng-container>
+                <ng-template #editPhraseFieldView>
+                  <select class="form-select form-select-sm" [(ngModel)]="editPhraseFieldKey" [disabled]="!!editPhraseRoomId">
+                    <option *ngFor="let field of getQuoteFieldOptions()" [value]="field.key || field.dbColumn">
+                      {{ field.label || field.key || field.dbColumn }}
+                    </option>
+                  </select>
+                </ng-template>
+              </td>
+              <td>
+                <ng-container *ngIf="editingPhraseId !== phrase.id; else editPhraseTypeView">
+                  {{ getPhraseEffectiveQuoteTypeLabel(phrase) }}
+                </ng-container>
+                <ng-template #editPhraseTypeView>
+                  <select class="form-select form-select-sm" [(ngModel)]="editPhraseQuoteType" [disabled]="!!editPhraseRoomId">
+                    <option value="">Tutti</option>
+                    <option *ngFor="let type of getPhraseQuoteTypeOptions()" [value]="type.key">
+                      {{ type.label || type.key }}
+                    </option>
+                  </select>
+                </ng-template>
+              </td>
+              <td>
                 <ng-container *ngIf="editingPhraseId !== phrase.id; else editRoomDropdown">
                   <span *ngIf="!phrase.roomId" class="text-muted">Nessuno</span>
                   <strong *ngIf="phrase.roomId">{{ getRoomById(phrase.roomId)?.nome || 'Gruppo rimosso' }}</strong>
                 </ng-container>
                 <ng-template #editRoomDropdown>
-                  <select class="form-select form-select-sm" [(ngModel)]="editPhraseRoomId">
+                  <select class="form-select form-select-sm" [(ngModel)]="editPhraseRoomId" (ngModelChange)="onEditPhraseRoomChange()">
                     <option [ngValue]="null">Nessuno</option>
-                    <option *ngFor="let room of rooms" [ngValue]="room.id">{{ room.nome }}</option>
+                    <option *ngFor="let room of rooms" [ngValue]="room.id">
+                      {{ room.nome }} · {{ getQuoteFieldLabel(room.fieldKey) }} · {{ getQuoteTypeLabel(room.tipoPreventivo) }}
+                    </option>
                   </select>
                 </ng-template>
               </td>
@@ -187,7 +262,7 @@
               </td>
             </tr>
             <tr *ngIf="phrases.length === 0">
-              <td colspan="4" class="text-center text-muted py-4">Nessuna frase inserita</td>
+              <td colspan="6" class="text-center text-muted py-4">Nessuna frase inserita</td>
             </tr>
           </tbody>
         </table>

@@ -36,72 +36,75 @@ export class ViewPdfComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.route.queryParams.subscribe((params) => {
-      const numeroPreventivo = params['numeroPreventivo'];
-      if (!numeroPreventivo) return;
+    this.globalService.loadTenantConfig(false, { showError: false }).finally(() => {
+      this.route.queryParams.subscribe((params) => {
+        const numeroPreventivo = params['numeroPreventivo'];
+        if (!numeroPreventivo) return;
 
-      const body = { numeroPreventivo };
-      this.numeroPreventivo = params['numeroPreventivo'];
-      this.signedPdfMode = params['signed'] === '1' || params['signed'] === 'true';
-      this.confirmCustomerMode =
-        params['confirmCustomer'] === '1' || params['confirmCustomer'] === 'true';
-      this.pdfPrev = '';
-      this.signedPdfBlob = null;
+        const body = { numeroPreventivo };
+        this.numeroPreventivo = params['numeroPreventivo'];
+        this.signedPdfMode = params['signed'] === '1' || params['signed'] === 'true';
+        this.confirmCustomerMode =
+          (params['confirmCustomer'] === '1' || params['confirmCustomer'] === 'true') &&
+          this.globalService.canCreateCustomers();
+        this.pdfPrev = '';
+        this.signedPdfBlob = null;
 
-      // Nome file
-      this.http
-        .post(this.globalService.url + 'quotes/getQuote', body, {
-          headers: this.globalService.headers,
-          responseType: 'text',
-        })
-        .subscribe({
-          next: (resp) => {
-            if (resp === 'Unauthorized') {
-              this.router.navigateByUrl('/');
-              return;
-            }
-            const quote = JSON.parse(resp)[0];
-            const displayName = this.globalService.getRecordDisplayName('quote', quote || {});
-            const base = this.sanitizeFilename(
-              `${numeroPreventivo} ${displayName}`
-            );
-            this.downloadName = this.signedPdfMode
-              ? `${base} firmato.pdf`
-              : `${base}.pdf`;
-          },
-          error: (err) => {
-            console.error('Errore caricamento preventivo:', err);
-            alert(this.parseServerError(err));
-          },
-        });
+        // Nome file
+        this.http
+          .post(this.globalService.url + 'quotes/getQuote', body, {
+            headers: this.globalService.headers,
+            responseType: 'text',
+          })
+          .subscribe({
+            next: (resp) => {
+              if (resp === 'Unauthorized') {
+                this.router.navigateByUrl('/');
+                return;
+              }
+              const quote = JSON.parse(resp)[0];
+              const displayName = this.globalService.getRecordDisplayName('quote', quote || {});
+              const base = this.sanitizeFilename(
+                `${numeroPreventivo} ${displayName}`
+              );
+              this.downloadName = this.signedPdfMode
+                ? `${base} firmato.pdf`
+                : `${base}.pdf`;
+            },
+            error: (err) => {
+              console.error('Errore caricamento preventivo:', err);
+              alert(this.parseServerError(err));
+            },
+          });
 
-      if (this.signedPdfMode) {
-        this.loadSignedPdf(body);
-        return;
-      }
+        if (this.signedPdfMode) {
+          this.loadSignedPdf(body);
+          return;
+        }
 
-      // PDF base64
-      this.loadingPdf = true;
-      this.http
-        .post(this.globalService.url + 'pdfs/sendQuote', body, {
-          headers: this.globalService.headers,
-          responseType: 'text',
-        })
-        .subscribe({
-          next: (response) => {
-            if (response !== 'Unauthorized') {
-              this.pdfPrev = response;
-            } else {
-              this.router.navigateByUrl('/');
-            }
-            this.loadingPdf = false;
-          },
-          error: (err) => {
-            console.error('Errore caricamento PDF:', err);
-            alert(this.parseServerError(err));
-            this.loadingPdf = false;
-          },
-        });
+        // PDF base64
+        this.loadingPdf = true;
+        this.http
+          .post(this.globalService.url + 'pdfs/sendQuote', body, {
+            headers: this.globalService.headers,
+            responseType: 'text',
+          })
+          .subscribe({
+            next: (response) => {
+              if (response !== 'Unauthorized') {
+                this.pdfPrev = response;
+              } else {
+                this.router.navigateByUrl('/');
+              }
+              this.loadingPdf = false;
+            },
+            error: (err) => {
+              console.error('Errore caricamento PDF:', err);
+              alert(this.parseServerError(err));
+              this.loadingPdf = false;
+            },
+          });
+      });
     });
   }
 
@@ -159,6 +162,12 @@ export class ViewPdfComponent implements OnInit {
   }
 
   confirmAndCreateCustomer(): void {
+    if (!this.globalService.canCreateCustomers()) {
+      alert('Modulo clienti non abilitato per questa azienda.');
+      this.back();
+      return;
+    }
+
     const numeroPreventivo = this.numeroPreventivo;
     const body = { numeroPreventivo };
 

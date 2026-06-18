@@ -1,10 +1,11 @@
 import { Component, HostListener } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Location } from '@angular/common';
 import { CustomerModelService } from '../../service/customer-model.service';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+import { TenantFieldMappingFieldConfig } from '../../service/global.service';
 
 @Component({
   selector: 'app-edit-customer',
@@ -17,13 +18,17 @@ export class EditCustomerComponent {
     private http: HttpClient,
     public globalService: GlobalService,
     private router: Router,
+    private route: ActivatedRoute,
     private location: Location,
     private popup: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
-    this.globalService.loadTenantConfig(true, { showError: false });
-    const numeroCliente = this.customerModelService.numeroCliente;
+    this.globalService.loadTenantConfig(false, { showError: false });
+    const numeroCliente =
+      this.route.snapshot.paramMap.get('numeroCliente') ||
+      this.route.snapshot.queryParamMap.get('numeroCliente') ||
+      this.customerModelService.numeroCliente;
     if (numeroCliente) {
       this.caricaClienteFromDb(numeroCliente);
     }
@@ -45,6 +50,62 @@ export class EditCustomerComponent {
           console.error('Errore caricamento cliente:', err);
         },
       });
+  }
+
+  updateField(field: TenantFieldMappingFieldConfig, value: any): void {
+    const target = this.customerModelService as unknown as Record<string, any>;
+    target[field.dbColumn] = value;
+    if (field.key && field.key !== field.dbColumn) {
+      target[field.key] = value;
+    }
+  }
+
+  getRepeatableTextRows(field: { dbColumn: string; key?: string }): string[] {
+    const source = this.customerModelService as unknown as Record<string, any>;
+    const rawValue = source[field.dbColumn] ?? (field.key ? source[field.key] : undefined);
+    if (Array.isArray(rawValue)) {
+      return rawValue.map((row) => String(row ?? ''));
+    }
+    if (typeof rawValue === 'string' && rawValue.trim()) {
+      try {
+        const parsed = JSON.parse(rawValue);
+        if (Array.isArray(parsed)) {
+          return parsed.map((row) => String(row ?? ''));
+        }
+      } catch {}
+      return [rawValue];
+    }
+    return [];
+  }
+
+  addTextRow(field: { dbColumn: string; key?: string }): void {
+    this.setRepeatableTextRows(field, [...this.getRepeatableTextRows(field), '']);
+  }
+
+  removeTextRow(field: { dbColumn: string; key?: string }, index: number): void {
+    this.setRepeatableTextRows(
+      field,
+      this.getRepeatableTextRows(field).filter((_, rowIndex) => rowIndex !== index),
+    );
+  }
+
+  updateTextRow(field: { dbColumn: string; key?: string }, index: number, value: string): void {
+    const rows = this.getRepeatableTextRows(field).map((row, rowIndex) => (
+      rowIndex === index ? value : row
+    ));
+    this.setRepeatableTextRows(field, rows);
+  }
+
+  trackByTextRowIndex(index: number): number {
+    return index;
+  }
+
+  private setRepeatableTextRows(field: { dbColumn: string; key?: string }, rows: string[]): void {
+    const target = this.customerModelService as unknown as Record<string, any>;
+    target[field.dbColumn] = rows;
+    if (field.key && field.key !== field.dbColumn) {
+      target[field.key] = rows;
+    }
   }
 
   editCustomer(): void {
