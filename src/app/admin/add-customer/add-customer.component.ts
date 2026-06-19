@@ -13,6 +13,10 @@ import { TenantFieldMappingFieldConfig } from '../../service/global.service';
   styleUrl: './add-customer.component.css',
 })
 export class AddCustomerComponent {
+  employeeCategories: any[] = [];
+  requirementCounts: { [categoryId: number]: number } = {};
+  employeeCategoriesLoaded = false;
+
   constructor(
     public globalService: GlobalService,
     public customerModelService: CustomerModelService,
@@ -24,6 +28,33 @@ export class AddCustomerComponent {
 
   ngOnInit(): void {
     this.globalService.loadTenantConfig(false, { showError: false });
+    this.loadEmployeeCategories();
+  }
+
+  loadEmployeeCategories(): void {
+    this.http
+      .get<any[]>(this.globalService.url + 'admin/employee-categories', {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (categories) => {
+          this.employeeCategories = Array.isArray(categories) ? categories : [];
+          this.employeeCategoriesLoaded = true;
+        },
+        error: () => {
+          this.employeeCategories = [];
+          this.employeeCategoriesLoaded = true;
+        },
+      });
+  }
+
+  private buildStaffRequirements(): any[] {
+    return this.employeeCategories
+      .map((category) => ({
+        categoryId: category.id,
+        requiredCount: Number(this.requirementCounts[Number(category.id)] || 0),
+      }))
+      .filter((item) => item.categoryId && item.requiredCount > 0);
   }
 
   updateField(field: TenantFieldMappingFieldConfig, value: any): void {
@@ -170,6 +201,25 @@ export class AddCustomerComponent {
             this.router.navigateByUrl('/listCustomer', { replaceUrl: true });
           };
 
+          const saveRequirementsAndFinalize = () => {
+            const requirements = this.buildStaffRequirements();
+            if (!numeroCliente || !requirements.length) {
+              finalizeCustomerCreation();
+              return;
+            }
+
+            this.http
+              .post(
+                this.globalService.url + `admin/employee-categories/customer/${numeroCliente}`,
+                { requirements },
+                { headers: this.globalService.headers },
+              )
+              .subscribe({
+                next: () => finalizeCustomerCreation(),
+                error: () => finalizeCustomerCreation(),
+              });
+          };
+
           this.customerModelService.reset();
 
           if (numeroPreventivo && numeroCliente) {
@@ -180,11 +230,11 @@ export class AddCustomerComponent {
                 { headers: this.globalService.headers },
               )
               .subscribe({
-                next: () => finalizeCustomerCreation(),
-                error: () => finalizeCustomerCreation(),
+                next: () => saveRequirementsAndFinalize(),
+                error: () => saveRequirementsAndFinalize(),
               });
           } else {
-            finalizeCustomerCreation();
+            saveRequirementsAndFinalize();
           }
         },
         error: (err) => {

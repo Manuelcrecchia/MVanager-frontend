@@ -13,6 +13,8 @@ export class TimbratureHomeComponent implements OnInit {
   employees: any[] = [];
   selectedDate: string = '';
   loading: boolean = false;
+  stampingConfig: any = { mode: 'customer_tag', warehouseLabel: 'Magazzino' };
+  employeeSearch = '';
 
   constructor(
     private http: HttpClient,
@@ -27,6 +29,24 @@ export class TimbratureHomeComponent implements OnInit {
     this.loadEmployees();
   }
 
+  get filteredEmployees(): any[] {
+    const query = this.normalizeSearch(this.employeeSearch);
+    if (!query) return this.employees;
+
+    return this.employees.filter((emp) => {
+      const text = this.normalizeSearch([
+        emp?.nome,
+        emp?.cognome,
+        emp?.email,
+        emp?.cellulare,
+        emp?.hasError ? 'errori errore anomalie' : 'ok corretto',
+        emp?.errorsCount,
+      ].join(' '));
+
+      return text.includes(query);
+    });
+  }
+
   // 🔹 Carica dipendenti e controlla errori
   loadEmployees(): void {
     this.loading = true;
@@ -37,6 +57,7 @@ export class TimbratureHomeComponent implements OnInit {
       .subscribe({
         next: (res) => {
           this.employees = res.employees || [];
+          this.stampingConfig = res.stampingConfig || this.stampingConfig;
           this.loading = false;
         },
         error: (err) => {
@@ -62,5 +83,13 @@ export class TimbratureHomeComponent implements OnInit {
 
   back(): void {
     this.location.back();
+  }
+
+  private normalizeSearch(value: unknown): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
+      .trim();
   }
 }

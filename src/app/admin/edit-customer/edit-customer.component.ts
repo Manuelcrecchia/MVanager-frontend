@@ -13,6 +13,10 @@ import { TenantFieldMappingFieldConfig } from '../../service/global.service';
   styleUrl: './edit-customer.component.css',
 })
 export class EditCustomerComponent {
+  employeeCategories: any[] = [];
+  requirementCounts: { [categoryId: number]: number } = {};
+  employeeCategoriesLoaded = false;
+
   constructor(
     public customerModelService: CustomerModelService,
     private http: HttpClient,
@@ -25,6 +29,7 @@ export class EditCustomerComponent {
 
   ngOnInit(): void {
     this.globalService.loadTenantConfig(false, { showError: false });
+    this.loadEmployeeCategories();
     const numeroCliente =
       this.route.snapshot.paramMap.get('numeroCliente') ||
       this.route.snapshot.queryParamMap.get('numeroCliente') ||
@@ -32,6 +37,65 @@ export class EditCustomerComponent {
     if (numeroCliente) {
       this.caricaClienteFromDb(numeroCliente);
     }
+  }
+
+  loadEmployeeCategories(): void {
+    this.http
+      .get<any[]>(this.globalService.url + 'admin/employee-categories', {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (categories) => {
+          this.employeeCategories = Array.isArray(categories) ? categories : [];
+          this.employeeCategoriesLoaded = true;
+        },
+        error: () => {
+          this.employeeCategories = [];
+          this.employeeCategoriesLoaded = true;
+        },
+      });
+  }
+
+  loadStaffRequirements(numeroCliente: string): void {
+    this.http
+      .get<any[]>(this.globalService.url + `admin/employee-categories/customer/${numeroCliente}`, {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (rows) => {
+          const counts: { [categoryId: number]: number } = {};
+          for (const row of rows || []) {
+            counts[Number(row.categoryId)] = Number(row.requiredCount) || 0;
+          }
+          this.requirementCounts = counts;
+        },
+        error: () => {
+          this.requirementCounts = {};
+        },
+      });
+  }
+
+  private buildStaffRequirements(): any[] {
+    return this.employeeCategories
+      .map((category) => ({
+        categoryId: category.id,
+        requiredCount: Number(this.requirementCounts[Number(category.id)] || 0),
+      }))
+      .filter((item) => item.categoryId && item.requiredCount > 0);
+  }
+
+  private saveStaffRequirements(numeroCliente: string, done: () => void): void {
+    const requirements = this.buildStaffRequirements();
+    this.http
+      .post(
+        this.globalService.url + `admin/employee-categories/customer/${numeroCliente}`,
+        { requirements },
+        { headers: this.globalService.headers },
+      )
+      .subscribe({
+        next: () => done(),
+        error: () => done(),
+      });
   }
 
   private caricaClienteFromDb(numeroCliente: string): void {
@@ -44,6 +108,7 @@ export class EditCustomerComponent {
           if (res && res[0]) {
             this.customerModelService.reset();
             Object.assign(this.customerModelService as any, res[0]);
+            this.loadStaffRequirements(String(res[0].numeroCliente || numeroCliente));
           }
         },
         error: (err) => {
@@ -137,8 +202,11 @@ export class EditCustomerComponent {
       })
       .subscribe({
         next: () => {
-          this.customerModelService.reset();
-          this.router.navigateByUrl('/listCustomer');
+          const numeroCliente = String(body.numeroCliente || '').trim();
+          this.saveStaffRequirements(numeroCliente, () => {
+            this.customerModelService.reset();
+            this.router.navigateByUrl('/listCustomer');
+          });
         },
         error: (err) => {
           this.popup.showError(this.parseServerError(err));

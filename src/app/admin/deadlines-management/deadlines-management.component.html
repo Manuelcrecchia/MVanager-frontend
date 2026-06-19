@@ -39,6 +39,28 @@
     </div>
   </div>
 
+  <div class="card glass search-card mt-3" *ngIf="!loading && !entitiesLoading && groups.length > 0">
+    <div class="search-field">
+      <span class="search-icon">⌕</span>
+      <input
+        type="search"
+        [(ngModel)]="searchText"
+        placeholder="Cerca per nome, cartella, scadenza, data o allegato"
+      />
+      <button
+        type="button"
+        class="btn btn-outline-light btn-sm"
+        *ngIf="hasActiveSearch"
+        (click)="clearSearch()"
+      >
+        Pulisci
+      </button>
+    </div>
+    <span class="search-count" *ngIf="hasActiveSearch">
+      {{ filteredGroups.length }} risultati
+    </span>
+  </div>
+
   <div *ngIf="success" class="alert alert-success mt-3">
     {{ success }}
   </div>
@@ -72,12 +94,26 @@
           readonly
         />
         <ng-template #entitySelect>
-        <select class="form-select" [(ngModel)]="form.entityId">
-          <option [ngValue]="null">Seleziona</option>
-          <option *ngFor="let entity of entities" [ngValue]="entity.id">
-            {{ getEntityLabel(entity) }}
-          </option>
-        </select>
+          <select
+            *ngIf="kind === 'employee' || kind === 'vehicle' || kind === 'customer'; else freeTarget"
+            class="form-select"
+            [(ngModel)]="form.entityId"
+          >
+            <option [ngValue]="null">Seleziona</option>
+            <option *ngFor="let entity of entities" [ngValue]="entity.id">
+              {{ getEntityLabel(entity) }}
+            </option>
+          </select>
+
+          <ng-template #freeTarget>
+            <input
+              class="form-control"
+              [(ngModel)]="form.targetLabel"
+              (ngModelChange)="form.entityId = $event"
+              maxlength="120"
+              [placeholder]="kind === 'equipment' ? 'Nome attrezzatura' : 'Azienda'"
+            />
+          </ng-template>
         </ng-template>
       </div>
 
@@ -97,6 +133,16 @@
           class="form-control"
           type="date"
           [(ngModel)]="form.dueDate"
+        />
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <label class="form-label">Cartella *</label>
+        <input
+          class="form-control"
+          [(ngModel)]="form.folder"
+          maxlength="120"
+          placeholder="Es. Patenti, Formazione, Contratti"
         />
       </div>
 
@@ -194,8 +240,15 @@
     Nessun {{ entityLabel }} disponibile.
   </div>
 
-  <div class="groups-grid" *ngIf="!loading && !entitiesLoading && groups.length > 0">
-    <section class="card glass entity-card" *ngFor="let group of groups">
+  <div
+    class="card glass mt-3 text-center py-4"
+    *ngIf="!loading && !entitiesLoading && groups.length > 0 && !selectedGroup && filteredGroups.length === 0"
+  >
+    Nessun risultato per questa ricerca.
+  </div>
+
+  <div class="groups-grid" *ngIf="!loading && !entitiesLoading && filteredGroups.length > 0 && !selectedGroup">
+    <button class="card glass entity-card entity-card-button" *ngFor="let group of filteredGroups" (click)="openGroup(group)">
       <div class="entity-head">
         <div class="entity-head-copy">
           <div class="entity-title-row">
@@ -211,21 +264,63 @@
           <p class="entity-subtitle mb-0">{{ group.subtitle || ' ' }}</p>
         </div>
 
-        <button
-          *ngIf="canCreate"
-          class="btn btn-outline-light btn-sm"
-          (click)="openAddForm(group.id)"
-        >
-          Aggiungi scadenza
-        </button>
+        <span class="open-detail">Apri</span>
       </div>
 
-        <div class="empty-state" *ngIf="group.deadlines.length === 0">
-          Nessuna scadenza registrata.
+      <div class="entity-card-footer">
+        <span>{{ group.summary.totalCount }} scadenze</span>
+        <span>{{ getFolderGroups(group).length }} cartelle</span>
+      </div>
+    </button>
+  </div>
+
+  <section class="card glass mt-3 detail-card" *ngIf="!loading && !entitiesLoading && selectedGroupView as currentGroup">
+    <div class="entity-head">
+      <div>
+        <button class="detail-back" (click)="closeGroup()">← Elenco {{ entityLabel }}</button>
+        <h3 class="entity-title mt-2">{{ currentGroup.label }}</h3>
+        <p class="entity-subtitle mb-0">{{ currentGroup.subtitle || ' ' }}</p>
+      </div>
+
+      <button
+        *ngIf="canCreate"
+        class="btn btn-outline-light btn-sm"
+        (click)="openAddForm(currentGroup.id)"
+      >
+        Aggiungi scadenza
+      </button>
+    </div>
+
+    <div class="empty-state" *ngIf="hasActiveSearch && selectedFolderGroups.length === 0">
+      Nessuna scadenza trovata in questo {{ entityLabel }}.
+    </div>
+
+    <div class="folder-list">
+      <section class="folder-block" *ngFor="let folder of selectedFolderGroups">
+        <div class="folder-head">
+          <div>
+            <div class="folder-title-row">
+              <h4 class="folder-title">{{ folder.folder }}</h4>
+              <span
+                *ngIf="folder.summary.alertCount > 0"
+                class="alert-count"
+                [ngClass]="statusClass(folder.summary.status)"
+              >
+                {{ folder.summary.alertCount }}
+              </span>
+            </div>
+            <p class="entity-subtitle mb-0">
+              {{ folder.summary.totalCount }} scadenze · {{ getFolderFileCount(folder) }} file
+            </p>
+          </div>
         </div>
 
-      <div class="deadline-list" *ngIf="group.deadlines.length > 0">
-        <article class="deadline-item" *ngFor="let deadline of group.deadlines">
+        <div class="empty-state" *ngIf="folder.deadlines.length === 0">
+          Nessuna scadenza registrata in questa cartella.
+        </div>
+
+        <div class="deadline-list" *ngIf="folder.deadlines.length > 0">
+          <article class="deadline-item" *ngFor="let deadline of folder.deadlines">
           <div class="deadline-top">
             <div>
               <div class="deadline-title-row">
@@ -248,7 +343,7 @@
                 class="btn btn-dark btn-sm"
                 (click)="openEditForm(deadline)"
               >
-                Modifica
+                Aggiorna
               </button>
               <button
                 *ngIf="canDelete"
@@ -256,6 +351,12 @@
                 (click)="deleteDeadline(deadline)"
               >
                 Elimina
+              </button>
+              <button
+                class="btn btn-deadline-secondary btn-sm"
+                (click)="toggleHistory(deadline)"
+              >
+                Storico
               </button>
             </div>
           </div>
@@ -276,8 +377,43 @@
               <small>{{ formatFileSize(attachment.size) }}</small>
             </button>
           </div>
-        </article>
-      </div>
-    </section>
-  </div>
+
+          <div class="history-panel" *ngIf="historyOpenByDeadlineId[deadline.id]">
+            <div class="history-title">Storico scadenza</div>
+            <div class="empty-state mt-0" *ngIf="historyLoadingByDeadlineId[deadline.id]">
+              Caricamento storico...
+            </div>
+            <div
+              class="empty-state mt-0"
+              *ngIf="!historyLoadingByDeadlineId[deadline.id] && (historyByDeadlineId[deadline.id] || []).length === 0"
+            >
+              Nessun evento registrato.
+            </div>
+
+            <div
+              class="history-entry"
+              *ngFor="let entry of historyByDeadlineId[deadline.id] || []"
+            >
+              <div class="history-entry-head">
+                <strong>{{ historyActionLabel(entry.action) }}</strong>
+                <span>{{ formatDateTime(entry.createdAt) }}</span>
+              </div>
+              <p>{{ entry.summary }}</p>
+              <small *ngIf="entry.actorEmail">Operatore: {{ entry.actorEmail }}</small>
+              <ul *ngIf="historyChangeLines(entry).length > 0">
+                <li *ngFor="let line of historyChangeLines(entry)">{{ line }}</li>
+              </ul>
+              <div class="history-snapshot" *ngIf="historySnapshotLines(entry).length > 0">
+                <span>Dati registrati</span>
+                <ul>
+                  <li *ngFor="let line of historySnapshotLines(entry)">{{ line }}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </section>
 </div>

@@ -18,6 +18,7 @@ export class TimbratureDettaglioComponent implements OnInit {
   employee: any;
   date!: string;
   works: any[] = [];
+  stampingConfig: any = { mode: 'customer_tag', warehouseLabel: 'Magazzino' };
   loading = false;
 
   modalMode: 'add' | 'edit' | 'delete' | 'resolve' = 'add';
@@ -64,6 +65,7 @@ export class TimbratureDettaglioComponent implements OnInit {
         next: (res) => {
           this.employee = res.employee;
           this.works = res.works;
+          this.stampingConfig = res.stampingConfig || this.stampingConfig;
           this.loading = false;
         },
         error: (err) => {
@@ -168,6 +170,7 @@ export class TimbratureDettaglioComponent implements OnInit {
 
   // 🔹 Risolvi errore
   resolveError(work: any) {
+    if (!work?.solutions?.length) return;
     this.modalMode = 'resolve';
     this.modalTitle = `Risolvi errore: ${work.errorType}`;
     this.currentWork = work;
@@ -336,5 +339,19 @@ export class TimbratureDettaglioComponent implements OnInit {
   // 🔙 Torna indietro
   back(): void {
     this.location.back();
+  }
+
+  isWarehouseMode(): boolean {
+    return this.stampingConfig?.mode === 'warehouse';
+  }
+
+  showPlanningColumns(): boolean {
+    return !this.isWarehouseMode() || this.stampingConfig?.compareWithShifts === true;
+  }
+
+  getStatusLabel(errorType: string): string {
+    if (errorType === 'TURNO_NON_PREVISTO') return 'Non pianificata';
+    if (errorType === 'TIMBRATURA_INCOMPLETA') return 'Incompleta';
+    return errorType;
   }
 }

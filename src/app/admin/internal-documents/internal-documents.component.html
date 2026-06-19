@@ -16,6 +16,15 @@
         <p class="path-label">{{ currentPathLabel }}</p>
       </div>
 
+      <div class="document-search">
+        <mat-icon>search</mat-icon>
+        <input
+          type="search"
+          [(ngModel)]="documentSearch"
+          placeholder="Cerca cartella o file"
+        />
+      </div>
+
       <button
         mat-button
         (click)="selectRoot()"
@@ -39,7 +48,7 @@
       </button>
 
       <mat-list class="folder-list">
-        <mat-list-item *ngFor="let folder of folders" class="folder-item">
+        <mat-list-item *ngFor="let folder of filteredFolders" class="folder-item">
           <div class="folder-row">
             <button
               mat-button
@@ -102,7 +111,7 @@
       </div>
 
       <div class="file-list">
-        <div class="file-row" *ngFor="let file of files">
+        <div class="file-row" *ngFor="let file of filteredFiles">
           <button
             type="button"
             class="file-main"
@@ -167,6 +176,13 @@
 
       <div class="empty-hint" *ngIf="(!files || files.length === 0) && (!folders || folders.length === 0)">
         Carica un documento o crea una sottocartella per iniziare.
+      </div>
+
+      <div
+        class="empty-hint"
+        *ngIf="(files.length > 0 || folders.length > 0) && filteredFiles.length === 0 && filteredFolders.length === 0"
+      >
+        Nessun documento trovato.
       </div>
 
       <div *ngIf="pdfBase64" class="pdf-viewer">

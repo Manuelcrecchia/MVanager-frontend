@@ -403,7 +403,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     });
   }
 
-  finalSave(): void {
+  finalSave(forceSave = false): void {
     const dateStr = this.formatDate(this.selectedDate);
 
     const payload = this.appointments.map((app) => {
@@ -430,7 +430,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     });
 
     this.http
-      .post(this.globalService.url + 'shifts/saveMultiple', { shifts: payload })
+      .post(this.globalService.url + 'shifts/saveMultiple', { shifts: payload, forceSave })
       .subscribe({
         next: () => {
           this.socketService.emitUpdate({
@@ -442,9 +442,35 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Errore salvataggio turni:', err);
+          if (err?.status === 409) {
+            const issues = err?.error?.validationIssues || [];
+            const message = this.formatShiftValidationIssues(issues);
+            const proceed = confirm(
+              `${message}\n\nVuoi salvare comunque i turni con queste incongruenze?`,
+            );
+            if (proceed) {
+              this.finalSave(true);
+            }
+            return;
+          }
           alert(this.parseServerError(err));
         },
       });
+  }
+
+  private formatShiftValidationIssues(issues: any[]): string {
+    if (!Array.isArray(issues) || !issues.length) {
+      return 'Sono state trovate incongruenze nei turni.';
+    }
+
+    const lines = issues
+      .slice(0, 12)
+      .map((issue, index) => `${index + 1}. ${issue?.message || 'Incongruenza turno'}`);
+    if (issues.length > 12) {
+      lines.push(`... altre ${issues.length - 12} incongruenze`);
+    }
+
+    return `Sono state trovate incongruenze nei turni:\n\n${lines.join('\n')}`;
   }
 
   loadVehiclesCache() {
@@ -517,7 +543,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   isComplete(app: any): boolean {
     if (app.forceConfirmed) return true;
     const assigned = this.assignedShifts[app.id] || [];
-    return assigned.length >= (app.requiredEmployees || 1);
+    return assigned.length > 0;
   }
 
   goBack(): void {
@@ -730,6 +756,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
                   isExtra: false,
                   title,
                   description,
+                  numeroCliente: s.appointment?.numeroCliente || null,
                   categories: s.appointment?.categories || '',
                   startDate:
                     s.startDate && s.startDate !== 'null' && s.startDate !== ''
@@ -869,6 +896,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         busyDetails: this.getBusyDetails(app),
         requiredEmployees: app.requiredEmployees,
         selectedDate: this.formatDate(this.selectedDate),
+        numeroCliente: app.numeroCliente || app.appointment?.numeroCliente || null,
       },
     });
 

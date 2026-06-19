@@ -723,6 +723,41 @@
         font-weight: 850;
       }
 
+      .deadline-permission-notice {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 18px 20px;
+        border-radius: 18px;
+        background: rgba(255, 244, 214, 0.9);
+        border: 1px solid rgba(217, 119, 6, 0.22);
+        box-shadow: 0 14px 34px rgba(146, 64, 14, 0.1);
+      }
+
+      .deadline-permission-notice h3 {
+        margin: 0 0 4px;
+        color: #7c3b00;
+        font-size: 1rem;
+        font-weight: 950;
+      }
+
+      .deadline-permission-notice p {
+        margin: 0;
+        color: rgba(124, 59, 0, 0.82);
+        font-weight: 750;
+      }
+
+      .deadline-permission-notice button {
+        border: 0;
+        border-radius: 12px;
+        padding: 10px 14px;
+        background: #11355d;
+        color: #fff;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
       .todo-panel {
         overflow: hidden;
         border-radius: 22px;
@@ -1321,6 +1356,14 @@
               </div>
             </header>
 
+            <section class="deadline-permission-notice" *ngIf="showDeadlinePermissionSetupNotice">
+              <div>
+                <h3>Nuove sezioni scadenze da abilitare</h3>
+                <p>{{ missingNewDeadlinePermissionLabels.join(', ') }}: assegna i permessi agli utenti che devono vederle.</p>
+              </div>
+              <button type="button" (click)="navigateToUserSettings()">Gestisci permessi</button>
+            </section>
+
             <section class="todo-panel" *ngIf="canUseTodoView()" aria-label="Todo list universale">
               <div class="todo-panel-header">
                 <h3>Todo list universale</h3>
@@ -1493,6 +1536,14 @@
                 </button>
               </li>
             </ul>
+          </section>
+
+          <section class="deadline-permission-notice" *ngIf="shouldShowHomeCategories && showDeadlinePermissionSetupNotice">
+            <div>
+              <h3>Nuove sezioni scadenze da abilitare</h3>
+              <p>{{ missingNewDeadlinePermissionLabels.join(', ') }}: assegna i permessi agli utenti che devono vederle.</p>
+            </div>
+            <button type="button" (click)="navigateToUserSettings()">Gestisci permessi</button>
           </section>
 
           <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">

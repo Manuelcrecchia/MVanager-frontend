@@ -45,6 +45,56 @@ mat-dialog-content strong{
   font-weight: 950;
 }
 
+.requirements-panel {
+  margin: 12px 0 16px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(15,23,42,0.1);
+  background: rgba(13,110,253,0.06);
+}
+
+.requirements-panel h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  font-weight: 900;
+  color: #111827;
+}
+
+.requirement-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.requirement-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff;
+  color: #111827;
+  border: 1px solid rgba(15,23,42,0.08);
+}
+
+.requirement-chip strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #0d6efd;
+  color: #fff;
+  font-size: 12px;
+}
+
+.requirement-chip small,
+.requirements-empty {
+  color: rgba(17,24,39,0.62);
+}
+
 /* ===============================
    SELECTION LIST
 ================================= */
@@ -63,7 +113,8 @@ mat-selection-list{
 mat-list-option{
   border-radius: 14px;
   margin: 6px 0;
-  padding: 10px 10px;
+  padding: 12px 10px;
+  min-height: 70px;
 }
 
 /* Testo riga */
@@ -85,14 +136,63 @@ mat-list-option.mdc-list-item--selected{
 
 /* Busy state (class busy) */
 mat-list-option.busy{
-  background: rgba(255,77,77,0.14) !important;
-  box-shadow: inset 0 0 0 1px rgba(255,77,77,0.22);
+  background: rgba(255,193,7,0.22) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,193,7,0.36);
 }
-mat-list-option.busy .mdc-list-item__primary-text{
-  color: rgba(255,255,255,0.92) !important;
+
+mat-list-option.on-leave{
+  background: rgba(239,68,68,0.14) !important;
+  box-shadow: inset 0 0 0 1px rgba(239,68,68,0.28);
+  opacity: 0.72;
+  text-decoration: line-through;
 }
-mat-list-option.busy span{
-  color: rgba(255,255,255,0.85) !important;
+
+mat-list-option.not-qualified{
+  background: rgba(107,114,128,0.12) !important;
+  box-shadow: inset 0 0 0 1px rgba(107,114,128,0.18);
+}
+
+.employee-option {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  color: #000;
+}
+
+.employee-option__main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.employee-option__name {
+  font-weight: 900;
+  color: #111827 !important;
+}
+
+.employee-option__status {
+  color: rgba(17,24,39,0.68) !important;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.employee-option__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(13,110,253,0.12);
+  color: #0b4cb8 !important;
+  font-size: 11px;
   font-weight: 900;
 }
 
@@ -150,6 +250,14 @@ mat-dialog-content > div p {
 
 mat-dialog-content > div span {
   color: #000000 !important;
+}
+
+mat-dialog-content .employee-option__status {
+  color: rgba(17,24,39,0.68) !important;
+}
+
+mat-dialog-content .category-badge {
+  color: #0b4cb8 !important;
 }
 
 mat-checkbox {

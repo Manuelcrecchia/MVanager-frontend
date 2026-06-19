@@ -53,6 +53,35 @@
   align-items: center;
   gap: 8px;
 }
+
+.document-search {
+  margin: 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.document-search mat-icon {
+  color: rgba(17, 17, 17, 0.5);
+}
+
+.document-search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-dark);
+  font-weight: 750;
+}
+
+.document-search input::placeholder {
+  color: rgba(17, 17, 17, 0.48);
+}
 :host ::ng-deep .folder-list .mat-mdc-list-item .mdc-list-item__content {
   width: 100% !important;
   padding: 0 !important;

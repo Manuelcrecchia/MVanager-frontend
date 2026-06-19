@@ -15,6 +15,7 @@ export class InternalDocumentsComponent implements OnInit {
   pdfBase64: string = '';
   imageUrl: string = '';
   newFolderName: string = '';
+  documentSearch: string = '';
 
   currentFilename: string = '';
   fileType: 'pdf' | 'image' | 'signed' | 'other' = 'other';
@@ -37,6 +38,25 @@ export class InternalDocumentsComponent implements OnInit {
 
   get canGoUp(): boolean {
     return !!this.selectedFolder;
+  }
+
+  get filteredFolders(): string[] {
+    const query = this.normalizeSearch(this.documentSearch);
+    if (!query) return this.folders;
+    return this.folders.filter((folder) => this.normalizeSearch(folder).includes(query));
+  }
+
+  get filteredFiles(): any[] {
+    const query = this.normalizeSearch(this.documentSearch);
+    if (!query) return this.files;
+
+    return this.files.filter((file) =>
+      this.normalizeSearch([
+        file?.filename,
+        file?.viewed ? 'visualizzato' : 'non visualizzato',
+        file?.viewedAt,
+      ].join(' ')).includes(query),
+    );
   }
 
   private joinPath(base: string, name: string): string {
@@ -406,6 +426,14 @@ export class InternalDocumentsComponent implements OnInit {
   private clearImageUrl(): void {
     if (this.imageUrl) URL.revokeObjectURL(this.imageUrl);
     this.imageUrl = '';
+  }
+
+  private normalizeSearch(value: unknown): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
+      .trim();
   }
 
   back(): void {

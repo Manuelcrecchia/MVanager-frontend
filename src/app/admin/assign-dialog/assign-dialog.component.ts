@@ -15,6 +15,8 @@ export class AssignDialogComponent implements OnInit {
   capisquadraNotes: { [employeeId: number]: string } = {};
   busyIds: number[] = [];
   forceConfirmed = false;
+  shiftContext: any = null;
+  shiftContextLoaded = false;
 
   // employeeId → info permesso/ferie per la data del turno
   leaveMap: Map<number, { label: string; isFullDay: boolean }> = new Map();
@@ -46,6 +48,32 @@ export class AssignDialogComponent implements OnInit {
     if (this.data.selectedDate && this.canLoadLeavesForShift()) {
       this.loadLeaves(this.data.selectedDate);
     }
+
+    if (this.data.numeroCliente) {
+      this.loadShiftContext(this.data.numeroCliente, this.data.selectedDate);
+    } else {
+      this.shiftContextLoaded = true;
+    }
+  }
+
+  private loadShiftContext(numeroCliente: string, date: string): void {
+    const encodedCustomer = encodeURIComponent(numeroCliente);
+    const encodedDate = encodeURIComponent(date || '');
+    this.http
+      .get<any>(
+        this.globalService.url +
+          `admin/employee-categories/shift-context/${encodedCustomer}?date=${encodedDate}`,
+      )
+      .subscribe({
+        next: (context) => {
+          this.shiftContext = context || null;
+          this.shiftContextLoaded = true;
+        },
+        error: () => {
+          this.shiftContext = null;
+          this.shiftContextLoaded = true;
+        },
+      });
   }
 
   private canLoadLeavesForShift(): boolean {
@@ -113,16 +141,63 @@ export class AssignDialogComponent implements OnInit {
     return this.busyIds.includes(empId);
   }
 
-  onSave(): void {
-    // Controllo 1: numero minimo
-    if (this.selectedEmployees.length < (this.data.requiredEmployees || 1)) {
-      const proceed = confirm(
-        `⚠️ Devi assegnare almeno ${this.data.requiredEmployees || 1} dipendenti.\n\nVuoi salvare lo stesso?`
-      );
-      if (!proceed) return;
+  getRequirements(): any[] {
+    return Array.isArray(this.shiftContext?.requirements)
+      ? this.shiftContext.requirements
+      : [];
+  }
+
+  getEmployeeRequirementStatuses(empId: number): any[] {
+    const statusByCategory = this.shiftContext?.employeeCategoryStatus?.[empId] || {};
+    return this.getRequirements().map((requirement) => {
+      const status = statusByCategory[requirement.categoryId];
+      return {
+        ...requirement,
+        assigned: !!status,
+        valid: !!status?.valid,
+        missingCertifications: status?.missingCertifications || [],
+      };
+    });
+  }
+
+  getEmployeeCategoryLabels(empId: number): string[] {
+    return this.getEmployeeRequirementStatuses(empId)
+      .filter((item) => item.assigned)
+      .map((item) => item.categoryName);
+  }
+
+  canCoverAnyRequirement(empId: number): boolean {
+    const statuses = this.getEmployeeRequirementStatuses(empId);
+    return statuses.some((item) => item.assigned && item.valid);
+  }
+
+  getEmployeeStatusLabel(emp: any): string {
+    if (this.isOnLeave(emp.id)) return this.getLeaveLabel(emp.id) || 'Ferie/permesso';
+    if (this.isBusy(emp.id)) return 'Occupato in questo orario';
+
+    const requirements = this.getRequirements();
+    if (!requirements.length) return 'Disponibile';
+    if (this.canCoverAnyRequirement(emp.id)) return 'Idoneo per almeno una categoria richiesta';
+
+    const assignedButInvalid = this.getEmployeeRequirementStatuses(emp.id).find(
+      (item) => item.assigned && !item.valid,
+    );
+    if (assignedButInvalid) {
+      const cert = assignedButInvalid.missingCertifications?.[0]?.title;
+      return cert ? `Certificazione mancante/scaduta: ${cert}` : 'Certificazione mancante/scaduta';
     }
 
-    // Controllo 2: conflitti turni
+    return 'Non ha categorie richieste dal cliente';
+  }
+
+  getEmployeeRowState(emp: any): string {
+    if (this.isOnLeave(emp.id)) return 'on-leave';
+    if (this.isBusy(emp.id)) return 'busy';
+    if (this.getRequirements().length && !this.canCoverAnyRequirement(emp.id)) return 'not-qualified';
+    return 'available';
+  }
+
+  onSave(): void {
     const conflicts = this.selectedEmployees
       .map(id => this.data.busyDetails.find((c: any) => c.employeeId === id))
       .filter(Boolean);

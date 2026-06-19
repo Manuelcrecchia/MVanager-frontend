@@ -47,15 +47,122 @@
     </div>
   </section>
 
+  <section class="admin-card mb-4" *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')">
+    <div class="card-header py-3 px-4">
+      <h3 class="mb-0 fs-5">Categorie e certificazioni</h3>
+      <p class="mb-0 text-muted small">Definisci le categorie operative e le scadenze obbligatorie collegate</p>
+    </div>
+    <div class="card-body p-4">
+      <div class="row g-3">
+        <div class="col-lg-5">
+          <label class="form-label fw-bold">Nome categoria</label>
+          <input class="form-control form-control-glass mb-2" [(ngModel)]="categoryDraft.name" name="category_name" placeholder="es. Lavavetri alta quota" />
+          <label class="form-label fw-bold">Descrizione</label>
+          <textarea class="form-control form-control-glass" [(ngModel)]="categoryDraft.description" name="category_description" rows="3"></textarea>
+        </div>
+        <div class="col-lg-7">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label fw-bold mb-0">Certificazioni richieste</label>
+            <button type="button" class="btn btn-glass btn-sm" (click)="addCertificationDraft()">Aggiungi</button>
+          </div>
+          <div class="cert-row" *ngFor="let cert of categoryDraft.certifications; let ci = index">
+            <label class="cert-field">
+              <span>Certificazione</span>
+              <input class="form-control form-control-sm" [(ngModel)]="cert.title" name="cert_title_{{ ci }}" placeholder="es. Patente B" />
+            </label>
+            <label class="cert-field">
+              <span>Cartella scadenza</span>
+              <input class="form-control form-control-sm" [(ngModel)]="cert.folder" name="cert_folder_{{ ci }}" placeholder="es. Patenti" />
+            </label>
+            <label class="cert-field cert-field--days">
+              <span>Preavviso</span>
+              <div class="cert-days-wrap">
+                <input type="number" class="form-control form-control-sm cert-days" [(ngModel)]="cert.remindDays" name="cert_days_{{ ci }}" min="0" />
+                <small>giorni prima</small>
+              </div>
+            </label>
+            <button type="button" class="btn btn-glass-dark btn-sm" (click)="removeCertificationDraft(ci)">Rimuovi</button>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex gap-2 justify-content-end mt-3">
+        <button type="button" class="btn btn-glass" (click)="resetCategoryDraft()">Annulla</button>
+        <button type="button" class="btn btn-primary" (click)="saveCategory()">
+          {{ editingCategoryId ? 'Salva categoria' : 'Crea categoria' }}
+        </button>
+      </div>
+
+      <div class="category-list mt-4" *ngIf="categories.length">
+        <div class="search-strip mb-3">
+          <input
+            type="search"
+            class="form-control form-control-glass"
+            [(ngModel)]="categorySearch"
+            placeholder="Cerca categoria o certificazione"
+          />
+          <span>{{ filteredCategories.length }} / {{ categories.length }}</span>
+        </div>
+
+        <article class="category-item" *ngFor="let category of filteredCategories">
+          <div>
+            <strong>{{ category.name }}</strong>
+            <span class="text-muted small ms-2">{{ category.certifications.length || 0 }} certificazioni</span>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-glass btn-sm" (click)="editCategory(category)">Modifica</button>
+            <button type="button" class="btn btn-glass-dark btn-sm" (click)="deleteCategory(category)">Elimina</button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="admin-card mb-4" *ngIf="selectedEmployeeForCategories">
+    <div class="card-header py-3 px-4">
+      <h3 class="mb-0 fs-5">Categorie di {{ selectedEmployeeForCategories.nome }} {{ selectedEmployeeForCategories.cognome }}</h3>
+      <p class="mb-0 text-muted small">Le certificazioni mancanti verranno create nelle scadenze dipendenti come già scadute</p>
+    </div>
+    <div class="card-body p-4">
+      <div class="category-check-grid">
+        <label class="category-check" *ngFor="let category of categories">
+          <input
+            type="checkbox"
+            [checked]="selectedEmployeeCategoryIds.includes(category.id || 0)"
+            (change)="toggleEmployeeCategory(category.id, $any($event.target).checked)"
+          />
+          <span>
+            <strong>{{ category.name }}</strong>
+            <small>{{ category.certifications.length || 0 }} scadenze collegate</small>
+          </span>
+        </label>
+      </div>
+      <div class="d-flex gap-2 justify-content-end mt-3">
+        <button type="button" class="btn btn-glass" (click)="selectedEmployeeForCategories = null">Chiudi</button>
+        <button type="button" class="btn btn-primary" (click)="saveEmployeeCategories()">Salva categorie dipendente</button>
+      </div>
+    </div>
+  </section>
+
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h2 class="mb-0 page-title">Lista Dipendenti</h2>
-    <button
-      class="btn"
-      [ngClass]="showArchived ? 'btn-glass-dark' : 'btn-glass'"
-      (click)="toggleShowArchived()"
-    >
-      {{ showArchived ? '🙈 Nascondi archiviati' : '📦 Mostra archiviati' }}
-    </button>
+    <div class="employee-list-tools">
+      <div class="search-strip search-strip--compact">
+        <input
+          type="search"
+          class="form-control form-control-glass"
+          [(ngModel)]="employeeSearch"
+          placeholder="Cerca dipendente, email, telefono o categoria"
+        />
+        <span>{{ filteredEmployees.length }} / {{ employeess.length }}</span>
+      </div>
+      <button
+        class="btn"
+        [ngClass]="showArchived ? 'btn-glass-dark' : 'btn-glass'"
+        (click)="toggleShowArchived()"
+      >
+        {{ showArchived ? '🙈 Nascondi archiviati' : '📦 Mostra archiviati' }}
+      </button>
+    </div>
   </div>
 
   <div class="table-wrapper">
@@ -67,13 +174,14 @@
           <th class="d-none d-md-table-cell">Email</th>
           <th class="d-none d-md-table-cell">Cellulare</th>
           <th>Ore std.</th>
+          <th>Categorie</th>
           <th style="min-width: 200px">Azioni</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let emp of employeess; let i = index" [class.table-warning]="!emp.active">
+        <tr *ngFor="let emp of filteredEmployees" [class.table-warning]="!emp.active">
           <!-- VIEW MODE -->
-          <ng-container *ngIf="editingIndex !== i; else editRow">
+          <ng-container *ngIf="!isEditingEmployee(emp); else editRow">
             <td>
               {{ emp.nome }}
               <span *ngIf="!emp.active" class="badge bg-warning text-dark ms-1">Archiviato</span>
@@ -82,10 +190,20 @@
             <td class="d-none d-md-table-cell">{{ emp.email }}</td>
             <td class="d-none d-md-table-cell">{{ emp.cellulare }}</td>
             <td>{{ emp.oreGiornaliereDefault || '8.00' }}</td>
+            <td>
+              <div class="employee-category-badges" *ngIf="getEmployeeCategoryNames(emp).length; else noEmployeeCategories">
+                <span class="employee-category-badge" *ngFor="let name of getEmployeeCategoryNames(emp)">{{ name }}</span>
+              </div>
+              <ng-template #noEmployeeCategories>
+                <span class="text-muted small">Nessuna</span>
+              </ng-template>
+            </td>
             <td class="actions-cell">
               <ng-container *ngIf="emp.active">
                 <button *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')"
-                        class="btn btn-glass btn-round btn-sm" (click)="startEdit(i)">✏️ Modifica</button>
+                        class="btn btn-glass btn-round btn-sm" (click)="startEditEmployee(emp)">✏️ Modifica</button>
+                <button *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')"
+                        class="btn btn-primary btn-round btn-sm" (click)="openEmployeeCategories(emp)">Imposta categorie</button>
                 <button *ngIf="globalService.hasPermission('EMPLOYEE_DELETE')"
                         class="btn btn-glass-dark btn-round btn-sm" (click)="exportAndArchiveEmployee(emp)">📦 Archivia</button>
               </ng-container>
@@ -98,23 +216,31 @@
 
           <!-- EDIT MODE -->
           <ng-template #editRow>
-            <td><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.nome" name="e_nome_{{ i }}" /></td>
-            <td><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.cognome" name="e_cognome_{{ i }}" /></td>
-            <td class="d-none d-md-table-cell"><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.email" name="e_email_{{ i }}" /></td>
-            <td class="d-none d-md-table-cell"><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.cellulare" name="e_cell_{{ i }}" /></td>
-            <td><input type="number" class="form-control form-control-sm" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="e_ore_standard_{{ i }}" min="0" max="24" step="0.25" /></td>
+            <td><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.nome" name="e_nome_{{ emp.id }}" /></td>
+            <td><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.cognome" name="e_cognome_{{ emp.id }}" /></td>
+            <td class="d-none d-md-table-cell"><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.email" name="e_email_{{ emp.id }}" /></td>
+            <td class="d-none d-md-table-cell"><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.cellulare" name="e_cell_{{ emp.id }}" /></td>
+            <td><input type="number" class="form-control form-control-sm" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="e_ore_standard_{{ emp.id }}" min="0" max="24" step="0.25" /></td>
+            <td>
+              <span class="text-muted small">Salva o annulla modifica dati</span>
+            </td>
             <td class="actions-cell">
               <button class="btn btn-primary btn-round btn-sm" (click)="saveEdit()">✅ Salva</button>
               <button class="btn btn-glass btn-round btn-sm" (click)="cancelEdit()">✖ Annulla</button>
             </td>
           </ng-template>
         </tr>
+        <tr *ngIf="filteredEmployees.length === 0">
+          <td colspan="7" class="text-center text-muted py-4">
+            Nessun dipendente trovato.
+          </td>
+        </tr>
       </tbody>
     </table>
   </div>
 
-  <div class="mobile-only employee-card-list" *ngIf="employeess.length > 0">
-    <article class="employee-card" *ngFor="let emp of employeess; let i = index">
+  <div class="mobile-only employee-card-list" *ngIf="filteredEmployees.length > 0">
+    <article class="employee-card" *ngFor="let emp of filteredEmployees">
       <div class="employee-card__top">
         <span class="employee-card__id">#{{ emp.id }}</span>
         <span *ngIf="!emp.active" class="badge bg-warning text-dark">Archiviato</span>
@@ -123,12 +249,17 @@
         <h3>{{ emp.nome }} {{ emp.cognome }}</h3>
         <p>{{ emp.email }}</p>
         <p class="small">{{ emp.cellulare }} &middot; {{ emp.oreGiornaliereDefault || '8' }}h/g</p>
+        <div class="employee-category-badges" *ngIf="getEmployeeCategoryNames(emp).length">
+          <span class="employee-category-badge" *ngFor="let name of getEmployeeCategoryNames(emp)">{{ name }}</span>
+        </div>
       </div>
       <div class="employee-card__actions">
-        <ng-container *ngIf="editingIndex !== i; else editMobile">
+        <ng-container *ngIf="!isEditingEmployee(emp); else editMobile">
           <ng-container *ngIf="emp.active">
             <button *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')"
-                    class="btn btn-glass btn-round btn-sm" (click)="startEdit(i)">✏️ Modifica</button>
+                    class="btn btn-glass btn-round btn-sm" (click)="startEditEmployee(emp)">✏️ Modifica</button>
+            <button *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')"
+                    class="btn btn-primary btn-round btn-sm" (click)="openEmployeeCategories(emp)">Imposta categorie</button>
             <button *ngIf="globalService.hasPermission('EMPLOYEE_DELETE')"
                     class="btn btn-glass-dark btn-round btn-sm" (click)="exportAndArchiveEmployee(emp)">📦 Archivia</button>
           </ng-container>
@@ -138,11 +269,11 @@
           </ng-container>
         </ng-container>
         <ng-template #editMobile>
-          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.nome" name="m_nome_{{ i }}" placeholder="Nome" />
-          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.cognome" name="m_cognome_{{ i }}" placeholder="Cognome" />
-          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.email" name="m_email_{{ i }}" placeholder="Email" />
-          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.cellulare" name="m_cell_{{ i }}" placeholder="Cellulare" />
-          <input type="number" class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="m_ore_{{ i }}" placeholder="Ore std." min="0" max="24" step="0.25" />
+          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.nome" name="m_nome_{{ emp.id }}" placeholder="Nome" />
+          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.cognome" name="m_cognome_{{ emp.id }}" placeholder="Cognome" />
+          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.email" name="m_email_{{ emp.id }}" placeholder="Email" />
+          <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.cellulare" name="m_cell_{{ emp.id }}" placeholder="Cellulare" />
+          <input type="number" class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="m_ore_{{ emp.id }}" placeholder="Ore std." min="0" max="24" step="0.25" />
           <button class="btn btn-primary btn-round btn-sm w-100 mb-1" (click)="saveEdit()">✅ Salva</button>
           <button class="btn btn-glass btn-round btn-sm w-100" (click)="cancelEdit()">✖ Annulla</button>
         </ng-template>

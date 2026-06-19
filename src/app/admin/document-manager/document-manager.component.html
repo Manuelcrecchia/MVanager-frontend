@@ -30,6 +30,15 @@
         </div>
 
         <div class="mv-card__body">
+          <div class="mv-document-search">
+            <mat-icon>search</mat-icon>
+            <input
+              type="search"
+              [(ngModel)]="documentSearch"
+              placeholder="Cerca cartella o file"
+            />
+          </div>
+
           <button
             mat-button
             (click)="selectRoot()"
@@ -53,7 +62,7 @@
           </button>
 
           <mat-list class="folder-list">
-            <mat-list-item *ngFor="let folder of folders" class="folder-item">
+            <mat-list-item *ngFor="let folder of filteredFolders" class="folder-item">
               <div class="folder-row">
                 <button
                   mat-button
@@ -142,7 +151,7 @@
           <div class="mv-card__body">
             <!-- LISTA FILE -->
             <mat-list class="mv-files">
-              <div class="mv-file-row" *ngFor="let file of files">
+              <div class="mv-file-row" *ngFor="let file of filteredFiles">
                 <!-- CLICK SOLO SU NOME/ICONA -->
                 <button
                   mat-button
@@ -235,6 +244,17 @@
               <div class="mv-empty__title">Nessun elemento in questa cartella</div>
               <div class="mv-empty__text">
                 Carica un documento o crea una sottocartella per iniziare.
+              </div>
+            </div>
+
+            <div
+              class="mv-empty"
+              *ngIf="(files.length > 0 || folders.length > 0) && filteredFiles.length === 0 && filteredFolders.length === 0"
+            >
+              <div class="mv-empty__icon">⌕</div>
+              <div class="mv-empty__title">Nessun documento trovato</div>
+              <div class="mv-empty__text">
+                Modifica la ricerca o svuota il campo per vedere tutti gli elementi.
               </div>
             </div>
           </div>

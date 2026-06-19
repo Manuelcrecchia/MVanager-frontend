@@ -13,6 +13,10 @@ import { saveAs } from 'file-saver';
 export class ListCustomerComponent {
   customers: any[] = [];
   customersFrEnd: any[] = [];
+  employeeCategories: any[] = [];
+  requirementCustomer: any | null = null;
+  requirementCounts: { [categoryId: number]: number } = {};
+  customerSearch = '';
 
   constructor(
     private http: HttpClient,
@@ -23,6 +27,23 @@ export class ListCustomerComponent {
 
   ngOnInit(): void {
     this.getCustomers();
+    this.getEmployeeCategories();
+  }
+
+  getEmployeeCategories(): void {
+    this.http
+      .get<any[]>(this.globalService.url + 'admin/employee-categories', {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (categories) => {
+          this.employeeCategories = Array.isArray(categories) ? categories : [];
+        },
+        error: (err) => {
+          console.error('Errore categorie dipendenti:', err);
+          this.employeeCategories = [];
+        },
+      });
   }
 
   getCustomers(): void {
@@ -35,8 +56,10 @@ export class ListCustomerComponent {
         next: (response) => {
           try {
             const data = JSON.parse(response);
-            this.customers = data;
-            this.customersFrEnd = data;
+            this.customers = Array.isArray(data)
+              ? data.filter((customer) => customer?.active !== false)
+              : [];
+            this.applyCustomerSearch();
           } catch (err) {
             console.error('Errore nel parse JSON dei clienti:', err);
           }
@@ -72,6 +95,29 @@ export class ListCustomerComponent {
           this.normalize(this.getCustomerDisplayName(c)).includes(q),
         )
       : [...this.customers];
+  }
+
+  applyCustomerSearch(): void {
+    const q = this.normalize(this.customerSearch);
+    this.customersFrEnd = q
+      ? this.customers.filter((customer) =>
+          this.normalize(this.getCustomerSearchText(customer)).includes(q),
+        )
+      : [...this.customers];
+  }
+
+  clearCustomerSearch(): void {
+    this.customerSearch = '';
+    this.applyCustomerSearch();
+  }
+
+  private getCustomerSearchText(customer: any): string {
+    return [
+      customer?.numeroCliente,
+      this.getCustomerDisplayName(customer),
+      this.getCustomerEmail(customer),
+      this.getCustomerPhone(customer),
+    ].join(' ');
   }
 
   getCustomerDisplayName(customer: any): string {
@@ -117,35 +163,37 @@ export class ListCustomerComponent {
       });
   }
 
-  exportAndDeleteCustomer(customer: any): void {
+  archiveCustomer(customer: any): void {
     if (
       !confirm(
-        `Vuoi esportare e cancellare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}"?`,
+        `Vuoi scaricare l'archivio completo e archiviare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}"?`,
       )
     )
       return;
 
     const body = {
-      prefix: 'customer',
-      id: customer.numeroCliente,
+      numeroCliente: customer.numeroCliente,
     };
 
     this.http
-      .post(this.globalService.url + 'customers/exportAndDeleteUser', body, {
+      .post(this.globalService.url + 'customers/archive', body, {
         headers: this.globalService.headers,
         responseType: 'blob',
       })
       .subscribe({
         next: (blob) => {
-          const nomeFile = `cliente_${customer.numeroCliente}.zip`;
+          const nomeFile = `archivio_cliente_${customer.numeroCliente}.zip`;
           saveAs(blob, nomeFile);
 
-          alert('Cliente esportato e cancellato con successo.');
-          this.ngOnInit(); // aggiorna la tabella
+          alert('Archivio cliente scaricato e cliente archiviato con successo.');
+          this.customers = this.customers.filter(
+            (item) => String(item?.numeroCliente) !== String(customer.numeroCliente),
+          );
+          this.applyCustomerSearch();
         },
         error: (err) => {
-          console.error("Errore durante l'esportazione/cancellazione:", err);
-          alert("Errore durante l'esportazione o eliminazione del cliente.");
+          console.error("Errore durante l'archiviazione cliente:", err);
+          alert("Errore durante il download o l'archiviazione del cliente.");
         },
       });
   }
@@ -166,6 +214,54 @@ export class ListCustomerComponent {
   viewDocuments(numeroCliente: string) {
     // Naviga o apri modale, a seconda di come gestisci i documenti
     this.router.navigate(['/documenti/client', numeroCliente]);
+  }
+
+  openStaffRequirements(customer: any): void {
+    this.requirementCustomer = customer;
+    this.requirementCounts = {};
+    this.http
+      .get<any[]>(this.globalService.url + `admin/employee-categories/customer/${customer.numeroCliente}`, {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (rows) => {
+          for (const row of rows || []) {
+            this.requirementCounts[Number(row.categoryId)] = Number(row.requiredCount) || 0;
+          }
+        },
+        error: (err) => {
+          console.error('Errore requisiti personale cliente:', err);
+          alert('Errore durante il caricamento requisiti personale');
+        },
+      });
+  }
+
+  saveStaffRequirements(): void {
+    if (!this.requirementCustomer) return;
+
+    const requirements = this.employeeCategories
+      .map((category) => ({
+        categoryId: category.id,
+        requiredCount: Number(this.requirementCounts[Number(category.id)] || 0),
+      }))
+      .filter((item) => item.categoryId && item.requiredCount > 0);
+
+    this.http
+      .post(
+        this.globalService.url + `admin/employee-categories/customer/${this.requirementCustomer.numeroCliente}`,
+        { requirements },
+        { headers: this.globalService.headers },
+      )
+      .subscribe({
+        next: () => {
+          alert('Requisiti personale salvati');
+          this.requirementCustomer = null;
+        },
+        error: (err) => {
+          console.error('Errore salvataggio requisiti personale:', err);
+          alert('Errore durante il salvataggio requisiti personale');
+        },
+      });
   }
 
   openCustomerWhatsApp(customer: any): void {

@@ -6,7 +6,22 @@
       {{ data.endDate | date : "HH:mm" }}
     </p>
     <p><strong>Cliente:</strong> {{ data.title }}</p>
-    <p><strong>Dipendenti richiesti:</strong> {{ data.requiredEmployees }}</p>
+
+    <section class="requirements-panel" *ngIf="shiftContextLoaded">
+      <h3>Richieste del cliente</h3>
+      <div class="requirement-list" *ngIf="getRequirements().length; else noRequirements">
+        <div class="requirement-chip" *ngFor="let requirement of getRequirements()">
+          <strong>{{ requirement.requiredCount }}</strong>
+          <span>{{ requirement.categoryName }}</span>
+          <small *ngIf="requirement.certifications?.length">
+            {{ requirement.certifications.length }} certificazioni
+          </small>
+        </div>
+      </div>
+      <ng-template #noRequirements>
+        <p class="requirements-empty">Nessun requisito per categoria impostato su questo cliente.</p>
+      </ng-template>
+    </section>
 
     <div style="margin-bottom: 20px;">
       <p style="font-weight: bold; margin-bottom: 10px;">Dipendenti assegnati:</p>
@@ -15,18 +30,22 @@
           *ngFor="let e of employees"
           [value]="e.id"
           [disabled]="isOnLeave(e.id)"
-          [ngClass]="{ 'busy': isBusy(e.id), 'on-leave': isOnLeave(e.id) }"
+          [ngClass]="getEmployeeRowState(e)"
         >
-          {{ e.nome }} {{ e.cognome }}
-          <span *ngIf="isOnLeave(e.id)" style="color: #e67e22; font-size: 0.82em; margin-left: 6px;">
-            {{ getLeaveLabel(e.id) }}
-          </span>
-          <span *ngIf="!isOnLeave(e.id) && getLeaveLabel(e.id)" style="color: #3498db; font-size: 0.82em; margin-left: 6px;">
-            {{ getLeaveLabel(e.id) }}
-          </span>
-          <span *ngIf="isBusy(e.id) && !isOnLeave(e.id)" style="color: #e74c3c; font-size: 0.82em; margin-left: 6px;">
-            (occupato)
-          </span>
+          <div class="employee-option">
+            <div class="employee-option__main">
+              <span class="employee-option__name">{{ e.nome }} {{ e.cognome }}</span>
+              <span class="employee-option__status">{{ getEmployeeStatusLabel(e) }}</span>
+            </div>
+            <div class="employee-option__badges">
+              <span
+                class="category-badge"
+                *ngFor="let label of getEmployeeCategoryLabels(e.id)"
+              >
+                {{ label }}
+              </span>
+            </div>
+          </div>
         </mat-list-option>
       </mat-selection-list>
     </div>

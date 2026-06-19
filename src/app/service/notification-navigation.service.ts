@@ -101,6 +101,18 @@ export class NotificationNavigationService {
       return `/vehicle-deadlines${deadlineId ? `?deadlineId=${encodeURIComponent(deadlineId)}` : ''}`;
     }
 
+    if (screen === 'equipmentDeadlines' || type === 'DEADLINE_EQUIPMENT_REMINDER') {
+      return `/equipment-deadlines${deadlineId ? `?deadlineId=${encodeURIComponent(deadlineId)}` : ''}`;
+    }
+
+    if (screen === 'customerDeadlines' || type === 'DEADLINE_CUSTOMER_REMINDER') {
+      return `/customer-deadlines${deadlineId ? `?deadlineId=${encodeURIComponent(deadlineId)}` : ''}`;
+    }
+
+    if (screen === 'internalDeadlines' || type === 'DEADLINE_INTERNAL_REMINDER') {
+      return `/internal-deadlines${deadlineId ? `?deadlineId=${encodeURIComponent(deadlineId)}` : ''}`;
+    }
+
     if (screen === 'quoteReview' || type === 'QUOTE_ACCEPTED_REVIEW') {
       const params = new URLSearchParams();
       if (numeroPreventivo) params.set('numeroPreventivo', numeroPreventivo);
@@ -134,6 +146,18 @@ export class NotificationNavigationService {
 
     if (normalizedPath === '/deadlines/vehicles') {
       return `/vehicle-deadlines${suffix}`;
+    }
+
+    if (normalizedPath === '/deadlines/equipment') {
+      return `/equipment-deadlines${suffix}`;
+    }
+
+    if (normalizedPath === '/deadlines/customers') {
+      return `/customer-deadlines${suffix}`;
+    }
+
+    if (normalizedPath === '/deadlines/internal') {
+      return `/internal-deadlines${suffix}`;
     }
 
     if (normalizedPath === '/quotes') {

@@ -112,6 +112,22 @@
       </div>
     </div>
 
+    <section class="staff-requirements mt-4">
+      <h3>Personale richiesto</h3>
+      <p class="staff-requirements__hint">
+        Imposta quante persone servono per ogni categoria operativa del cliente.
+      </p>
+      <div class="staff-requirements__empty" *ngIf="employeeCategoriesLoaded && !employeeCategories.length">
+        Nessuna categoria dipendente configurata. Crea prima le categorie in Dipendenti &gt; Categorie e certificazioni.
+      </div>
+      <div class="staff-requirements__grid" *ngIf="employeeCategories.length">
+        <label class="staff-requirements__row" *ngFor="let category of employeeCategories">
+          <span>{{ category.name }}</span>
+          <input type="number" min="0" [(ngModel)]="requirementCounts[category.id]" name="staff_req_{{ category.id }}" />
+        </label>
+      </div>
+    </section>
+
     <div class="col-12 text-center mt-4">
       <button mat-raised-button color="primary" type="button" (click)="addCustomer()">
         Salva

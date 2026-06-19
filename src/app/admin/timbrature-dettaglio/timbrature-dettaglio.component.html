@@ -13,6 +13,14 @@
     Timbrature di {{ employee?.nome }} {{ employee?.cognome }}
   </h2>
 
+  <div class="alert alert-light border text-center fw-semibold">
+    Modalità:
+    <span *ngIf="!isWarehouseMode()">tag cliente</span>
+    <span *ngIf="isWarehouseMode()">
+      magazzino / sede - {{ stampingConfig?.warehouseLabel || 'Magazzino' }}
+    </span>
+  </div>
+
   <!-- 📅 Controllo data -->
   <div
     class="d-flex justify-content-center align-items-center mb-4 gap-3 flex-wrap"
@@ -39,10 +47,10 @@
     <table class="table table-hover align-middle text-center shadow-sm">
       <thead class="table-light">
         <tr>
-          <th>Cliente / Lavoro</th>
-          <th>Durata pianificata</th>
+          <th>{{ isWarehouseMode() ? 'Sede' : 'Cliente / Lavoro' }}</th>
+          <th *ngIf="showPlanningColumns()">Durata pianificata</th>
           <th>Durata effettiva</th>
-          <th>Diff</th>
+          <th *ngIf="showPlanningColumns()">Diff</th>
           <th>Stato</th>
           <th>Timbrature</th>
           <th>Azioni</th>
@@ -56,7 +64,9 @@
           [ngClass]="{
             'table-success': !work.errorType,
             'table-warning':
-              work.errorType === 'STRAORDINARIO' || work.errorType === 'RIDUZIONE',
+              work.errorType === 'STRAORDINARIO' ||
+              work.errorType === 'RIDUZIONE' ||
+              work.errorType === 'TIMBRATURA_INCOMPLETA',
             'table-danger':
               work.errorType === 'TURNO_NON_PREVISTO' || work.errorType === 'nonPianificata'
           }"
@@ -67,13 +77,14 @@
           </td>
 
           <!-- ⏱ Pianificato -->
-          <td>{{ work.plannedMinutes }} min</td>
+          <td *ngIf="showPlanningColumns()">{{ work.plannedMinutes }} min</td>
 
           <!-- ⏱ Effettivo -->
           <td>{{ work.stampedMinutes }} min</td>
 
           <!-- 🔁 Differenza -->
           <td
+            *ngIf="showPlanningColumns()"
             [ngClass]="{
               'text-success': work.diffMinutes === 0,
               'text-danger': work.diffMinutes !== 0
@@ -91,17 +102,15 @@
                 'bg-danger':
                   work.errorType === 'TURNO_NON_PREVISTO' || work.errorType === 'nonPianificata',
                 'bg-warning text-dark':
-                  work.errorType === 'STRAORDINARIO' || work.errorType === 'RIDUZIONE'
+                  work.errorType === 'STRAORDINARIO' ||
+                  work.errorType === 'RIDUZIONE' ||
+                  work.errorType === 'TIMBRATURA_INCOMPLETA'
               }"
               (click)="resolveError(work)"
-              style="cursor: pointer"
+              [style.cursor]="work.solutions?.length ? 'pointer' : 'default'"
               title="Gestisci errore"
             >
-              {{
-                work.errorType === "TURNO_NON_PREVISTO"
-                  ? "Non pianificata"
-                  : work.errorType
-              }}
+              {{ getStatusLabel(work.errorType) }}
             </span>
 
             <span *ngIf="!work.errorType" class="badge bg-success">OK</span>
@@ -141,8 +150,9 @@
 
             <button
               *ngIf="
-                work.errorType === 'TURNO_NON_PREVISTO' ||
-                work.errorType === 'nonPianificata'
+                work.solutions?.length &&
+                (work.errorType === 'TURNO_NON_PREVISTO' ||
+                work.errorType === 'nonPianificata')
               "
               type="button"
               class="btn btn-sm btn-outline-danger ms-1"

@@ -1,0 +1,53 @@
+.staff-requirements {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.94);
+  box-shadow: 0 16px 40px rgba(2,6,23,0.08);
+}
+
+.staff-requirements h3 {
+  margin: 0 0 8px;
+  color: #111827;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.staff-requirements__hint {
+  margin: 0 0 12px;
+  color: rgba(17,24,39,0.68);
+}
+
+.staff-requirements__empty {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(13,110,253,0.08);
+  color: #111827;
+  font-weight: 800;
+}
+
+.staff-requirements__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.staff-requirements__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(17,24,39,0.08);
+  background: #fff;
+  color: #111827;
+  font-weight: 800;
+}
+
+.staff-requirements__row input {
+  width: 82px;
+  border: 1px solid rgba(17,24,39,0.18);
+  border-radius: 10px;
+  padding: 7px 8px;
+}

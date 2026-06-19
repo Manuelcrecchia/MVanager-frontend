@@ -17,6 +17,7 @@ interface Vehicle {
 export class VehiclesSettingsComponent implements OnInit {
   vehicles: Vehicle[] = [];
   loading = false;
+  vehicleSearch = '';
 
   addForm: { name: string; plate: string } = { name: '', plate: '' };
 
@@ -31,6 +32,15 @@ export class VehiclesSettingsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadVehicles();
+  }
+
+  get filteredVehicles(): Vehicle[] {
+    const query = this.normalizeSearch(this.vehicleSearch);
+    if (!query) return this.vehicles;
+
+    return this.vehicles.filter((vehicle) =>
+      this.normalizeSearch([vehicle.name, vehicle.plate].join(' ')).includes(query),
+    );
   }
 
   back() {
@@ -129,5 +139,13 @@ export class VehiclesSettingsComponent implements OnInit {
           alert(err?.error?.error || 'Errore eliminazione mezzo');
         },
       });
+  }
+
+  private normalizeSearch(value: unknown): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
+      .trim();
   }
 }

@@ -92,6 +92,15 @@ export class UserSettingsComponent implements OnInit {
     VEHICLE_DEADLINES_CREATE: ['VEHICLE_DEADLINES_VIEW'],
     VEHICLE_DEADLINES_EDIT: ['VEHICLE_DEADLINES_VIEW'],
     VEHICLE_DEADLINES_DELETE: ['VEHICLE_DEADLINES_VIEW'],
+    EQUIPMENT_DEADLINES_CREATE: ['EQUIPMENT_DEADLINES_VIEW'],
+    EQUIPMENT_DEADLINES_EDIT: ['EQUIPMENT_DEADLINES_VIEW'],
+    EQUIPMENT_DEADLINES_DELETE: ['EQUIPMENT_DEADLINES_VIEW'],
+    CUSTOMER_DEADLINES_CREATE: ['CUSTOMER_DEADLINES_VIEW'],
+    CUSTOMER_DEADLINES_EDIT: ['CUSTOMER_DEADLINES_VIEW'],
+    CUSTOMER_DEADLINES_DELETE: ['CUSTOMER_DEADLINES_VIEW'],
+    INTERNAL_DEADLINES_CREATE: ['INTERNAL_DEADLINES_VIEW'],
+    INTERNAL_DEADLINES_EDIT: ['INTERNAL_DEADLINES_VIEW'],
+    INTERNAL_DEADLINES_DELETE: ['INTERNAL_DEADLINES_VIEW'],
   };
 
   constructor(
@@ -255,6 +264,33 @@ export class UserSettingsComponent implements OnInit {
           'VEHICLE_DEADLINES_CREATE',
           'VEHICLE_DEADLINES_EDIT',
           'VEHICLE_DEADLINES_DELETE',
+        ]),
+      },
+      {
+        title: 'Scadenze attrezzature',
+        items: pick([
+          'EQUIPMENT_DEADLINES_VIEW',
+          'EQUIPMENT_DEADLINES_CREATE',
+          'EQUIPMENT_DEADLINES_EDIT',
+          'EQUIPMENT_DEADLINES_DELETE',
+        ]),
+      },
+      {
+        title: 'Scadenze clienti',
+        items: pick([
+          'CUSTOMER_DEADLINES_VIEW',
+          'CUSTOMER_DEADLINES_CREATE',
+          'CUSTOMER_DEADLINES_EDIT',
+          'CUSTOMER_DEADLINES_DELETE',
+        ]),
+      },
+      {
+        title: 'Scadenze interne',
+        items: pick([
+          'INTERNAL_DEADLINES_VIEW',
+          'INTERNAL_DEADLINES_CREATE',
+          'INTERNAL_DEADLINES_EDIT',
+          'INTERNAL_DEADLINES_DELETE',
         ]),
       },
       { title: 'Documenti interni', items: pick(['INTERNAL_DOCS_ACCESS']) },

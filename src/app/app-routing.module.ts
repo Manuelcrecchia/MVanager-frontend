@@ -149,6 +149,24 @@ const routes: Routes = [
         data: { permission: 'VEHICLE_DEADLINES_VIEW', kind: 'vehicle' },
       },
       {
+        path: 'equipment-deadlines',
+        component: DeadlinesManagementComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'EQUIPMENT_DEADLINES_VIEW', kind: 'equipment' },
+      },
+      {
+        path: 'customer-deadlines',
+        component: DeadlinesManagementComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMER_DEADLINES_VIEW', kind: 'customer' },
+      },
+      {
+        path: 'internal-deadlines',
+        component: DeadlinesManagementComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'INTERNAL_DEADLINES_VIEW', kind: 'internal' },
+      },
+      {
         path: 'internal-documents',
         component: InternalDocumentsComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
@@ -328,6 +346,24 @@ const routes: Routes = [
     component: DeadlinesManagementComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
     data: { permission: 'VEHICLE_DEADLINES_VIEW', kind: 'vehicle' },
+  },
+  {
+    path: 'equipment-deadlines',
+    component: DeadlinesManagementComponent,
+    canActivate: [AuthGuard, AuthLevelGuard],
+    data: { permission: 'EQUIPMENT_DEADLINES_VIEW', kind: 'equipment' },
+  },
+  {
+    path: 'customer-deadlines',
+    component: DeadlinesManagementComponent,
+    canActivate: [AuthGuard, AuthLevelGuard],
+    data: { permission: 'CUSTOMER_DEADLINES_VIEW', kind: 'customer' },
+  },
+  {
+    path: 'internal-deadlines',
+    component: DeadlinesManagementComponent,
+    canActivate: [AuthGuard, AuthLevelGuard],
+    data: { permission: 'INTERNAL_DEADLINES_VIEW', kind: 'internal' },
   },
 
   // permessi/assenze dipendenti

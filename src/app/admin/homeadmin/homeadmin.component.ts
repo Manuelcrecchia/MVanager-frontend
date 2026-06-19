@@ -84,6 +84,9 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   emailUnreadCount: number = 0;
   employeeDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   vehicleDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
+  equipmentDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
+  customerDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
+  internalDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   sidebarCollapsed = false;
   settingsMenuOpen = false;
   adminTodos: AdminTodo[] = [];
@@ -161,10 +164,16 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   loadDeadlineSummary(): void {
     if (
       !this.canUsePermission('EMPLOYEE_DEADLINES_VIEW') &&
-      !this.canUsePermission('VEHICLE_DEADLINES_VIEW')
+      !this.canUsePermission('VEHICLE_DEADLINES_VIEW') &&
+      !this.canUsePermission('EQUIPMENT_DEADLINES_VIEW') &&
+      !this.canUsePermission('CUSTOMER_DEADLINES_VIEW') &&
+      !this.canUsePermission('INTERNAL_DEADLINES_VIEW')
     ) {
       this.employeeDeadlineSummary = this.emptyDeadlineSummary();
       this.vehicleDeadlineSummary = this.emptyDeadlineSummary();
+      this.equipmentDeadlineSummary = this.emptyDeadlineSummary();
+      this.customerDeadlineSummary = this.emptyDeadlineSummary();
+      this.internalDeadlineSummary = this.emptyDeadlineSummary();
       return;
     }
 
@@ -177,6 +186,15 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
           );
           this.vehicleDeadlineSummary = this.normalizeDeadlineSummary(
             res?.vehicles,
+          );
+          this.equipmentDeadlineSummary = this.normalizeDeadlineSummary(
+            res?.equipment,
+          );
+          this.customerDeadlineSummary = this.normalizeDeadlineSummary(
+            res?.customers,
+          );
+          this.internalDeadlineSummary = this.normalizeDeadlineSummary(
+            res?.internal,
           );
         },
         error: (err) => {
@@ -343,6 +361,18 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.router.navigateByUrl('/vehicle-deadlines');
   }
 
+  navigateToEquipmentDeadlines() {
+    this.router.navigateByUrl('/equipment-deadlines');
+  }
+
+  navigateToCustomerDeadlines() {
+    this.router.navigateByUrl('/customer-deadlines');
+  }
+
+  navigateToInternalDeadlines() {
+    this.router.navigateByUrl('/internal-deadlines');
+  }
+
   navigateToLeaveSettings() {
     this.router.navigateByUrl('/leave-settings');
   }
@@ -401,6 +431,16 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             badgeClass: () => this.deadlineBadgeClass(this.vehicleDeadlineSummary),
           },
           {
+            label: 'Scadenze Attrezzature',
+            icon: 'fas fa-toolbox',
+            permission: 'EQUIPMENT_DEADLINES_VIEW',
+            feature: 'deadlines',
+            action: () => this.navigateToEquipmentDeadlines(),
+            desktopPath: 'equipment-deadlines',
+            badgeCount: () => this.equipmentDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.equipmentDeadlineSummary),
+          },
+          {
             label: 'Ordini di servizio',
             icon: 'fas fa-clipboard-list',
             permission: 'SERVICE_ORDERS_VIEW',
@@ -430,6 +470,16 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'customers',
             action: () => this.navigateToListCustomer(),
             desktopPath: 'listCustomer',
+          },
+          {
+            label: 'Scadenze Clienti',
+            icon: 'fas fa-user-shield',
+            permission: 'CUSTOMER_DEADLINES_VIEW',
+            feature: 'deadlines',
+            action: () => this.navigateToCustomerDeadlines(),
+            desktopPath: 'customer-deadlines',
+            badgeCount: () => this.customerDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.customerDeadlineSummary),
           },
           {
             label: 'Gestione Preventivi',
@@ -483,6 +533,16 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             desktopPath: 'employee-deadlines',
             badgeCount: () => this.employeeDeadlineSummary.alertCount,
             badgeClass: () => this.deadlineBadgeClass(this.employeeDeadlineSummary),
+          },
+          {
+            label: 'Scadenze Interne',
+            icon: 'fas fa-building-shield',
+            permission: 'INTERNAL_DEADLINES_VIEW',
+            feature: 'deadlines',
+            action: () => this.navigateToInternalDeadlines(),
+            desktopPath: 'internal-deadlines',
+            badgeCount: () => this.internalDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.internalDeadlineSummary),
           },
           {
             label: 'Riepilogo presenze personalizzabile',
@@ -758,6 +818,33 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   canUseTodoManage(): boolean {
     return this.canUsePermission('TODOS_MANAGE', 'todos');
+  }
+
+  get missingNewDeadlinePermissionLabels(): string[] {
+    const missing = [
+      {
+        permission: 'EQUIPMENT_DEADLINES_VIEW',
+        label: 'Scadenze attrezzature',
+      },
+      {
+        permission: 'CUSTOMER_DEADLINES_VIEW',
+        label: 'Scadenze clienti',
+      },
+      {
+        permission: 'INTERNAL_DEADLINES_VIEW',
+        label: 'Scadenze interne',
+      },
+    ].filter((item) => !this.canUsePermission(item.permission, 'deadlines'));
+
+    return missing.map((item) => item.label);
+  }
+
+  get showDeadlinePermissionSetupNotice(): boolean {
+    return (
+      this.global.hasTenantFeature('deadlines') &&
+      this.canUsePermission('ADMIN_EDIT', 'administrators') &&
+      this.missingNewDeadlinePermissionLabels.length > 0
+    );
   }
 
   @HostListener('window:resize')

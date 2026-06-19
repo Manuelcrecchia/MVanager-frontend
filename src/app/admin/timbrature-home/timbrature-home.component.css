@@ -97,6 +97,34 @@ html, body{
   outline:none;
 }
 
+.search-strip {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.search-strip input {
+  min-width: 0;
+  background: rgba(255,255,255,0.92);
+  color: #000;
+  border-radius: 12px;
+}
+
+.search-strip span {
+  flex: 0 0 auto;
+  color: rgba(255,255,255,0.86);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 /* Table wrapper glass */
 .table-responsive{
   border-radius: var(--radius-lg);

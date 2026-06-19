@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
-type DeadlineKind = 'employee' | 'vehicle';
+type DeadlineKind = 'employee' | 'vehicle' | 'equipment' | 'customer' | 'internal';
 type DeadlineStatus = 'ok' | 'warning' | 'expired';
 
 interface DeadlineAttachment {
@@ -28,6 +28,13 @@ interface VehicleTarget {
   plate?: string | null;
 }
 
+interface GenericTarget {
+  id: string;
+  targetKey: string;
+  targetLabel: string;
+  numeroCliente?: string;
+}
+
 interface DeadlineSummary {
   expiredCount: number;
   warningCount: number;
@@ -41,6 +48,9 @@ interface DeadlineRecord {
   entityType: DeadlineKind;
   employeeId?: number;
   vehicleId?: number;
+  targetKey?: string;
+  targetLabel?: string;
+  folder?: string;
   title: string;
   description: string;
   dueDate: string;
@@ -53,11 +63,28 @@ interface DeadlineRecord {
 }
 
 interface DeadlineGroup {
-  id: number;
+  id: string | number;
   label: string;
   subtitle: string;
   deadlines: DeadlineRecord[];
   summary: DeadlineSummary;
+}
+
+interface DeadlineFolderGroup {
+  folder: string;
+  deadlines: DeadlineRecord[];
+  summary: DeadlineSummary;
+}
+
+interface DeadlineHistoryEntry {
+  id: number;
+  deadlineId: number;
+  action: string;
+  summary: string;
+  changes: Record<string, any>;
+  snapshot: Record<string, any>;
+  actorEmail?: string | null;
+  createdAt: string;
 }
 
 @Component({
@@ -69,9 +96,10 @@ export class DeadlinesManagementComponent implements OnInit {
   @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>;
 
   kind: DeadlineKind = 'employee';
-  entities: Array<EmployeeTarget | VehicleTarget> = [];
+  entities: Array<EmployeeTarget | VehicleTarget | GenericTarget> = [];
   deadlines: DeadlineRecord[] = [];
   groups: DeadlineGroup[] = [];
+  selectedGroup: DeadlineGroup | null = null;
 
   loading = false;
   entitiesLoading = false;
@@ -79,19 +107,27 @@ export class DeadlinesManagementComponent implements OnInit {
   showForm = false;
   error = '';
   success = '';
-  preselectedEntityId: number | null = null;
+  preselectedEntityId: string | number | null = null;
   pendingFiles: File[] = [];
   editingDeadline: DeadlineRecord | null = null;
   formAttachments: DeadlineAttachment[] = [];
+  historyByDeadlineId: Record<number, DeadlineHistoryEntry[]> = {};
+  historyOpenByDeadlineId: Record<number, boolean> = {};
+  historyLoadingByDeadlineId: Record<number, boolean> = {};
+  searchText = '';
 
   form: {
-    entityId: number | null;
+    entityId: string | number | null;
+    targetLabel: string;
+    folder: string;
     title: string;
     description: string;
     dueDate: string;
     remindDays: string;
   } = {
     entityId: null,
+    targetLabel: '',
+    folder: 'Generale',
     title: '',
     description: '',
     dueDate: '',
@@ -108,31 +144,62 @@ export class DeadlinesManagementComponent implements OnInit {
 
   ngOnInit(): void {
     this.kind =
-      this.route.snapshot.data['kind'] === 'vehicle' ? 'vehicle' : 'employee';
+      this.route.snapshot.data['kind'] === 'vehicle'
+        ? 'vehicle'
+        : this.route.snapshot.data['kind'] === 'equipment'
+          ? 'equipment'
+          : this.route.snapshot.data['kind'] === 'customer'
+            ? 'customer'
+            : this.route.snapshot.data['kind'] === 'internal'
+              ? 'internal'
+              : 'employee';
 
-    const paramKey = this.kind === 'employee' ? 'employeeId' : 'vehicleId';
-    this.preselectedEntityId = this.parseNumericId(
-      this.route.snapshot.queryParamMap.get(paramKey),
-    );
+    const paramKey =
+      this.kind === 'employee'
+        ? 'employeeId'
+        : this.kind === 'vehicle'
+          ? 'vehicleId'
+          : 'targetKey';
+    const rawPreselected = this.route.snapshot.queryParamMap.get(paramKey);
+    this.preselectedEntityId =
+      this.kind === 'employee' || this.kind === 'vehicle'
+        ? this.parseNumericId(rawPreselected)
+        : rawPreselected;
 
     this.resetForm();
     this.loadAll();
   }
 
   get entityLabel(): string {
-    return this.kind === 'employee' ? 'dipendente' : 'mezzo';
+    if (this.kind === 'employee') return 'dipendente';
+    if (this.kind === 'vehicle') return 'mezzo';
+    if (this.kind === 'equipment') return 'attrezzatura';
+    if (this.kind === 'customer') return 'cliente';
+    return 'area aziendale';
   }
 
   get pageTitle(): string {
-    return this.kind === 'employee'
-      ? 'Scadenze dipendenti'
-      : 'Scadenze mezzi';
+    if (this.kind === 'employee') return 'Scadenze dipendenti';
+    if (this.kind === 'vehicle') return 'Scadenze mezzi';
+    if (this.kind === 'equipment') return 'Scadenze attrezzature';
+    if (this.kind === 'customer') return 'Scadenze clienti';
+    return 'Scadenze interne';
   }
 
   get pageDescription(): string {
-    return this.kind === 'employee'
-      ? 'Gestisci promemoria, date di scadenza e allegati dei dipendenti.'
-      : 'Tieni sotto controllo revisioni, assicurazioni e ogni altra scadenza dei mezzi.';
+    if (this.kind === 'employee') {
+      return 'Apri un dipendente per vedere cartelle, file e scadenze collegate.';
+    }
+    if (this.kind === 'vehicle') {
+      return 'Apri un mezzo per vedere cartelle, file e scadenze collegate.';
+    }
+    if (this.kind === 'equipment') {
+      return 'Organizza certificazioni, controlli e documenti delle attrezzature.';
+    }
+    if (this.kind === 'customer') {
+      return 'Controlla le scadenze collegate ai clienti, divise per cartelle.';
+    }
+    return 'Gestisci scadenze aziendali interne, cartelle e allegati.';
   }
 
   get totalExpired(): number {
@@ -147,9 +214,49 @@ export class DeadlinesManagementComponent implements OnInit {
     return this.totalExpired + this.totalWarning;
   }
 
+  get hasActiveSearch(): boolean {
+    return !!this.normalizeSearch(this.searchText);
+  }
+
+  get filteredGroups(): DeadlineGroup[] {
+    const query = this.normalizeSearch(this.searchText);
+    if (!query) return this.groups;
+
+    return this.groups
+      .map((group) => this.filterGroupForSearch(group, query))
+      .filter((group): group is DeadlineGroup => !!group);
+  }
+
+  get selectedGroupView(): DeadlineGroup | null {
+    if (!this.selectedGroup) return null;
+
+    const currentGroup =
+      this.groups.find((group) => String(group.id) === String(this.selectedGroup?.id)) ||
+      this.selectedGroup;
+    const query = this.normalizeSearch(this.searchText);
+    if (!query) return currentGroup;
+
+    return (
+      this.filterGroupForSearch(currentGroup, query) || {
+        ...currentGroup,
+        deadlines: [],
+        summary: this.summarize([]),
+      }
+    );
+  }
+
+  get selectedFolderGroups(): DeadlineFolderGroup[] {
+    if (!this.selectedGroupView) return [];
+    if (this.hasActiveSearch && this.selectedGroupView.deadlines.length === 0) {
+      return [];
+    }
+    return this.getFolderGroups(this.selectedGroupView);
+  }
+
   get canSave(): boolean {
     return (
       !!this.form.entityId &&
+      !!this.normalizeFieldValue(this.form.folder) &&
       !!this.normalizeFieldValue(this.form.title) &&
       !!this.normalizeFieldValue(this.form.dueDate)
     );
@@ -157,25 +264,19 @@ export class DeadlinesManagementComponent implements OnInit {
 
   get canCreate(): boolean {
     return this.globalService.hasPermission(
-      this.kind === 'employee'
-        ? 'EMPLOYEE_DEADLINES_CREATE'
-        : 'VEHICLE_DEADLINES_CREATE',
+      this.permissionKey('CREATE'),
     );
   }
 
   get canEdit(): boolean {
     return this.globalService.hasPermission(
-      this.kind === 'employee'
-        ? 'EMPLOYEE_DEADLINES_EDIT'
-        : 'VEHICLE_DEADLINES_EDIT',
+      this.permissionKey('EDIT'),
     );
   }
 
   get canDelete(): boolean {
     return this.globalService.hasPermission(
-      this.kind === 'employee'
-        ? 'EMPLOYEE_DEADLINES_DELETE'
-        : 'VEHICLE_DEADLINES_DELETE',
+      this.permissionKey('DELETE'),
     );
   }
 
@@ -184,7 +285,7 @@ export class DeadlinesManagementComponent implements OnInit {
   }
 
   get formTitle(): string {
-    return this.isEditing ? 'Modifica scadenza' : 'Nuova scadenza';
+    return this.isEditing ? 'Aggiorna scadenza' : 'Nuova scadenza';
   }
 
   get formSubtitle(): string {
@@ -210,15 +311,13 @@ export class DeadlinesManagementComponent implements OnInit {
     this.error = '';
     this.loading = true;
     this.entitiesLoading = true;
+    this.selectedGroup = null;
     this.loadEntities();
     this.loadDeadlines();
   }
 
   loadEntities(): void {
-    const endpoint =
-      this.kind === 'employee'
-        ? 'admin/deadlines/employees/targets'
-        : 'admin/deadlines/vehicles/targets';
+    const endpoint = `admin/deadlines/${this.endpointSegment}/targets`;
 
     this.http.get<any[]>(this.globalService.url + endpoint).subscribe({
       next: (response) => {
@@ -239,10 +338,7 @@ export class DeadlinesManagementComponent implements OnInit {
   }
 
   loadDeadlines(): void {
-    const endpoint =
-      this.kind === 'employee'
-        ? 'admin/deadlines/employees'
-        : 'admin/deadlines/vehicles';
+    const endpoint = `admin/deadlines/${this.endpointSegment}`;
 
     this.http.get<DeadlineRecord[]>(this.globalService.url + endpoint).subscribe({
       next: (response) => {
@@ -259,7 +355,7 @@ export class DeadlinesManagementComponent implements OnInit {
     });
   }
 
-  openAddForm(entityId?: number): void {
+  openAddForm(entityId?: string | number): void {
     if (!this.canCreate) return;
 
     this.resetForm();
@@ -278,7 +374,12 @@ export class DeadlinesManagementComponent implements OnInit {
     }
 
     if (!this.form.entityId && this.entities.length > 0) {
-      this.form.entityId = Number((this.entities[0] as any).id);
+      this.form.entityId = (this.entities[0] as any).id;
+    }
+
+    if (this.kind === 'internal' && !this.form.entityId) {
+      this.form.entityId = 'azienda';
+      this.form.targetLabel = 'Azienda';
     }
   }
 
@@ -293,6 +394,8 @@ export class DeadlinesManagementComponent implements OnInit {
     this.formAttachments = [...(deadline.attachments || [])];
     this.form = {
       entityId: this.getEntityIdFromDeadline(deadline),
+      targetLabel: deadline.targetLabel || '',
+      folder: deadline.folder || 'Generale',
       title: deadline.title || '',
       description: deadline.description || '',
       dueDate: deadline.dueDate || '',
@@ -314,6 +417,8 @@ export class DeadlinesManagementComponent implements OnInit {
     this.formAttachments = [];
     this.form = {
       entityId: this.preselectedEntityId,
+      targetLabel: '',
+      folder: 'Generale',
       title: '',
       description: '',
       dueDate: '',
@@ -342,20 +447,34 @@ export class DeadlinesManagementComponent implements OnInit {
     const title = this.normalizeFieldValue(this.form.title);
     const description = this.normalizeFieldValue(this.form.description);
     const dueDate = this.normalizeFieldValue(this.form.dueDate);
+    const folder = this.normalizeFieldValue(this.form.folder) || 'Generale';
     const remindDays = this.normalizeFieldValue(this.form.remindDays);
 
     const formData = new FormData();
     formData.append('title', title);
     formData.append('description', description);
     formData.append('dueDate', dueDate);
+    formData.append('folder', folder);
 
     if (this.isEditing && this.editingDeadline) {
       formData.append('id', String(this.editingDeadline.id));
     } else {
-      formData.append(
-        this.kind === 'employee' ? 'employeeId' : 'vehicleId',
-        String(this.form.entityId),
-      );
+      if (this.kind === 'employee') {
+        formData.append('employeeId', String(this.form.entityId));
+      } else if (this.kind === 'vehicle') {
+        formData.append('vehicleId', String(this.form.entityId));
+      } else {
+        const selected = this.entities.find((entity) =>
+          String((entity as any).id) === String(this.form.entityId),
+        );
+        const targetLabel =
+          this.normalizeFieldValue(this.form.targetLabel) ||
+          this.getEntityLabel(selected) ||
+          String(this.form.entityId || '');
+
+        formData.append('targetKey', String(this.form.entityId || targetLabel));
+        formData.append('targetLabel', targetLabel);
+      }
     }
 
     if (remindDays) {
@@ -369,9 +488,7 @@ export class DeadlinesManagementComponent implements OnInit {
     const endpoint =
       this.isEditing
         ? 'admin/deadlines/update'
-        : this.kind === 'employee'
-          ? 'admin/deadlines/employees'
-          : 'admin/deadlines/vehicles';
+        : `admin/deadlines/${this.endpointSegment}`;
 
     this.saving = true;
     this.error = '';
@@ -385,7 +502,7 @@ export class DeadlinesManagementComponent implements OnInit {
           : 'Scadenza salvata con successo.';
         this.showForm = false;
         this.resetForm();
-        this.loadDeadlines();
+        this.loadAll();
       },
       error: (err) => {
         console.error('Errore salvataggio scadenza:', err);
@@ -450,6 +567,7 @@ export class DeadlinesManagementComponent implements OnInit {
             ...this.editingDeadline!,
             attachments,
           };
+          delete this.historyByDeadlineId[this.editingDeadline!.id];
           this.success = 'Allegato eliminato.';
         },
         error: (err) => {
@@ -458,6 +576,119 @@ export class DeadlinesManagementComponent implements OnInit {
           this.popup.showError(this.error);
         },
       });
+  }
+
+  toggleHistory(deadline: DeadlineRecord): void {
+    const isOpen = !!this.historyOpenByDeadlineId[deadline.id];
+    this.historyOpenByDeadlineId[deadline.id] = !isOpen;
+
+    if (!isOpen && !this.historyByDeadlineId[deadline.id]) {
+      this.loadHistory(deadline);
+    }
+  }
+
+  loadHistory(deadline: DeadlineRecord): void {
+    if (this.historyLoadingByDeadlineId[deadline.id]) return;
+
+    this.historyLoadingByDeadlineId[deadline.id] = true;
+    this.http
+      .get<DeadlineHistoryEntry[]>(
+        this.globalService.url + `admin/deadlines/history/${deadline.id}`,
+      )
+      .subscribe({
+        next: (history) => {
+          this.historyByDeadlineId[deadline.id] = Array.isArray(history)
+            ? history
+            : [];
+          this.historyLoadingByDeadlineId[deadline.id] = false;
+        },
+        error: (err) => {
+          console.error('Errore caricamento storico scadenza:', err);
+          this.historyLoadingByDeadlineId[deadline.id] = false;
+          this.error = this.parseServerError(err);
+          this.popup.showError(this.error);
+        },
+      });
+  }
+
+  historyActionLabel(action: string): string {
+    const labels: Record<string, string> = {
+      created: 'Creazione',
+      updated: 'Aggiornamento',
+      deleted: 'Eliminazione',
+      attachment_deleted: 'Allegato eliminato',
+      current_state: 'Stato attuale',
+    };
+    return labels[action] || action;
+  }
+
+  formatDateTime(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value || '—';
+    return date.toLocaleString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  historyChangeLines(entry: DeadlineHistoryEntry): string[] {
+    const changes = entry.changes || {};
+    const labels: Record<string, string> = {
+      title: 'Titolo',
+      description: 'Descrizione',
+      folder: 'Cartella',
+      dueDate: 'Data scadenza',
+      remindDays: 'Preavviso',
+    };
+
+    const lines: string[] = [];
+    for (const [key, value] of Object.entries(changes)) {
+      if (key === 'attachmentsAdded' && Array.isArray(value) && value.length) {
+        lines.push(`Allegati aggiunti: ${value.join(', ')}`);
+        continue;
+      }
+
+      if (key === 'attachment' && value) {
+        lines.push(`Allegato: ${value}`);
+        continue;
+      }
+
+      if (value && typeof value === 'object' && 'before' in value && 'after' in value) {
+        lines.push(`${labels[key] || key}: ${value.before || '—'} → ${value.after || '—'}`);
+      }
+    }
+
+    return lines;
+  }
+
+  historySnapshotLines(entry: DeadlineHistoryEntry): string[] {
+    const snapshot = entry.snapshot || {};
+    const lines = [
+      `Titolo: ${snapshot['title'] || '—'}`,
+      `Cartella: ${snapshot['folder'] || 'Generale'}`,
+      `Data scadenza: ${this.formatDueDate(snapshot['dueDate'])}`,
+      `Preavviso: ${this.remindLabel(snapshot['remindDays'])}`,
+    ];
+
+    if (snapshot['description']) {
+      lines.push(`Descrizione: ${snapshot['description']}`);
+    }
+
+    const attachments = Array.isArray(snapshot['attachments'])
+      ? snapshot['attachments']
+      : [];
+    if (attachments.length > 0) {
+      lines.push(
+        `Allegati: ${attachments.map((item: any) => item.originalName || item.storedName).filter(Boolean).join(', ')}`,
+      );
+    } else {
+      lines.push('Allegati: nessuno');
+    }
+
+    return lines;
   }
 
   downloadAttachment(
@@ -491,13 +722,18 @@ export class DeadlinesManagementComponent implements OnInit {
   }
 
   getEntityLabel(entity: any): string {
+    if (!entity) return '';
     if (this.kind === 'employee') {
       return `${entity?.nome || ''} ${entity?.cognome || ''}`.trim();
     }
 
-    return entity?.plate
+    if (this.kind === 'vehicle') {
+      return entity?.plate
       ? `${entity?.name || ''} (${entity.plate})`
       : String(entity?.name || '').trim();
+    }
+
+    return String(entity?.targetLabel || entity?.nome || entity?.ragioneSociale || entity?.numeroCliente || entity?.id || '').trim();
   }
 
   getEntitySubtitle(entity: any): string {
@@ -505,7 +741,15 @@ export class DeadlinesManagementComponent implements OnInit {
       return [entity?.email, entity?.cellulare].filter(Boolean).join(' • ');
     }
 
+    if (this.kind === 'vehicle') {
     return entity?.plate ? `Targa: ${entity.plate}` : 'Targa non inserita';
+    }
+
+    if (this.kind === 'customer') {
+      return entity?.numeroCliente ? `Cliente ${entity.numeroCliente}` : '';
+    }
+
+    return this.kind === 'equipment' ? 'Attrezzatura aziendale' : 'Scadenza aziendale interna';
   }
 
   formatDueDate(value: string): string {
@@ -553,6 +797,58 @@ export class DeadlinesManagementComponent implements OnInit {
     return 'status-ok';
   }
 
+  openGroup(group: DeadlineGroup): void {
+    this.selectedGroup = group;
+    this.showForm = false;
+    this.error = '';
+  }
+
+  closeGroup(): void {
+    this.selectedGroup = null;
+    this.showForm = false;
+    this.error = '';
+  }
+
+  clearSearch(): void {
+    this.searchText = '';
+  }
+
+  getFolderGroups(group: DeadlineGroup | null): DeadlineFolderGroup[] {
+    if (!group) return [];
+
+    const folders = new Map<string, DeadlineRecord[]>();
+    for (const deadline of group.deadlines) {
+      const folder = this.normalizeFieldValue(deadline.folder) || 'Generale';
+      if (!folders.has(folder)) folders.set(folder, []);
+      folders.get(folder)?.push(deadline);
+    }
+
+    if (folders.size === 0) {
+      folders.set('Generale', []);
+    }
+
+    return [...folders.entries()]
+      .map(([folder, deadlines]) => ({
+        folder,
+        deadlines: deadlines.slice().sort((a, b) =>
+          String(a.dueDate || '').localeCompare(String(b.dueDate || '')),
+        ),
+        summary: this.summarize(deadlines),
+      }))
+      .sort((a, b) => {
+        const severityDiff = this.statusRank(a.summary.status) - this.statusRank(b.summary.status);
+        if (severityDiff !== 0) return severityDiff;
+        return a.folder.localeCompare(b.folder, 'it');
+      });
+  }
+
+  getFolderFileCount(folder: DeadlineFolderGroup): number {
+    return folder.deadlines.reduce(
+      (count, deadline) => count + (deadline.attachments?.length || 0),
+      0,
+    );
+  }
+
   formatFileSize(size: number): string {
     const value = Number(size) || 0;
     if (value < 1024) return `${value} B`;
@@ -560,8 +856,29 @@ export class DeadlinesManagementComponent implements OnInit {
     return `${(value / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  private get endpointSegment(): string {
+    if (this.kind === 'employee') return 'employees';
+    if (this.kind === 'vehicle') return 'vehicles';
+    if (this.kind === 'customer') return 'customers';
+    return this.kind;
+  }
+
+  private permissionKey(action: 'CREATE' | 'EDIT' | 'DELETE' | 'VIEW'): string {
+    const prefix =
+      this.kind === 'employee'
+        ? 'EMPLOYEE'
+        : this.kind === 'vehicle'
+          ? 'VEHICLE'
+          : this.kind === 'equipment'
+            ? 'EQUIPMENT'
+            : this.kind === 'customer'
+              ? 'CUSTOMER'
+              : 'INTERNAL';
+    return `${prefix}_DEADLINES_${action}`;
+  }
+
   private rebuildGroups(): void {
-    const map = new Map<number, DeadlineRecord[]>();
+    const map = new Map<string, DeadlineRecord[]>();
 
     for (const deadline of this.deadlines) {
       const entityId = this.getEntityIdFromDeadline(deadline);
@@ -579,10 +896,10 @@ export class DeadlinesManagementComponent implements OnInit {
       ? this.entities
       : this.deadlines.map((deadline) => this.getEntityFromDeadline(deadline));
 
-    const uniqueIds = new Set<number>();
+    const uniqueIds = new Set<string>();
 
     for (const entity of entities) {
-      const entityId = Number((entity as any)?.id);
+      const entityId = String((entity as any)?.id || (entity as any)?.targetKey || '');
       if (!entityId || uniqueIds.has(entityId)) continue;
 
       uniqueIds.add(entityId);
@@ -601,10 +918,10 @@ export class DeadlinesManagementComponent implements OnInit {
 
     this.groups = groups.sort((a, b) => {
       if (this.preselectedEntityId) {
-        if (a.id === this.preselectedEntityId && b.id !== this.preselectedEntityId) {
+        if (String(a.id) === String(this.preselectedEntityId) && String(b.id) !== String(this.preselectedEntityId)) {
           return -1;
         }
-        if (b.id === this.preselectedEntityId && a.id !== this.preselectedEntityId) {
+        if (String(b.id) === String(this.preselectedEntityId) && String(a.id) !== String(this.preselectedEntityId)) {
           return 1;
         }
       }
@@ -614,6 +931,12 @@ export class DeadlinesManagementComponent implements OnInit {
 
       return a.label.localeCompare(b.label, 'it');
     });
+
+    if (this.selectedGroup) {
+      this.selectedGroup =
+        this.groups.find((group) => String(group.id) === String(this.selectedGroup?.id)) ||
+        null;
+    }
   }
 
   private summarize(deadlines: DeadlineRecord[]): DeadlineSummary {
@@ -641,12 +964,16 @@ export class DeadlinesManagementComponent implements OnInit {
     return summary;
   }
 
-  private getEntityIdFromDeadline(deadline: DeadlineRecord): number {
-    return Number(
-      this.kind === 'employee'
-        ? deadline.employeeId || deadline.employee?.id
-        : deadline.vehicleId || deadline.vehicle?.id,
-    );
+  private getEntityIdFromDeadline(deadline: DeadlineRecord): string {
+    if (this.kind === 'employee') {
+      return String(deadline.employeeId || deadline.employee?.id || '');
+    }
+
+    if (this.kind === 'vehicle') {
+      return String(deadline.vehicleId || deadline.vehicle?.id || '');
+    }
+
+    return String(deadline.targetKey || deadline.targetLabel || '');
   }
 
   private syncLocalDeadlineAttachments(
@@ -666,13 +993,81 @@ export class DeadlinesManagementComponent implements OnInit {
       return deadline.employee || { id: deadline.employeeId };
     }
 
-    return deadline.vehicle || { id: deadline.vehicleId };
+    if (this.kind === 'vehicle') {
+      return deadline.vehicle || { id: deadline.vehicleId };
+    }
+
+    return {
+      id: deadline.targetKey || deadline.targetLabel,
+      targetKey: deadline.targetKey || deadline.targetLabel || '',
+      targetLabel: deadline.targetLabel || deadline.targetKey || '',
+    };
   }
 
   private statusRank(status: DeadlineStatus): number {
     if (status === 'expired') return 0;
     if (status === 'warning') return 1;
     return 2;
+  }
+
+  private filterGroupForSearch(
+    group: DeadlineGroup,
+    query: string,
+  ): DeadlineGroup | null {
+    const groupText = this.normalizeSearch([
+      group.label,
+      group.subtitle,
+      group.id,
+    ].join(' '));
+
+    if (groupText.includes(query)) {
+      return group;
+    }
+
+    const deadlines = group.deadlines.filter((deadline) =>
+      this.deadlineMatchesSearch(deadline, query),
+    );
+
+    if (deadlines.length === 0) return null;
+
+    return {
+      ...group,
+      deadlines,
+      summary: this.summarize(deadlines),
+    };
+  }
+
+  private deadlineMatchesSearch(deadline: DeadlineRecord, query: string): boolean {
+    const attachmentNames = (deadline.attachments || [])
+      .map((attachment) => attachment.originalName)
+      .join(' ');
+    const entity = this.getEntityFromDeadline(deadline);
+
+    const text = this.normalizeSearch([
+      deadline.title,
+      deadline.description,
+      deadline.folder,
+      deadline.targetLabel,
+      deadline.targetKey,
+      deadline.dueDate,
+      this.formatDueDate(deadline.dueDate),
+      this.statusLabel(deadline.status),
+      this.relativeDueLabel(deadline),
+      this.remindLabel(deadline.remindDays),
+      attachmentNames,
+      this.getEntityLabel(entity),
+      this.getEntitySubtitle(entity),
+    ].join(' '));
+
+    return text.includes(query);
+  }
+
+  private normalizeSearch(value: unknown): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
+      .trim();
   }
 
   private parseNumericId(value: string | null): number | null {

@@ -89,6 +89,142 @@
   justify-content: center !important;
 }
 
+.search-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.72);
+}
+
+.search-strip input {
+  min-width: 240px;
+}
+
+.search-strip span {
+  flex: 0 0 auto;
+  color: rgba(0,0,0,0.62);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.employee-list-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.search-strip--compact input {
+  min-width: min(360px, 58vw);
+}
+
+.cert-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(170px, 1fr) 150px auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 8px;
+}
+
+.cert-field {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.cert-field span {
+  color: rgba(0,0,0,0.68);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cert-days-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cert-days {
+  max-width: 74px;
+  min-width: 64px;
+}
+
+.cert-days-wrap small {
+  color: rgba(0,0,0,0.62);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.category-list {
+  display: grid;
+  gap: 10px;
+}
+
+.category-item,
+.category-check {
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.9);
+}
+
+.category-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+}
+
+.category-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.category-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.category-check input {
+  margin-top: 4px;
+}
+
+.category-check span {
+  display: grid;
+  gap: 2px;
+}
+
+.category-check small {
+  color: rgba(0,0,0,0.6);
+}
+
+.employee-category-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.employee-category-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(13, 110, 253, 0.12);
+  color: #0b4cb8;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .mobile-only {
   display: none;
 }
@@ -110,6 +246,15 @@
   td.actions-cell {
     flex-direction: column !important;
     align-items: stretch !important;
+  }
+
+  .cert-row {
+    grid-template-columns: 1fr;
+  }
+
+  .category-item {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

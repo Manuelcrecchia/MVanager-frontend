@@ -19,30 +19,49 @@
         </button>
       </div>
 
-      <div class="d-flex flex-wrap gap-2">
-        <mat-form-field class="example-form-field" appearance="fill">
-          <mat-label>Numero cliente</mat-label>
+      <div class="customer-search-bar">
+        <mat-form-field class="customer-search-field" appearance="fill">
+          <mat-label>Cerca cliente</mat-label>
           <input
-            #inputNumeroCliente
             matInput
-            (input)="searchNumeroCliente(inputNumeroCliente.value)"
+            [(ngModel)]="customerSearch"
+            (ngModelChange)="applyCustomerSearch()"
+            placeholder="Numero, nominativo, email o telefono"
           />
         </mat-form-field>
-
-        <mat-form-field class="example-form-field" appearance="fill">
-          <mat-label>Nominativo</mat-label>
-          <input
-            #inputNominativo
-            matInput
-            (input)="searchNominativo(inputNominativo.value)"
-          />
-        </mat-form-field>
-
+        <span class="customer-search-count">{{ customersFrEnd.length }} / {{ customers.length }}</span>
+        <button
+          type="button"
+          class="btn btn-light btn-sm"
+          *ngIf="customerSearch"
+          (click)="clearCustomerSearch()"
+        >
+          Pulisci
+        </button>
       </div>
     </mat-toolbar>
 
     <!-- LISTA CLIENTI -->
     <div class="container">
+      <section class="staff-panel" *ngIf="requirementCustomer">
+        <div class="staff-panel__head">
+          <div>
+            <h2>Personale richiesto</h2>
+            <p>{{ requirementCustomer.numeroCliente }} - {{ getCustomerDisplayName(requirementCustomer) }}</p>
+          </div>
+          <button type="button" class="btn btn-light" (click)="requirementCustomer = null">Chiudi</button>
+        </div>
+        <div class="staff-grid">
+          <label class="staff-row" *ngFor="let category of employeeCategories">
+            <span>{{ category.name }}</span>
+            <input type="number" min="0" [(ngModel)]="requirementCounts[category.id]" />
+          </label>
+        </div>
+        <div class="d-flex justify-content-end mt-3">
+          <button type="button" class="btn btn-primary" (click)="saveStaffRequirements()">Salva requisiti</button>
+        </div>
+      </section>
+
       <div class="row g-3">
         <div class="col-12" *ngFor="let customer of customersFrEnd">
 
@@ -100,6 +119,7 @@
                 <button
                   *ngIf="
                     globalService.hasTenantFeature('stamping') &&
+                    globalService.isCustomerTagStampingMode() &&
                     globalService.hasPermission('CUSTOMERS_MANAGE') &&
                     globalService.hasPermission('STAMPING_MANAGE')
                   "
@@ -131,13 +151,13 @@
                   *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE')"
                   mat-raised-button
                   color="warn"
-                  (click)="exportAndDeleteCustomer(customer)"
+                  (click)="archiveCustomer(customer)"
                   class="action-with-tooltip"
-                  title="Esporta il cliente in ZIP e poi lo elimina"
-                  aria-label="Esporta ed elimina cliente"
-                  data-tooltip="Esporta ed elimina"
+                  title="Scarica l'archivio completo del cliente e poi lo archivia"
+                  aria-label="Archivia cliente"
+                  data-tooltip="Archivia"
                 >
-                  <mat-icon>delete</mat-icon>
+                  <mat-icon>archive</mat-icon>
                 </button>
 
                 <button
@@ -150,6 +170,19 @@
                   data-tooltip="Documenti cliente"
                 >
                   <mat-icon>folder</mat-icon>
+                </button>
+
+                <button
+                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE')"
+                  mat-raised-button
+                  color="accent"
+                  (click)="openStaffRequirements(customer)"
+                  class="action-with-tooltip"
+                  title="Imposta categorie e numero di personale richiesto"
+                  aria-label="Personale richiesto"
+                  data-tooltip="Personale richiesto"
+                >
+                  <mat-icon>groups</mat-icon>
                 </button>
 
                 <button
@@ -194,6 +227,12 @@
 
           </div>
 
+        </div>
+
+        <div class="col-12" *ngIf="customers.length > 0 && customersFrEnd.length === 0">
+          <div class="customer-empty-state">
+            Nessun cliente trovato.
+          </div>
         </div>
       </div>
     </div>

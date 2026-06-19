@@ -14,6 +14,21 @@ interface Employee {
   active: boolean;
 }
 
+interface EmployeeCertification {
+  id?: number;
+  title: string;
+  description?: string;
+  remindDays?: number | null;
+  folder?: string;
+}
+
+interface EmployeeCategory {
+  id?: number;
+  name: string;
+  description?: string;
+  certifications: EmployeeCertification[];
+}
+
 @Component({
   selector: 'app-settings-employees',
   templateUrl: './settings-employees.component.html',
@@ -30,6 +45,14 @@ export class SettingsEmployeesComponent implements OnInit {
   employeess: Employee[] = [];
   showArchived = false;
   isLoading = false;
+  categories: EmployeeCategory[] = [];
+  employeeCategoryMap: { [employeeId: number]: number[] } = {};
+  categoryDraft: EmployeeCategory = this.emptyCategoryDraft();
+  editingCategoryId: number | null = null;
+  selectedEmployeeForCategories: Employee | null = null;
+  selectedEmployeeCategoryIds: number[] = [];
+  employeeSearch = '';
+  categorySearch = '';
 
   editingIndex: number | null = null;
   employeeEdit: any = {};
@@ -43,6 +66,55 @@ export class SettingsEmployeesComponent implements OnInit {
 
   ngOnInit() {
     this.fetchEmployees();
+    this.fetchCategories();
+  }
+
+  private emptyCategoryDraft(): EmployeeCategory {
+    return {
+      name: '',
+      description: '',
+      certifications: [
+        { title: '', description: '', remindDays: 30, folder: 'Certificazioni categoria' },
+      ],
+    };
+  }
+
+  get filteredEmployees(): Employee[] {
+    const query = this.normalizeSearch(this.employeeSearch);
+    if (!query) return this.employeess;
+
+    return this.employeess.filter((emp) => {
+      const text = this.normalizeSearch([
+        emp.nome,
+        emp.cognome,
+        emp.email,
+        emp.cellulare,
+        emp.oreGiornaliereDefault,
+        emp.active ? 'attivo' : 'archiviato',
+        ...this.getEmployeeCategoryNames(emp),
+      ].join(' '));
+
+      return text.includes(query);
+    });
+  }
+
+  get filteredCategories(): EmployeeCategory[] {
+    const query = this.normalizeSearch(this.categorySearch);
+    if (!query) return this.categories;
+
+    return this.categories.filter((category) => {
+      const text = this.normalizeSearch([
+        category.name,
+        category.description,
+        ...(category.certifications || []).flatMap((cert) => [
+          cert.title,
+          cert.folder,
+          cert.description,
+        ]),
+      ].join(' '));
+
+      return text.includes(query);
+    });
   }
 
   fetchEmployees() {
@@ -55,9 +127,194 @@ export class SettingsEmployeesComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.employeess = JSON.parse(response);
+          this.fetchEmployeeCategoryAssignments();
         },
         error: (error) => {
           console.error('Errore durante il recupero dei dipendenti:', error);
+        },
+      });
+  }
+
+  fetchCategories() {
+    this.http
+      .get<EmployeeCategory[]>(this.globalService.url + 'admin/employee-categories', {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (categories) => {
+          this.categories = Array.isArray(categories) ? categories : [];
+          this.fetchEmployeeCategoryAssignments();
+        },
+        error: (error) => {
+          console.error('Errore caricamento categorie dipendenti:', error);
+        },
+      });
+  }
+
+  fetchEmployeeCategoryAssignments() {
+    this.http
+      .get<any[]>(this.globalService.url + 'admin/employee-categories/assignments', {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (rows) => {
+          const map: { [employeeId: number]: number[] } = {};
+          for (const row of rows || []) {
+            const employeeId = Number(row.employeeId);
+            const categoryId = Number(row.categoryId);
+            if (!employeeId || !categoryId) continue;
+            if (!map[employeeId]) map[employeeId] = [];
+            map[employeeId].push(categoryId);
+          }
+          this.employeeCategoryMap = map;
+        },
+        error: () => {
+          this.employeeCategoryMap = {};
+        },
+      });
+  }
+
+  getEmployeeCategoryNames(emp: Employee): string[] {
+    const ids = this.employeeCategoryMap[emp.id] || [];
+    return ids
+      .map((id) => this.categories.find((category) => category.id === id)?.name || '')
+      .filter(Boolean);
+  }
+
+  addCertificationDraft() {
+    this.categoryDraft.certifications.push({
+      title: '',
+      description: '',
+      remindDays: 30,
+      folder: this.categoryDraft.name ? `Certificazioni ${this.categoryDraft.name}` : 'Certificazioni categoria',
+    });
+  }
+
+  removeCertificationDraft(index: number) {
+    this.categoryDraft.certifications.splice(index, 1);
+    if (!this.categoryDraft.certifications.length) {
+      this.addCertificationDraft();
+    }
+  }
+
+  editCategory(category: EmployeeCategory) {
+    this.editingCategoryId = category.id || null;
+    this.categoryDraft = {
+      id: category.id,
+      name: category.name,
+      description: category.description || '',
+      certifications: (category.certifications || []).length
+        ? category.certifications.map((cert) => ({ ...cert }))
+        : [{ title: '', description: '', remindDays: 30, folder: `Certificazioni ${category.name}` }],
+    };
+  }
+
+  resetCategoryDraft() {
+    this.editingCategoryId = null;
+    this.categoryDraft = this.emptyCategoryDraft();
+  }
+
+  saveCategory() {
+    if (!this.categoryDraft.name.trim()) {
+      alert('Inserisci il nome della categoria');
+      return;
+    }
+
+    const body = {
+      ...this.categoryDraft,
+      certifications: this.categoryDraft.certifications.filter((cert) => cert.title.trim()),
+    };
+
+    this.http
+      .post(this.globalService.url + 'admin/employee-categories/save', body, {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: () => {
+          this.resetCategoryDraft();
+          this.fetchCategories();
+        },
+        error: (error) => {
+          console.error('Errore salvataggio categoria:', error);
+          alert(this.parseServerError(error, 'Errore durante il salvataggio categoria'));
+        },
+      });
+  }
+
+  deleteCategory(category: EmployeeCategory) {
+    if (!category.id) return;
+    if (!confirm(`Eliminare la categoria "${category.name}"?`)) return;
+
+    this.http
+      .post(this.globalService.url + 'admin/employee-categories/delete', { id: category.id }, {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: () => {
+          this.fetchCategories();
+          if (this.editingCategoryId === category.id) this.resetCategoryDraft();
+        },
+        error: (error) => {
+          console.error('Errore eliminazione categoria:', error);
+          alert(this.parseServerError(error, 'Errore durante eliminazione categoria'));
+        },
+      });
+  }
+
+  openEmployeeCategories(emp: Employee) {
+    this.selectedEmployeeForCategories = emp;
+    this.selectedEmployeeCategoryIds = [];
+    this.http
+      .get<number[]>(this.globalService.url + `admin/employee-categories/employee/${emp.id}`, {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (ids) => {
+          this.selectedEmployeeCategoryIds = Array.isArray(ids) ? ids.map(Number) : [];
+        },
+        error: (error) => {
+          console.error('Errore categorie dipendente:', error);
+          alert('Errore durante il caricamento categorie dipendente');
+        },
+      });
+  }
+
+  toggleEmployeeCategory(categoryId: number | undefined, checked: boolean) {
+    if (!categoryId) return;
+    if (checked && !this.selectedEmployeeCategoryIds.includes(categoryId)) {
+      this.selectedEmployeeCategoryIds.push(categoryId);
+    }
+    if (!checked) {
+      this.selectedEmployeeCategoryIds = this.selectedEmployeeCategoryIds.filter((id) => id !== categoryId);
+    }
+  }
+
+  saveEmployeeCategories() {
+    if (!this.selectedEmployeeForCategories) return;
+
+    this.http
+      .post(
+        this.globalService.url + `admin/employee-categories/employee/${this.selectedEmployeeForCategories.id}`,
+        { categoryIds: this.selectedEmployeeCategoryIds },
+        { headers: this.globalService.headers },
+      )
+      .subscribe({
+        next: (res: any) => {
+          if (this.selectedEmployeeForCategories) {
+            this.employeeCategoryMap[this.selectedEmployeeForCategories.id] = [
+              ...this.selectedEmployeeCategoryIds,
+            ];
+          }
+          const created = Number(res?.createdDeadlines || 0);
+          alert(
+            created > 0
+              ? `Categorie salvate. Create ${created} scadenze obbligatorie vuote.`
+              : 'Categorie salvate.',
+          );
+        },
+        error: (error) => {
+          console.error('Errore salvataggio categorie dipendente:', error);
+          alert(this.parseServerError(error, 'Errore durante il salvataggio categorie dipendente'));
         },
       });
   }
@@ -71,6 +328,19 @@ export class SettingsEmployeesComponent implements OnInit {
     this.editingIndex = i;
     this.employeeEditOriginal = { ...this.employeess[i] };
     this.employeeEdit = { ...this.employeess[i] };
+  }
+
+  startEditEmployee(emp: Employee) {
+    const index = this.employeess.findIndex((item) => item.id === emp.id);
+    if (index === -1) return;
+    this.startEdit(index);
+  }
+
+  isEditingEmployee(emp: Employee): boolean {
+    return (
+      this.editingIndex !== null &&
+      this.employeess[this.editingIndex]?.id === emp.id
+    );
   }
 
   cancelEdit() {
@@ -156,6 +426,14 @@ export class SettingsEmployeesComponent implements OnInit {
     } catch {
       return fallback;
     }
+  }
+
+  private normalizeSearch(value: unknown): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
+      .trim();
   }
 
   unarchiveEmployee(emp: Employee): void {

@@ -306,6 +306,35 @@
   width: 100%;
 }
 
+.mv-document-search {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--mv-border-2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mv-document-search mat-icon {
+  color: var(--mv-muted);
+}
+
+.mv-document-search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--mv-text);
+  font-weight: 800;
+}
+
+.mv-document-search input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 /* Main */
 .mv-main {
   display: grid;

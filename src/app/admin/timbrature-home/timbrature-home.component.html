@@ -8,6 +8,14 @@
 
   <h2 class="text-center mb-4 text-dark">Gestione Timbrature</h2>
 
+  <div class="alert alert-light border text-center fw-semibold">
+    Modalità:
+    <span *ngIf="stampingConfig?.mode !== 'warehouse'">tag cliente</span>
+    <span *ngIf="stampingConfig?.mode === 'warehouse'">
+      magazzino / sede - {{ stampingConfig?.warehouseLabel || 'Magazzino' }}
+    </span>
+  </div>
+
   <!-- Selettore data -->
   <div class="d-flex justify-content-center align-items-center mb-3 gap-3">
     <button class="btn btn-outline-secondary" (click)="changeDate(-1)">
@@ -26,6 +34,16 @@
     </button>
   </div>
 
+  <div class="search-strip mb-3" *ngIf="!loading && employees.length > 0">
+    <input
+      type="search"
+      class="form-control"
+      [(ngModel)]="employeeSearch"
+      placeholder="Cerca dipendente, email, telefono o stato"
+    />
+    <span>{{ filteredEmployees.length }} / {{ employees.length }}</span>
+  </div>
+
   <!-- Tabella dipendenti -->
   <div class="table-responsive" *ngIf="!loading; else loadingTpl">
     <table class="table table-hover align-middle text-center shadow-sm">
@@ -40,7 +58,7 @@
       </thead>
       <tbody>
         <tr
-          *ngFor="let emp of employees"
+          *ngFor="let emp of filteredEmployees"
           [ngClass]="{ 'table-danger': emp.hasError }"
         >
           <td>{{ emp.nome }} {{ emp.cognome }}</td>
@@ -72,6 +90,9 @@
 
     <div *ngIf="employees.length === 0" class="text-center text-muted mt-3">
       Nessun dipendente trovato per la data selezionata.
+    </div>
+    <div *ngIf="employees.length > 0 && filteredEmployees.length === 0" class="text-center text-muted mt-3">
+      Nessun dipendente trovato con questa ricerca.
     </div>
   </div>
 

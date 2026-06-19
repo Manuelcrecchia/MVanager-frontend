@@ -24,6 +24,7 @@ interface TenantBackendConfig {
   attendanceConfig?: {
     workCategoryLabel?: string;
   };
+  stampingConfig?: TenantStampingConfig;
   quoteConfig?: TenantQuoteConfig;
 }
 
@@ -56,6 +57,15 @@ export interface TenantLeaveCategoryConfig {
   label: string;
   requiresAttachment?: boolean;
   usesAdvanceLimit?: boolean;
+}
+
+export interface TenantStampingConfig {
+  mode?: 'customer_tag' | 'warehouse';
+  warehouseTagId?: string;
+  warehouseLocationId?: string;
+  warehouseLabel?: string;
+  allowCustomerTagFallback?: boolean;
+  compareWithShifts?: boolean;
 }
 
 export interface TenantQuoteTypeConfig {
@@ -391,6 +401,23 @@ export class GlobalService {
     return label || 'Lavoro';
   }
 
+  getTenantStampingConfig(): TenantStampingConfig {
+    return {
+      mode: this.tenantConfig?.stampingConfig?.mode === 'warehouse'
+        ? 'warehouse'
+        : 'customer_tag',
+      warehouseTagId: this.tenantConfig?.stampingConfig?.warehouseTagId || 'MAGAZZINO',
+      warehouseLocationId: this.tenantConfig?.stampingConfig?.warehouseLocationId || '__warehouse__',
+      warehouseLabel: this.tenantConfig?.stampingConfig?.warehouseLabel || 'Magazzino',
+      allowCustomerTagFallback: this.tenantConfig?.stampingConfig?.allowCustomerTagFallback === true,
+      compareWithShifts: this.tenantConfig?.stampingConfig?.compareWithShifts !== false,
+    };
+  }
+
+  isCustomerTagStampingMode(): boolean {
+    return this.getTenantStampingConfig().mode !== 'warehouse';
+  }
+
   getQuoteTypes(): TenantQuoteTypeConfig[] {
     return this.getTenantQuoteConfig()?.types || [];
   }
@@ -428,8 +455,37 @@ export class GlobalService {
     return this.getFieldMappingFields(scope).filter(
       (field) => !!field?.dbColumn &&
         !this.isTechnicalField(scope, field) &&
+        !this.isLegacyCustomerOperatorField(scope, field) &&
         field.visible !== false &&
         (!source || this.matchesVisibleWhen(scope, field, source)),
+    );
+  }
+
+  private isLegacyCustomerOperatorField(
+    scope: 'quote' | 'customer',
+    field: TenantFieldMappingFieldConfig | null | undefined,
+  ): boolean {
+    if (scope !== 'customer' || !field) return false;
+
+    const normalizedParts = [
+      field.key,
+      field.dbColumn,
+      field.label,
+      field.displayRole,
+    ]
+      .map((value) =>
+        String(value || '')
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, ''),
+      )
+      .filter(Boolean);
+
+    return normalizedParts.some((value) =>
+      value === 'noperatori' ||
+      value === 'numerooperatori' ||
+      value === 'operatori',
     );
   }
 
@@ -586,6 +642,7 @@ export class GlobalService {
   ): string[] {
     return this.getFieldMappingFields(scope)
       .filter((field) => !this.isTechnicalField(scope, field) &&
+        !this.isLegacyCustomerOperatorField(scope, field) &&
         field.visible !== false &&
         !this.isCalculatedField(field) &&
         field.required === true &&

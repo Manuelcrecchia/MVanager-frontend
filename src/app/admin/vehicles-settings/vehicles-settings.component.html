@@ -48,6 +48,16 @@
       </button>
     </div>
     <div class="card-body p-4">
+      <div class="search-strip mb-3" *ngIf="!loading && vehicles.length > 0">
+        <input
+          type="search"
+          class="form-control form-control-glass"
+          [(ngModel)]="vehicleSearch"
+          placeholder="Cerca mezzo o targa"
+        />
+        <span>{{ filteredVehicles.length }} / {{ vehicles.length }}</span>
+      </div>
+
       <div *ngIf="loading" class="text-center text-muted py-4">Caricamento...</div>
 
       <div class="table-wrapper desktop-table" *ngIf="!loading">
@@ -60,7 +70,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let v of vehicles">
+            <tr *ngFor="let v of filteredVehicles">
               <td>
                 <ng-container *ngIf="editingId !== v.id; else editName">
                   <strong>{{ v.name }}</strong>
@@ -102,12 +112,17 @@
                 Nessun mezzo inserito
               </td>
             </tr>
+            <tr *ngIf="vehicles.length > 0 && filteredVehicles.length === 0">
+              <td colspan="3" class="text-center text-muted py-4">
+                Nessun mezzo trovato.
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
 
-      <div class="mobile-only employee-card-list" *ngIf="!loading && vehicles.length > 0">
-        <article class="employee-card" *ngFor="let v of vehicles">
+      <div class="mobile-only employee-card-list" *ngIf="!loading && filteredVehicles.length > 0">
+        <article class="employee-card" *ngFor="let v of filteredVehicles">
           <div class="employee-card__identity">
             <h3>{{ v.name }}</h3>
             <p *ngIf="v.plate" class="plate-badge" style="display: inline-block; padding: 2px 10px; border-radius: 20px; background: rgba(47,183,255,0.15); border: 1px solid rgba(47,183,255,0.25); font-weight: 700; font-size: 13px;">{{ v.plate }}</p>
