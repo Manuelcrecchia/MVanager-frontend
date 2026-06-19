@@ -218,6 +218,52 @@ export class DeadlinesManagementComponent implements OnInit {
     return !!this.normalizeSearch(this.searchText);
   }
 
+  get searchPlaceholder(): string {
+    if (this.kind === 'employee') {
+      return 'Cerca dipendente, cartella, scadenza o allegato';
+    }
+    if (this.kind === 'vehicle') {
+      return 'Cerca mezzo, targa, cartella, scadenza o allegato';
+    }
+    if (this.kind === 'equipment') {
+      return 'Cerca attrezzatura, cartella, scadenza o allegato';
+    }
+    if (this.kind === 'customer') {
+      return 'Cerca cliente, codice, cartella, scadenza o allegato';
+    }
+    return 'Cerca area, cartella, scadenza o allegato';
+  }
+
+  get emptyStateTitle(): string {
+    if (this.kind === 'employee') return 'Nessun dipendente disponibile.';
+    if (this.kind === 'vehicle') return 'Nessun mezzo disponibile.';
+    if (this.kind === 'equipment') return 'Nessuna attrezzatura creata.';
+    if (this.kind === 'customer') return 'Nessun cliente disponibile.';
+    return 'Nessuna area interna creata.';
+  }
+
+  get emptyStateMessage(): string {
+    if (this.kind === 'employee') {
+      return 'Crea prima un dipendente, poi potrai aggiungere le sue scadenze da questa pagina.';
+    }
+    if (this.kind === 'vehicle') {
+      return 'Crea prima un mezzo, poi potrai aggiungere revisione, assicurazione e altre scadenze.';
+    }
+    if (this.kind === 'equipment') {
+      return 'Inserisci la prima scadenza indicando il nome dell attrezzatura: dopo il salvataggio comparira la riga con dettaglio e nuove scadenze.';
+    }
+    if (this.kind === 'customer') {
+      return 'Crea prima un cliente, poi potrai collegare le sue scadenze.';
+    }
+    return 'Inserisci la prima scadenza interna: dopo il salvataggio comparira la riga con dettaglio e nuove scadenze.';
+  }
+
+  get emptyStateActionLabel(): string {
+    if (this.kind === 'equipment') return '+ Crea prima scadenza attrezzatura';
+    if (this.kind === 'internal') return '+ Crea prima scadenza interna';
+    return '+ Aggiungi scadenza';
+  }
+
   get filteredGroups(): DeadlineGroup[] {
     const query = this.normalizeSearch(this.searchText);
     if (!query) return this.groups;

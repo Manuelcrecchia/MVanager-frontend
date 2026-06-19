@@ -266,6 +266,7 @@
 
       .sidebar-collapsed .sidebar-btn-text { display: none !important; }
       .sidebar-collapsed .home-category-item__text { display: none !important; }
+      .sidebar-collapsed .home-category-item__chevron { display: none !important; }
       .sidebar-collapsed .sidebar-bottom-label { display: none !important; }
       .sidebar-collapsed .home-panel-title { display: none !important; }
       .sidebar-collapsed .home-panel-back span:last-child { display: none !important; }
@@ -424,6 +425,7 @@
 
       .sidebar-nav .home-category-item__text {
         min-width: 0;
+        flex: 1 1 auto;
       }
 
       .sidebar-nav .home-category-item__label {
@@ -439,6 +441,66 @@
         font-size: 0.78rem;
         font-weight: 800;
         opacity: 0.72;
+      }
+
+      .sidebar-nav .home-category-item__chevron {
+        margin-left: auto;
+        color: rgba(15, 23, 42, 0.42);
+        font-size: 0.8rem;
+        transition: transform 0.18s ease, color 0.18s ease;
+      }
+
+      .sidebar-nav .home-category-item--active .home-category-item__chevron,
+      .sidebar-nav .home-category-item:hover .home-category-item__chevron {
+        color: #fff;
+      }
+
+      .home-sidebar-dropdown {
+        display: grid;
+        gap: 6px;
+        width: calc(100% - 22px);
+        margin: -2px 11px 10px 22px;
+        padding: 8px;
+        border-left: 3px solid rgba(255, 122, 0, 0.38);
+        border-radius: 0 14px 14px 0;
+        background: rgba(255, 255, 255, 0.44);
+        animation: homeButtonCascade 0.2s ease both;
+      }
+
+      .home-sidebar-subitem {
+        min-height: 42px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 9px 11px;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        border-radius: 11px;
+        background: rgba(255, 255, 255, 0.68);
+        color: var(--brand-black);
+        font-size: 0.86rem;
+        font-weight: 850;
+        text-align: left;
+        cursor: pointer;
+        transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease;
+      }
+
+      .home-sidebar-subitem i {
+        width: 18px;
+        color: var(--brand-blue);
+        text-align: center;
+      }
+
+      .home-sidebar-subitem:hover,
+      .home-sidebar-subitem--active {
+        transform: translateX(2px);
+        background: linear-gradient(135deg, rgba(255, 122, 0, 0.92), rgba(13, 110, 253, 0.72));
+        color: #fff;
+      }
+
+      .home-sidebar-subitem:hover i,
+      .home-sidebar-subitem--active i {
+        color: #fff;
       }
 
       .sidebar-nav .home-panel-back {
@@ -550,8 +612,65 @@
       .home-desktop-content {
         margin-left: var(--sidebar-width);
         min-height: 100vh;
-        padding: 24px 40px 40px 60px;
+        padding: 24px 30px 40px 44px;
         transition: margin-left 0.25s ease;
+      }
+
+      .desktop-workspace-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+        gap: 24px;
+        align-items: start;
+        min-height: calc(100vh - 64px);
+      }
+
+      .desktop-workspace-grid--no-todo {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .desktop-workspace-main {
+        min-width: 0;
+      }
+
+      .desktop-todo-rail {
+        position: sticky;
+        top: 24px;
+        display: grid;
+        gap: 14px;
+        max-height: calc(100vh - 48px);
+        overflow: auto;
+        padding-bottom: 6px;
+      }
+
+      .desktop-todo-rail .admin-home-stats {
+        justify-content: stretch;
+      }
+
+      .desktop-todo-rail .admin-home-stat {
+        flex: 1 1 130px;
+        min-width: 0;
+      }
+
+      .desktop-todo-rail .todo-panel {
+        max-height: calc(100vh - 170px);
+        display: grid;
+        grid-template-rows: auto auto auto 1fr;
+      }
+
+      .desktop-todo-rail .todo-list {
+        overflow: auto;
+      }
+
+      .desktop-main-todo {
+        max-width: 900px;
+      }
+
+      .desktop-workspace-grid:has(.desktop-main-todo) {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .desktop-workspace-grid:has(.desktop-main-todo) .desktop-todo-rail {
+        display: none;
       }
 
       .home-desktop-content .home-embedded-content {
@@ -595,10 +714,10 @@
 
       .home-desktop-content .home-submenu-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
         gap: 24px;
         justify-content: center;
-        max-width: 980px;
+        max-width: 100%;
         margin: 0 auto;
         animation: homeSlideFromRight 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
       }
@@ -1219,20 +1338,43 @@
         </div>
 
         <nav class="sidebar-nav">
-          <ng-container *ngIf="!isDesktopContentActive; else desktopSubmenuSidebar">
-            <button
-              class="home-category-panel__eyebrow"
-              [class.is-active]="!selectedHomeCategoryId && !isDesktopContentActive"
-              type="button"
-              (click)="showDesktopMainMenu()"
-              title="Torna al pannello principale"
-            >
-              Menu principale
-            </button>
+          <button
+            class="home-category-panel__eyebrow"
+            [class.is-active]="!selectedHomeCategoryId && !isDesktopContentActive"
+            type="button"
+            (click)="showDesktopMainMenu()"
+            title="Torna al pannello principale"
+          >
+            Menu principale
+          </button>
+
+          <button
+            class="home-category-item home-sidebar-button"
+            *ngFor="let button of standaloneHomeButtons"
+            [class.home-category-item--active]="isStandaloneButtonActive(button)"
+            type="button"
+            (click)="activateHomeButton(button)"
+          >
+            <span class="home-category-item__icon">
+              <i [class]="button.icon"></i>
+            </span>
+            <span class="home-category-item__text">
+              <span class="home-category-item__label">
+                {{ button.label }}
+                <span
+                  *ngIf="buttonBadgeCount(button) > 0"
+                  [ngClass]="buttonBadgeClass(button)"
+                >
+                  {{ buttonBadgeCount(button) }}
+                </span>
+              </span>
+            </span>
+          </button>
+
+          <ng-container *ngFor="let category of visibleHomeCategories">
             <button
               class="home-category-item"
-              *ngFor="let category of visibleHomeCategories"
-              [class.home-category-item--active]="selectedHomeCategory?.id === category.id"
+              [class.home-category-item--active]="isCategoryExpanded(category)"
               type="button"
               (click)="selectHomeCategory(category.id)"
             >
@@ -1253,31 +1395,21 @@
                   {{ visibleHomeButtons(category).length }} sezioni
                 </span>
               </span>
-            </button>
-          </ng-container>
-
-          <ng-template #desktopSubmenuSidebar>
-            <button class="home-panel-back" type="button" (click)="showDesktopMainMenu()">
-              <span>&larr;</span>
-              <span>Menu principale</span>
-            </button>
-
-            <div class="home-panel-title" *ngIf="selectedHomeCategory">
-              <span>Sottomenu</span>
-              <strong>{{ selectedHomeCategory.label }}</strong>
-            </div>
-
-            <button
-              class="home-category-item home-sidebar-button"
-              *ngFor="let button of currentHomeButtons"
-              type="button"
-              (click)="activateHomeButton(button)"
-            >
-              <span class="home-category-item__icon">
-                <i [class]="button.icon"></i>
+              <span class="home-category-item__chevron">
+                <i class="fas" [class.fa-chevron-up]="isCategoryExpanded(category)" [class.fa-chevron-down]="!isCategoryExpanded(category)"></i>
               </span>
-              <span class="home-category-item__text">
-                <span class="home-category-item__label">
+            </button>
+
+            <div class="home-sidebar-dropdown" *ngIf="isCategoryExpanded(category) && !sidebarCollapsed">
+              <button
+                class="home-sidebar-subitem"
+                *ngFor="let button of visibleHomeButtons(category)"
+                [class.home-sidebar-subitem--active]="isHomeButtonActive(button)"
+                type="button"
+                (click)="activateHomeButton(button)"
+              >
+                <i [class]="button.icon"></i>
+                <span>
                   {{ button.label }}
                   <span
                     *ngIf="buttonBadgeCount(button) > 0"
@@ -1286,9 +1418,9 @@
                     {{ buttonBadgeCount(button) }}
                   </span>
                 </span>
-              </span>
-            </button>
-          </ng-template>
+              </button>
+            </div>
+          </ng-container>
         </nav>
 
         <div class="sidebar-bottom">
@@ -1302,7 +1434,7 @@
               <i class="fas fa-user-plus"></i> <span class="sidebar-btn-text">Aggiungi utenti</span>
             </button>
             <button class="sidebar-bottom-btn" *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToGestioneUsers()">
-              <i class="fas fa-users-cog"></i> <span class="sidebar-btn-text">Gestione users</span>
+              <i class="fas fa-users-cog"></i> <span class="sidebar-btn-text">Invio notifiche dipendenti</span>
             </button>
             <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">
               <i class="fas fa-user-tie"></i> <span class="sidebar-btn-text">Aggiungi dipendenti</span>
@@ -1333,38 +1465,85 @@
       <!-- DESKTOP CONTENT AREA  -->
       <!-- ===================== -->
       <main class="home-desktop-content" [style.margin-left]="sidebarCollapsed ? '60px' : '320px'" *ngIf="isDesktopHome">
-        <div class="home-embedded-content" *ngIf="isDesktopContentActive; else desktopSubmenuChooser">
-          <router-outlet></router-outlet>
-        </div>
+        <div class="desktop-workspace-grid" [class.desktop-workspace-grid--no-todo]="!canUseTodoView()">
+          <div class="desktop-workspace-main">
+            <div class="home-embedded-content" *ngIf="isDesktopContentActive; else desktopMainChooser">
+              <router-outlet></router-outlet>
+            </div>
 
-        <ng-template #desktopSubmenuChooser>
-          <section class="admin-home-panel" *ngIf="!selectedHomeCategory; else desktopCategoryChooser">
-            <header class="admin-home-header">
-              <div>
-                <p class="admin-home-kicker">Home admin</p>
-                <h1 class="admin-home-title">Pannello principale</h1>
-              </div>
-              <div class="admin-home-stats" *ngIf="canUseTodoView()">
-                <div class="admin-home-stat">
-                  <strong>{{ openAdminTodosCount }}</strong>
-                  <span>Da fare</span>
-                </div>
-                <div class="admin-home-stat">
-                  <strong>{{ completedAdminTodosCount }}</strong>
-                  <span>Completate</span>
-                </div>
-              </div>
-            </header>
+            <ng-template #desktopMainChooser>
+              <section class="admin-home-panel">
+                <header class="admin-home-header">
+                  <div>
+                    <p class="admin-home-kicker">Home admin</p>
+                    <h1 class="admin-home-title">Pannello principale</h1>
+                  </div>
+                </header>
 
-            <section class="deadline-permission-notice" *ngIf="showDeadlinePermissionSetupNotice">
-              <div>
-                <h3>Nuove sezioni scadenze da abilitare</h3>
-                <p>{{ missingNewDeadlinePermissionLabels.join(', ') }}: assegna i permessi agli utenti che devono vederle.</p>
-              </div>
-              <button type="button" (click)="navigateToUserSettings()">Gestisci permessi</button>
-            </section>
+                <section class="deadline-permission-notice" *ngIf="showDeadlinePermissionSetupNotice">
+                  <div>
+                    <h3>Nuove sezioni scadenze da abilitare</h3>
+                    <p>{{ missingNewDeadlinePermissionLabels.join(', ') }}: assegna i permessi agli utenti che devono vederle.</p>
+                  </div>
+                  <button type="button" (click)="navigateToUserSettings()">Gestisci permessi</button>
+                </section>
 
-            <section class="todo-panel" *ngIf="canUseTodoView()" aria-label="Todo list universale">
+                <section class="todo-panel desktop-main-todo" *ngIf="canUseTodoView()" aria-label="Todo list universale">
+                  <div class="todo-panel-header">
+                    <h3>Todo list universale</h3>
+                    <button class="todo-refresh-btn" type="button" (click)="loadAdminTodos()" title="Aggiorna">
+                      <i class="fas fa-sync-alt"></i>
+                    </button>
+                  </div>
+
+                  <div class="todo-form" *ngIf="canUseTodoManage()">
+                    <input
+                      class="todo-input"
+                      type="text"
+                      maxlength="255"
+                      placeholder="Nuova attività"
+                      [value]="newTodoTitle"
+                      (input)="newTodoTitle = $any($event.target).value"
+                      (keydown.enter)="addAdminTodo()"
+                    />
+                    <button class="todo-add-btn" type="button" (click)="addAdminTodo()" [disabled]="todoSaving || !newTodoTitle.trim()" title="Aggiungi">
+                      <i class="fas fa-plus"></i>
+                    </button>
+                  </div>
+
+                  <p class="todo-error" *ngIf="todoError">{{ todoError }}</p>
+                  <p class="todo-empty" *ngIf="todoLoading">Caricamento attività...</p>
+                  <p class="todo-empty" *ngIf="!todoLoading && adminTodos.length === 0">Nessuna attività presente.</p>
+
+                  <ul class="todo-list" *ngIf="!todoLoading && adminTodos.length > 0">
+                    <li class="todo-item" *ngFor="let todo of adminTodos" [class.is-completed]="todo.completed">
+                      <button class="todo-check" type="button" (click)="toggleAdminTodo(todo)" [disabled]="!canUseTodoManage()" [attr.title]="todo.completed ? 'Segna da fare' : 'Completa'">
+                        <i class="fas fa-check"></i>
+                      </button>
+                      <span class="todo-title">{{ todo.title }}</span>
+                      <button class="todo-delete-btn" *ngIf="canUseTodoManage()" type="button" (click)="deleteAdminTodo(todo)" title="Elimina">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </li>
+                  </ul>
+                </section>
+              </section>
+            </ng-template>
+          </div>
+
+          <aside class="desktop-todo-rail" *ngIf="canUseTodoView()">
+            <div class="admin-home-stats">
+              <div class="admin-home-stat">
+                <strong>{{ openAdminTodosCount }}</strong>
+                <span>Da fare</span>
+              </div>
+              <div class="admin-home-stat">
+                <strong>{{ completedAdminTodosCount }}</strong>
+                <span>Completate</span>
+              </div>
+            </div>
+
+            <section class="todo-panel" aria-label="Todo list universale">
               <div class="todo-panel-header">
                 <h3>Todo list universale</h3>
                 <button class="todo-refresh-btn" type="button" (click)="loadAdminTodos()" title="Aggiorna">
@@ -1403,36 +1582,8 @@
                 </li>
               </ul>
             </section>
-          </section>
-
-          <ng-template #desktopCategoryChooser>
-          <div class="home-section-title" *ngIf="selectedHomeCategory">
-            <div>
-              <span class="home-section-kicker">Sottomenu</span>
-              <h2>{{ selectedHomeCategory.label }}</h2>
-            </div>
-          </div>
-
-          <div class="home-submenu-grid" *ngIf="currentHomeButtons.length > 0">
-            <button
-              class="dash-btn home-submenu-button"
-              *ngFor="let button of currentHomeButtons"
-              (click)="activateHomeButton(button)"
-            >
-              <span class="icon"><i [class]="button.icon"></i></span>
-              <span class="label">
-                {{ button.label }}
-                <span
-                  *ngIf="buttonBadgeCount(button) > 0"
-                  [ngClass]="buttonBadgeClass(button)"
-                >
-                  {{ buttonBadgeCount(button) }}
-                </span>
-              </span>
-            </button>
-          </div>
-          </ng-template>
-        </ng-template>
+          </aside>
+        </div>
       </main>
 
       <!-- ===================== -->
@@ -1462,7 +1613,7 @@
 
         <div *ngIf="isMenuOpen" class="mobile-menu">
           <a *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">Aggiungi utenti</a>
-          <a *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToGestioneUsers()">Gestione users</a>
+          <a *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToGestioneUsers()">Invio notifiche dipendenti</a>
           <a *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</a>
           <a (click)="navigateToCambiapassword()">Cambia password</a>
           <a *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</a>
@@ -1547,6 +1698,23 @@
           </section>
 
           <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">
+            <button
+              class="dash-btn"
+              *ngFor="let button of standaloneHomeButtons"
+              (click)="activateHomeButton(button)"
+            >
+              <span class="icon"><i [class]="button.icon"></i></span>
+              <span class="label">
+                {{ button.label }}
+                <span
+                  *ngIf="buttonBadgeCount(button) > 0"
+                  [ngClass]="buttonBadgeClass(button)"
+                >
+                  {{ buttonBadgeCount(button) }}
+                </span>
+              </span>
+            </button>
+
             <button
               class="dash-btn"
               *ngFor="let category of visibleHomeCategories"

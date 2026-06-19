@@ -39,13 +39,13 @@
     </div>
   </div>
 
-  <div class="card glass search-card mt-3" *ngIf="!loading && !entitiesLoading && groups.length > 0">
+  <div class="card glass search-card mt-3" *ngIf="!loading && !entitiesLoading">
     <div class="search-field">
       <span class="search-icon">⌕</span>
       <input
         type="search"
         [(ngModel)]="searchText"
-        placeholder="Cerca per nome, cartella, scadenza, data o allegato"
+        [placeholder]="searchPlaceholder"
       />
       <button
         type="button"
@@ -236,20 +236,29 @@
     Caricamento in corso...
   </div>
 
-  <div class="card glass mt-3 text-center py-4" *ngIf="!loading && !entitiesLoading && groups.length === 0">
-    Nessun {{ entityLabel }} disponibile.
+  <div class="card glass mt-3 empty-page-state" *ngIf="!loading && !entitiesLoading && groups.length === 0 && !hasActiveSearch">
+    <h3>{{ emptyStateTitle }}</h3>
+    <p>{{ emptyStateMessage }}</p>
+    <button
+      *ngIf="canCreate"
+      type="button"
+      class="btn btn-primary btn-sm"
+      (click)="openAddForm()"
+    >
+      {{ emptyStateActionLabel }}
+    </button>
   </div>
 
   <div
     class="card glass mt-3 text-center py-4"
-    *ngIf="!loading && !entitiesLoading && groups.length > 0 && !selectedGroup && filteredGroups.length === 0"
+    *ngIf="!loading && !entitiesLoading && hasActiveSearch && !selectedGroup && filteredGroups.length === 0"
   >
     Nessun risultato per questa ricerca.
   </div>
 
-  <div class="groups-grid" *ngIf="!loading && !entitiesLoading && filteredGroups.length > 0 && !selectedGroup">
-    <button class="card glass entity-card entity-card-button" *ngFor="let group of filteredGroups" (click)="openGroup(group)">
-      <div class="entity-head">
+  <div class="entity-list" *ngIf="!loading && !entitiesLoading && filteredGroups.length > 0 && !selectedGroup">
+    <article class="card glass entity-row" *ngFor="let group of filteredGroups">
+      <div class="entity-row-main">
         <div class="entity-head-copy">
           <div class="entity-title-row">
             <h3 class="entity-title">{{ group.label }}</h3>
@@ -264,14 +273,43 @@
           <p class="entity-subtitle mb-0">{{ group.subtitle || ' ' }}</p>
         </div>
 
-        <span class="open-detail">Apri</span>
+        <div class="entity-stat-strip">
+          <span>{{ group.summary.totalCount }} scadenze</span>
+          <span>{{ getFolderGroups(group).length }} cartelle</span>
+          <span *ngIf="group.summary.expiredCount > 0" class="status-inline status-expired">
+            {{ group.summary.expiredCount }} scadute
+          </span>
+          <span *ngIf="group.summary.warningCount > 0" class="status-inline status-warning">
+            {{ group.summary.warningCount }} in scadenza
+          </span>
+        </div>
       </div>
 
-      <div class="entity-card-footer">
-        <span>{{ group.summary.totalCount }} scadenze</span>
-        <span>{{ getFolderGroups(group).length }} cartelle</span>
+      <div class="entity-actions">
+        <button
+          *ngIf="canCreate"
+          type="button"
+          class="btn btn-primary btn-sm add-deadline-button"
+          (click)="openAddForm(group.id)"
+        >
+          + Aggiungi scadenza
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-light btn-sm detail-button"
+          (click)="openGroup(group)"
+        >
+          Dettaglio
+          <span
+            *ngIf="group.summary.alertCount > 0"
+            class="detail-alert"
+            [ngClass]="statusClass(group.summary.status)"
+          >
+            {{ group.summary.alertCount }}
+          </span>
+        </button>
       </div>
-    </button>
+    </article>
   </div>
 
   <section class="card glass mt-3 detail-card" *ngIf="!loading && !entitiesLoading && selectedGroupView as currentGroup">

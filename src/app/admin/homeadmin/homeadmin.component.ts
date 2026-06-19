@@ -26,6 +26,7 @@ interface HomeButton {
   label: string;
   icon: string;
   permission: string;
+  permissionsAny?: string[];
   feature?: string;
   action: () => void;
   desktopPath?: string;
@@ -79,6 +80,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   isMenuOpen: boolean = false;
   selectedHomeCategoryId = '';
+  expandedHomeCategoryId = '';
   permessiInAttesa: number = 0;
   pendingQuoteReviews: number = 0;
   emailUnreadCount: number = 0;
@@ -397,11 +399,64 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.router.navigateByUrl('/work-completion-stats');
   }
 
+  get standaloneHomeButtons(): HomeButton[] {
+    return [
+      {
+        label: 'Calendario',
+        icon: 'fas fa-calendar',
+        permission: 'CALENDAR_VIEW',
+        action: () => this.navigateToCalendarHome(),
+        desktopPath: 'calendarHome',
+      },
+      {
+        label: 'Email',
+        icon: 'fas fa-envelope',
+        permission: 'EMAIL_VIEW',
+        permissionsAny: ['EMAIL_VIEW', 'EMAIL_SETTINGS'],
+        action: () => {
+          if (this.canUsePermission('EMAIL_VIEW')) {
+            this.router.navigateByUrl('/email');
+            return;
+          }
+
+          this.navigateToEmailSettings();
+        },
+        desktopPath: this.canUsePermission('EMAIL_VIEW') ? 'email' : undefined,
+        badgeCount: () => this.emailUnreadCount,
+        badgeClass: () => 'badge bg-danger ms-1',
+      },
+      {
+        label: 'Invio notifiche dipendenti',
+        icon: 'fas fa-users-cog',
+        permission: 'ADMIN_VIEW',
+        feature: 'administrators',
+        action: () => this.navigateToGestioneUsers(),
+        desktopPath: 'gestioneusers',
+      },
+      {
+        label: 'Documenti interni',
+        icon: 'fas fa-file',
+        permission: 'INTERNAL_DOCS_ACCESS',
+        feature: 'documents',
+        action: () => this.navigateToInternalDocuments(),
+        desktopPath: 'internal-documents',
+      },
+      {
+        label: 'Statistiche',
+        icon: 'fas fa-chart-line',
+        permission: 'STATS_VIEW',
+        feature: 'stats',
+        action: () => this.navigateToWorkCompletionStats(),
+        desktopPath: 'statistiche',
+      },
+    ].filter((button) => this.canUseHomeButton(button));
+  }
+
   get homeCategories(): HomeCategory[] {
     return [
       {
         id: 'personale',
-        label: 'Ufficio tecnico',
+        label: 'Dipendenti',
         icon: 'fas fa-user-friends',
         buttons: [
           {
@@ -421,34 +476,6 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             desktopPath: 'timbratureHome',
           },
           {
-            label: 'Scadenze Mezzi',
-            icon: 'fas fa-car',
-            permission: 'VEHICLE_DEADLINES_VIEW',
-            feature: 'deadlines',
-            action: () => this.navigateToVehicleDeadlines(),
-            desktopPath: 'vehicle-deadlines',
-            badgeCount: () => this.vehicleDeadlineSummary.alertCount,
-            badgeClass: () => this.deadlineBadgeClass(this.vehicleDeadlineSummary),
-          },
-          {
-            label: 'Scadenze Attrezzature',
-            icon: 'fas fa-toolbox',
-            permission: 'EQUIPMENT_DEADLINES_VIEW',
-            feature: 'deadlines',
-            action: () => this.navigateToEquipmentDeadlines(),
-            desktopPath: 'equipment-deadlines',
-            badgeCount: () => this.equipmentDeadlineSummary.alertCount,
-            badgeClass: () => this.deadlineBadgeClass(this.equipmentDeadlineSummary),
-          },
-          {
-            label: 'Ordini di servizio',
-            icon: 'fas fa-clipboard-list',
-            permission: 'SERVICE_ORDERS_VIEW',
-            feature: 'serviceOrders',
-            action: () => this.navigateToServiceOrders(),
-            desktopPath: 'service-orders',
-          },
-          {
             label: 'Riepilogo ore clienti',
             icon: 'fas fa-user-clock',
             permission: 'CUSTOMERS_HOURS_VIEW',
@@ -456,66 +483,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             action: () => this.goToRiepilogoOreClienti(),
             desktopPath: 'riepilogo-ore-clienti',
           },
-        ],
-      },
-      {
-        id: 'commerciale',
-        label: 'Commerciale',
-        icon: 'fas fa-handshake',
-        buttons: [
           {
-            label: 'Gestione Clienti',
-            icon: 'fas fa-users',
-            permission: 'CUSTOMERS_VIEW',
-            feature: 'customers',
-            action: () => this.navigateToListCustomer(),
-            desktopPath: 'listCustomer',
+            label: 'Riepilogo ore personalizzabile',
+            icon: 'fas fa-clock',
+            permission: 'ATTENDANCE_MANAGE',
+            feature: 'attendance',
+            action: () => this.goToEditableHours(),
+            desktopPath: 'riepilogo-presenze-editabile',
           },
-          {
-            label: 'Scadenze Clienti',
-            icon: 'fas fa-user-shield',
-            permission: 'CUSTOMER_DEADLINES_VIEW',
-            feature: 'deadlines',
-            action: () => this.navigateToCustomerDeadlines(),
-            desktopPath: 'customer-deadlines',
-            badgeCount: () => this.customerDeadlineSummary.alertCount,
-            badgeClass: () => this.deadlineBadgeClass(this.customerDeadlineSummary),
-          },
-          {
-            label: 'Gestione Preventivi',
-            icon: 'fas fa-file-alt',
-            permission: 'QUOTES_VIEW',
-            feature: 'quotes',
-            action: () => this.navigateToQuotesHome(),
-            desktopPath: 'quotesHome',
-            badgeCount: () => this.pendingQuoteReviews,
-            badgeClass: () => 'badge bg-danger ms-1',
-          },
-          {
-            label: 'Calendario',
-            icon: 'fas fa-calendar',
-            permission: 'CALENDAR_VIEW',
-            feature: 'calendar',
-            action: () => this.navigateToCalendarHome(),
-            desktopPath: 'calendarHome',
-          },
-          {
-            label: 'Email',
-            icon: 'fas fa-envelope',
-            permission: 'EMAIL_VIEW',
-            feature: 'email',
-            action: () => this.router.navigateByUrl('/email'),
-            desktopPath: 'email',
-            badgeCount: () => this.emailUnreadCount,
-            badgeClass: () => 'badge bg-danger ms-1',
-          },
-        ],
-      },
-      {
-        id: 'operativo',
-        label: 'Risorse umane',
-        icon: 'fas fa-briefcase',
-        buttons: [
           {
             label: 'Gestione Dipendenti',
             icon: 'fas fa-user',
@@ -525,35 +500,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             desktopPath: 'gestioneemployees',
           },
           {
-            label: 'Scadenze Dipendenti',
-            icon: 'fas fa-id-card',
-            permission: 'EMPLOYEE_DEADLINES_VIEW',
-            feature: 'deadlines',
-            action: () => this.navigateToEmployeeDeadlines(),
-            desktopPath: 'employee-deadlines',
-            badgeCount: () => this.employeeDeadlineSummary.alertCount,
-            badgeClass: () => this.deadlineBadgeClass(this.employeeDeadlineSummary),
-          },
-          {
-            label: 'Scadenze Interne',
-            icon: 'fas fa-building-shield',
-            permission: 'INTERNAL_DEADLINES_VIEW',
-            feature: 'deadlines',
-            action: () => this.navigateToInternalDeadlines(),
-            desktopPath: 'internal-deadlines',
-            badgeCount: () => this.internalDeadlineSummary.alertCount,
-            badgeClass: () => this.deadlineBadgeClass(this.internalDeadlineSummary),
-          },
-          {
-            label: 'Riepilogo presenze personalizzabile',
-            icon: 'fas fa-clock',
-            permission: 'ATTENDANCE_MANAGE',
-            feature: 'attendance',
-            action: () => this.goToEditableHours(),
-            desktopPath: 'riepilogo-presenze-editabile',
-          },
-          {
-            label: 'Gestione permessi e assenze',
+            label: 'Gestione permessi e dipendenti',
             icon: 'fas fa-clipboard-check',
             permission: 'EMPLOYEE_PERMITS_MANAGE',
             feature: 'leaveRequests',
@@ -565,33 +512,92 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
         ],
       },
       {
-        id: 'amministrazione',
-        label: 'Amministrazione',
-        icon: 'fas fa-building',
+        id: 'commerciale',
+        label: 'Clienti',
+        icon: 'fas fa-handshake',
         buttons: [
           {
-            label: 'Gestione Users',
-            icon: 'fas fa-users-cog',
-            permission: 'ADMIN_VIEW',
-            feature: 'administrators',
-            action: () => this.navigateToGestioneUsers(),
-            desktopPath: 'gestioneusers',
+            label: 'Gestione Clienti',
+            icon: 'fas fa-users',
+            permission: 'CUSTOMERS_VIEW',
+            feature: 'customers',
+            action: () => this.navigateToListCustomer(),
+            desktopPath: 'listCustomer',
           },
           {
-            label: 'Documenti interni',
-            icon: 'fas fa-file',
-            permission: 'INTERNAL_DOCS_ACCESS',
-            feature: 'documents',
-            action: () => this.navigateToInternalDocuments(),
-            desktopPath: 'internal-documents',
+            label: 'Gestione Preventivi',
+            icon: 'fas fa-file-alt',
+            permission: 'QUOTES_VIEW',
+            feature: 'quotes',
+            action: () => this.navigateToQuotesHome(),
+            desktopPath: 'quotesHome',
+            badgeCount: () => this.pendingQuoteReviews,
+            badgeClass: () => 'badge bg-danger ms-1',
+          },
+        ],
+      },
+      {
+        id: 'operativo',
+        label: 'Sicurezza e scadenze',
+        icon: 'fas fa-briefcase',
+        buttons: [
+          {
+            label: 'Scadenze dipendenti',
+            icon: 'fas fa-id-card',
+            permission: 'EMPLOYEE_DEADLINES_VIEW',
+            feature: 'deadlines',
+            action: () => this.navigateToEmployeeDeadlines(),
+            desktopPath: 'employee-deadlines',
+            badgeCount: () => this.employeeDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.employeeDeadlineSummary),
           },
           {
-            label: 'Statistiche',
-            icon: 'fas fa-chart-line',
-            permission: 'STATS_VIEW',
-            feature: 'stats',
-            action: () => this.navigateToWorkCompletionStats(),
-            desktopPath: 'statistiche',
+            label: 'Scadenze mezzi',
+            icon: 'fas fa-car',
+            permission: 'VEHICLE_DEADLINES_VIEW',
+            feature: 'deadlines',
+            action: () => this.navigateToVehicleDeadlines(),
+            desktopPath: 'vehicle-deadlines',
+            badgeCount: () => this.vehicleDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.vehicleDeadlineSummary),
+          },
+          {
+            label: 'Scadenze attrezzature',
+            icon: 'fas fa-toolbox',
+            permission: 'EQUIPMENT_DEADLINES_VIEW',
+            feature: 'deadlines',
+            action: () => this.navigateToEquipmentDeadlines(),
+            desktopPath: 'equipment-deadlines',
+            badgeCount: () => this.equipmentDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.equipmentDeadlineSummary),
+          },
+          {
+            label: 'Scadenze clienti',
+            icon: 'fas fa-user-shield',
+            permission: 'CUSTOMER_DEADLINES_VIEW',
+            feature: 'deadlines',
+            action: () => this.navigateToCustomerDeadlines(),
+            desktopPath: 'customer-deadlines',
+            badgeCount: () => this.customerDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.customerDeadlineSummary),
+          },
+          {
+            label: 'Scadenze interne',
+            icon: 'fas fa-building-shield',
+            permission: 'INTERNAL_DEADLINES_VIEW',
+            feature: 'deadlines',
+            action: () => this.navigateToInternalDeadlines(),
+            desktopPath: 'internal-deadlines',
+            badgeCount: () => this.internalDeadlineSummary.alertCount,
+            badgeClass: () => this.deadlineBadgeClass(this.internalDeadlineSummary),
+          },
+          {
+            label: 'Ordini di servizio',
+            icon: 'fas fa-clipboard-list',
+            permission: 'SERVICE_ORDERS_VIEW',
+            feature: 'serviceOrders',
+            action: () => this.navigateToServiceOrders(),
+            desktopPath: 'service-orders',
           },
         ],
       },
@@ -607,9 +613,13 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   get shouldShowHomeCategories(): boolean {
     return (
       !this.isDesktopHome &&
-      this.visibleHomeCategories.length > 1 &&
+      this.mainMenuItemsCount > 1 &&
       !this.selectedHomeCategoryId
     );
+  }
+
+  get mainMenuItemsCount(): number {
+    return this.standaloneHomeButtons.length + this.visibleHomeCategories.length;
   }
 
   get currentHomeButtons(): HomeButton[] {
@@ -632,11 +642,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   selectHomeCategory(categoryId: string): void {
-    this.selectedHomeCategoryId = categoryId;
     if (this.isDesktopHome) {
-      this.isDesktopContentActive = false;
-      this.router.navigate(['/homeAdmin']);
+      this.expandedHomeCategoryId =
+        this.expandedHomeCategoryId === categoryId ? '' : categoryId;
+      this.selectedHomeCategoryId = this.expandedHomeCategoryId;
+      return;
     }
+
+    this.selectedHomeCategoryId = categoryId;
   }
 
   clearHomeCategory(): void {
@@ -646,6 +659,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   activateHomeButton(button: HomeButton): void {
     if (this.isDesktopHome && button.desktopPath) {
       this.isDesktopContentActive = true;
+      this.setExpandedCategoryForButton(button);
       this.router.navigate(['/homeAdmin', button.desktopPath]);
       return;
     }
@@ -655,6 +669,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   showDesktopMainMenu(): void {
     this.selectedHomeCategoryId = '';
+    this.expandedHomeCategoryId = '';
     this.isDesktopContentActive = false;
     this.router.navigate(['/homeAdmin']);
   }
@@ -861,6 +876,18 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     return category.buttons.filter((button) => this.canUseHomeButton(button));
   }
 
+  isCategoryExpanded(category: HomeCategory): boolean {
+    return this.expandedHomeCategoryId === category.id;
+  }
+
+  isStandaloneButtonActive(button: HomeButton): boolean {
+    return !!button.desktopPath && this.activeDesktopChildPath() === button.desktopPath;
+  }
+
+  isHomeButtonActive(button: HomeButton): boolean {
+    return !!button.desktopPath && this.activeDesktopChildPath() === button.desktopPath;
+  }
+
   canUsePermission(permission: string, feature?: string): boolean {
     return (
       this.global.hasPermission(permission) &&
@@ -869,6 +896,12 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   private canUseHomeButton(button: HomeButton): boolean {
+    if (Array.isArray(button.permissionsAny) && button.permissionsAny.length) {
+      return button.permissionsAny.some((permission) =>
+        this.canUsePermission(permission, button.feature),
+      );
+    }
+
     return this.canUsePermission(button.permission, button.feature);
   }
 
@@ -957,8 +990,27 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
     if (activeCategory) {
       this.selectedHomeCategoryId = activeCategory.id;
+      this.expandedHomeCategoryId = activeCategory.id;
+      this.isDesktopContentActive = this.isDesktopHome;
+      return;
+    }
+
+    const activeStandalone = this.standaloneHomeButtons.some(
+      (button) => button.desktopPath === activePath,
+    );
+    if (activeStandalone) {
+      this.selectedHomeCategoryId = '';
+      this.expandedHomeCategoryId = '';
       this.isDesktopContentActive = this.isDesktopHome;
     }
+  }
+
+  private setExpandedCategoryForButton(button: HomeButton): void {
+    const owner = this.visibleHomeCategories.find((category) =>
+      this.visibleHomeButtons(category).some((item) => item === button),
+    );
+    this.expandedHomeCategoryId = owner?.id || '';
+    this.selectedHomeCategoryId = owner?.id || '';
   }
 
   private activeDesktopChildPath(): string {
