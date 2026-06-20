@@ -1445,8 +1445,11 @@
             <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">
               <i class="fas fa-clipboard-check"></i> <span class="sidebar-btn-text">Permessi e assenze</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('SETTINGS_ADMIN', 'deadlines')" (click)="navigateToVehiclesSettings()">
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'deadlines')" (click)="navigateToVehiclesSettings()">
               <i class="fas fa-truck"></i> <span class="sidebar-btn-text">Gestione mezzi</span>
+            </button>
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'deadlines')" (click)="navigateToEquipmentSettings()">
+              <i class="fas fa-tools"></i> <span class="sidebar-btn-text">Gestione attrezzature</span>
             </button>
             <button class="sidebar-bottom-btn" *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">
               <i class="fas fa-file-invoice-dollar"></i> <span class="sidebar-btn-text">Impostazioni preventivi</span>
@@ -1617,7 +1620,8 @@
           <a *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</a>
           <a (click)="navigateToCambiapassword()">Cambia password</a>
           <a *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</a>
-          <a *ngIf="canUsePermission('SETTINGS_ADMIN', 'deadlines')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
+          <a *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'deadlines')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
+          <a *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'deadlines')" (click)="navigateToEquipmentSettings()">Gestione attrezzature</a>
           <a *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>
           <a *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSettings()">Impostazioni email</a>
           <a *ngIf="global.forMobile && canUsePermission('NOTIFICATIONS_VIEW', 'notifications')" (click)="navigateToNotificationSettings()">Notifiche mobile</a>

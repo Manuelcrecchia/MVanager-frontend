@@ -28,6 +28,7 @@ import { UserSettingsComponent } from './admin/user-settings/user-settings.compo
 import { VehiclesSettingsComponent } from './admin/vehicles-settings/vehicles-settings.component';
 import { QuoteSettingsComponent } from './admin/quote-settings/quote-settings.component';
 import { VehicleAssignDialogComponent } from './admin/vehicle-assign-dialog/vehicle-assign-dialog.component';
+import { EquipmentAssignDialogComponent } from './admin/equipment-assign-dialog/equipment-assign-dialog.component';
 import { MatGridListModule } from '@angular/material/grid-list';
 import { MatInputModule } from '@angular/material/input';
 import { MatChipsModule } from '@angular/material/chips';
@@ -135,6 +136,7 @@ registerLocaleData(localeIt);
     CreateShiftComponent,
     AssignDialogComponent,
     VehicleAssignDialogComponent,
+    EquipmentAssignDialogComponent,
     VehiclesSettingsComponent,
     QuoteSettingsComponent,
     GestionePermessiComponent,

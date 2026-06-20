@@ -19,6 +19,8 @@ export class AuthLevelGuard implements CanActivate {
     ADMIN_EDIT: 'administrators',
     ADMIN_DELETE: 'administrators',
     SETTINGS_ADMIN: 'deadlines',
+    VEHICLE_SETTINGS_MANAGE: 'deadlines',
+    EQUIPMENT_SETTINGS_MANAGE: 'deadlines',
     SHIFTS_VIEW: 'shifts',
     SHIFTS_MANAGE: 'shifts',
     ATTENDANCE_VIEW: 'attendance',

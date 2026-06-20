@@ -4,6 +4,7 @@ import { GlobalService } from '../../service/global.service';
 import { CustomerModelService } from '../../service/customer-model.service';
 import { Component, Input } from '@angular/core';
 import { saveAs } from 'file-saver';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-list-customer',
@@ -14,8 +15,12 @@ export class ListCustomerComponent {
   customers: any[] = [];
   customersFrEnd: any[] = [];
   employeeCategories: any[] = [];
+  vehicleCategories: any[] = [];
+  equipmentCategories: any[] = [];
   requirementCustomer: any | null = null;
   requirementCounts: { [categoryId: number]: number } = {};
+  vehicleRequirementCounts: { [categoryId: number]: number } = {};
+  equipmentRequirementCounts: { [categoryId: number]: number } = {};
   customerSearch = '';
 
   constructor(
@@ -28,6 +33,8 @@ export class ListCustomerComponent {
   ngOnInit(): void {
     this.getCustomers();
     this.getEmployeeCategories();
+    this.getVehicleCategories();
+    this.getEquipmentCategories();
   }
 
   getEmployeeCategories(): void {
@@ -42,6 +49,38 @@ export class ListCustomerComponent {
         error: (err) => {
           console.error('Errore categorie dipendenti:', err);
           this.employeeCategories = [];
+        },
+      });
+  }
+
+  getVehicleCategories(): void {
+    this.http
+      .get<any[]>(this.globalService.url + 'admin/resource-categories/vehicle', {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (categories) => {
+          this.vehicleCategories = Array.isArray(categories) ? categories : [];
+        },
+        error: (err) => {
+          console.error('Errore categorie mezzi:', err);
+          this.vehicleCategories = [];
+        },
+      });
+  }
+
+  getEquipmentCategories(): void {
+    this.http
+      .get<any[]>(this.globalService.url + 'admin/resource-categories/equipment', {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (categories) => {
+          this.equipmentCategories = Array.isArray(categories) ? categories : [];
+        },
+        error: (err) => {
+          console.error('Errore categorie attrezzature:', err);
+          this.equipmentCategories = [];
         },
       });
   }
@@ -219,19 +258,37 @@ export class ListCustomerComponent {
   openStaffRequirements(customer: any): void {
     this.requirementCustomer = customer;
     this.requirementCounts = {};
-    this.http
-      .get<any[]>(this.globalService.url + `admin/employee-categories/customer/${customer.numeroCliente}`, {
-        headers: this.globalService.headers,
-      })
+    this.vehicleRequirementCounts = {};
+    this.equipmentRequirementCounts = {};
+    forkJoin({
+      employees: this.http.get<any[]>(
+        this.globalService.url + `admin/employee-categories/customer/${customer.numeroCliente}`,
+        { headers: this.globalService.headers },
+      ),
+      vehicles: this.http.get<any[]>(
+        this.globalService.url + `admin/resource-categories/vehicle/customer/${customer.numeroCliente}`,
+        { headers: this.globalService.headers },
+      ),
+      equipment: this.http.get<any[]>(
+        this.globalService.url + `admin/resource-categories/equipment/customer/${customer.numeroCliente}`,
+        { headers: this.globalService.headers },
+      ),
+    })
       .subscribe({
-        next: (rows) => {
-          for (const row of rows || []) {
+        next: ({ employees, vehicles, equipment }) => {
+          for (const row of employees || []) {
             this.requirementCounts[Number(row.categoryId)] = Number(row.requiredCount) || 0;
+          }
+          for (const row of vehicles || []) {
+            this.vehicleRequirementCounts[Number(row.categoryId)] = Number(row.requiredCount) || 0;
+          }
+          for (const row of equipment || []) {
+            this.equipmentRequirementCounts[Number(row.categoryId)] = Number(row.requiredCount) || 0;
           }
         },
         error: (err) => {
-          console.error('Errore requisiti personale cliente:', err);
-          alert('Errore durante il caricamento requisiti personale');
+          console.error('Errore requisiti cliente:', err);
+          alert('Errore durante il caricamento requisiti cliente');
         },
       });
   }
@@ -246,20 +303,45 @@ export class ListCustomerComponent {
       }))
       .filter((item) => item.categoryId && item.requiredCount > 0);
 
-    this.http
-      .post(
+    const vehicleRequirements = this.vehicleCategories
+      .map((category) => ({
+        categoryId: category.id,
+        requiredCount: Number(this.vehicleRequirementCounts[Number(category.id)] || 0),
+      }))
+      .filter((item) => item.categoryId && item.requiredCount > 0);
+
+    const equipmentRequirements = this.equipmentCategories
+      .map((category) => ({
+        categoryId: category.id,
+        requiredCount: Number(this.equipmentRequirementCounts[Number(category.id)] || 0),
+      }))
+      .filter((item) => item.categoryId && item.requiredCount > 0);
+
+    forkJoin([
+      this.http.post(
         this.globalService.url + `admin/employee-categories/customer/${this.requirementCustomer.numeroCliente}`,
         { requirements },
         { headers: this.globalService.headers },
-      )
+      ),
+      this.http.post(
+        this.globalService.url + `admin/resource-categories/vehicle/customer/${this.requirementCustomer.numeroCliente}`,
+        { requirements: vehicleRequirements },
+        { headers: this.globalService.headers },
+      ),
+      this.http.post(
+        this.globalService.url + `admin/resource-categories/equipment/customer/${this.requirementCustomer.numeroCliente}`,
+        { requirements: equipmentRequirements },
+        { headers: this.globalService.headers },
+      ),
+    ])
       .subscribe({
         next: () => {
-          alert('Requisiti personale salvati');
+          alert('Requisiti cliente salvati');
           this.requirementCustomer = null;
         },
         error: (err) => {
-          console.error('Errore salvataggio requisiti personale:', err);
-          alert('Errore durante il salvataggio requisiti personale');
+          console.error('Errore salvataggio requisiti cliente:', err);
+          alert('Errore durante il salvataggio requisiti cliente');
         },
       });
   }

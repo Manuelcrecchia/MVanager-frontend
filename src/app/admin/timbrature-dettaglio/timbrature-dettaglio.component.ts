@@ -18,7 +18,11 @@ export class TimbratureDettaglioComponent implements OnInit {
   employee: any;
   date!: string;
   works: any[] = [];
-  stampingConfig: any = { mode: 'customer_tag', warehouseLabel: 'Magazzino' };
+  stampingConfig: any = {
+    mode: 'customer_tag',
+    warehouseLabel: 'Magazzino',
+    warehouseLocations: [{ tagId: 'MAGAZZINO', locationId: '__warehouse__', label: 'Magazzino' }],
+  };
   loading = false;
 
   modalMode: 'add' | 'edit' | 'delete' | 'resolve' = 'add';
@@ -347,6 +351,25 @@ export class TimbratureDettaglioComponent implements OnInit {
 
   showPlanningColumns(): boolean {
     return !this.isWarehouseMode() || this.stampingConfig?.compareWithShifts === true;
+  }
+
+  getWarehouseModeLabel(): string {
+    const locations = Array.isArray(this.stampingConfig?.warehouseLocations)
+      ? this.stampingConfig.warehouseLocations
+      : [];
+    const validLocations = locations.filter((location: any) =>
+      String(location?.locationId || location?.tagId || location?.label || '').trim()
+    );
+
+    if (validLocations.length > 1) {
+      return `${validLocations.length} sedi aziendali`;
+    }
+
+    return (
+      validLocations[0]?.label ||
+      this.stampingConfig?.warehouseLabel ||
+      'Magazzino'
+    );
   }
 
   getStatusLabel(errorType: string): string {

@@ -1,0 +1,36 @@
+<h2 class="dialog-title">Assegna attrezzature</h2>
+
+<div class="body">
+  <div *ngIf="loading" class="muted">Caricamento...</div>
+
+  <div class="list" *ngIf="!loading">
+    <label class="row-item" *ngFor="let item of equipment">
+      <input
+        type="checkbox"
+        [checked]="isSelected(item.targetKey)"
+        (change)="toggleEquipment(item.targetKey)"
+      />
+      <div class="meta">
+        <div class="name">{{ item.targetLabel || item.targetKey }}</div>
+        <div class="plate">{{ item.targetKey }}</div>
+      </div>
+    </label>
+
+    <div class="text-center py-3" *ngIf="equipment.length === 0">
+      Nessuna attrezzatura disponibile. Creala inserendo una prima scadenza in Scadenze attrezzature.
+    </div>
+  </div>
+
+  <div class="selected-count" *ngIf="selectedEquipmentKeys.length > 0">
+    {{ selectedEquipmentKeys.length }} attrezzatura/e selezionata/e
+    <button type="button" class="btn-deselect" (click)="clearSelection()">Rimuovi tutte</button>
+  </div>
+</div>
+
+<div class="actions">
+  <div class="spacer"></div>
+  <button class="btn btn-outline-light text-dark" (click)="cancel()">
+    Annulla
+  </button>
+  <button class="btn btn-primary" (click)="save()">Salva</button>
+</div>

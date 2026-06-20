@@ -46,17 +46,38 @@
       <section class="staff-panel" *ngIf="requirementCustomer">
         <div class="staff-panel__head">
           <div>
-            <h2>Personale richiesto</h2>
+            <h2>Risorse richieste</h2>
             <p>{{ requirementCustomer.numeroCliente }} - {{ getCustomerDisplayName(requirementCustomer) }}</p>
           </div>
           <button type="button" class="btn btn-light" (click)="requirementCustomer = null">Chiudi</button>
         </div>
+        <h3 class="staff-panel__subtitle">Personale</h3>
         <div class="staff-grid">
           <label class="staff-row" *ngFor="let category of employeeCategories">
             <span>{{ category.name }}</span>
             <input type="number" min="0" [(ngModel)]="requirementCounts[category.id]" />
           </label>
         </div>
+        <h3 class="staff-panel__subtitle">Mezzi</h3>
+        <div class="staff-grid" *ngIf="vehicleCategories.length; else noVehicleCategoriesConfigured">
+          <label class="staff-row" *ngFor="let category of vehicleCategories">
+            <span>{{ category.name }}</span>
+            <input type="number" min="0" [(ngModel)]="vehicleRequirementCounts[category.id]" />
+          </label>
+        </div>
+        <ng-template #noVehicleCategoriesConfigured>
+          <p class="text-muted mb-0">Nessuna categoria mezzo configurata.</p>
+        </ng-template>
+        <h3 class="staff-panel__subtitle">Attrezzature</h3>
+        <div class="staff-grid" *ngIf="equipmentCategories.length; else noEquipmentCategoriesConfigured">
+          <label class="staff-row" *ngFor="let category of equipmentCategories">
+            <span>{{ category.name }}</span>
+            <input type="number" min="0" [(ngModel)]="equipmentRequirementCounts[category.id]" />
+          </label>
+        </div>
+        <ng-template #noEquipmentCategoriesConfigured>
+          <p class="text-muted mb-0">Nessuna categoria attrezzatura configurata.</p>
+        </ng-template>
         <div class="d-flex justify-content-end mt-3">
           <button type="button" class="btn btn-primary" (click)="saveStaffRequirements()">Salva requisiti</button>
         </div>

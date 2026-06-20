@@ -100,6 +100,18 @@
             {{ getVehicleLabel(a.id) }}
           </span>
 
+          <button
+            class="btn btn-sm btn-outline-info me-2"
+            (click)="openEquipmentDialog(a)"
+            title="Assegna attrezzature"
+          >
+            🧰
+          </button>
+
+          <span class="badge bg-light text-dark me-2" *ngIf="getEquipmentLabel(a.id)">
+            {{ getEquipmentLabel(a.id) }}
+          </span>
+
           <div class="me-2" style="min-width: 90px">
             <input
               type="text"

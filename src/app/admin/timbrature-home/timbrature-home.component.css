@@ -125,6 +125,133 @@ html, body{
   font-weight: 900;
 }
 
+.warehouse-settings {
+  max-width: 1100px;
+  margin: 0 auto 18px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  background: rgba(255,255,255,0.96);
+  color: #111827;
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.10);
+}
+
+.warehouse-settings__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.warehouse-settings__head h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.warehouse-settings__head p {
+  margin: 4px 0 0;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.warehouse-location-list {
+  display: grid;
+  gap: 10px;
+}
+
+.warehouse-location-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+}
+
+.warehouse-location-row label {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.warehouse-location-row input {
+  color: #000;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+}
+
+.warehouse-location-row > button {
+  grid-column: 1 / -1;
+  justify-self: end;
+  min-width: 120px;
+}
+
+.warehouse-settings .btn-outline-primary {
+  background: #eff6ff !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+}
+
+.warehouse-settings .btn-outline-danger {
+  background: #fff1f2 !important;
+  border-color: #fda4af !important;
+  color: #be123c !important;
+}
+
+.warehouse-settings .btn-success {
+  background: #16a34a !important;
+  border-color: #15803d !important;
+  color: #fff !important;
+}
+
+.warehouse-settings__toggles {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.warehouse-settings__toggles label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #111827;
+  font-weight: 800;
+}
+
+.warehouse-settings__toggles input {
+  width: 18px;
+  height: 18px;
+}
+
+.warehouse-settings__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.settings-message {
+  color: #047857;
+  font-weight: 900;
+}
+
+.settings-error {
+  color: #b91c1c;
+  font-weight: 900;
+}
+
 /* Table wrapper glass */
 .table-responsive{
   border-radius: var(--radius-lg);
@@ -200,6 +327,16 @@ html, body{
 
 /* Mobile tweaks */
 @media (max-width: 575.98px){
+  .warehouse-settings__head,
+  .warehouse-settings__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .warehouse-location-row {
+    grid-template-columns: 1fr;
+  }
+
   .table-responsive{
     padding: 8px;
   }

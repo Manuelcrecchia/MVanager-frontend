@@ -17,7 +17,7 @@
     Modalità:
     <span *ngIf="!isWarehouseMode()">tag cliente</span>
     <span *ngIf="isWarehouseMode()">
-      magazzino / sede - {{ stampingConfig?.warehouseLabel || 'Magazzino' }}
+      magazzino / sedi - {{ getWarehouseModeLabel() }}
     </span>
   </div>
 
@@ -74,6 +74,7 @@
           <!-- 🏷 Cliente/Lavoro -->
           <td>
             <strong>{{ work.label }}</strong>
+            <div *ngIf="work.summary" class="small text-muted">Riepilogo giornaliero</div>
           </td>
 
           <!-- ⏱ Pianificato -->
@@ -118,6 +119,11 @@
 
           <!-- 🕒 Timbrature -->
           <td>
+            <div *ngIf="work.summary; else stampsTpl" class="small text-muted">
+              {{ work.stampingsCount || 0 }} timbrature registrate
+            </div>
+
+            <ng-template #stampsTpl>
             <div *ngFor="let stamp of work.stamps" class="mb-1 d-flex gap-1">
               <button
                 type="button"
@@ -136,17 +142,20 @@
                 <i class="fas fa-trash"></i>
               </button>
             </div>
+            </ng-template>
           </td>
 
           <!-- ➕ Azioni -->
           <td>
             <button
+              *ngIf="work.canAddStamping !== false"
               type="button"
               class="btn btn-sm btn-outline-primary"
               (click)="addStamping(work)"
             >
               <i class="fas fa-plus"></i> Aggiungi
             </button>
+            <span *ngIf="work.canAddStamping === false" class="text-muted small">Solo riepilogo</span>
 
             <button
               *ngIf="
@@ -165,12 +174,14 @@
           <!-- ℹ️ Info -->
           <td>
             <button
+              *ngIf="!work.summary"
               type="button"
               class="btn btn-sm btn-info ms-2"
               (click)="openNotesModal(work)"
             >
               Info
             </button>
+            <span *ngIf="work.summary" class="text-muted small">-</span>
           </td>
         </tr>
       </tbody>

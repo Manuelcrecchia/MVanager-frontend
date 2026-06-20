@@ -234,6 +234,13 @@ export class UserSettingsComponent implements OnInit {
           'ADMIN_CREATE',
           'ADMIN_EDIT',
           'ADMIN_DELETE',
+        ]),
+      },
+      {
+        title: 'Gestione mezzi e attrezzature',
+        items: pick([
+          'VEHICLE_SETTINGS_MANAGE',
+          'EQUIPMENT_SETTINGS_MANAGE',
           'SETTINGS_ADMIN',
         ]),
       },

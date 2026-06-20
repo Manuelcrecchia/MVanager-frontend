@@ -6,6 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { MatDialog } from '@angular/material/dialog';
 import { AssignDialogComponent } from '../assign-dialog/assign-dialog.component';
 import { VehicleAssignDialogComponent } from '../vehicle-assign-dialog/vehicle-assign-dialog.component';
+import { EquipmentAssignDialogComponent } from '../equipment-assign-dialog/equipment-assign-dialog.component';
 import { GlobalService } from '../../service/global.service';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { SocketService } from '../../service/soket.service';
@@ -46,7 +47,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   toggleMiniCal() { this.showMiniCal = !this.showMiniCal; this.miniCalDate = new Date(this.selectedDate); }
   miniPrev() { const d = new Date(this.miniCalDate); d.setMonth(d.getMonth()-1); this.miniCalDate = d; }
   miniNext() { const d = new Date(this.miniCalDate); d.setMonth(d.getMonth()+1); this.miniCalDate = d; }
-  miniSelectDay(date: Date) { this.selectedDate = new Date(date); this.showMiniCal = false; this.loadAppointments(); this.loadVehiclesCache(); }
+  miniSelectDay(date: Date) { this.selectedDate = new Date(date); this.showMiniCal = false; this.loadAppointments(); this.loadVehiclesCache(); this.loadEquipmentTargetsCache(); }
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
@@ -59,7 +60,9 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   assignedCapisquadra: { [appointmentId: string]: number[] } = {};
   assignedCapisquadraNotes: { [appointmentId: string]: { [employeeId: number]: string } } = {};
   assignedVehicles: { [appointmentId: string]: number[] } = {};
+  assignedEquipment: { [appointmentId: string]: string[] } = {};
   vehiclesCache: any[] = [];
+  equipmentTargetsCache: any[] = [];
   loading = false;
   employeeList: any[] = [];
   previousWeekShiftList: { cliente: string; dipendenti: string[] }[] = [];
@@ -84,6 +87,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
     this.loadAppointments();
     this.loadVehiclesCache();
+    this.loadEquipmentTargetsCache();
 
     this.socketService.onShiftUpdate().pipe(takeUntil(this.destroy$)).subscribe((update: any) => {
       if (update.date && update.date !== this.formatDate(this.selectedDate)) {
@@ -167,6 +171,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         case 'reload':
           this.loadAppointments();
           this.loadVehiclesCache();
+          this.loadEquipmentTargetsCache();
           break;
       }
 
@@ -238,6 +243,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       duration: app.duration ?? 0,
       sortOrderByEmployee: app.sortOrderByEmployee || {},
       vehicleIds: this.assignedVehicles[app.id] || [],
+      equipmentKeys: this.assignedEquipment[app.id] || [],
     };
 
     if (includeAssignments) {
@@ -426,6 +432,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         duration: app.duration || 60,
         sortOrderByEmployee: app.sortOrderByEmployee || {},
         vehicleIds: this.assignedVehicles[app.id] || [],
+        equipmentKeys: this.assignedEquipment[app.id] || [],
       };
     });
 
@@ -477,6 +484,13 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     this.http.get<any[]>(this.globalService.url + 'vehicles/getAll').subscribe({
       next: (res) => (this.vehiclesCache = res || []),
       error: () => (this.vehiclesCache = []),
+    });
+  }
+
+  loadEquipmentTargetsCache() {
+    this.http.get<any[]>(this.globalService.url + 'admin/deadlines/equipment/targets').subscribe({
+      next: (res) => (this.equipmentTargetsCache = res || []),
+      error: () => (this.equipmentTargetsCache = []),
     });
   }
 
@@ -584,6 +598,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     this.assignedCapisquadra = {};
     this.assignedCapisquadraNotes = {};
     this.assignedVehicles = {};
+    this.assignedEquipment = {};
 
     this.http
       .post<any[]>(this.globalService.url + 'appointments/byDate', {
@@ -721,6 +736,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
             });
 
             this.assignedVehicles[extraId] = Array.isArray(s.vehicleIds) ? s.vehicleIds : (s.vehicleId != null ? [s.vehicleId] : []);
+            this.assignedEquipment[extraId] = Array.isArray(s.equipmentKeys) ? s.equipmentKeys : [];
           } else {
             const app = this.appointments.find(
               (a) =>
@@ -791,6 +807,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
               });
 
               this.assignedVehicles[newId] = Array.isArray(s.vehicleIds) ? s.vehicleIds : (s.vehicleId != null ? [s.vehicleId] : []);
+              this.assignedEquipment[newId] = Array.isArray(s.equipmentKeys) ? s.equipmentKeys : [];
               continue;
             }
 
@@ -839,6 +856,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
             });
 
             this.assignedVehicles[app.id] = Array.isArray(s.vehicleIds) ? s.vehicleIds : (s.vehicleId != null ? [s.vehicleId] : []);
+            this.assignedEquipment[app.id] = Array.isArray(s.equipmentKeys) ? s.equipmentKeys : [];
           }
         }
 
@@ -879,6 +897,44 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       .map((id: number) => {
         const v = (this.vehiclesCache || []).find((x: any) => x.id === id);
         return v ? (v.plate ? `${v.name} (${v.plate})` : v.name) : '';
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  openEquipmentDialog(app: any): void {
+    if (!this.equipmentTargetsCache || this.equipmentTargetsCache.length === 0) {
+      this.loadEquipmentTargetsCache();
+      alert(
+        'Nessuna attrezzatura trovata. Crea prima una scadenza in Scadenze attrezzature.',
+      );
+      return;
+    }
+
+    const dialogRef = this.dialog.open(EquipmentAssignDialogComponent, {
+      width: '520px',
+      data: {
+        assignedEquipmentKeys: this.assignedEquipment[app.id] || [],
+        equipment: this.equipmentTargetsCache || [],
+      },
+      panelClass: 'glass-dialog',
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result) {
+        this.assignedEquipment[app.id] = result.equipmentKeys || [];
+        this.scheduleAutosave(app);
+      }
+    });
+  }
+
+  getEquipmentLabel(appId: string): string {
+    const keys = this.assignedEquipment[appId] || [];
+    if (!keys.length) return '';
+    return keys
+      .map((key: string) => {
+        const item = (this.equipmentTargetsCache || []).find((x: any) => x.targetKey === key);
+        return item ? (item.targetLabel || item.targetKey) : key;
       })
       .filter(Boolean)
       .join(', ');

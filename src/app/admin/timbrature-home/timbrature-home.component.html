@@ -12,9 +12,114 @@
     Modalità:
     <span *ngIf="stampingConfig?.mode !== 'warehouse'">tag cliente</span>
     <span *ngIf="stampingConfig?.mode === 'warehouse'">
-      magazzino / sede - {{ stampingConfig?.warehouseLabel || 'Magazzino' }}
+      magazzino / sedi - {{ getWarehouseModeLabel() }}
     </span>
   </div>
+
+  <section class="warehouse-settings" *ngIf="isWarehouseMode()">
+    <div class="warehouse-settings__head">
+      <div>
+        <h3>Sedi timbratura</h3>
+        <p>Configura qui i tag NFC fisici usati dai dipendenti per timbrare in sede.</p>
+      </div>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary"
+        (click)="addWarehouseLocation()"
+        [disabled]="!canManageStampingSettings() || settingsSaving"
+      >
+        <i class="fas fa-plus"></i> Aggiungi sede
+      </button>
+    </div>
+
+    <div class="warehouse-location-list">
+      <div
+        class="warehouse-location-row"
+        *ngFor="let location of stampingSettingsForm.warehouseLocations; let i = index"
+      >
+        <label>
+          <span>Tag NFC sede</span>
+          <input
+            class="form-control"
+            [(ngModel)]="location.tagId"
+            name="warehouseTag{{ i }}"
+            placeholder="MAGAZZINO"
+            [disabled]="!canManageStampingSettings() || settingsSaving"
+          />
+        </label>
+
+        <label>
+          <span>ID sede interno</span>
+          <input
+            class="form-control"
+            [(ngModel)]="location.locationId"
+            name="warehouseLocation{{ i }}"
+            placeholder="__magazzino__"
+            [disabled]="!canManageStampingSettings() || settingsSaving"
+          />
+        </label>
+
+        <label>
+          <span>Etichetta sede</span>
+          <input
+            class="form-control"
+            [(ngModel)]="location.label"
+            name="warehouseLabel{{ i }}"
+            placeholder="Magazzino"
+            [disabled]="!canManageStampingSettings() || settingsSaving"
+          />
+        </label>
+
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-danger"
+          (click)="removeWarehouseLocation(i)"
+          [disabled]="
+            !canManageStampingSettings() ||
+            settingsSaving ||
+            stampingSettingsForm.warehouseLocations.length <= 1
+          "
+        >
+          Rimuovi
+        </button>
+      </div>
+    </div>
+
+    <div class="warehouse-settings__toggles">
+      <label>
+        <input
+          type="checkbox"
+          [(ngModel)]="stampingSettingsForm.allowCustomerTagFallback"
+          name="allowCustomerTagFallback"
+          [disabled]="!canManageStampingSettings() || settingsSaving"
+        />
+        Accetta anche tag cliente se nessuna sede corrisponde
+      </label>
+
+      <label>
+        <input
+          type="checkbox"
+          [(ngModel)]="stampingSettingsForm.compareWithShifts"
+          name="compareWithShifts"
+          [disabled]="!canManageStampingSettings() || settingsSaving"
+        />
+        Confronta le timbrature di sede con i turni pianificati
+      </label>
+    </div>
+
+    <div class="warehouse-settings__actions">
+      <span class="settings-message" *ngIf="settingsMessage">{{ settingsMessage }}</span>
+      <span class="settings-error" *ngIf="settingsError">{{ settingsError }}</span>
+      <button
+        type="button"
+        class="btn btn-sm btn-success"
+        (click)="saveStampingSettings()"
+        [disabled]="!canManageStampingSettings() || settingsSaving"
+      >
+        {{ settingsSaving ? 'Salvataggio...' : 'Salva sedi timbratura' }}
+      </button>
+    </div>
+  </section>
 
   <!-- Selettore data -->
   <div class="d-flex justify-content-center align-items-center mb-3 gap-3">

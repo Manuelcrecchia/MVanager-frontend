@@ -64,8 +64,15 @@ export interface TenantStampingConfig {
   warehouseTagId?: string;
   warehouseLocationId?: string;
   warehouseLabel?: string;
+  warehouseLocations?: TenantWarehouseStampingLocation[];
   allowCustomerTagFallback?: boolean;
   compareWithShifts?: boolean;
+}
+
+export interface TenantWarehouseStampingLocation {
+  tagId: string;
+  locationId: string;
+  label: string;
 }
 
 export interface TenantQuoteTypeConfig {
@@ -402,15 +409,38 @@ export class GlobalService {
   }
 
   getTenantStampingConfig(): TenantStampingConfig {
+    const rawConfig = this.tenantConfig?.stampingConfig || {};
+    const legacyLocation: TenantWarehouseStampingLocation = {
+      tagId: String(rawConfig.warehouseTagId || 'MAGAZZINO').trim() || 'MAGAZZINO',
+      locationId: String(rawConfig.warehouseLocationId || '__warehouse__').trim() || '__warehouse__',
+      label: String(rawConfig.warehouseLabel || 'Magazzino').trim() || 'Magazzino',
+    };
+    const configuredLocations = Array.isArray(rawConfig.warehouseLocations)
+      ? rawConfig.warehouseLocations
+          .map((location: any) => ({
+            tagId: String(location?.tagId || location?.warehouseTagId || '').trim(),
+            locationId: String(location?.locationId || location?.warehouseLocationId || '').trim(),
+            label: String(location?.label || location?.warehouseLabel || '').trim(),
+          }))
+          .filter((location: TenantWarehouseStampingLocation) =>
+            location.tagId || location.locationId || location.label
+          )
+      : [];
+    const warehouseLocations = configuredLocations.length
+      ? configuredLocations
+      : [legacyLocation];
+    const primaryLocation = warehouseLocations[0] || legacyLocation;
+
     return {
-      mode: this.tenantConfig?.stampingConfig?.mode === 'warehouse'
+      mode: rawConfig.mode === 'warehouse'
         ? 'warehouse'
         : 'customer_tag',
-      warehouseTagId: this.tenantConfig?.stampingConfig?.warehouseTagId || 'MAGAZZINO',
-      warehouseLocationId: this.tenantConfig?.stampingConfig?.warehouseLocationId || '__warehouse__',
-      warehouseLabel: this.tenantConfig?.stampingConfig?.warehouseLabel || 'Magazzino',
-      allowCustomerTagFallback: this.tenantConfig?.stampingConfig?.allowCustomerTagFallback === true,
-      compareWithShifts: this.tenantConfig?.stampingConfig?.compareWithShifts !== false,
+      warehouseTagId: primaryLocation.tagId,
+      warehouseLocationId: primaryLocation.locationId,
+      warehouseLabel: primaryLocation.label,
+      warehouseLocations,
+      allowCustomerTagFallback: rawConfig.allowCustomerTagFallback === true,
+      compareWithShifts: rawConfig.compareWithShifts !== false,
     };
   }
 

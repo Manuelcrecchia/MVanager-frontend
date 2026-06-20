@@ -383,6 +383,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.router.navigateByUrl('/vehiclesSettings');
   }
 
+  navigateToEquipmentSettings() {
+    this.router.navigateByUrl('/equipmentSettings');
+  }
+
   navigateToQuoteSettings() {
     this.router.navigateByUrl('/quoteSettings');
   }

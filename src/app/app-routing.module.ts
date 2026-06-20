@@ -200,7 +200,13 @@ const routes: Routes = [
     path: 'vehiclesSettings',
     component: VehiclesSettingsComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
-    data: { permission: 'SETTINGS_ADMIN' },
+    data: { permission: 'VEHICLE_SETTINGS_MANAGE', mode: 'vehicle' },
+  },
+  {
+    path: 'equipmentSettings',
+    component: VehiclesSettingsComponent,
+    canActivate: [AuthGuard, AuthLevelGuard],
+    data: { permission: 'EQUIPMENT_SETTINGS_MANAGE', mode: 'equipment' },
   },
   // impostazioni preventivi
   {
