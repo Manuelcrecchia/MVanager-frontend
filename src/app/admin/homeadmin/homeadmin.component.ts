@@ -30,6 +30,7 @@ interface HomeButton {
   feature?: string;
   action: () => void;
   desktopPath?: string;
+  queryParams?: Record<string, string>;
   badgeCount?: () => number;
   badgeClass?: () => string;
 }
@@ -49,6 +50,11 @@ interface AdminTodo {
   updatedAt?: string;
 }
 
+interface PermissionOption {
+  key: string;
+  label: string;
+}
+
 @Component({
   selector: 'app-homeadmin',
   templateUrl: './homeadmin.component.html',
@@ -59,6 +65,47 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   private routerEventsSubscription?: Subscription;
   private adminTodoSubscription?: Subscription;
   private emailUnreadIntervalId?: ReturnType<typeof setInterval>;
+  private readonly desktopEmbeddedRootPaths = new Set([
+    'addCustomer',
+    'addQuote',
+    'calendarHome',
+    'cambiapassword',
+    'customer-deadlines',
+    'customerNotes',
+    'documenti',
+    'editCustomer',
+    'editQuote',
+    'email',
+    'emailSettings',
+    'employee-deadlines',
+    'equipment-deadlines',
+    'equipmentSettings',
+    'gestioneassenze',
+    'gestioneemployees',
+    'gestionepermessi',
+    'gestioneTagCliente',
+    'gestioneusers',
+    'internal-deadlines',
+    'internal-documents',
+    'leave-settings',
+    'listCustomer',
+    'notificationSettings',
+    'quoteNotes',
+    'quoteSettings',
+    'quotesHome',
+    'riepilogo-ore-clienti',
+    'riepilogo-presenze-editabile',
+    'schedaCliente',
+    'service-orders',
+    'settingsemployees',
+    'timbratureDettaglio',
+    'timbratureHome',
+    'userSettings',
+    'vehicle-deadlines',
+    'vehiclesSettings',
+    'view-pdf',
+    'work-completion-stats',
+  ]);
   isIos = Capacitor.getPlatform() === 'ios';
   isDesktopHome = false;
   isDesktopContentActive = false;
@@ -84,6 +131,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   permessiInAttesa: number = 0;
   pendingQuoteReviews: number = 0;
   emailUnreadCount: number = 0;
+  internalWarehouseLowStockCount: number = 0;
+  internalWarehousePendingRequestCount: number = 0;
   employeeDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   vehicleDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   equipmentDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
@@ -96,6 +145,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   todoLoading = false;
   todoSaving = false;
   todoError = '';
+  unassignedPermissionLabels: string[] = [];
 
   ngOnInit(): void {
     this.global.loadTenantConfig().finally(() => {
@@ -103,6 +153,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       this.loadDeadlineSummary();
       this.loadPendingQuoteReviews();
       this.loadEmailUnreadSummary();
+      this.loadInternalWarehouseSummary();
+      this.loadUnassignedPermissionNotice();
       if (this.canUseTodoView()) {
         this.loadAdminTodos();
       }
@@ -249,6 +301,28 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       });
   }
 
+  loadInternalWarehouseSummary(): void {
+    if (!this.canUsePermission('INTERNAL_WAREHOUSE_VIEW', 'internalWarehouse')) {
+      this.internalWarehouseLowStockCount = 0;
+      this.internalWarehousePendingRequestCount = 0;
+      return;
+    }
+
+    this.http
+      .get<{ lowStockCount: number; pendingRequestCount: number }>(this.global.url + 'admin/internal-warehouse/summary')
+      .subscribe({
+        next: (res) => {
+          this.internalWarehouseLowStockCount = Number(res?.lowStockCount) || 0;
+          this.internalWarehousePendingRequestCount = Number(res?.pendingRequestCount) || 0;
+        },
+        error: (err) => {
+          console.error('Errore caricamento riepilogo magazzino:', err);
+          this.internalWarehouseLowStockCount = 0;
+          this.internalWarehousePendingRequestCount = 0;
+        },
+      });
+  }
+
   private bindEmailUnreadPolling(): void {
     if (this.emailUnreadIntervalId) {
       return;
@@ -289,54 +363,54 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   navigateToCalendarHome() {
-    this.router.navigateByUrl('/calendarHome');
+    this.navigateInHome('calendarHome');
   }
 
   navigateToInternalDocuments() {
-    this.router.navigateByUrl('/internal-documents');
+    this.navigateInHome('internal-documents');
   }
 
   navigateToUserSettings() {
-    this.router.navigateByUrl('/userSettings');
+    this.navigateInHome('userSettings');
   }
 
   navigateToGestioneUsers() {
-    this.router.navigateByUrl('/gestioneusers');
+    this.navigateInHome('gestioneusers');
   }
 
   navigateToSettingsEmployees() {
-    this.router.navigateByUrl('/settingsemployees');
+    this.navigateInHome('settingsemployees');
   }
 
   navigateToQuotesHome() {
-    this.router.navigateByUrl('/quotesHome');
+    this.navigateInHome('quotesHome');
   }
 
   navigateToServiceOrders() {
-    this.router.navigateByUrl('/service-orders');
+    this.navigateInHome('service-orders');
   }
 
   navigateToGestionePermessi() {
-    this.router.navigateByUrl('/gestionepermessi');
+    this.navigateInHome('gestionepermessi');
   }
 
   navigateToListCustomer() {
-    this.router.navigateByUrl('/listCustomer');
+    this.navigateInHome('listCustomer');
   }
 
   goToShifts() {
-    this.router.navigate(['/admin/shifts']);
+    this.navigateInHome('shifts');
   }
   navigateToTimbrature() {
-    this.router.navigateByUrl('/timbratureHome');
+    this.navigateInHome('timbratureHome');
   }
 
   goToEditableHours() {
-    this.router.navigate(['/riepilogo-presenze-editabile']);
+    this.navigateInHome('riepilogo-presenze-editabile');
   }
 
   goToRiepilogoOreClienti() {
-    this.router.navigate(['/riepilogo-ore-clienti']);
+    this.navigateInHome('riepilogo-ore-clienti');
   }
 
   back() {
@@ -349,58 +423,67 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   navigateToCambiapassword() {
-    this.router.navigateByUrl('/cambiapassword');
+    this.navigateInHome('cambiapassword');
   }
   navigateToGestioneemployees() {
-    this.router.navigateByUrl('/gestioneemployees');
+    this.navigateInHome('gestioneemployees');
   }
 
   navigateToEmployeeDeadlines() {
-    this.router.navigateByUrl('/employee-deadlines');
+    this.navigateInHome('employee-deadlines');
   }
 
   navigateToVehicleDeadlines() {
-    this.router.navigateByUrl('/vehicle-deadlines');
+    this.navigateInHome('vehicle-deadlines');
   }
 
   navigateToEquipmentDeadlines() {
-    this.router.navigateByUrl('/equipment-deadlines');
+    this.navigateInHome('equipment-deadlines');
   }
 
   navigateToCustomerDeadlines() {
-    this.router.navigateByUrl('/customer-deadlines');
+    this.navigateInHome('customer-deadlines');
   }
 
   navigateToInternalDeadlines() {
-    this.router.navigateByUrl('/internal-deadlines');
+    this.navigateInHome('internal-deadlines');
   }
 
   navigateToLeaveSettings() {
-    this.router.navigateByUrl('/leave-settings');
+    this.navigateInHome('leave-settings');
   }
 
   navigateToVehiclesSettings() {
-    this.router.navigateByUrl('/vehiclesSettings');
+    this.navigateInHome('vehiclesSettings');
   }
 
   navigateToEquipmentSettings() {
-    this.router.navigateByUrl('/equipmentSettings');
+    this.navigateInHome('equipmentSettings');
   }
 
   navigateToQuoteSettings() {
-    this.router.navigateByUrl('/quoteSettings');
+    this.navigateInHome('quoteSettings');
   }
 
   navigateToEmailSettings() {
-    this.router.navigateByUrl('/emailSettings');
+    this.navigateInHome('emailSettings');
   }
 
   navigateToNotificationSettings() {
-    this.router.navigateByUrl('/notificationSettings');
+    this.navigateInHome('notificationSettings');
   }
 
   navigateToWorkCompletionStats() {
-    this.router.navigateByUrl('/work-completion-stats');
+    this.navigateInHome('statistiche');
+  }
+
+  navigateToInternalWarehouse(tab: string = 'list') {
+    const commands = this.isDesktopHome
+      ? ['/homeAdmin', 'internal-warehouse']
+      : ['/internal-warehouse'];
+    this.router.navigate(commands, {
+      queryParams: { tab },
+    });
   }
 
   get standaloneHomeButtons(): HomeButton[] {
@@ -419,7 +502,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
         permissionsAny: ['EMAIL_VIEW', 'EMAIL_SETTINGS'],
         action: () => {
           if (this.canUsePermission('EMAIL_VIEW')) {
-            this.router.navigateByUrl('/email');
+            this.navigateInHome('email');
             return;
           }
 
@@ -538,6 +621,88 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             badgeCount: () => this.pendingQuoteReviews,
             badgeClass: () => 'badge bg-danger ms-1',
           },
+          {
+            label: 'Ordini di servizio',
+            icon: 'fas fa-clipboard-list',
+            permission: 'SERVICE_ORDERS_VIEW',
+            feature: 'serviceOrders',
+            action: () => this.navigateToServiceOrders(),
+            desktopPath: 'service-orders',
+          },
+        ],
+      },
+      {
+        id: 'internalWarehouse',
+        label: 'Magazzino interno',
+        icon: 'fas fa-warehouse',
+        buttons: [
+          {
+            label: 'Lista prodotti',
+            icon: 'fas fa-boxes',
+            permission: 'INTERNAL_WAREHOUSE_VIEW',
+            feature: 'internalWarehouse',
+            action: () => this.navigateToInternalWarehouse('list'),
+            desktopPath: 'internal-warehouse',
+            queryParams: { tab: 'list' },
+            badgeCount: () => this.internalWarehouseLowStockCount,
+            badgeClass: () => 'badge bg-danger ms-1',
+          },
+          {
+            label: 'Richieste prodotti',
+            icon: 'fas fa-clipboard-list',
+            permission: 'INTERNAL_WAREHOUSE_VIEW',
+            feature: 'internalWarehouse',
+            action: () => this.navigateToInternalWarehouse('requests'),
+            desktopPath: 'internal-warehouse',
+            queryParams: { tab: 'requests' },
+            badgeCount: () => this.internalWarehousePendingRequestCount,
+            badgeClass: () => 'badge bg-danger ms-1',
+          },
+          {
+            label: 'Entrata prodotti',
+            icon: 'fas fa-arrow-down',
+            permission: 'INTERNAL_WAREHOUSE_IN',
+            feature: 'internalWarehouse',
+            action: () => this.navigateToInternalWarehouse('in'),
+            desktopPath: 'internal-warehouse',
+            queryParams: { tab: 'in' },
+          },
+          {
+            label: 'Uscita prodotti',
+            icon: 'fas fa-arrow-up',
+            permission: 'INTERNAL_WAREHOUSE_OUT',
+            feature: 'internalWarehouse',
+            action: () => this.navigateToInternalWarehouse('out'),
+            desktopPath: 'internal-warehouse',
+            queryParams: { tab: 'out' },
+          },
+          {
+            label: 'Movimenti / report',
+            icon: 'fas fa-chart-bar',
+            permission: 'INTERNAL_WAREHOUSE_HISTORY_VIEW',
+            feature: 'internalWarehouse',
+            action: () => this.navigateToInternalWarehouse('movements'),
+            desktopPath: 'internal-warehouse',
+            queryParams: { tab: 'movements' },
+          },
+          {
+            label: 'Impostazioni prodotti',
+            icon: 'fas fa-tags',
+            permission: 'INTERNAL_WAREHOUSE_PRODUCTS_MANAGE',
+            feature: 'internalWarehouse',
+            action: () => this.navigateToInternalWarehouse('products'),
+            desktopPath: 'internal-warehouse',
+            queryParams: { tab: 'products' },
+          },
+          {
+            label: 'Import / export',
+            icon: 'fas fa-file-export',
+            permission: 'INTERNAL_WAREHOUSE_EXPORT',
+            feature: 'internalWarehouse',
+            action: () => this.navigateToInternalWarehouse('tools'),
+            desktopPath: 'internal-warehouse',
+            queryParams: { tab: 'tools' },
+          },
         ],
       },
       {
@@ -594,14 +759,6 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             desktopPath: 'internal-deadlines',
             badgeCount: () => this.internalDeadlineSummary.alertCount,
             badgeClass: () => this.deadlineBadgeClass(this.internalDeadlineSummary),
-          },
-          {
-            label: 'Ordini di servizio',
-            icon: 'fas fa-clipboard-list',
-            permission: 'SERVICE_ORDERS_VIEW',
-            feature: 'serviceOrders',
-            action: () => this.navigateToServiceOrders(),
-            desktopPath: 'service-orders',
           },
         ],
       },
@@ -664,7 +821,9 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     if (this.isDesktopHome && button.desktopPath) {
       this.isDesktopContentActive = true;
       this.setExpandedCategoryForButton(button);
-      this.router.navigate(['/homeAdmin', button.desktopPath]);
+      this.router.navigate(['/homeAdmin', button.desktopPath], {
+        queryParams: button.queryParams,
+      });
       return;
     }
 
@@ -839,31 +998,116 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     return this.canUsePermission('TODOS_MANAGE', 'todos');
   }
 
-  get missingNewDeadlinePermissionLabels(): string[] {
-    const missing = [
-      {
-        permission: 'EQUIPMENT_DEADLINES_VIEW',
-        label: 'Scadenze attrezzature',
-      },
-      {
-        permission: 'CUSTOMER_DEADLINES_VIEW',
-        label: 'Scadenze clienti',
-      },
-      {
-        permission: 'INTERNAL_DEADLINES_VIEW',
-        label: 'Scadenze interne',
-      },
-    ].filter((item) => !this.canUsePermission(item.permission, 'deadlines'));
-
-    return missing.map((item) => item.label);
+  get unassignedPermissionsPreview(): string {
+    const visible = this.unassignedPermissionLabels.slice(0, 8);
+    const remaining = this.unassignedPermissionLabels.length - visible.length;
+    return remaining > 0
+      ? `${visible.join(', ')} e altri ${remaining}`
+      : visible.join(', ');
   }
 
-  get showDeadlinePermissionSetupNotice(): boolean {
+  get showPermissionSetupNotice(): boolean {
     return (
-      this.global.hasTenantFeature('deadlines') &&
       this.canUsePermission('ADMIN_EDIT', 'administrators') &&
-      this.missingNewDeadlinePermissionLabels.length > 0
+      this.unassignedPermissionLabels.length > 0
     );
+  }
+
+  private loadUnassignedPermissionNotice(): void {
+    if (!this.canUsePermission('ADMIN_VIEW', 'administrators')) {
+      this.unassignedPermissionLabels = [];
+      return;
+    }
+
+    Promise.all([
+      this.http
+        .get<any>(this.global.url + 'admin/permissions/list', {
+          headers: this.global.headers,
+        })
+        .toPromise(),
+      this.http
+        .get<any>(this.global.url + 'admin/getAll', {
+          headers: this.global.headers,
+        })
+        .toPromise(),
+    ])
+      .then(([catalog, adminsResponse]) => {
+        const permissions = this.extractPermissionOptions(catalog);
+        const availableKeys = new Set(permissions.map((permission) => permission.key));
+        const assignedKeys = new Set<string>();
+        const admins = Array.isArray(adminsResponse)
+          ? adminsResponse
+          : Array.isArray(adminsResponse?.data)
+            ? adminsResponse.data
+            : Array.isArray(adminsResponse?.admins)
+              ? adminsResponse.admins
+              : [];
+
+        admins.forEach((admin: any) => {
+          this.parseAdminPermissions(admin?.permissions).forEach((permission) => {
+            assignedKeys.add(permission);
+          });
+        });
+
+        this.unassignedPermissionLabels = permissions
+          .filter((permission) => availableKeys.has(permission.key))
+          .filter((permission) => !assignedKeys.has(permission.key))
+          .map((permission) => permission.label || permission.key);
+      })
+      .catch((err) => {
+        console.error('Errore controllo permessi non assegnati:', err);
+        this.unassignedPermissionLabels = [];
+      });
+  }
+
+  private extractPermissionOptions(catalog: any): PermissionOption[] {
+    const groups = Array.isArray(catalog?.groups) ? catalog.groups : [];
+    if (groups.length) {
+      return groups
+        .flatMap((group: any) => Array.isArray(group?.items) ? group.items : [])
+        .map((permission: any) => ({
+          key: String(permission?.key || '').trim(),
+          label: String(permission?.label || permission?.key || '').trim(),
+        }))
+        .filter((permission: PermissionOption) => permission.key);
+    }
+
+    const rawPermissions = Array.isArray(catalog)
+      ? catalog
+      : Array.isArray(catalog?.data)
+        ? catalog.data
+        : Array.isArray(catalog?.permissions)
+          ? catalog.permissions
+          : [];
+
+    return rawPermissions
+      .map((permission: any) => {
+        if (typeof permission === 'string') {
+          return { key: permission, label: permission };
+        }
+        return {
+          key: String(permission?.key || '').trim(),
+          label: String(permission?.label || permission?.key || '').trim(),
+        };
+      })
+      .filter((permission: PermissionOption) => permission.key);
+  }
+
+  private parseAdminPermissions(value: unknown): string[] {
+    if (Array.isArray(value)) {
+      return value.map((permission) => String(permission || '').trim()).filter(Boolean);
+    }
+
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value || '[]');
+        return this.parseAdminPermissions(parsed);
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
   }
 
   @HostListener('window:resize')
@@ -885,11 +1129,28 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   isStandaloneButtonActive(button: HomeButton): boolean {
-    return !!button.desktopPath && this.activeDesktopChildPath() === button.desktopPath;
+    return (
+      !!button.desktopPath &&
+      this.activeDesktopChildPath() === button.desktopPath &&
+      this.buttonQueryParamsMatch(button)
+    );
   }
 
   isHomeButtonActive(button: HomeButton): boolean {
-    return !!button.desktopPath && this.activeDesktopChildPath() === button.desktopPath;
+    return (
+      !!button.desktopPath &&
+      this.activeDesktopChildPath() === button.desktopPath &&
+      this.buttonQueryParamsMatch(button)
+    );
+  }
+
+  private buttonQueryParamsMatch(button: HomeButton): boolean {
+    if (!button.queryParams) return true;
+    const query = this.router.url.split('?')[1] || '';
+    const params = new URLSearchParams(query);
+    return Object.entries(button.queryParams).every(
+      ([key, value]) => params.get(key) === value,
+    );
   }
 
   canUsePermission(permission: string, feature?: string): boolean {
@@ -980,6 +1241,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   private syncDesktopRouteState(): void {
+    if (this.redirectStandaloneRouteIntoDesktopHome()) {
+      return;
+    }
+
     const activePath = this.activeDesktopChildPath();
     if (!activePath) {
       this.isDesktopContentActive = false;
@@ -1006,7 +1271,12 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       this.selectedHomeCategoryId = '';
       this.expandedHomeCategoryId = '';
       this.isDesktopContentActive = this.isDesktopHome;
+      return;
     }
+
+    this.selectedHomeCategoryId = '';
+    this.expandedHomeCategoryId = '';
+    this.isDesktopContentActive = this.isDesktopHome;
   }
 
   private setExpandedCategoryForButton(button: HomeButton): void {
@@ -1024,5 +1294,47 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     }
 
     return cleanUrl.replace('/homeAdmin/', '').split('/')[0];
+  }
+
+  private navigateInHome(path: string): void {
+    if (this.isDesktopHome) {
+      this.isDesktopContentActive = true;
+      this.router.navigate(['/homeAdmin', path]);
+      return;
+    }
+
+    this.router.navigateByUrl(`/${path}`);
+  }
+
+  private redirectStandaloneRouteIntoDesktopHome(): boolean {
+    if (!this.isDesktopHome) return false;
+
+    const url = this.router.url;
+    const [pathAndQuery, fragment] = url.split('#');
+    const [cleanPath, query] = pathAndQuery.split('?');
+    if (cleanPath === '/homeAdmin' || cleanPath.startsWith('/homeAdmin/')) {
+      return false;
+    }
+
+    const rootPath = cleanPath.replace(/^\//, '').split('/')[0];
+    if (cleanPath.startsWith('/admin/shifts/create')) {
+      const target =
+        cleanPath.replace('/admin/shifts/create', '/homeAdmin/shifts/create') +
+        (query ? `?${query}` : '') +
+        (fragment ? `#${fragment}` : '');
+      this.router.navigateByUrl(target, { replaceUrl: true });
+      return true;
+    }
+
+    if (!this.desktopEmbeddedRootPaths.has(rootPath)) {
+      return false;
+    }
+
+    const target =
+      `/homeAdmin${cleanPath}` +
+      (query ? `?${query}` : '') +
+      (fragment ? `#${fragment}` : '');
+    this.router.navigateByUrl(target, { replaceUrl: true });
+    return true;
   }
 }

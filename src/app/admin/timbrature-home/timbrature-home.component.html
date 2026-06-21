@@ -105,6 +105,16 @@
         />
         Confronta le timbrature di sede con i turni pianificati
       </label>
+
+      <label>
+        <input
+          type="checkbox"
+          [(ngModel)]="stampingSettingsForm.splitWarehouseStampings"
+          name="splitWarehouseStampings"
+          [disabled]="!canManageStampingSettings() || settingsSaving"
+        />
+        Dividi le timbrature per singola sede
+      </label>
     </div>
 
     <div class="warehouse-settings__actions">

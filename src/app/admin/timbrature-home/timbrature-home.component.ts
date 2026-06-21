@@ -28,6 +28,7 @@ export class TimbratureHomeComponent implements OnInit {
     warehouseLocations: [{ tagId: 'MAGAZZINO', locationId: '__warehouse__', label: 'Magazzino' }],
     allowCustomerTagFallback: false,
     compareWithShifts: true,
+    splitWarehouseStampings: false,
   };
   settingsSaving = false;
   settingsMessage = '';
@@ -108,7 +109,7 @@ export class TimbratureHomeComponent implements OnInit {
   }
 
   canManageStampingSettings(): boolean {
-    return this.global.hasPermission('STAMPING_MANAGE');
+    return this.global.hasPermission('STAMPING_WAREHOUSES_MANAGE');
   }
 
   addWarehouseLocation(): void {
@@ -168,6 +169,7 @@ export class TimbratureHomeComponent implements OnInit {
         warehouseLocations,
         allowCustomerTagFallback: this.stampingSettingsForm.allowCustomerTagFallback,
         compareWithShifts: this.stampingSettingsForm.compareWithShifts,
+        splitWarehouseStampings: this.stampingSettingsForm.splitWarehouseStampings,
       })
       .subscribe({
         next: (res) => {
@@ -236,6 +238,7 @@ export class TimbratureHomeComponent implements OnInit {
       warehouseLocations: warehouseLocations.length ? warehouseLocations : [fallback],
       allowCustomerTagFallback: this.stampingConfig?.allowCustomerTagFallback === true,
       compareWithShifts: this.stampingConfig?.compareWithShifts !== false,
+      splitWarehouseStampings: this.stampingConfig?.splitWarehouseStampings === true,
     };
   }
 

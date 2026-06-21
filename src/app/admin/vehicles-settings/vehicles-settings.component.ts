@@ -430,6 +430,7 @@ export class VehiclesSettingsComponent implements OnInit {
   openVehicleCategories(vehicle: Vehicle): void {
     this.selectedVehicleForCategories = vehicle;
     this.selectedVehicleCategoryIds = [];
+    this.scrollToCategoryPanel('vehicle-category-panel');
     this.http
       .get<number[]>(this.globalService.url + `admin/resource-categories/vehicle/assignment/${vehicle.id}`)
       .subscribe({
@@ -585,6 +586,7 @@ export class VehiclesSettingsComponent implements OnInit {
   openEquipmentCategories(target: EquipmentTarget): void {
     this.selectedEquipmentForCategories = target;
     this.selectedEquipmentCategoryIds = [];
+    this.scrollToCategoryPanel('equipment-category-panel');
     this.http
       .get<number[]>(this.globalService.url + 'admin/resource-categories/equipment/assignment-by-target', {
         params: { targetKey: target.targetKey },
@@ -598,6 +600,15 @@ export class VehiclesSettingsComponent implements OnInit {
           alert(this.parseServerError(err, 'Errore caricamento categorie attrezzatura'));
         },
       });
+  }
+
+  private scrollToCategoryPanel(className: string): void {
+    setTimeout(() => {
+      document.querySelector(`.${className}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 0);
   }
 
   closeEquipmentCategories(): void {

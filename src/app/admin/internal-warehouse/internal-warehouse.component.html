@@ -1,0 +1,473 @@
+<div class="container py-4 warehouse-page">
+  <div class="warehouse-topbar">
+    <button class="btn btn-outline-secondary" type="button" (click)="goBack()">
+      &larr; Indietro
+    </button>
+    <div class="warehouse-title">
+      <p>Gestionale</p>
+      <h2>Magazzino interno</h2>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <button class="summary-tile" type="button" (click)="applySummaryFilter('all')" [class.active]="activeSummaryFilter === 'all'">
+      <span>Prodotti</span>
+      <strong>{{ summary.totalProducts }}</strong>
+    </button>
+    <button class="summary-tile warning" type="button" (click)="applySummaryFilter('low')" [class.active]="activeSummaryFilter === 'low'">
+      <span>Sotto scorta</span>
+      <strong>{{ summary.lowStockCount }}</strong>
+    </button>
+    <button class="summary-tile danger" type="button" (click)="applySummaryFilter('out')" [class.active]="activeSummaryFilter === 'out'">
+      <span>Esauriti</span>
+      <strong>{{ summary.outOfStockCount }}</strong>
+    </button>
+    <button class="summary-tile" type="button" (click)="applySummaryFilter('quantity')" [class.active]="activeSummaryFilter === 'quantity'">
+      <span>Giacenza totale</span>
+      <strong>{{ summary.totalQuantity }}</strong>
+    </button>
+  </div>
+
+  <div class="alert alert-success" *ngIf="message">{{ message }}</div>
+  <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
+
+  <div class="quick-grid" *ngIf="canView">
+    <section class="quick-panel">
+      <h4>Da riordinare</h4>
+      <div *ngIf="!summary.lowStockProducts.length" class="muted-line">Nessun prodotto sotto soglia.</div>
+      <button class="quick-row" type="button" *ngFor="let product of summary.lowStockProducts" (click)="selectProduct(product)">
+        <span>{{ product.name }}</span>
+        <strong>{{ product.quantity }} / {{ product.minimumQuantity }} {{ product.unit }}</strong>
+      </button>
+    </section>
+    <section class="quick-panel" *ngIf="canHistory">
+      <h4>Ultimi movimenti</h4>
+      <div *ngIf="!summary.latestMovements.length" class="muted-line">Nessun movimento recente.</div>
+      <div class="quick-row readonly" *ngFor="let movement of summary.latestMovements">
+        <span>{{ movement.product?.name || 'Prodotto' }}</span>
+        <strong>{{ movement.type === 'in' ? '+' : movement.type === 'out' ? '-' : '=' }}{{ movement.quantity }}</strong>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel" *ngIf="activeTab === 'requests' && canView">
+    <div class="section-head">
+      <div>
+        <h4>Richieste prodotti</h4>
+        <p>Prepara le richieste dei dipendenti scansionando il prodotto corretto in uscita.</p>
+      </div>
+      <button class="btn btn-outline-dark" type="button" (click)="loadProductRequests()">Aggiorna</button>
+    </div>
+
+    <div class="alert alert-light border" *ngIf="!productRequests.length">
+      Nessuna richiesta prodotto in attesa.
+    </div>
+
+    <div class="request-list" *ngIf="productRequests.length">
+      <article class="request-row" *ngFor="let request of productRequests">
+        <div>
+          <span class="category">{{ request.product?.category || 'Categoria' }}</span>
+          <strong>{{ request.product?.name || 'Prodotto' }}</strong>
+          <small>
+            {{ request.quantity }} {{ request.product?.unit || '' }}
+            · {{ employeeLabel(request.employee) }}
+            <ng-container *ngIf="request.customerId"> · cliente {{ customerNameForRecord(request.customerId, request.customer) }}</ng-container>
+          </small>
+          <small *ngIf="request.note">Nota: {{ request.note }}</small>
+          <small>{{ request.createdAt | date : "dd/MM/yyyy HH:mm" }} · {{ requestStatusLabel(request.status) }}</small>
+        </div>
+        <div class="request-actions">
+          <button class="btn btn-dark btn-sm" type="button" (click)="prepareRequest(request)" *ngIf="canRegisterOut">
+            Prepara
+          </button>
+          <button class="btn btn-outline-danger btn-sm" type="button" (click)="updateRequestStatus(request, 'cancelled')" *ngIf="canRegisterOut">
+            Annulla
+          </button>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel" *ngIf="activeTab === 'list' && canView">
+    <div class="filters-grid">
+      <input class="form-control" [(ngModel)]="filters.q" (keyup.enter)="loadProducts()" placeholder="Cerca per nome, descrizione o categoria" />
+      <input class="form-control" [(ngModel)]="filters.barcode" (keyup.enter)="loadProducts()" placeholder="Codice a barre" />
+      <select class="form-select" [(ngModel)]="filters.categoryId">
+        <option [ngValue]="0">Tutte le categorie</option>
+        <option *ngFor="let category of categories" [ngValue]="category.id">{{ category.name }}</option>
+      </select>
+      <select class="form-select" [(ngModel)]="filters.stock">
+        <option value="">Tutte le giacenze</option>
+        <option value="low">Sotto scorta</option>
+        <option value="out">Esauriti</option>
+      </select>
+      <select class="form-select" [(ngModel)]="filters.favorite">
+        <option value="">Tutti i prodotti</option>
+        <option value="true">Solo preferiti</option>
+      </select>
+      <select class="form-select" [(ngModel)]="filters.sort">
+        <option value="name">Nome A-Z</option>
+        <option value="name_desc">Nome Z-A</option>
+        <option value="category">Categoria</option>
+        <option value="quantity_asc">Quantità crescente</option>
+        <option value="quantity_desc">Quantità decrescente</option>
+        <option value="updated">Aggiornati di recente</option>
+      </select>
+      <button class="btn btn-dark" type="button" (click)="loadProducts()">Filtra</button>
+    </div>
+
+    <div class="alert alert-info" *ngIf="loading">Caricamento...</div>
+    <div class="alert alert-light border" *ngIf="!loading && products.length === 0">
+      Nessun prodotto trovato.
+    </div>
+
+    <div class="product-list" *ngIf="!loading && products.length">
+      <article class="product-row" *ngFor="let product of products" [class.low-stock]="product.isLowStock">
+        <div class="product-photo">
+          <img *ngIf="product.photoUrl" [src]="productImageUrl(product)" [alt]="product.name" />
+        </div>
+        <button class="product-main" type="button" (click)="selectProduct(product)">
+          <span class="product-meta">
+            <span class="category">{{ product.category }}</span>
+            <span class="stock-badge out" *ngIf="product.isOutOfStock">Esaurito</span>
+            <span class="stock-badge low" *ngIf="!product.isOutOfStock && product.isLowStock">Sotto scorta</span>
+          </span>
+          <strong>{{ product.name }}</strong>
+          <small>{{ product.barcode }} · {{ product.description || 'Nessuna descrizione' }}</small>
+          <small *ngIf="product.supplier || product.supplierCode">Fornitore {{ product.supplier || '-' }} · {{ product.supplierCode || '-' }}</small>
+        </button>
+        <div class="quantity-box">
+          <strong>{{ product.quantity }}</strong>
+          <span>{{ product.unit }}</span>
+          <em *ngIf="product.isLowStock">min {{ product.minimumQuantity }}</em>
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-outline-warning btn-sm" type="button" (click)="toggleFavorite(product)" *ngIf="canManageProducts">
+            {{ product.favorite ? 'Preferito' : 'Preferisci' }}
+          </button>
+          <button class="btn btn-outline-primary btn-sm" type="button" (click)="editProduct(product)" *ngIf="canManageProducts">
+            Modifica
+          </button>
+          <button class="btn btn-outline-danger btn-sm" type="button" (click)="deleteProduct(product)" *ngIf="canManageProducts">
+            Archivia
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <aside class="history-panel" *ngIf="selectedProduct">
+      <div>
+        <h5>{{ selectedProduct.name }}</h5>
+        <p>{{ selectedProduct.quantity }} {{ selectedProduct.unit }} disponibili · soglia {{ selectedProduct.minimumQuantity }}</p>
+      </div>
+      <div class="movement-list" *ngIf="canHistory && selectedMovements.length; else noMovements">
+        <div class="movement" *ngFor="let movement of selectedMovements">
+          <strong>{{ movement.type === 'in' ? 'Entrata' : movement.type === 'out' ? 'Uscita' : 'Rettifica' }}</strong>
+          <span>
+            {{ movement.quantity }} · {{ movement.previousQuantity }} → {{ movement.newQuantity }}
+            <em *ngIf="movement.reason"> · {{ movement.reason }}</em>
+            <em> · {{ movementTargetLabel(movement) }}</em>
+            <em *ngIf="movement.totalCost !== null && movement.totalCost !== undefined"> · € {{ movement.totalCost }}</em>
+          </span>
+          <small *ngIf="movement.note">Nota: {{ movement.note }}</small>
+          <small>{{ movement.createdAt | date : "dd/MM/yyyy HH:mm" }} · {{ movement.actorEmail || 'utente' }}</small>
+        </div>
+      </div>
+      <ng-template #noMovements>
+        <p class="text-muted mb-0">{{ canHistory ? 'Nessun movimento registrato.' : 'Storico disponibile solo con permesso dedicato.' }}</p>
+      </ng-template>
+    </aside>
+  </section>
+
+  <section class="panel movement-panel" *ngIf="(activeTab === 'in' && canRegisterIn) || (activeTab === 'out' && canRegisterOut)">
+    <form class="manual-form" (ngSubmit)="registerManual(activeTab === 'in' ? 'in' : 'out')">
+      <h4>{{ activeTab === 'in' ? 'Registra entrata' : 'Registra uscita' }}</h4>
+      <div class="prepare-banner" *ngIf="preparingRequest && activeTab === 'out'">
+        <strong>{{ preparingRequest.product?.name || 'Prodotto richiesto' }}</strong>
+        <span>
+          {{ preparingRequest.quantity }} {{ preparingRequest.product?.unit || '' }}
+          · {{ employeeLabel(preparingRequest.employee) }}
+          <ng-container *ngIf="preparingRequest.customerId"> · cliente {{ customerNameForRecord(preparingRequest.customerId, preparingRequest.customer) }}</ng-container>
+        </span>
+      </div>
+      <select class="form-select" [(ngModel)]="manualMovement.reasonKey" name="movementReasonKey">
+        <option value="">Motivo</option>
+        <option *ngFor="let reason of movementReasons" [value]="reason.key">{{ reason.label }}</option>
+      </select>
+      <input class="form-control" [(ngModel)]="manualMovement.reason" name="movementReason" placeholder="Motivo personalizzato" />
+      <div class="filter-search full">
+        <input class="form-control" [(ngModel)]="referenceSearch.customer" name="movementCustomerSearch" (ngModelChange)="onReferenceSearchChange('customer')" placeholder="Cerca cliente" />
+      </div>
+      <div class="quick-pick full" *ngIf="quickReferenceResults('customer').length && referenceSearch.customer">
+        <button type="button" *ngFor="let customer of quickReferenceResults('customer')" (click)="selectMovementCustomer(customer)">
+          {{ customerLabel(customer) }}
+        </button>
+      </div>
+      <select class="form-select" [(ngModel)]="manualMovement.customerId" name="movementCustomer">
+        <option value="">Cliente</option>
+        <option *ngFor="let customer of references.customers" [value]="customer.numeroCliente">{{ customerLabel(customer) }}</option>
+      </select>
+      <div class="filter-search full" *ngIf="activeTab === 'out'">
+        <input class="form-control" [(ngModel)]="referenceSearch.employee" name="movementEmployeeSearch" (ngModelChange)="onReferenceSearchChange('employee')" placeholder="Cerca dipendente assegnatario" />
+      </div>
+      <div class="quick-pick full" *ngIf="activeTab === 'out' && quickReferenceResults('employee').length && referenceSearch.employee">
+        <button type="button" *ngFor="let employee of quickReferenceResults('employee')" (click)="selectMovementEmployee(employee)">
+          {{ employeeLabel(employee) }}
+        </button>
+      </div>
+      <select class="form-select" [(ngModel)]="manualMovement.employeeId" name="movementEmployee" *ngIf="activeTab === 'out'">
+        <option [ngValue]="0">Dipendente assegnatario</option>
+        <option *ngFor="let employee of references.employees" [ngValue]="employee.id">{{ employeeLabel(employee) }}</option>
+      </select>
+      <textarea class="form-control" rows="3" [(ngModel)]="manualMovement.note" name="movementNote" placeholder="Nota opzionale"></textarea>
+      <input class="form-control" type="number" min="1" [(ngModel)]="manualMovement.quantity" name="movementQuantity" placeholder="Quantità" />
+
+      <div class="scanner-card" *ngIf="isMobileLike">
+        <video #scannerVideo playsinline muted></video>
+        <div class="scanner-actions">
+          <button class="btn btn-primary" type="button" (click)="startScanner(activeTab === 'in' ? 'in' : 'out')" *ngIf="!scannerActive">
+            Apri fotocamera
+          </button>
+          <button class="btn btn-outline-secondary" type="button" (click)="stopScanner()" *ngIf="scannerActive">
+            Ferma
+          </button>
+        </div>
+        <p *ngIf="scannerMessage">{{ scannerMessage }}</p>
+        <button class="manual-link" type="button" (click)="manualEntryMode = true; stopScanner()">inserimento manuale</button>
+      </div>
+
+      <ng-container *ngIf="!isMobileLike || manualEntryMode">
+        <input class="form-control" [(ngModel)]="manualMovement.barcode" name="movementBarcode" placeholder="Codice a barre" />
+        <button class="btn btn-dark" type="submit" [disabled]="saving">
+          Registra codice inserito manualmente
+        </button>
+      </ng-container>
+    </form>
+  </section>
+
+  <section class="panel" *ngIf="activeTab === 'movements' && canHistory">
+    <div class="filters-grid">
+      <select class="form-select" [(ngModel)]="movementFilters.type">
+        <option value="out">Solo uscite</option>
+        <option value="in">Solo entrate</option>
+        <option value="adjustment">Rettifiche</option>
+      </select>
+      <select class="form-select" [(ngModel)]="movementFilters.groupBy">
+        <option value="employee">Riepiloga per dipendente</option>
+        <option value="customer">Riepiloga per cliente</option>
+        <option value="product">Riepiloga per prodotto</option>
+      </select>
+      <div class="filter-search">
+        <input class="form-control" [(ngModel)]="referenceSearch.employee" (ngModelChange)="onReferenceSearchChange('employee')" placeholder="Cerca dipendente" />
+        <div class="quick-pick" *ngIf="quickReferenceResults('employee').length">
+          <button type="button" *ngFor="let employee of quickReferenceResults('employee')" (click)="selectReportEmployee(employee)">
+            {{ employeeLabel(employee) }}
+          </button>
+        </div>
+      </div>
+      <select class="form-select" [(ngModel)]="movementFilters.employeeId">
+        <option [ngValue]="0">Tutti i dipendenti</option>
+        <option *ngFor="let employee of references.employees" [ngValue]="employee.id">{{ employeeLabel(employee) }}</option>
+      </select>
+      <div class="filter-search">
+        <input class="form-control" [(ngModel)]="referenceSearch.customer" (ngModelChange)="onReferenceSearchChange('customer')" placeholder="Cerca cliente" />
+        <div class="quick-pick" *ngIf="quickReferenceResults('customer').length">
+          <button type="button" *ngFor="let customer of quickReferenceResults('customer')" (click)="selectReportCustomer(customer)">
+            {{ customerLabel(customer) }}
+          </button>
+        </div>
+      </div>
+      <select class="form-select" [(ngModel)]="movementFilters.customerId">
+        <option value="">Tutti i clienti</option>
+        <option *ngFor="let customer of references.customers" [value]="customer.numeroCliente">{{ customerLabel(customer) }}</option>
+      </select>
+      <select class="form-select" [(ngModel)]="movementFilters.productId">
+        <option [ngValue]="0">Tutti i prodotti</option>
+        <option *ngFor="let product of products" [ngValue]="product.id">{{ product.name }}</option>
+      </select>
+      <input class="form-control" type="date" [(ngModel)]="movementFilters.dateFrom" />
+      <input class="form-control" type="date" [(ngModel)]="movementFilters.dateTo" />
+      <button class="btn btn-dark" type="button" (click)="loadMovementReport()">Filtra movimenti</button>
+    </div>
+
+    <div class="report-grid" *ngIf="reportSummary.length">
+      <article class="report-card" *ngFor="let item of reportSummary">
+        <strong>{{ reportSummaryLabel(item) }}</strong>
+        <span>{{ item.quantity }} unità · {{ item.movements }} movimenti</span>
+        <small *ngIf="item.totalCost">€ {{ item.totalCost }}</small>
+        <small *ngFor="let product of item.products">{{ product.name }}: {{ product.quantity }} {{ product.unit }}</small>
+      </article>
+    </div>
+
+    <div class="movement-list report-movements" *ngIf="reportMovements.length; else noReportMovements">
+      <div class="movement" *ngFor="let movement of reportMovements">
+        <strong>{{ movement.product?.name || 'Prodotto' }}</strong>
+        <span>
+          {{ movement.type === 'in' ? 'Entrata' : movement.type === 'out' ? 'Uscita' : 'Rettifica' }}
+          · {{ movement.quantity }} {{ movement.product?.unit || '' }}
+          · {{ movementTargetLabel(movement) }}
+          <em *ngIf="movement.reason"> · {{ movement.reason }}</em>
+        </span>
+        <small>{{ movement.createdAt | date : "dd/MM/yyyy HH:mm" }} · {{ movement.actorEmail || 'utente' }}</small>
+        <small *ngIf="movement.note">Nota: {{ movement.note }}</small>
+      </div>
+    </div>
+    <ng-template #noReportMovements>
+      <div class="alert alert-light border mb-0">Nessun movimento trovato per i filtri selezionati.</div>
+    </ng-template>
+  </section>
+
+  <section class="panel" *ngIf="activeTab === 'products' && canManageProducts">
+    <div class="product-form-grid">
+      <form class="product-form" (ngSubmit)="saveProduct()">
+        <h4>{{ productForm.id ? 'Modifica prodotto' : 'Nuovo prodotto' }}</h4>
+        <div class="duplicate-box" *ngIf="duplicateProduct">
+          <span>Barcode già usato da {{ duplicateProduct.name }}</span>
+          <button class="btn btn-sm btn-outline-dark" type="button" (click)="openDuplicateProduct()">Apri prodotto</button>
+        </div>
+        <label class="field full">
+          <span>Nome prodotto</span>
+          <input class="form-control" [(ngModel)]="productForm.name" name="name" placeholder="Es. Guanti nitrile taglia M" />
+        </label>
+        <label class="field full">
+          <span>Descrizione</span>
+          <textarea class="form-control" rows="3" [(ngModel)]="productForm.description" name="description" placeholder="Note utili per riconoscere il prodotto"></textarea>
+        </label>
+        <div class="barcode-line">
+          <label class="field">
+            <span>Codice a barre</span>
+            <input class="form-control" [(ngModel)]="productForm.barcode" name="barcode" placeholder="Scansiona o inserisci il codice" />
+          </label>
+          <button class="btn btn-outline-primary" type="button" (click)="startScanner('product')" *ngIf="isMobileLike">
+            Scansiona
+          </button>
+        </div>
+        <label class="field">
+          <span>Categoria</span>
+          <select class="form-select" [(ngModel)]="productForm.categoryId" name="categoryId">
+            <option [ngValue]="0">Seleziona categoria</option>
+            <option *ngFor="let category of categories" [ngValue]="category.id">{{ category.name }}</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Unità di misura</span>
+          <select class="form-select" [(ngModel)]="productForm.unit" name="unit">
+            <option *ngFor="let unit of units" [value]="unit.key">{{ unit.label }}</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Soglia minima</span>
+          <input class="form-control" type="number" min="0" [(ngModel)]="productForm.minimumQuantity" name="minimumQuantity" placeholder="Avvisa quando la giacenza scende sotto questo valore" />
+        </label>
+        <label class="field">
+          <span>Giacenza iniziale</span>
+          <input class="form-control" type="number" min="0" [(ngModel)]="productForm.quantity" name="initialQuantity" placeholder="Quantità disponibile ora" [disabled]="!!productForm.id" />
+        </label>
+        <label class="field">
+          <span>Fornitore abituale</span>
+          <input class="form-control" [(ngModel)]="productForm.supplier" name="supplier" placeholder="Nome fornitore" />
+        </label>
+        <label class="field">
+          <span>Codice fornitore</span>
+          <input class="form-control" [(ngModel)]="productForm.supplierCode" name="supplierCode" placeholder="Codice articolo del fornitore" />
+        </label>
+        <label class="field">
+          <span>Prezzo indicativo</span>
+          <input class="form-control" type="number" min="0" step="0.01" [(ngModel)]="productForm.indicativePrice" name="indicativePrice" placeholder="Costo indicativo per unità" />
+        </label>
+        <label class="field">
+          <span>Link riordino</span>
+          <input class="form-control" [(ngModel)]="productForm.reorderUrl" name="reorderUrl" placeholder="Pagina o link per riordinare" />
+        </label>
+        <label class="field full">
+          <span>Nota riordino</span>
+          <textarea class="form-control" rows="2" [(ngModel)]="productForm.reorderNote" name="reorderNote" placeholder="Es. confezione da 100 pezzi, contattare referente, tempi di consegna"></textarea>
+        </label>
+        <label class="check-line">
+          <input type="checkbox" [(ngModel)]="productForm.favorite" name="favorite" />
+          Prodotto preferito
+        </label>
+        <label class="field full">
+          <span>Foto prodotto</span>
+          <input class="form-control" type="file" accept="image/*" (change)="onPhotoSelected($event)" />
+        </label>
+        <div class="form-actions">
+          <button class="btn btn-dark" type="submit" [disabled]="saving">Salva prodotto</button>
+          <button class="btn btn-outline-secondary" type="button" (click)="productForm = emptyProductForm()">Pulisci</button>
+        </div>
+      </form>
+
+      <div class="scanner-card small" *ngIf="scannerActive && scannerMode === 'product'">
+        <video #scannerVideo playsinline muted></video>
+        <button class="btn btn-outline-secondary" type="button" (click)="stopScanner()">Ferma</button>
+      </div>
+
+      <form class="adjust-form" (ngSubmit)="adjustProduct()" *ngIf="canAdjust">
+        <h4>Rettifica inventario</h4>
+        <select class="form-select" [(ngModel)]="adjustment.productId" name="adjustProduct">
+          <option [ngValue]="0">Seleziona prodotto</option>
+          <option *ngFor="let product of products" [ngValue]="product.id">{{ product.name }} · {{ product.quantity }} {{ product.unit }}</option>
+        </select>
+        <input class="form-control" type="number" min="0" [(ngModel)]="adjustment.quantity" name="adjustQuantity" placeholder="Quantità reale" />
+        <textarea class="form-control" rows="3" [(ngModel)]="adjustment.note" name="adjustNote" placeholder="Nota rettifica"></textarea>
+        <button class="btn btn-outline-dark" type="submit">Salva rettifica</button>
+      </form>
+
+      <div class="category-manager">
+        <form class="category-form" (ngSubmit)="saveCategory()">
+          <h4>{{ categoryForm.id ? 'Modifica categoria' : 'Categorie prodotto' }}</h4>
+          <div class="category-error" *ngIf="categoryError">
+            {{ categoryError }}
+          </div>
+          <label class="field">
+            <span>Nome ufficiale</span>
+            <input class="form-control" [(ngModel)]="categoryForm.name" name="categoryName" placeholder="Es. Ricambi" />
+          </label>
+          <label class="field">
+            <span>Descrizione</span>
+            <textarea class="form-control" rows="2" [(ngModel)]="categoryForm.description" name="categoryDescription" placeholder="Uso della categoria"></textarea>
+          </label>
+          <label class="field">
+            <span>Sinonimi / alias</span>
+            <textarea class="form-control" rows="3" [(ngModel)]="categoryForm.aliasesText" name="categoryAliases" placeholder="Uno per riga: Pezzi di ricambio"></textarea>
+          </label>
+          <div class="form-actions">
+            <button class="btn btn-outline-dark" type="submit" [disabled]="saving">Salva categoria</button>
+            <button class="btn btn-outline-secondary" type="button" (click)="categoryForm = emptyCategoryForm()">Pulisci</button>
+          </div>
+        </form>
+
+        <div class="category-list">
+          <div class="category-item" *ngFor="let category of categories">
+            <div>
+              <strong>{{ category.name }}</strong>
+              <small *ngIf="category.description">{{ category.description }}</small>
+              <small *ngIf="category.aliases?.length">Alias: {{ categoryAliasesLabel(category) }}</small>
+            </div>
+            <div class="category-actions">
+              <button class="btn btn-outline-primary btn-sm" type="button" (click)="editCategory(category)">Modifica</button>
+              <button class="btn btn-outline-danger btn-sm" type="button" (click)="deleteCategory(category)" [disabled]="category.name === 'Generale'">Archivia</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel tools-panel" *ngIf="activeTab === 'tools' && canExport">
+    <div>
+      <h4>Esporta</h4>
+      <div class="tool-actions">
+        <button class="btn btn-outline-dark" type="button" (click)="exportCsv('products')">Esporta prodotti CSV</button>
+        <button class="btn btn-outline-dark" type="button" (click)="exportCsv('movements')">Esporta movimenti CSV</button>
+      </div>
+    </div>
+    <div>
+      <h4>Importa prodotti</h4>
+      <input class="form-control" type="file" accept=".csv,text/csv" (change)="importProducts($event)" />
+      <div class="import-result" *ngIf="importResult">
+        Creati {{ importResult.created || 0 }}, aggiornati {{ importResult.updated || 0 }}, saltati {{ importResult.skipped || 0 }}.
+      </div>
+    </div>
+  </section>
+</div>

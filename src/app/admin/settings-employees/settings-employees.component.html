@@ -117,7 +117,7 @@
     </div>
   </section>
 
-  <section class="admin-card mb-4" *ngIf="selectedEmployeeForCategories">
+  <section class="admin-card mb-4 employee-category-panel" *ngIf="selectedEmployeeForCategories">
     <div class="card-header py-3 px-4">
       <h3 class="mb-0 fs-5">Categorie di {{ selectedEmployeeForCategories.nome }} {{ selectedEmployeeForCategories.cognome }}</h3>
       <p class="mb-0 text-muted small">Le certificazioni mancanti verranno create nelle scadenze dipendenti come già scadute</p>
@@ -201,15 +201,15 @@
             <td class="actions-cell">
               <ng-container *ngIf="emp.active">
                 <button *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')"
-                        class="btn btn-glass btn-round btn-sm" (click)="startEditEmployee(emp)">✏️ Modifica</button>
+                        type="button" class="btn btn-glass btn-round btn-sm" (click)="startEditEmployee(emp)">✏️ Modifica</button>
                 <button *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')"
-                        class="btn btn-primary btn-round btn-sm" (click)="openEmployeeCategories(emp)">Imposta categorie</button>
+                        type="button" class="btn btn-primary btn-round btn-sm" (click)="openEmployeeCategories(emp)">Imposta categorie</button>
                 <button *ngIf="globalService.hasPermission('EMPLOYEE_DELETE')"
-                        class="btn btn-glass-dark btn-round btn-sm" (click)="exportAndArchiveEmployee(emp)">📦 Archivia</button>
+                        type="button" class="btn btn-glass-dark btn-round btn-sm" (click)="exportAndArchiveEmployee(emp)">📦 Archivia</button>
               </ng-container>
               <ng-container *ngIf="!emp.active">
                 <button *ngIf="globalService.hasPermission('EMPLOYEE_CREATE')"
-                        class="btn btn-primary btn-round btn-sm" (click)="unarchiveEmployee(emp)">♻️ Riattiva</button>
+                        type="button" class="btn btn-primary btn-round btn-sm" (click)="unarchiveEmployee(emp)">♻️ Riattiva</button>
               </ng-container>
             </td>
           </ng-container>
@@ -225,8 +225,8 @@
               <span class="text-muted small">Salva o annulla modifica dati</span>
             </td>
             <td class="actions-cell">
-              <button class="btn btn-primary btn-round btn-sm" (click)="saveEdit()">✅ Salva</button>
-              <button class="btn btn-glass btn-round btn-sm" (click)="cancelEdit()">✖ Annulla</button>
+              <button type="button" class="btn btn-primary btn-round btn-sm" (click)="saveEdit()">✅ Salva</button>
+              <button type="button" class="btn btn-glass btn-round btn-sm" (click)="cancelEdit()">✖ Annulla</button>
             </td>
           </ng-template>
         </tr>
@@ -257,15 +257,15 @@
         <ng-container *ngIf="!isEditingEmployee(emp); else editMobile">
           <ng-container *ngIf="emp.active">
             <button *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')"
-                    class="btn btn-glass btn-round btn-sm" (click)="startEditEmployee(emp)">✏️ Modifica</button>
+                    type="button" class="btn btn-glass btn-round btn-sm" (click)="startEditEmployee(emp)">✏️ Modifica</button>
             <button *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')"
-                    class="btn btn-primary btn-round btn-sm" (click)="openEmployeeCategories(emp)">Imposta categorie</button>
+                    type="button" class="btn btn-primary btn-round btn-sm" (click)="openEmployeeCategories(emp)">Imposta categorie</button>
             <button *ngIf="globalService.hasPermission('EMPLOYEE_DELETE')"
-                    class="btn btn-glass-dark btn-round btn-sm" (click)="exportAndArchiveEmployee(emp)">📦 Archivia</button>
+                    type="button" class="btn btn-glass-dark btn-round btn-sm" (click)="exportAndArchiveEmployee(emp)">📦 Archivia</button>
           </ng-container>
           <ng-container *ngIf="!emp.active">
             <button *ngIf="globalService.hasPermission('EMPLOYEE_CREATE')"
-                    class="btn btn-primary btn-round btn-sm" (click)="unarchiveEmployee(emp)">♻️ Riattiva</button>
+                    type="button" class="btn btn-primary btn-round btn-sm" (click)="unarchiveEmployee(emp)">♻️ Riattiva</button>
           </ng-container>
         </ng-container>
         <ng-template #editMobile>
@@ -274,8 +274,8 @@
           <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.email" name="m_email_{{ emp.id }}" placeholder="Email" />
           <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.cellulare" name="m_cell_{{ emp.id }}" placeholder="Cellulare" />
           <input type="number" class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="m_ore_{{ emp.id }}" placeholder="Ore std." min="0" max="24" step="0.25" />
-          <button class="btn btn-primary btn-round btn-sm w-100 mb-1" (click)="saveEdit()">✅ Salva</button>
-          <button class="btn btn-glass btn-round btn-sm w-100" (click)="cancelEdit()">✖ Annulla</button>
+          <button type="button" class="btn btn-primary btn-round btn-sm w-100 mb-1" (click)="saveEdit()">✅ Salva</button>
+          <button type="button" class="btn btn-glass btn-round btn-sm w-100" (click)="cancelEdit()">✖ Annulla</button>
         </ng-template>
       </div>
     </article>

@@ -70,6 +70,7 @@ export class UserSettingsComponent implements OnInit {
     SHIFTS_MANAGE: ['SHIFTS_VIEW'],
     ATTENDANCE_MANAGE: ['ATTENDANCE_VIEW'],
     STAMPING_MANAGE: ['STAMPING_VIEW'],
+    STAMPING_WAREHOUSES_MANAGE: ['STAMPING_VIEW'],
     CALENDAR_EVENT_MANAGE: ['CALENDAR_VIEW'],
     NOTIFICATIONS_MANAGE: ['NOTIFICATIONS_VIEW'],
 
@@ -332,7 +333,11 @@ export class UserSettingsComponent implements OnInit {
       },
       {
         title: 'Timbrature',
-        items: pick(['STAMPING_VIEW', 'STAMPING_MANAGE']),
+        items: pick([
+          'STAMPING_VIEW',
+          'STAMPING_MANAGE',
+          'STAMPING_WAREHOUSES_MANAGE',
+        ]),
       },
       {
         title: 'Calendario',

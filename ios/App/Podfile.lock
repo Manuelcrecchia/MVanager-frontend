@@ -3,6 +3,9 @@ PODS:
     - CapacitorCordova
   - CapacitorApp (7.1.2):
     - Capacitor
+  - CapacitorBarcodeScanner (2.2.6):
+    - Capacitor
+    - OSBarcodeLib (= 2.0.1)
   - CapacitorCordova (7.5.0)
   - CapacitorFirebaseMessaging (7.5.0):
     - Capacitor
@@ -67,11 +70,13 @@ PODS:
     - nanopb/encode (= 3.30910.0)
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
+  - OSBarcodeLib (2.0.1)
   - PromisesObjC (2.4.0)
 
 DEPENDENCIES:
   - "Capacitor (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorApp (from `../../node_modules/@capacitor/app`)"
+  - "CapacitorBarcodeScanner (from `../../node_modules/@capacitor/barcode-scanner`)"
   - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorFirebaseMessaging (from `../../node_modules/@capacitor-firebase/messaging`)"
   - CapacitorNativeBiometric (from `../../node_modules/capacitor-native-biometric`)
@@ -88,6 +93,7 @@ SPEC REPOS:
     - GoogleDataTransport
     - GoogleUtilities
     - nanopb
+    - OSBarcodeLib
     - PromisesObjC
 
 EXTERNAL SOURCES:
@@ -95,6 +101,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/ios"
   CapacitorApp:
     :path: "../../node_modules/@capacitor/app"
+  CapacitorBarcodeScanner:
+    :path: "../../node_modules/@capacitor/barcode-scanner"
   CapacitorCordova:
     :path: "../../node_modules/@capacitor/ios"
   CapacitorFirebaseMessaging:
@@ -111,6 +119,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Capacitor: 0a78ec6b54580fa055c11744a4e83cd7942d98ca
   CapacitorApp: f01a913211780e0718dae9750442c3e23f96e106
+  CapacitorBarcodeScanner: 2d699fe5b8731cdfa3db03a4062e68b9a75c5c72
   CapacitorCordova: ae35646a9b46cfd00d637f195509c86594026aad
   CapacitorFirebaseMessaging: 1ac12c0dab16d1e4edcf9cb878620507ac868a4e
   CapacitorNativeBiometric: 78cf21304251a512e4597437325b5e9b0cd9f7b3
@@ -124,8 +133,9 @@ SPEC CHECKSUMS:
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   MvanagerInspectionAlarmKit: 6d854ff7b4acbda2c8a3ba3b1a0d2f87b87da02b
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
+  OSBarcodeLib: 57987d2eb1f916f701f4554e20e349b3cb83f023
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
 
-PODFILE CHECKSUM: 432bdb7b223cdaf24a0f0deb76d8fae678d3c775
+PODFILE CHECKSUM: 3bd97a23e16b027e0eb741dac77ac270caf5b310
 
 COCOAPODS: 1.16.2

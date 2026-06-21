@@ -51,12 +51,14 @@ import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work
 import { EmailHomeComponent } from './admin/email-home/email-home.component';
 import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
 import { NotificationSettingsComponent } from './admin/notification-settings/notification-settings.component';
+import { InternalWarehouseComponent } from './admin/internal-warehouse/internal-warehouse.component';
 
 // ✅ Documenti interni (assumo questo path; se diverso, aggiorna SOLO l'import)
 import { InternalDocumentsComponent } from './admin/internal-documents/internal-documents.component';
 
 import { AuthGuard } from './auth.guard';
 import { AuthLevelGuard } from './auth-level.guard';
+import { AdminShellRedirectGuard } from './admin-shell-redirect.guard';
 
 const routes: Routes = [
   { path: 'quote-accept/:token', component: QuoteAcceptComponent },
@@ -70,6 +72,47 @@ const routes: Routes = [
     component: HomeAdminComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
     children: [
+      {
+        path: 'userSettings',
+        component: UserSettingsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'ADMIN_VIEW' },
+      },
+      {
+        path: 'vehiclesSettings',
+        component: VehiclesSettingsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'VEHICLE_SETTINGS_MANAGE', mode: 'vehicle' },
+      },
+      {
+        path: 'equipmentSettings',
+        component: VehiclesSettingsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'EQUIPMENT_SETTINGS_MANAGE', mode: 'equipment' },
+      },
+      {
+        path: 'quoteSettings',
+        component: QuoteSettingsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'SETTINGS_QUOTES' },
+      },
+      {
+        path: 'emailSettings',
+        component: EmailSettingsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'EMAIL_SETTINGS' },
+      },
+      {
+        path: 'notificationSettings',
+        component: NotificationSettingsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'NOTIFICATIONS_VIEW' },
+      },
+      {
+        path: 'cambiapassword',
+        component: CambiapasswordComponent,
+        canActivate: [AuthGuard],
+      },
       {
         path: 'gestioneemployees',
         component: GestioneEmployeesComponent,
@@ -131,6 +174,12 @@ const routes: Routes = [
         data: { permission: 'SERVICE_ORDERS_VIEW' },
       },
       {
+        path: 'internal-warehouse',
+        component: InternalWarehouseComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'INTERNAL_WAREHOUSE_VIEW' },
+      },
+      {
         path: 'riepilogo-ore-clienti',
         component: RiepilogoOreClientiComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
@@ -179,10 +228,135 @@ const routes: Routes = [
         data: { permission: 'STATS_VIEW' },
       },
       {
+        path: 'work-completion-stats',
+        component: WorkCompletionStatsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'STATS_VIEW' },
+      },
+      {
         path: 'email',
         component: EmailHomeComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
         data: { permission: 'EMAIL_VIEW' },
+      },
+      {
+        path: 'addQuote',
+        component: AddQuoteComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'QUOTES_MANAGE' },
+      },
+      {
+        path: 'editQuote',
+        component: EditQuoteComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'QUOTES_MANAGE' },
+      },
+      {
+        path: 'editQuote/:numeroPreventivo',
+        component: EditQuoteComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'QUOTES_MANAGE' },
+      },
+      {
+        path: 'quoteNotes',
+        component: QuoteNotesComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'QUOTES_NOTES_VIEW' },
+      },
+      {
+        path: 'customerNotes',
+        component: CustomerNotesComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMERS_NOTES_VIEW' },
+      },
+      {
+        path: 'service-orders/add',
+        component: AddServiceOrderComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'SERVICE_ORDERS_MANAGE' },
+      },
+      {
+        path: 'service-orders/edit/:id',
+        component: AddServiceOrderComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'SERVICE_ORDERS_MANAGE' },
+      },
+      {
+        path: 'addCustomer',
+        component: AddCustomerComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMERS_MANAGE' },
+      },
+      {
+        path: 'editCustomer',
+        component: EditCustomerComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMERS_MANAGE' },
+      },
+      {
+        path: 'editCustomer/:numeroCliente',
+        component: EditCustomerComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMERS_MANAGE' },
+      },
+      {
+        path: 'schedaCliente/:numeroCliente',
+        component: SchedaClienteComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMERS_VIEW' },
+      },
+      {
+        path: 'gestioneTagCliente/:id',
+        component: GestioneTagClienteComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'STAMPING_MANAGE' },
+      },
+      {
+        path: 'settingsemployees',
+        component: SettingsEmployeesComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permissionsAny: ['EMPLOYEE_VIEW', 'EMPLOYEE_CREATE', 'EMPLOYEE_EDIT', 'EMPLOYEE_DELETE'] },
+      },
+      {
+        path: 'gestioneassenze',
+        component: GestionePermessiComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
+      },
+      {
+        path: 'leave-settings',
+        component: LeaveSettingsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
+      },
+      {
+        path: 'documenti/employee/:id',
+        component: DocumentManagerComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'EMPLOYEE_DOCS_MANAGE' },
+      },
+      {
+        path: 'documenti/client/:id',
+        component: DocumentManagerComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMERS_MANAGE' },
+      },
+      {
+        path: 'view-pdf',
+        component: ViewPdfComponent,
+        canActivate: [AuthGuard],
+      },
+      {
+        path: 'timbratureDettaglio/:employeeId/:date',
+        component: TimbratureDettaglioComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'STAMPING_VIEW' },
+      },
+      {
+        path: 'shifts/create',
+        component: CreateShiftComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'SHIFTS_MANAGE' },
       },
     ],
   },
@@ -191,7 +365,7 @@ const routes: Routes = [
   {
     path: 'userSettings',
     component: UserSettingsComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     // pagina gestione admin → basta avere la visione admin (e poi bottoni in UI per create/edit/delete)
     data: { permission: 'ADMIN_VIEW' },
   },
@@ -199,32 +373,32 @@ const routes: Routes = [
   {
     path: 'vehiclesSettings',
     component: VehiclesSettingsComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'VEHICLE_SETTINGS_MANAGE', mode: 'vehicle' },
   },
   {
     path: 'equipmentSettings',
     component: VehiclesSettingsComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'EQUIPMENT_SETTINGS_MANAGE', mode: 'equipment' },
   },
   // impostazioni preventivi
   {
     path: 'quoteSettings',
     component: QuoteSettingsComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'SETTINGS_QUOTES' },
   },
   {
     path: 'emailSettings',
     component: EmailSettingsComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'EMAIL_SETTINGS' },
   },
   {
     path: 'notificationSettings',
     component: NotificationSettingsComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'NOTIFICATIONS_VIEW' },
   },
 
@@ -232,93 +406,99 @@ const routes: Routes = [
   {
     path: 'quotesHome',
     component: QuotesHomeComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'QUOTES_VIEW' },
   },
   {
     path: 'addQuote',
     component: AddQuoteComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'QUOTES_MANAGE' },
   },
   {
     path: 'editQuote',
     component: EditQuoteComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'QUOTES_MANAGE' },
   },
   {
     path: 'editQuote/:numeroPreventivo',
     component: EditQuoteComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'QUOTES_MANAGE' },
   },
   {
     path: 'quoteNotes',
     component: QuoteNotesComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'QUOTES_NOTES_VIEW' },
   },
   {
     path: 'customerNotes',
     component: CustomerNotesComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CUSTOMERS_NOTES_VIEW' },
   },
   {
     path: 'service-orders',
     component: ServiceOrdersComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'SERVICE_ORDERS_VIEW' },
   },
   {
     path: 'service-orders/add',
     component: AddServiceOrderComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'SERVICE_ORDERS_MANAGE' },
   },
   {
     path: 'service-orders/edit/:id',
     component: AddServiceOrderComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'SERVICE_ORDERS_MANAGE' },
+  },
+  {
+    path: 'internal-warehouse',
+    component: InternalWarehouseComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'INTERNAL_WAREHOUSE_VIEW' },
   },
 
   // clienti
   {
     path: 'listCustomer',
     component: ListCustomerComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CUSTOMERS_VIEW' },
   },
   {
     path: 'addCustomer',
     component: AddCustomerComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CUSTOMERS_MANAGE' },
   },
   {
     path: 'editCustomer',
     component: EditCustomerComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CUSTOMERS_MANAGE' },
   },
   {
     path: 'editCustomer/:numeroCliente',
     component: EditCustomerComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CUSTOMERS_MANAGE' },
   },
   {
     path: 'schedaCliente/:numeroCliente',
     component: SchedaClienteComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CUSTOMERS_VIEW' },
   },
   {
     path: 'gestioneTagCliente/:id',
     component: GestioneTagClienteComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'STAMPING_MANAGE' },
   },
 
@@ -326,49 +506,49 @@ const routes: Routes = [
   {
     path: 'gestioneemployees',
     component: GestioneEmployeesComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'EMPLOYEE_VIEW' },
   },
   {
     path: 'gestioneusers',
     component: GestioneUsersComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'ADMIN_VIEW' },
   },
   {
     path: 'settingsemployees',
     component: SettingsEmployeesComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permissionsAny: ['EMPLOYEE_VIEW', 'EMPLOYEE_CREATE', 'EMPLOYEE_EDIT', 'EMPLOYEE_DELETE'] },
   },
   {
     path: 'employee-deadlines',
     component: DeadlinesManagementComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'EMPLOYEE_DEADLINES_VIEW', kind: 'employee' },
   },
   {
     path: 'vehicle-deadlines',
     component: DeadlinesManagementComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'VEHICLE_DEADLINES_VIEW', kind: 'vehicle' },
   },
   {
     path: 'equipment-deadlines',
     component: DeadlinesManagementComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'EQUIPMENT_DEADLINES_VIEW', kind: 'equipment' },
   },
   {
     path: 'customer-deadlines',
     component: DeadlinesManagementComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CUSTOMER_DEADLINES_VIEW', kind: 'customer' },
   },
   {
     path: 'internal-deadlines',
     component: DeadlinesManagementComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'INTERNAL_DEADLINES_VIEW', kind: 'internal' },
   },
 
@@ -376,19 +556,19 @@ const routes: Routes = [
   {
     path: 'gestionepermessi',
     component: GestionePermessiComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
   },
   {
     path: 'gestioneassenze',
     component: GestionePermessiComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
   },
   {
     path: 'leave-settings',
     component: LeaveSettingsComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
   },
 
@@ -396,13 +576,13 @@ const routes: Routes = [
   {
     path: 'documenti/employee/:id',
     component: DocumentManagerComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'EMPLOYEE_DOCS_MANAGE' },
   },
   {
     path: 'documenti/client/:id',
     component: DocumentManagerComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CUSTOMERS_MANAGE' },
   },
 
@@ -410,7 +590,7 @@ const routes: Routes = [
   {
     path: 'internal-documents',
     component: InternalDocumentsComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'INTERNAL_DOCS_ACCESS' },
   },
 
@@ -418,14 +598,14 @@ const routes: Routes = [
   {
     path: 'view-pdf',
     component: ViewPdfComponent,
-    canActivate: [AuthGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard],
   },
 
   // statistiche
   {
     path: 'work-completion-stats',
     component: WorkCompletionStatsComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'STATS_VIEW' },
   },
 
@@ -433,7 +613,7 @@ const routes: Routes = [
   {
     path: 'riepilogo-presenze-editabile',
     component: RiepilogoPresenzeEditabileComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'ATTENDANCE_MANAGE' },
   },
 
@@ -441,7 +621,7 @@ const routes: Routes = [
   {
     path: 'riepilogo-ore-clienti',
     component: RiepilogoOreClientiComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CUSTOMERS_HOURS_VIEW' },
   },
 
@@ -449,13 +629,13 @@ const routes: Routes = [
   {
     path: 'admin/shifts',
     component: ShiftHomeComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'SHIFTS_VIEW' },
   },
   {
     path: 'admin/shifts/create',
     component: CreateShiftComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'SHIFTS_MANAGE' },
   },
 
@@ -463,13 +643,13 @@ const routes: Routes = [
   {
     path: 'calendarHome',
     component: CalendarHomeComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CALENDAR_VIEW' },
   },
   {
     path: 'email',
     component: EmailHomeComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'EMAIL_VIEW' },
   },
 
@@ -477,13 +657,13 @@ const routes: Routes = [
   {
     path: 'timbratureHome',
     component: TimbratureHomeComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'STAMPING_VIEW' },
   },
   {
     path: 'timbratureDettaglio/:employeeId/:date',
     component: TimbratureDettaglioComponent,
-    canActivate: [AuthGuard, AuthLevelGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'STAMPING_VIEW' },
   },
 
@@ -491,7 +671,7 @@ const routes: Routes = [
   {
     path: 'cambiapassword',
     component: CambiapasswordComponent,
-    canActivate: [AuthGuard],
+    canActivate: [AdminShellRedirectGuard, AuthGuard],
   },
 ];
 

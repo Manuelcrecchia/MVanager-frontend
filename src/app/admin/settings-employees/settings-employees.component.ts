@@ -264,6 +264,7 @@ export class SettingsEmployeesComponent implements OnInit {
   openEmployeeCategories(emp: Employee) {
     this.selectedEmployeeForCategories = emp;
     this.selectedEmployeeCategoryIds = [];
+    this.scrollToCategoryPanel();
     this.http
       .get<number[]>(this.globalService.url + `admin/employee-categories/employee/${emp.id}`, {
         headers: this.globalService.headers,
@@ -277,6 +278,15 @@ export class SettingsEmployeesComponent implements OnInit {
           alert('Errore durante il caricamento categorie dipendente');
         },
       });
+  }
+
+  private scrollToCategoryPanel(): void {
+    setTimeout(() => {
+      document.querySelector('.employee-category-panel')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 0);
   }
 
   toggleEmployeeCategory(categoryId: number | undefined, checked: boolean) {

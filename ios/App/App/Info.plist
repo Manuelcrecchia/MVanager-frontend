@@ -22,8 +22,6 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Usiamo Face ID per proteggere l'accesso salvato nell'app.</string>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Usiamo le sveglie per ricordarti i sopralluoghi assegnati con posticipa e spegni.</string>
 	<key>NSAppTransportSecurity</key>
@@ -33,6 +31,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Usiamo Face ID per proteggere l'accesso salvato nell'app.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Usiamo la fotocamera per scansionare i codici a barre dei prodotti nel magazzino interno.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

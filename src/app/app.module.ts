@@ -103,6 +103,7 @@ import { EmailHomeComponent } from './admin/email-home/email-home.component';
 import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
 import { NotificationSettingsComponent } from './admin/notification-settings/notification-settings.component';
 import { AppErrorHandler } from './app-error-handler';
+import { InternalWarehouseComponent } from './admin/internal-warehouse/internal-warehouse.component';
 
 registerLocaleData(localeIt);
 
@@ -157,6 +158,7 @@ registerLocaleData(localeIt);
     EmailHomeComponent,
     EmailSettingsComponent,
     NotificationSettingsComponent,
+    InternalWarehouseComponent,
   ],
   imports: [
     BrowserModule,

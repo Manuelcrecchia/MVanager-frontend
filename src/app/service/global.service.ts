@@ -67,6 +67,7 @@ export interface TenantStampingConfig {
   warehouseLocations?: TenantWarehouseStampingLocation[];
   allowCustomerTagFallback?: boolean;
   compareWithShifts?: boolean;
+  splitWarehouseStampings?: boolean;
 }
 
 export interface TenantWarehouseStampingLocation {
@@ -135,9 +136,10 @@ export interface TenantQuoteConfig {
   providedIn: 'root',
 })
 export class GlobalService {
-  version = '4.3';
+  version = '4.8';
   private tenantConfig: TenantBackendConfig | null = null;
-  private tenantConfigPromise: Promise<TenantBackendConfig | null> | null = null;
+  private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
+    null;
 
   constructor(
     private authService: AuthServiceService,
@@ -219,7 +221,9 @@ export class GlobalService {
     const available =
       tenantPermissions?.available || tenantPermissions?.permissions || [];
     const disabled =
-      tenantPermissions?.disabled || tenantPermissions?.disabledPermissions || [];
+      tenantPermissions?.disabled ||
+      tenantPermissions?.disabledPermissions ||
+      [];
 
     if (available.length) {
       return available.includes(key) && this.permissions.includes(key);
@@ -255,7 +259,9 @@ export class GlobalService {
     })
       .then((res) => {
         if (!res.ok) {
-          const error = new Error(`Configurazione azienda non disponibile (HTTP ${res.status}).`) as Error & { status?: number };
+          const error = new Error(
+            `Configurazione azienda non disponibile (HTTP ${res.status}).`,
+          ) as Error & { status?: number };
           error.status = res.status;
           throw error;
         }
@@ -316,11 +322,17 @@ export class GlobalService {
   }
 
   canCreateCustomers(): boolean {
-    return this.hasTenantFeature('customers') && this.hasPermission('CUSTOMERS_MANAGE');
+    return (
+      this.hasTenantFeature('customers') &&
+      this.hasPermission('CUSTOMERS_MANAGE')
+    );
   }
 
   canCreateCalendarEvents(): boolean {
-    return this.hasTenantFeature('calendar') && this.hasPermission('CALENDAR_EVENT_MANAGE');
+    return (
+      this.hasTenantFeature('calendar') &&
+      this.hasPermission('CALENDAR_EVENT_MANAGE')
+    );
   }
 
   get tenantCompanyName(): string {
@@ -337,7 +349,10 @@ export class GlobalService {
 
   getAppointmentCategoryDetails(): TenantAppointmentCategoryConfig[] {
     const appointments = this.getTenantAppointmentsConfig();
-    if (Array.isArray(appointments?.categoryDetails) && appointments.categoryDetails.length) {
+    if (
+      Array.isArray(appointments?.categoryDetails) &&
+      appointments.categoryDetails.length
+    ) {
       return appointments.categoryDetails;
     }
 
@@ -351,59 +366,71 @@ export class GlobalService {
     const appointments = this.getTenantAppointmentsConfig();
     return (
       appointments?.defaultCategory ||
-      appointments?.categoryDetails?.find((category) => category.defaultForTenant)?.key ||
+      appointments?.categoryDetails?.find(
+        (category) => category.defaultForTenant,
+      )?.key ||
       appointments?.categories?.[0] ||
       fallback
     );
   }
 
-  getCustomerLinkedAppointmentCategory(customerType = '', fallback = ''): string {
+  getCustomerLinkedAppointmentCategory(
+    customerType = '',
+    fallback = '',
+  ): string {
     const appointments = this.getTenantAppointmentsConfig();
     const details = Array.isArray(appointments?.categoryDetails)
       ? appointments.categoryDetails
       : [];
-    const linkedDetails = details.filter((category) => (
-      category?.withCustomerLink === true ||
-      category?.source === 'customers' ||
-      category?.serviceOrder === true
-    ));
-    const normalizedCustomerType = String(customerType || '').trim().toLowerCase();
+    const linkedDetails = details.filter(
+      (category) =>
+        category?.withCustomerLink === true ||
+        category?.source === 'customers' ||
+        category?.serviceOrder === true,
+    );
+    const normalizedCustomerType = String(customerType || '')
+      .trim()
+      .toLowerCase();
 
     if (normalizedCustomerType) {
-      const exactMatch = linkedDetails.find((category) => (
-        String(category?.customerType || '').trim().toLowerCase() === normalizedCustomerType
-      ));
+      const exactMatch = linkedDetails.find(
+        (category) =>
+          String(category?.customerType || '')
+            .trim()
+            .toLowerCase() === normalizedCustomerType,
+      );
       if (exactMatch?.key) return exactMatch.key;
     }
 
-    const genericCustomerCategory = linkedDetails.find((category) => (
-      !String(category?.customerType || '').trim()
-    ));
+    const genericCustomerCategory = linkedDetails.find(
+      (category) => !String(category?.customerType || '').trim(),
+    );
     if (genericCustomerCategory?.key) return genericCustomerCategory.key;
 
-    return (
-      appointments?.categoriesWithCustomerLink?.[0] ||
-      fallback
-    );
+    return appointments?.categoriesWithCustomerLink?.[0] || fallback;
   }
 
   getLeaveCategories(): TenantLeaveCategoryConfig[] {
     const categories = this.tenantConfig?.leaveConfig?.categories;
     if (!Array.isArray(categories)) return [];
-    return categories.map((category) => {
-      const key = String(category?.key || category?.label || '').trim();
-      return {
-        key,
-        label: String(category?.label || key).trim(),
-        requiresAttachment: category?.requiresAttachment === true,
-        usesAdvanceLimit: category?.usesAdvanceLimit === true,
-      };
-    }).filter((category) => category.key);
+    return categories
+      .map((category) => {
+        const key = String(category?.key || category?.label || '').trim();
+        return {
+          key,
+          label: String(category?.label || key).trim(),
+          requiresAttachment: category?.requiresAttachment === true,
+          usesAdvanceLimit: category?.usesAdvanceLimit === true,
+        };
+      })
+      .filter((category) => category.key);
   }
 
   getAttendanceWorkCategoryLabel(fallback = 'Lavoro'): string {
     const label = String(
-      this.tenantConfig?.attendanceConfig?.workCategoryLabel || fallback || 'Lavoro'
+      this.tenantConfig?.attendanceConfig?.workCategoryLabel ||
+        fallback ||
+        'Lavoro',
     ).trim();
     return label || 'Lavoro';
   }
@@ -411,19 +438,30 @@ export class GlobalService {
   getTenantStampingConfig(): TenantStampingConfig {
     const rawConfig = this.tenantConfig?.stampingConfig || {};
     const legacyLocation: TenantWarehouseStampingLocation = {
-      tagId: String(rawConfig.warehouseTagId || 'MAGAZZINO').trim() || 'MAGAZZINO',
-      locationId: String(rawConfig.warehouseLocationId || '__warehouse__').trim() || '__warehouse__',
-      label: String(rawConfig.warehouseLabel || 'Magazzino').trim() || 'Magazzino',
+      tagId:
+        String(rawConfig.warehouseTagId || 'MAGAZZINO').trim() || 'MAGAZZINO',
+      locationId:
+        String(rawConfig.warehouseLocationId || '__warehouse__').trim() ||
+        '__warehouse__',
+      label:
+        String(rawConfig.warehouseLabel || 'Magazzino').trim() || 'Magazzino',
     };
     const configuredLocations = Array.isArray(rawConfig.warehouseLocations)
       ? rawConfig.warehouseLocations
           .map((location: any) => ({
-            tagId: String(location?.tagId || location?.warehouseTagId || '').trim(),
-            locationId: String(location?.locationId || location?.warehouseLocationId || '').trim(),
-            label: String(location?.label || location?.warehouseLabel || '').trim(),
+            tagId: String(
+              location?.tagId || location?.warehouseTagId || '',
+            ).trim(),
+            locationId: String(
+              location?.locationId || location?.warehouseLocationId || '',
+            ).trim(),
+            label: String(
+              location?.label || location?.warehouseLabel || '',
+            ).trim(),
           }))
-          .filter((location: TenantWarehouseStampingLocation) =>
-            location.tagId || location.locationId || location.label
+          .filter(
+            (location: TenantWarehouseStampingLocation) =>
+              location.tagId || location.locationId || location.label,
           )
       : [];
     const warehouseLocations = configuredLocations.length
@@ -432,15 +470,14 @@ export class GlobalService {
     const primaryLocation = warehouseLocations[0] || legacyLocation;
 
     return {
-      mode: rawConfig.mode === 'warehouse'
-        ? 'warehouse'
-        : 'customer_tag',
+      mode: rawConfig.mode === 'warehouse' ? 'warehouse' : 'customer_tag',
       warehouseTagId: primaryLocation.tagId,
       warehouseLocationId: primaryLocation.locationId,
       warehouseLabel: primaryLocation.label,
       warehouseLocations,
       allowCustomerTagFallback: rawConfig.allowCustomerTagFallback === true,
       compareWithShifts: rawConfig.compareWithShifts !== false,
+      splitWarehouseStampings: rawConfig.splitWarehouseStampings === true,
     };
   }
 
@@ -462,19 +499,26 @@ export class GlobalService {
     );
   }
 
-  getFieldMappingFields(scope: 'quote' | 'customer'): TenantFieldMappingFieldConfig[] {
+  getFieldMappingFields(
+    scope: 'quote' | 'customer',
+  ): TenantFieldMappingFieldConfig[] {
     const fields = this.getTenantQuoteConfig()?.fieldMapping?.[scope]?.fields;
     return Array.isArray(fields) ? fields : [];
   }
 
-  isTechnicalField(scope: 'quote' | 'customer', fieldOrKey: TenantFieldMappingFieldConfig | string): boolean {
-    const value = typeof fieldOrKey === 'string'
-      ? fieldOrKey
-      : fieldOrKey?.dbColumn || fieldOrKey?.key || '';
+  isTechnicalField(
+    scope: 'quote' | 'customer',
+    fieldOrKey: TenantFieldMappingFieldConfig | string,
+  ): boolean {
+    const value =
+      typeof fieldOrKey === 'string'
+        ? fieldOrKey
+        : fieldOrKey?.dbColumn || fieldOrKey?.key || '';
     const key = String(value || '').trim();
-    const technicalFields = scope === 'quote'
-      ? ['numeroPreventivo', 'codiceOperatore', 'data', 'complete']
-      : ['numeroCliente', 'codiceOperatore', 'data', 'password'];
+    const technicalFields =
+      scope === 'quote'
+        ? ['numeroPreventivo', 'codiceOperatore', 'data', 'complete']
+        : ['numeroCliente', 'codiceOperatore', 'data', 'password'];
     return technicalFields.includes(key);
   }
 
@@ -483,7 +527,8 @@ export class GlobalService {
     source?: Record<string, any>,
   ): TenantFieldMappingFieldConfig[] {
     return this.getFieldMappingFields(scope).filter(
-      (field) => !!field?.dbColumn &&
+      (field) =>
+        !!field?.dbColumn &&
         !this.isTechnicalField(scope, field) &&
         !this.isLegacyCustomerOperatorField(scope, field) &&
         field.visible !== false &&
@@ -512,10 +557,11 @@ export class GlobalService {
       )
       .filter(Boolean);
 
-    return normalizedParts.some((value) =>
-      value === 'noperatori' ||
-      value === 'numerooperatori' ||
-      value === 'operatori',
+    return normalizedParts.some(
+      (value) =>
+        value === 'noperatori' ||
+        value === 'numerooperatori' ||
+        value === 'operatori',
     );
   }
 
@@ -524,7 +570,9 @@ export class GlobalService {
   }
 
   getDynamicInputType(field: TenantFieldMappingFieldConfig): string {
-    const type = String(field?.type || '').trim().toLowerCase();
+    const type = String(field?.type || '')
+      .trim()
+      .toLowerCase();
     if (['number', 'date', 'email', 'tel'].includes(type)) {
       return type;
     }
@@ -540,7 +588,9 @@ export class GlobalService {
 
   isCalculatedField(field: TenantFieldMappingFieldConfig): boolean {
     return ['sum', 'sum_with_vat'].includes(
-      String(field?.calculation?.mode || '').trim().toLowerCase(),
+      String(field?.calculation?.mode || '')
+        .trim()
+        .toLowerCase(),
     );
   }
 
@@ -550,13 +600,21 @@ export class GlobalService {
   ): void {
     const fields = this.getFieldMappingFields(scope);
     fields.forEach((field) => {
-      if (!field.dbColumn || this.isTechnicalField(scope, field) || field.visible === false) {
+      if (
+        !field.dbColumn ||
+        this.isTechnicalField(scope, field) ||
+        field.visible === false
+      ) {
         return;
       }
       if (!this.matchesVisibleWhen(scope, field, target)) {
         return;
       }
-      const calculatedValue = this.calculateMappedFieldValue(field, fields, target);
+      const calculatedValue = this.calculateMappedFieldValue(
+        field,
+        fields,
+        target,
+      );
       if (calculatedValue === undefined) return;
 
       target[field.dbColumn] = calculatedValue;
@@ -601,7 +659,12 @@ export class GlobalService {
 
   isFieldRequired(scope: 'quote' | 'customer', keyOrDbColumn: string): boolean {
     const field = this.getFieldConfig(scope, keyOrDbColumn);
-    if (String(field?.type || '').trim().toLowerCase() === 'boolean') return false;
+    if (
+      String(field?.type || '')
+        .trim()
+        .toLowerCase() === 'boolean'
+    )
+      return false;
     if (field && this.isCalculatedField(field)) return false;
     return field?.required === true;
   }
@@ -626,7 +689,9 @@ export class GlobalService {
         ? role === 'quoteTitle'
         : role === 'customerTitle';
     });
-    const roleValue = roleField ? this.readMappedValue(record, roleField) : undefined;
+    const roleValue = roleField
+      ? this.readMappedValue(record, roleField)
+      : undefined;
     if (!this.isEmptyFieldValue(roleValue)) {
       return String(roleValue).trim();
     }
@@ -652,9 +717,11 @@ export class GlobalService {
     const roleFields = this.getFieldMappingFields(scope).filter(
       (field) => String(field.displayRole || '').trim() === role,
     );
-    const roleField = role === 'quoteTotal'
-      ? roleFields.find((field) => this.isCalculatedField(field)) || roleFields[0]
-      : roleFields[0];
+    const roleField =
+      role === 'quoteTotal'
+        ? roleFields.find((field) => this.isCalculatedField(field)) ||
+          roleFields[0]
+        : roleFields[0];
     if (roleField && this.isCalculatedField(roleField)) {
       const calculatedValue = this.calculateMappedFieldValue(
         roleField,
@@ -671,14 +738,21 @@ export class GlobalService {
     source: Record<string, any>,
   ): string[] {
     return this.getFieldMappingFields(scope)
-      .filter((field) => !this.isTechnicalField(scope, field) &&
-        !this.isLegacyCustomerOperatorField(scope, field) &&
-        field.visible !== false &&
-        !this.isCalculatedField(field) &&
-        field.required === true &&
-        String(field.type || '').trim().toLowerCase() !== 'boolean' &&
-        this.matchesVisibleWhen(scope, field, source))
-      .filter((field) => this.isEmptyFieldValue(this.readMappedValue(source, field)))
+      .filter(
+        (field) =>
+          !this.isTechnicalField(scope, field) &&
+          !this.isLegacyCustomerOperatorField(scope, field) &&
+          field.visible !== false &&
+          !this.isCalculatedField(field) &&
+          field.required === true &&
+          String(field.type || '')
+            .trim()
+            .toLowerCase() !== 'boolean' &&
+          this.matchesVisibleWhen(scope, field, source),
+      )
+      .filter((field) =>
+        this.isEmptyFieldValue(this.readMappedValue(source, field)),
+      )
       .map((field) => field.label || field.dbColumn || field.key);
   }
 
@@ -687,7 +761,12 @@ export class GlobalService {
     target: Record<string, any>,
   ): void {
     this.getFieldMappingFields(scope).forEach((field) => {
-      if (!field.dbColumn || this.isTechnicalField(scope, field) || field.visible === false || this.isCalculatedField(field)) {
+      if (
+        !field.dbColumn ||
+        this.isTechnicalField(scope, field) ||
+        field.visible === false ||
+        this.isCalculatedField(field)
+      ) {
         return;
       }
       if (!this.matchesVisibleWhen(scope, field, target)) {
@@ -695,7 +774,11 @@ export class GlobalService {
       }
 
       const defaultValue = field.defaultValue;
-      if (defaultValue === undefined || defaultValue === null || defaultValue === '') {
+      if (
+        defaultValue === undefined ||
+        defaultValue === null ||
+        defaultValue === ''
+      ) {
         return;
       }
 
@@ -716,7 +799,12 @@ export class GlobalService {
     target: Record<string, any>,
   ): void {
     this.getFieldMappingFields(scope).forEach((field) => {
-      if (!field.dbColumn || this.isTechnicalField(scope, field) || field.visible === false) return;
+      if (
+        !field.dbColumn ||
+        this.isTechnicalField(scope, field) ||
+        field.visible === false
+      )
+        return;
       if (this.matchesVisibleWhen(scope, field, target)) return;
 
       target[field.dbColumn] = '';
@@ -753,7 +841,11 @@ export class GlobalService {
     });
 
     fields.forEach((field) => {
-      if (!field.dbColumn || this.isTechnicalField(scope, field) || field.visible === false) {
+      if (
+        !field.dbColumn ||
+        this.isTechnicalField(scope, field) ||
+        field.visible === false
+      ) {
         return;
       }
       if (!this.matchesVisibleWhen(scope, field, source)) {
@@ -782,20 +874,29 @@ export class GlobalService {
     source: Record<string, any>,
   ): number | undefined {
     const calculation = field.calculation || {};
-    const mode = String(calculation.mode || '').trim().toLowerCase();
+    const mode = String(calculation.mode || '')
+      .trim()
+      .toLowerCase();
     if (!['sum', 'sum_with_vat'].includes(mode)) return undefined;
 
-    const sourceFields = this.parseCalculationSourceFields(calculation.sourceFields);
+    const sourceFields = this.parseCalculationSourceFields(
+      calculation.sourceFields,
+    );
     if (!sourceFields.length) return undefined;
 
-    const subtotal = sourceFields.reduce((sum, sourceField) => (
-      sum + this.parseNumericValue(this.readCalculationSourceValue(source, fields, sourceField))
-    ), 0);
+    const subtotal = sourceFields.reduce(
+      (sum, sourceField) =>
+        sum +
+        this.parseNumericValue(
+          this.readCalculationSourceValue(source, fields, sourceField),
+        ),
+      0,
+    );
 
     let total = subtotal;
     if (mode === 'sum_with_vat') {
       const vatRate = this.resolveVatRate(source, fields, calculation);
-      total = subtotal * (1 + (vatRate / 100));
+      total = subtotal * (1 + vatRate / 100);
     }
 
     const decimals = this.normalizeCalculationDecimals(calculation.decimals);
@@ -810,9 +911,20 @@ export class GlobalService {
   ): number {
     const vatField = String(calculation.vatField || '').trim();
     if (vatField) {
-      const rawVatValue = this.readCalculationSourceValue(source, fields, vatField);
-      const vatValueRates = this.parseVatValueRates(calculation.vatValueRates || calculation.vatRatesByValue);
-      const mappedRate = vatValueRates[String(rawVatValue || '').trim().toLowerCase()];
+      const rawVatValue = this.readCalculationSourceValue(
+        source,
+        fields,
+        vatField,
+      );
+      const vatValueRates = this.parseVatValueRates(
+        calculation.vatValueRates || calculation.vatRatesByValue,
+      );
+      const mappedRate =
+        vatValueRates[
+          String(rawVatValue || '')
+            .trim()
+            .toLowerCase()
+        ];
       if (Number.isFinite(mappedRate)) {
         return mappedRate;
       }
@@ -825,28 +937,38 @@ export class GlobalService {
   private parseVatValueRates(value: unknown): Record<string, number> {
     if (!value) return {};
     if (typeof value === 'object' && !Array.isArray(value)) {
-      return Object.entries(value as Record<string, unknown>).reduce((acc, [key, rate]) => {
-        const normalizedKey = String(key || '').trim().toLowerCase();
-        const normalizedRate = Number(rate);
-        if (normalizedKey && Number.isFinite(normalizedRate)) {
-          acc[normalizedKey] = normalizedRate;
-        }
-        return acc;
-      }, {} as Record<string, number>);
+      return Object.entries(value as Record<string, unknown>).reduce(
+        (acc, [key, rate]) => {
+          const normalizedKey = String(key || '')
+            .trim()
+            .toLowerCase();
+          const normalizedRate = Number(rate);
+          if (normalizedKey && Number.isFinite(normalizedRate)) {
+            acc[normalizedKey] = normalizedRate;
+          }
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
     }
 
     return String(value || '')
       .split(/[,;\n]/)
       .map((item) => item.trim())
       .filter(Boolean)
-      .reduce((acc, item) => {
-        const [key, rate] = item.split(/[:=]/).map((part) => String(part || '').trim());
-        const normalizedRate = Number(String(rate || '').replace(',', '.'));
-        if (key && Number.isFinite(normalizedRate)) {
-          acc[key.toLowerCase()] = normalizedRate;
-        }
-        return acc;
-      }, {} as Record<string, number>);
+      .reduce(
+        (acc, item) => {
+          const [key, rate] = item
+            .split(/[:=]/)
+            .map((part) => String(part || '').trim());
+          const normalizedRate = Number(String(rate || '').replace(',', '.'));
+          if (key && Number.isFinite(normalizedRate)) {
+            acc[key.toLowerCase()] = normalizedRate;
+          }
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
   }
 
   private parseCalculationSourceFields(value: unknown): string[] {
@@ -864,7 +986,9 @@ export class GlobalService {
       return 2;
     }
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? Math.max(0, Math.min(6, Math.round(parsed))) : 2;
+    return Number.isFinite(parsed)
+      ? Math.max(0, Math.min(6, Math.round(parsed)))
+      : 2;
   }
 
   private readCalculationSourceValue(
@@ -875,15 +999,14 @@ export class GlobalService {
     const target = String(sourceField || '').trim();
     if (!target) return undefined;
 
-    const mappedField = fields.find((field) => (
-      String(field.key || '').trim() === target ||
-      String(field.dbColumn || '').trim() === target
-    ));
-    const candidates = [
-      target,
-      mappedField?.dbColumn,
-      mappedField?.key,
-    ].map((item) => String(item || '').trim()).filter(Boolean);
+    const mappedField = fields.find(
+      (field) =>
+        String(field.key || '').trim() === target ||
+        String(field.dbColumn || '').trim() === target,
+    );
+    const candidates = [target, mappedField?.dbColumn, mappedField?.key]
+      .map((item) => String(item || '').trim())
+      .filter(Boolean);
 
     for (const candidate of candidates) {
       if (Object.prototype.hasOwnProperty.call(source, candidate)) {
@@ -912,9 +1035,10 @@ export class GlobalService {
     const commaIndex = normalized.lastIndexOf(',');
     const dotIndex = normalized.lastIndexOf('.');
     if (commaIndex !== -1 && dotIndex !== -1) {
-      normalized = commaIndex > dotIndex
-        ? normalized.replace(/\./g, '').replace(',', '.')
-        : normalized.replace(/,/g, '');
+      normalized =
+        commaIndex > dotIndex
+          ? normalized.replace(/\./g, '').replace(',', '.')
+          : normalized.replace(/,/g, '');
     } else if (commaIndex !== -1) {
       normalized = normalized.replace(',', '.');
     }
@@ -951,9 +1075,17 @@ export class GlobalService {
       dbColumn: conditionField,
       label: conditionField,
     };
-    const currentValue = this.resolveVisibleWhenValue(scope, source, conditionField, sourceField);
+    const currentValue = this.resolveVisibleWhenValue(
+      scope,
+      source,
+      conditionField,
+      sourceField,
+    );
 
-    return this.normalizeConditionValue(currentValue) === this.normalizeConditionValue(conditionValue);
+    return (
+      this.normalizeConditionValue(currentValue) ===
+      this.normalizeConditionValue(conditionValue)
+    );
   }
 
   private resolveVisibleWhenValue(
@@ -976,8 +1108,15 @@ export class GlobalService {
     pushFieldValue(sourceField.dbColumn);
 
     const sourceRole = String(sourceField.displayRole || '').trim();
-    if (scope === 'quote' && (conditionField === 'tipoPreventivo' || sourceRole === 'quoteType')) {
-      const quoteTypeValue = this.getRecordValueByRole('quote', source, 'quoteType');
+    if (
+      scope === 'quote' &&
+      (conditionField === 'tipoPreventivo' || sourceRole === 'quoteType')
+    ) {
+      const quoteTypeValue = this.getRecordValueByRole(
+        'quote',
+        source,
+        'quoteType',
+      );
       if (quoteTypeValue !== undefined) candidates.push(quoteTypeValue);
       pushFieldValue('tipoPreventivo');
     }
@@ -986,7 +1125,9 @@ export class GlobalService {
   }
 
   private normalizeConditionValue(value: unknown): string {
-    return String(value ?? '').trim().toLowerCase();
+    return String(value ?? '')
+      .trim()
+      .toLowerCase();
   }
 
   private normalizeFieldLookup(value: unknown): string {
@@ -1002,7 +1143,9 @@ export class GlobalService {
     value: string,
     field: TenantFieldMappingFieldConfig,
   ): any {
-    const type = String(field?.type || '').trim().toLowerCase();
+    const type = String(field?.type || '')
+      .trim()
+      .toLowerCase();
     if (type === 'boolean') {
       const normalized = String(value).trim().toLowerCase();
       return ['1', 'true', 'si', 'sì', 'yes'].includes(normalized);

@@ -1,1 +1,19 @@
 @import "../gestione-employees/gestione-employees.component.css";
+
+.mobile-only {
+  display: none !important;
+}
+
+.desktop-table {
+  display: block;
+}
+
+@media (max-width: 767.98px) {
+  .desktop-table {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: flex !important;
+  }
+}

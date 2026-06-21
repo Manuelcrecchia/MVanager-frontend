@@ -325,21 +325,21 @@
               </td>
               <td class="actions-cell">
                 <ng-container *ngIf="editingId !== v.id; else editActions">
-                  <button class="btn btn-glass btn-round btn-sm" (click)="startEdit(v)">
+                  <button type="button" class="btn btn-glass btn-round btn-sm" (click)="startEdit(v)">
                     ✏️ Modifica
                   </button>
-                  <button class="btn btn-primary btn-round btn-sm" (click)="openVehicleCategories(v)">
+                  <button type="button" class="btn btn-primary btn-round btn-sm" (click)="openVehicleCategories(v)">
                     Categorie
                   </button>
-                  <button class="btn btn-glass-dark btn-round btn-sm" (click)="deleteVehicle(v)">
+                  <button type="button" class="btn btn-glass-dark btn-round btn-sm" (click)="deleteVehicle(v)">
                     🗑️ Elimina
                   </button>
                 </ng-container>
                 <ng-template #editActions>
-                  <button class="btn btn-primary btn-round btn-sm" (click)="saveEdit()">
+                  <button type="button" class="btn btn-primary btn-round btn-sm" (click)="saveEdit()">
                     ✅ Salva
                   </button>
-                  <button class="btn btn-glass btn-round btn-sm" (click)="cancelEdit()">
+                  <button type="button" class="btn btn-glass btn-round btn-sm" (click)="cancelEdit()">
                     ✖ Annulla
                   </button>
                 </ng-template>
@@ -371,21 +371,21 @@
           </div>
           <div class="employee-card__actions">
             <ng-container *ngIf="editingId !== v.id; else editMobile">
-              <button class="btn btn-glass btn-round btn-sm w-100" (click)="startEdit(v)">
+              <button type="button" class="btn btn-glass btn-round btn-sm w-100" (click)="startEdit(v)">
                 ✏️ Modifica
               </button>
-              <button class="btn btn-primary btn-round btn-sm w-100" (click)="openVehicleCategories(v)">
+              <button type="button" class="btn btn-primary btn-round btn-sm w-100" (click)="openVehicleCategories(v)">
                 Categorie
               </button>
-              <button class="btn btn-glass-dark btn-round btn-sm w-100" (click)="deleteVehicle(v)">
+              <button type="button" class="btn btn-glass-dark btn-round btn-sm w-100" (click)="deleteVehicle(v)">
                 🗑️ Elimina
               </button>
             </ng-container>
             <ng-template #editMobile>
               <input class="form-control form-control-sm mb-2" [(ngModel)]="editForm.name" placeholder="Nome" />
               <input class="form-control form-control-sm mb-2" [(ngModel)]="editForm.plate" placeholder="Targa" />
-              <button class="btn btn-primary btn-round btn-sm w-100 mb-1" (click)="saveEdit()">✅ Salva</button>
-              <button class="btn btn-glass btn-round btn-sm w-100" (click)="cancelEdit()">✖ Annulla</button>
+              <button type="button" class="btn btn-primary btn-round btn-sm w-100 mb-1" (click)="saveEdit()">✅ Salva</button>
+              <button type="button" class="btn btn-glass btn-round btn-sm w-100" (click)="cancelEdit()">✖ Annulla</button>
             </ng-template>
           </div>
         </article>
@@ -393,7 +393,7 @@
     </div>
   </section>
 
-  <section class="admin-card mt-4" *ngIf="isVehicleMode && selectedVehicleForCategories">
+  <section class="admin-card mt-4 vehicle-category-panel" *ngIf="isVehicleMode && selectedVehicleForCategories">
     <div class="card-header py-3 px-4">
       <h3 class="mb-0 fs-5">Categorie di {{ selectedVehicleForCategories.name }}</h3>
       <p class="mb-0 text-muted small">Le scadenze mancanti verranno create come già scadute</p>
@@ -419,7 +419,7 @@
     </div>
   </section>
 
-  <section class="admin-card mt-4" *ngIf="isEquipmentMode && selectedEquipmentForCategories">
+  <section class="admin-card mt-4 equipment-category-panel" *ngIf="isEquipmentMode && selectedEquipmentForCategories">
     <div class="card-header py-3 px-4">
       <h3 class="mb-0 fs-5">Categorie di {{ selectedEquipmentForCategories.targetLabel || selectedEquipmentForCategories.targetKey }}</h3>
       <p class="mb-0 text-muted small">Le scadenze mancanti verranno create come già scadute</p>
