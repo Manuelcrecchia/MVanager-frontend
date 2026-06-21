@@ -136,7 +136,7 @@ export interface TenantQuoteConfig {
   providedIn: 'root',
 })
 export class GlobalService {
-  version = '4.8';
+  version = '5.0';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;

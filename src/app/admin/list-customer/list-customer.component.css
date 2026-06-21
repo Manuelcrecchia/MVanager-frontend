@@ -107,6 +107,26 @@ mat-toolbar .mat-mdc-form-field {
   overflow: hidden;
 }
 
+.customer-card--archive-reminder {
+  border-color: rgba(194, 65, 12, .55);
+  box-shadow: 0 0 0 3px rgba(251, 146, 60, .18), 0 20px 60px rgba(2,6,23,.14);
+}
+
+.archive-reminder-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 14px 0;
+  border: 1px solid rgba(251, 146, 60, .45);
+  border-radius: 14px;
+  background: #fff7ed;
+  color: #9a3412;
+  padding: 10px 12px;
+  font-weight: 850;
+}
+
 .staff-panel {
   margin-bottom: 18px;
   padding: 16px;

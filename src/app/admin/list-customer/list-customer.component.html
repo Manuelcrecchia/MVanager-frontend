@@ -38,6 +38,9 @@
         >
           Pulisci
         </button>
+        <button type="button" class="btn btn-light btn-sm" (click)="toggleShowArchived()">
+          {{ showArchived ? 'Nascondi archiviati' : 'Mostra archivio' }}
+        </button>
       </div>
     </mat-toolbar>
 
@@ -86,7 +89,7 @@
       <div class="row g-3">
         <div class="col-12" *ngFor="let customer of customersFrEnd">
 
-          <div class="customer-card">
+          <div class="customer-card" [class.customer-card--archive-reminder]="isArchiveReminderCustomer(customer)">
 
             <!-- HEADER: apre/chiude tendina -->
             <button
@@ -101,6 +104,7 @@
                 <span class="customer-num">{{ customer.numeroCliente }}</span>
                 <span class="customer-sep">—</span>
                 <span class="customer-nom">{{ getCustomerDisplayName(customer) }}</span>
+                <span class="badge bg-warning text-dark" *ngIf="customer.active === false">Archiviato</span>
               </span>
 
               <span class="d-flex align-items-center gap-2">
@@ -131,6 +135,17 @@
             </div>
 
             <!-- AZIONI -->
+            <div class="archive-reminder-box" *ngIf="isArchiveReminderCustomer(customer)">
+              <span>Lavoro completato: valuta se archiviare questo cliente.</span>
+              <button
+                type="button"
+                class="btn btn-warning btn-sm"
+                *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
+                (click)="archiveOnlyCustomer(customer)"
+              >
+                Archivia senza ZIP
+              </button>
+            </div>
             <div
               class="collapse customer-actions"
               [attr.id]="'cActions' + customer.numeroCliente"
@@ -156,7 +171,7 @@
                 </button>
 
                 <button
-                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE')"
+                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
                   color="accent"
                   (click)="navigateToEditCustomer(customer.numeroCliente)"
@@ -169,7 +184,7 @@
                 </button>
 
                 <button
-                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE')"
+                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
                   color="warn"
                   (click)="archiveCustomer(customer)"
@@ -182,6 +197,20 @@
                 </button>
 
                 <button
+                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active === false"
+                  mat-raised-button
+                  color="primary"
+                  (click)="unarchiveCustomer(customer)"
+                  class="action-with-tooltip"
+                  title="Riattiva il cliente archiviato"
+                  aria-label="Riattiva cliente"
+                  data-tooltip="Riattiva"
+                >
+                  <mat-icon>unarchive</mat-icon>
+                </button>
+
+                <button
+                  *ngIf="customer.active !== false"
                   mat-raised-button
                   color="primary"
                   (click)="viewDocuments(customer.numeroCliente)"
@@ -194,7 +223,7 @@
                 </button>
 
                 <button
-                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE')"
+                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
                   color="accent"
                   (click)="openStaffRequirements(customer)"

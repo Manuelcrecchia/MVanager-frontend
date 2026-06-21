@@ -85,6 +85,7 @@ export class NotificationNavigationService {
     const deadlineId = this.firstString(data['deadlineId']);
     const numeroPreventivo = this.firstString(data['numeroPreventivo']);
     const acceptanceId = this.firstString(data['acceptanceId']);
+    const numeroCliente = this.firstString(data['numeroCliente']);
 
     if (screen === 'calendar' || type === 'SOPRALLUOGO_REMINDER' || type === 'SOPRALLUOGO_ASSIGNED') {
       const params = new URLSearchParams();
@@ -120,6 +121,12 @@ export class NotificationNavigationService {
       params.set('review', '1');
       params.set('showCompleted', '1');
       return `/quotesHome?${params}`;
+    }
+
+    if (screen === 'customers' || type === 'CUSTOMER_ARCHIVE_REMINDER') {
+      const params = new URLSearchParams();
+      if (numeroCliente) params.set('archiveReminder', numeroCliente);
+      return `/listCustomer${params.toString() ? `?${params}` : ''}`;
     }
 
     return null;

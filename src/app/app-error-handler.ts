@@ -1,6 +1,5 @@
 import { ErrorHandler, Injectable, NgZone } from '@angular/core';
 import { PopupServiceService } from './componenti/popup/popup-service.service';
-import { ClientIssueReporterService } from './service/client-issue-reporter.service';
 
 @Injectable()
 export class AppErrorHandler implements ErrorHandler {
@@ -10,16 +9,12 @@ export class AppErrorHandler implements ErrorHandler {
   constructor(
     private popup: PopupServiceService,
     private zone: NgZone,
-    private reporter: ClientIssueReporterService,
   ) {}
 
   handleError(error: unknown): void {
     console.error('[AppErrorHandler] Errore non gestito:', error);
 
     const message = this.extractMessage(error);
-    this.reporter.report('frontend_exception', message, {
-      stack: (error as any)?.stack || (error as any)?.ngOriginalError?.stack || '',
-    }, 'error');
     const now = Date.now();
     if (message === this.lastMessage && now - this.lastErrorAt < 1500) {
       return;

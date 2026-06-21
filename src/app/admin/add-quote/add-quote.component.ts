@@ -11,7 +11,6 @@ import {
   quoteFieldKey,
   validateQuoteFields,
 } from '../quote-field-validation';
-import { ClientIssueReporterService } from '../../service/client-issue-reporter.service';
 
 interface QuoteRoom {
   id: number;
@@ -58,7 +57,6 @@ export class AddQuoteComponent {
     private router: Router,
     private popup: PopupServiceService,
     private location: Location,
-    private reporter: ClientIssueReporterService,
   ) {}
 
   ngOnInit() {
@@ -149,10 +147,6 @@ export class AddQuoteComponent {
       .map((error) => `${error.label}: ${error.message}`)
       .join('\n')
       .toUpperCase();
-    this.reporter.report('quote_validation_error', 'Preventivo non salvato: campi compilati male', {
-      errors,
-      quoteType: this.getCurrentQuoteType(),
-    }, 'info');
     this.popup.openPopup('Correggi i campi', 'warning');
   }
 

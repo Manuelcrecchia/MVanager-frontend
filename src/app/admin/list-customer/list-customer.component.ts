@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { CustomerModelService } from '../../service/customer-model.service';
 import { Component, Input } from '@angular/core';
@@ -22,15 +22,22 @@ export class ListCustomerComponent {
   vehicleRequirementCounts: { [categoryId: number]: number } = {};
   equipmentRequirementCounts: { [categoryId: number]: number } = {};
   customerSearch = '';
+  archiveReminderCustomerId = '';
+  showArchived = false;
 
   constructor(
     private http: HttpClient,
     public globalService: GlobalService,
     private router: Router,
+    private route: ActivatedRoute,
     private customerModelService: CustomerModelService,
   ) {}
 
   ngOnInit(): void {
+    this.archiveReminderCustomerId = String(this.route.snapshot.queryParamMap.get('archiveReminder') || '').trim();
+    if (this.archiveReminderCustomerId) {
+      this.customerSearch = this.archiveReminderCustomerId;
+    }
     this.getCustomers();
     this.getEmployeeCategories();
     this.getVehicleCategories();
@@ -86,8 +93,9 @@ export class ListCustomerComponent {
   }
 
   getCustomers(): void {
+    const url = this.globalService.url + `customers/getAll${this.showArchived ? '?includeArchived=true' : ''}`;
     this.http
-      .get(this.globalService.url + 'customers/getAll', {
+      .get(url, {
         headers: this.globalService.headers,
         responseType: 'text',
       })
@@ -95,9 +103,7 @@ export class ListCustomerComponent {
         next: (response) => {
           try {
             const data = JSON.parse(response);
-            this.customers = Array.isArray(data)
-              ? data.filter((customer) => customer?.active !== false)
-              : [];
+            this.customers = Array.isArray(data) ? data : [];
             this.applyCustomerSearch();
           } catch (err) {
             console.error('Errore nel parse JSON dei clienti:', err);
@@ -108,6 +114,15 @@ export class ListCustomerComponent {
           alert('Errore durante il caricamento dei clienti');
         },
       });
+  }
+
+  toggleShowArchived(): void {
+    this.showArchived = !this.showArchived;
+    if (!this.showArchived && this.archiveReminderCustomerId) {
+      this.archiveReminderCustomerId = '';
+      this.customerSearch = '';
+    }
+    this.getCustomers();
   }
 
   private normalize(s: string): string {
@@ -147,7 +162,13 @@ export class ListCustomerComponent {
 
   clearCustomerSearch(): void {
     this.customerSearch = '';
+    this.archiveReminderCustomerId = '';
     this.applyCustomerSearch();
+  }
+
+  isArchiveReminderCustomer(customer: any): boolean {
+    return !!this.archiveReminderCustomerId &&
+      String(customer?.numeroCliente || '') === String(this.archiveReminderCustomerId);
   }
 
   private getCustomerSearchText(customer: any): string {
@@ -233,6 +254,47 @@ export class ListCustomerComponent {
         error: (err) => {
           console.error("Errore durante l'archiviazione cliente:", err);
           alert("Errore durante il download o l'archiviazione del cliente.");
+        },
+      });
+  }
+
+  archiveOnlyCustomer(customer: any): void {
+    if (!confirm(`Archiviare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}" senza scaricare lo ZIP?`)) return;
+
+    this.http
+      .post(this.globalService.url + 'customers/archiveOnly', { numeroCliente: customer.numeroCliente }, {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: () => {
+          alert('Cliente archiviato.');
+          this.customers = this.customers.filter(
+            (item) => String(item?.numeroCliente) !== String(customer.numeroCliente),
+          );
+          this.applyCustomerSearch();
+        },
+        error: (err) => {
+          console.error("Errore durante l'archiviazione cliente:", err);
+          alert("Errore durante l'archiviazione del cliente.");
+        },
+      });
+  }
+
+  unarchiveCustomer(customer: any): void {
+    if (!confirm(`Riattivare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}"?`)) return;
+
+    this.http
+      .post(this.globalService.url + 'customers/unarchive', { numeroCliente: customer.numeroCliente }, {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: () => {
+          alert('Cliente riattivato.');
+          this.getCustomers();
+        },
+        error: (err) => {
+          console.error('Errore durante la riattivazione cliente:', err);
+          alert('Errore durante la riattivazione del cliente.');
         },
       });
   }
