@@ -45,6 +45,7 @@ export class AdminShellRedirectGuard implements CanActivate {
     'schedaCliente',
     'service-orders',
     'settingsemployees',
+    'statistiche',
     'timbratureDettaglio',
     'timbratureHome',
     'userSettings',

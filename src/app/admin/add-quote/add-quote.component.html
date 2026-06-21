@@ -48,6 +48,7 @@
           <div
             class="quote-field-cell"
             [class.quote-field-cell-wide]="isWideQuoteField(field)"
+            [class.quote-field-invalid]="getFieldError(field)"
             *ngFor="let field of section.fields; trackBy: trackByQuoteField"
           >
             <ng-container
@@ -192,6 +193,7 @@
                 [ngModel]="$any(quoteModelService)[field.dbColumn]"
                 (ngModelChange)="updateField(field, $event)"
               ></textarea>
+              <mat-hint class="quote-validation-error" *ngIf="getFieldError(field)">{{ getFieldError(field) }}</mat-hint>
             </mat-form-field>
 
             <mat-form-field *ngSwitchCase="'enum'" appearance="fill" class="w-100">
@@ -210,6 +212,7 @@
                   {{ option }}
                 </mat-option>
               </mat-select>
+              <mat-hint class="quote-validation-error" *ngIf="getFieldError(field)">{{ getFieldError(field) }}</mat-hint>
             </mat-form-field>
 
             <div *ngSwitchCase="'list'" class="quote-repeatable-panel">
@@ -258,6 +261,7 @@
                 [ngModel]="$any(quoteModelService)[field.dbColumn]"
                 (ngModelChange)="updateField(field, $event)"
               />
+              <mat-hint class="quote-validation-error" *ngIf="getFieldError(field)">{{ getFieldError(field) }}</mat-hint>
             </mat-form-field>
           </ng-container>
         </ng-template>

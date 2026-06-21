@@ -603,6 +603,12 @@ const routes: Routes = [
 
   // statistiche
   {
+    path: 'statistiche',
+    component: WorkCompletionStatsComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'STATS_VIEW' },
+  },
+  {
     path: 'work-completion-stats',
     component: WorkCompletionStatsComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],

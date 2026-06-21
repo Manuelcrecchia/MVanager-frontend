@@ -12,6 +12,7 @@ import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import { Subscription } from 'rxjs';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+import { ClientIssueReporterService } from '../../service/client-issue-reporter.service';
 
 type WarehouseTab = 'list' | 'requests' | 'in' | 'out' | 'movements' | 'products' | 'tools';
 type MovementType = 'in' | 'out';
@@ -240,6 +241,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     public global: GlobalService,
     private popup: PopupServiceService,
     private cdr: ChangeDetectorRef,
+    private reporter: ClientIssueReporterService,
   ) {}
 
   ngOnInit(): void {
@@ -477,10 +479,20 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
     if (!payload.name.trim() || !payload.barcode.trim()) {
       this.error = 'Nome e codice a barre sono obbligatori.';
+      this.reporter.report('warehouse_validation_error', 'Prodotto non salvato: nome o barcode mancanti', {
+        form: 'product',
+        productName: payload.name,
+        barcode: payload.barcode,
+      }, 'info');
       return;
     }
     if (!payload.categoryId) {
       this.error = 'Seleziona una categoria prodotto.';
+      this.reporter.report('warehouse_validation_error', 'Prodotto non salvato: categoria mancante', {
+        form: 'product',
+        productName: payload.name,
+        barcode: payload.barcode,
+      }, 'info');
       return;
     }
 
@@ -534,6 +546,14 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     if (!this.duplicateProduct) return;
     this.editProduct(this.duplicateProduct);
     this.duplicateProduct = null;
+  }
+
+  resetProductForm(): void {
+    this.productForm = this.emptyProductForm();
+    this.duplicateProduct = null;
+    this.selectedPhotoFile = null;
+    this.error = '';
+    this.message = '';
   }
 
   toggleFavorite(product: WarehouseProduct): void {
@@ -592,6 +612,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       note: this.manualMovement.note,
       customerId: this.manualMovement.customerId,
       employeeId: this.manualMovement.employeeId,
+      unitCost: this.manualMovement.unitCost,
       requestId: this.preparingRequest?.id,
       resetManual: true,
     });
@@ -825,6 +846,11 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     const cleanQuantity = Math.max(1, Number(quantity || 1));
     if (!cleanBarcode) {
       this.error = 'Inserisci un codice a barre.';
+      this.reporter.report('warehouse_validation_error', 'Movimento magazzino non registrato: barcode mancante', {
+        form: type === 'in' ? 'warehouse_in' : 'warehouse_out',
+        quantity: cleanQuantity,
+        reasonKey: options.reasonKey || '',
+      }, 'info');
       return;
     }
 
@@ -968,6 +994,13 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     };
   }
 
+  resetCategoryForm(): void {
+    this.categoryForm = this.emptyCategoryForm();
+    this.categoryError = '';
+    this.error = '';
+    this.message = '';
+  }
+
   categoryAliasesLabel(category: WarehouseCategory): string {
     return (category.aliases || []).join(', ');
   }
@@ -983,6 +1016,9 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     };
     if (!payload.name) {
       this.error = 'Nome categoria obbligatorio.';
+      this.reporter.report('warehouse_validation_error', 'Categoria magazzino non salvata: nome mancante', {
+        form: 'warehouse_category',
+      }, 'info');
       return;
     }
 
@@ -994,8 +1030,9 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     request.subscribe({
       next: () => {
         this.saving = false;
-        this.message = this.categoryForm.id ? 'Categoria aggiornata.' : 'Categoria creata.';
-        this.categoryForm = this.emptyCategoryForm();
+        const successMessage = this.categoryForm.id ? 'Categoria aggiornata.' : 'Categoria creata.';
+        this.resetCategoryForm();
+        this.message = successMessage;
         this.loadCategories();
         this.loadProducts();
         this.loadSummary();
@@ -1032,8 +1069,8 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
     this.http.delete(this.api(`/categories/${category.id}`)).subscribe({
       next: () => {
+        this.resetCategoryForm();
         this.message = 'Categoria archiviata.';
-        this.categoryForm = this.emptyCategoryForm();
         this.loadCategories();
         this.loadProducts();
       },
@@ -1155,6 +1192,12 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
   private handleError(err: any, fallback: string): void {
     this.error = this.parseServerError(err, fallback);
+    this.reporter.report('warehouse_error', this.error, {
+      fallback,
+      status: err?.status || '',
+      response: err?.error || null,
+      tab: this.activeTab,
+    }, err?.status >= 500 ? 'error' : 'warning');
     this.popup.showError(this.error);
   }
 

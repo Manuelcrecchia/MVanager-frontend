@@ -6,6 +6,12 @@ import { GlobalService } from '../../service/global.service';
 import { TenantFieldMappingFieldConfig } from '../../service/global.service';
 import { QuoteModelService } from '../../service/quote-model.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+import {
+  QuoteFieldValidationError,
+  quoteFieldKey,
+  validateQuoteFields,
+} from '../quote-field-validation';
+import { ClientIssueReporterService } from '../../service/client-issue-reporter.service';
 
 interface QuoteRoom {
   id: number;
@@ -43,6 +49,7 @@ export class AddQuoteComponent {
   selectedRoomTextByField: Record<string, string> = {};
   visibleQuoteFields: TenantFieldMappingFieldConfig[] = [];
   visibleQuoteSections: QuoteFieldSection[] = [];
+  validationErrors: Record<string, string> = {};
 
   constructor(
     public globalService: GlobalService,
@@ -51,6 +58,7 @@ export class AddQuoteComponent {
     private router: Router,
     private popup: PopupServiceService,
     private location: Location,
+    private reporter: ClientIssueReporterService,
   ) {}
 
   ngOnInit() {
@@ -73,10 +81,17 @@ export class AddQuoteComponent {
 
   addQuote() {
     const source = this.quoteModelService as unknown as Record<string, any>;
+    this.validationErrors = {};
     const missingFields = this.globalService.getMissingRequiredFields('quote', source);
     if (missingFields.length) {
       this.popup.text = `COMPILA I CAMPI OBBLIGATORI: ${missingFields.join(', ')}`;
       this.popup.openPopup('Campi obbligatori', 'warning');
+      return;
+    }
+
+    const formatErrors = validateQuoteFields(this.visibleQuoteFields, source);
+    if (formatErrors.length) {
+      this.showValidationErrors(formatErrors);
       return;
     }
 
@@ -117,7 +132,28 @@ export class AddQuoteComponent {
     this.globalService.applyFieldDefaults('quote', target);
     this.globalService.applyCalculatedFields('quote', target);
     this.quoteModelService = Object.assign(this.quoteModelService, target);
+    delete this.validationErrors[String(field.dbColumn || field.key || '')];
     this.refreshVisibleQuoteFields();
+  }
+
+  getFieldError(field: TenantFieldMappingFieldConfig): string {
+    return this.validationErrors[quoteFieldKey(field)] || '';
+  }
+
+  private showValidationErrors(errors: QuoteFieldValidationError[]): void {
+    this.validationErrors = errors.reduce<Record<string, string>>((acc, error) => {
+      acc[error.fieldKey] = error.message;
+      return acc;
+    }, {});
+    this.popup.text = errors
+      .map((error) => `${error.label}: ${error.message}`)
+      .join('\n')
+      .toUpperCase();
+    this.reporter.report('quote_validation_error', 'Preventivo non salvato: campi compilati male', {
+      errors,
+      quoteType: this.getCurrentQuoteType(),
+    }, 'info');
+    this.popup.openPopup('Correggi i campi', 'warning');
   }
 
   refreshVisibleQuoteFields(): void {
