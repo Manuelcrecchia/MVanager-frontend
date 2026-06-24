@@ -1460,6 +1460,8 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   }
 
   goBack(): void {
-    this.router.navigateByUrl('/homeAdmin');
+    this.router.navigate(['/homeAdmin', 'internal-warehouse'], {
+      queryParams: { tab: 'movements' },
+    });
   }
 }

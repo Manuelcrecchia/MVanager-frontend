@@ -92,7 +92,7 @@ export class ViewPdfComponent implements OnInit {
   }
 
   back() {
-    this.router.navigate(['/quotesHome'], {
+    this.router.navigate(['/homeAdmin', 'quotesHome'], {
       queryParams: this.signedPdfMode ? { showCompleted: 1 } : {},
     });
   }
