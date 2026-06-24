@@ -60,7 +60,17 @@
         >
           <div class="flex-grow-1 me-3">
             <div>
-              <strong *ngIf="!a.isExtra">{{ a.title }}</strong>
+              <div class="job-title-row" *ngIf="!a.isExtra">
+                <strong>{{ a.title }}</strong>
+                <button
+                  class="btn btn-sm btn-outline-secondary postpone-inline-btn"
+                  type="button"
+                  (click)="openPostponePopup(a)"
+                  title="Crea una nuova occorrenza futura di questo lavoro"
+                >
+                  Posticipa
+                </button>
+              </div>
               <input
                 *ngIf="a.isExtra"
                 type="text"
@@ -196,6 +206,79 @@
           <span>{{ item.dipendenti.join(", ") || "Nessuno" }}</span>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div
+  class="postpone-backdrop"
+  *ngIf="postponePopupOpen"
+  (click)="closePostponePopup()"
+>
+  <div class="postpone-dialog" (click)="$event.stopPropagation()">
+    <div class="postpone-dialog__header">
+      <div>
+        <h3>Posticipa lavoro</h3>
+        <p>{{ postponeTarget?.title }}</p>
+      </div>
+      <button
+        class="postpone-close"
+        type="button"
+        (click)="closePostponePopup()"
+        [disabled]="postponing"
+        aria-label="Chiudi"
+      >
+        ×
+      </button>
+    </div>
+
+    <label class="postpone-field">
+      <span>Nuova data</span>
+      <input
+        type="date"
+        [(ngModel)]="postponeForm.date"
+        [min]="formatDate(selectedDate)"
+        [disabled]="postponing"
+      />
+    </label>
+
+    <label class="postpone-field">
+      <span>Nuovo orario</span>
+      <input
+        type="time"
+        [(ngModel)]="postponeForm.time"
+        [disabled]="postponing"
+      />
+    </label>
+
+    <label class="postpone-field">
+      <span>Durata</span>
+      <select [(ngModel)]="postponeForm.duration" [disabled]="postponing">
+        <option *ngFor="let d of durationOptions" [ngValue]="d" [disabled]="d <= 0">
+          {{ formatDuration(d) }}
+        </option>
+      </select>
+    </label>
+
+    <p class="postpone-error" *ngIf="postponeError">{{ postponeError }}</p>
+
+    <div class="postpone-actions">
+      <button
+        class="btn btn-outline-secondary btn-sm"
+        type="button"
+        (click)="closePostponePopup()"
+        [disabled]="postponing"
+      >
+        Annulla
+      </button>
+      <button
+        class="btn btn-primary btn-sm"
+        type="button"
+        (click)="savePostponedAppointment()"
+        [disabled]="postponing"
+      >
+        {{ postponing ? 'Salvataggio...' : 'Crea posticipo' }}
+      </button>
     </div>
   </div>
 </div>

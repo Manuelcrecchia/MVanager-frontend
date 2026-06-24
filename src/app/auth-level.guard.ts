@@ -99,9 +99,7 @@ export class AuthLevelGuard implements CanActivate {
     // nessun vincolo: solo autenticazione
     if (!required && !requiredAny) return true;
 
-    const tenantConfig =
-      await this.global.loadTenantConfig(false) ||
-      await this.global.loadTenantConfig(true);
+    const tenantConfig = await this.global.loadTenantConfig(false);
     if (!tenantConfig) {
       this.global.logout();
       this.router.navigate(['/loginPrivateArea']);

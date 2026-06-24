@@ -29,6 +29,8 @@ export class PrivateAreaComponent {
   companiesError = '';
   companyDropdownOpen = false;
   loginReady = false;
+  email = '';
+  password = '';
   checkingLoginState = false;
   biometricAvailable = false;
   private autoBiometricAttempted = false;
@@ -65,6 +67,7 @@ export class PrivateAreaComponent {
     }
 
     this.selectedTenant = this.tenantService.selectedTenant;
+    this.loadRememberedWebCredentials();
 
     if (this.tenantService.requiresTenantSelection) {
       return;
@@ -160,13 +163,17 @@ export class PrivateAreaComponent {
 
           // 🔒 SALVA NEL KEYCHAIN SOLO SE È LOGIN MANUALE
           if (!automatic) {
-            console.log('🔒 Salvo credenziali biometriche...');
-            await this.bio.storeCredentials(
-              email,
-              password,
-              this.tenantService.tenant,
-            );
-            this.biometricAvailable = true;
+            if (this.isMobile) {
+              console.log('🔒 Salvo credenziali biometriche...');
+              await this.bio.storeCredentials(
+                email,
+                password,
+                this.tenantService.tenant,
+              );
+              this.biometricAvailable = true;
+            } else {
+              this.saveRememberedWebCredentials(email, password);
+            }
           }
 
           await this.notificationNavigation.consumePendingOrNavigate('/homeAdmin');
@@ -254,6 +261,7 @@ export class PrivateAreaComponent {
     this.selectedTenant = tenant;
     this.loginReady = false;
     this.autoBiometricAttempted = false;
+    this.loadRememberedWebCredentials();
 
     if (previousTenant && previousTenant !== tenant) {
       this.clearAutoBiometricTimer();
@@ -292,6 +300,7 @@ export class PrivateAreaComponent {
     this.companyDropdownOpen = false;
     this.loginReady = false;
     this.autoBiometricAttempted = false;
+    this.loadRememberedWebCredentials();
 
     if (previousTenant && previousTenant !== tenant) {
       this.clearAutoBiometricTimer();
@@ -455,5 +464,31 @@ export class PrivateAreaComponent {
     } catch {
       return null;
     }
+  }
+
+  private getRememberedWebCredentialsKey(): string {
+    return `mvanager_web_login_${this.tenantService.tenant || 'default'}`;
+  }
+
+  private loadRememberedWebCredentials(): void {
+    if (this.isMobile || typeof localStorage === 'undefined') return;
+
+    try {
+      const saved = JSON.parse(localStorage.getItem(this.getRememberedWebCredentialsKey()) || '{}');
+      this.email = String(saved.email || '');
+      this.password = String(saved.password || '');
+    } catch {
+      this.email = '';
+      this.password = '';
+    }
+  }
+
+  private saveRememberedWebCredentials(email: string, password: string): void {
+    if (this.isMobile || typeof localStorage === 'undefined') return;
+
+    localStorage.setItem(
+      this.getRememberedWebCredentialsKey(),
+      JSON.stringify({ email, password }),
+    );
   }
 }

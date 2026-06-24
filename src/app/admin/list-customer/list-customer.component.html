@@ -17,6 +17,15 @@
         <button class="btn-back me-3" type="button" (click)="back()">
           &larr; Torna Indietro
         </button>
+        <button
+          type="button"
+          class="btn-new-customer"
+          *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE')"
+          (click)="navigateToAddCustomer()"
+        >
+          <mat-icon>person_add</mat-icon>
+          <span>Nuovo cliente</span>
+        </button>
       </div>
 
       <div class="customer-search-bar">

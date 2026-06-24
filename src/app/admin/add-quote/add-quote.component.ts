@@ -7,10 +7,10 @@ import { TenantFieldMappingFieldConfig } from '../../service/global.service';
 import { QuoteModelService } from '../../service/quote-model.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import {
-  QuoteFieldValidationError,
-  quoteFieldKey,
-  validateQuoteFields,
-} from '../quote-field-validation';
+  MappedFieldValidationError,
+  mappedFieldKey,
+  validateMappedFields,
+} from '../mapped-field-validation';
 
 interface QuoteRoom {
   id: number;
@@ -87,7 +87,7 @@ export class AddQuoteComponent {
       return;
     }
 
-    const formatErrors = validateQuoteFields(this.visibleQuoteFields, source);
+    const formatErrors = validateMappedFields(this.visibleQuoteFields, source);
     if (formatErrors.length) {
       this.showValidationErrors(formatErrors);
       return;
@@ -120,7 +120,7 @@ export class AddQuoteComponent {
       });
   }
 
-  updateField(field: { dbColumn: string; key?: string }, value: any): void {
+  updateField(field: TenantFieldMappingFieldConfig, value: any): void {
     const target = this.quoteModelService as unknown as Record<string, any>;
     target[field.dbColumn] = value;
     if (field.key && field.key !== field.dbColumn) {
@@ -130,15 +130,15 @@ export class AddQuoteComponent {
     this.globalService.applyFieldDefaults('quote', target);
     this.globalService.applyCalculatedFields('quote', target);
     this.quoteModelService = Object.assign(this.quoteModelService, target);
-    delete this.validationErrors[String(field.dbColumn || field.key || '')];
+    delete this.validationErrors[mappedFieldKey(field)];
     this.refreshVisibleQuoteFields();
   }
 
   getFieldError(field: TenantFieldMappingFieldConfig): string {
-    return this.validationErrors[quoteFieldKey(field)] || '';
+    return this.validationErrors[mappedFieldKey(field)] || '';
   }
 
-  private showValidationErrors(errors: QuoteFieldValidationError[]): void {
+  private showValidationErrors(errors: MappedFieldValidationError[]): void {
     this.validationErrors = errors.reduce<Record<string, string>>((acc, error) => {
       acc[error.fieldKey] = error.message;
       return acc;
@@ -204,7 +204,7 @@ export class AddQuoteComponent {
 
   getEditableFieldType(field: TenantFieldMappingFieldConfig): string {
     const type = String(field?.type || '').trim().toLowerCase();
-    if (type === 'json' && this.isLegacyServicesField(field)) {
+    if (type === 'json' && (this.isLegacyServicesField(field) || this.hasRepeatableOptions(field))) {
       return 'list';
     }
     return type;
@@ -292,13 +292,17 @@ export class AddQuoteComponent {
     ].map((value) => String(value || '').trim()).filter(Boolean)));
   }
 
+  private hasRepeatableOptions(field: TenantFieldMappingFieldConfig): boolean {
+    return this.globalService.getEnumOptions(field).length > 0 || this.hasPhrasePresets(field);
+  }
+
   hasPhrasePresets(field: { dbColumn: string; key?: string }): boolean {
     return this.getPhrasePresetsForField(field).length > 0;
   }
 
   shouldShowStandalonePhrasePreset(field: TenantFieldMappingFieldConfig): boolean {
     return !this.globalService.isCalculatedField(field) &&
-      field.type !== 'list' &&
+      this.getEditableFieldType(field) !== 'list' &&
       !this.isLegacyServicesField(field) &&
       this.hasPhrasePresets(field);
   }

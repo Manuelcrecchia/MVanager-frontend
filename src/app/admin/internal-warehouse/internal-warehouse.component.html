@@ -9,7 +9,39 @@
     </div>
   </div>
 
-  <div class="summary-grid">
+  <nav class="warehouse-tabs" *ngIf="canView" aria-label="Sezioni magazzino interno">
+    <button type="button" (click)="setTab('list')" [class.active]="activeTab === 'list'">
+      <i class="fas fa-boxes"></i>
+      <span>Inventario</span>
+    </button>
+    <button type="button" (click)="setTab('requests')" [class.active]="activeTab === 'requests'">
+      <i class="fas fa-inbox"></i>
+      <span>Richieste</span>
+      <strong *ngIf="productRequests.length">{{ productRequests.length }}</strong>
+    </button>
+    <button type="button" (click)="setTab('out')" [class.active]="activeTab === 'out'" *ngIf="canRegisterOut">
+      <i class="fas fa-arrow-up"></i>
+      <span>Uscite</span>
+    </button>
+    <button type="button" (click)="setTab('in')" [class.active]="activeTab === 'in'" *ngIf="canRegisterIn">
+      <i class="fas fa-arrow-down"></i>
+      <span>Entrate</span>
+    </button>
+    <button type="button" (click)="setTab('movements')" [class.active]="activeTab === 'movements'" *ngIf="canHistory">
+      <i class="fas fa-chart-line"></i>
+      <span>Movimenti</span>
+    </button>
+    <button type="button" (click)="setTab('products')" [class.active]="activeTab === 'products'" *ngIf="canManageProducts">
+      <i class="fas fa-pen"></i>
+      <span>Prodotti</span>
+    </button>
+    <button type="button" (click)="setTab('tools')" [class.active]="activeTab === 'tools'" *ngIf="canExport || canManageProducts">
+      <i class="fas fa-tools"></i>
+      <span>Strumenti</span>
+    </button>
+  </nav>
+
+  <div class="summary-grid" *ngIf="activeTab === 'list' && canView">
     <button class="summary-tile" type="button" (click)="applySummaryFilter('all')" [class.active]="activeSummaryFilter === 'all'">
       <span>Prodotti</span>
       <strong>{{ summary.totalProducts }}</strong>
@@ -22,7 +54,7 @@
       <span>Esauriti</span>
       <strong>{{ summary.outOfStockCount }}</strong>
     </button>
-    <button class="summary-tile" type="button" (click)="applySummaryFilter('quantity')" [class.active]="activeSummaryFilter === 'quantity'">
+    <button class="summary-tile quantity" type="button" (click)="applySummaryFilter('quantity')" [class.active]="activeSummaryFilter === 'quantity'">
       <span>Giacenza totale</span>
       <strong>{{ summary.totalQuantity }}</strong>
     </button>
@@ -31,7 +63,30 @@
   <div class="alert alert-success" *ngIf="message">{{ message }}</div>
   <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
 
-  <div class="quick-grid" *ngIf="canView">
+  <section class="mobile-quick-panel" *ngIf="isSimpleMobileMode && activeTab === 'list' && canView">
+    <button class="mobile-quick-action primary" type="button" (click)="quickStartMovement('out')" *ngIf="canRegisterOut">
+      <i class="fas fa-arrow-up"></i>
+      <span>Uscita</span>
+    </button>
+    <button class="mobile-quick-action" type="button" (click)="quickStartMovement('in')" *ngIf="canRegisterIn">
+      <i class="fas fa-arrow-down"></i>
+      <span>Entrata</span>
+    </button>
+    <button class="mobile-quick-action" type="button" (click)="quickCreateProduct()" *ngIf="canManageProducts">
+      <i class="fas fa-plus"></i>
+      <span>Prodotto</span>
+    </button>
+    <button class="mobile-quick-action" type="button" (click)="setTab('tools')" *ngIf="canManageProducts">
+      <i class="fas fa-tags"></i>
+      <span>Etichette</span>
+    </button>
+    <button class="mobile-quick-action" type="button" (click)="setTab('requests')" *ngIf="productRequests.length">
+      <i class="fas fa-inbox"></i>
+      <span>Richieste</span>
+    </button>
+  </section>
+
+  <div class="quick-grid" *ngIf="activeTab === 'list' && canView">
     <section class="quick-panel">
       <h4>Da riordinare</h4>
       <div *ngIf="!summary.lowStockProducts.length" class="muted-line">Nessun prodotto sotto soglia.</div>
@@ -55,11 +110,30 @@
       <div>
         <span class="section-kicker">Coda operativa</span>
         <h4>Richieste prodotti</h4>
-        <p>{{ productRequests.length }} richieste in attesa. Apri una richiesta e prepara l’uscita con barcode.</p>
+        <p>Prepara solo il materiale richiesto dai dipendenti. Apri una richiesta e registra l'uscita con barcode.</p>
       </div>
       <button class="btn btn-outline-dark" type="button" (click)="loadProductRequests()">
         <i class="fas fa-refresh me-1"></i> Aggiorna
       </button>
+    </div>
+
+    <div class="request-insight-grid" *ngIf="productRequests.length">
+      <div class="request-insight primary">
+        <span>Richieste in attesa</span>
+        <strong>{{ productRequests.length }}</strong>
+      </div>
+      <div class="request-insight">
+        <span>Dipendenti</span>
+        <strong>{{ pendingRequestEmployeesCount }}</strong>
+      </div>
+      <div class="request-insight">
+        <span>Pezzi da preparare</span>
+        <strong>{{ pendingRequestQuantityTotal }}</strong>
+      </div>
+      <div class="request-insight" *ngIf="oldestPendingRequest as oldestRequest">
+        <span>Prima richiesta</span>
+        <strong>{{ oldestRequest.createdAt | date : "dd/MM HH:mm" }}</strong>
+      </div>
     </div>
 
     <div class="requests-empty" *ngIf="!productRequests.length">
@@ -284,26 +358,56 @@
         </span>
       </div>
 
+      <div class="scanner-card movement-scanner" *ngIf="isMobileLike">
+        <video #scannerVideo playsinline muted></video>
+        <div class="scanner-actions">
+          <button class="btn btn-primary" type="button" (click)="startScanner(activeTab === 'in' ? 'in' : 'out')" *ngIf="!scannerActive">
+            Apri fotocamera
+          </button>
+          <button class="btn btn-outline-secondary" type="button" (click)="stopScanner()" *ngIf="scannerActive">
+            Ferma
+          </button>
+        </div>
+        <p *ngIf="scannerMessage">{{ scannerMessage }}</p>
+        <button class="manual-link" type="button" (click)="manualEntryMode = true; stopScanner()">inserimento manuale</button>
+      </div>
+
+      <ng-container *ngIf="!isMobileLike || manualEntryMode">
+        <div class="manual-barcode-card">
+          <label class="field">
+            <span>Codice a barre</span>
+            <input class="form-control" [(ngModel)]="manualMovement.barcode" name="movementBarcode" placeholder="Scansiona o inserisci il codice" />
+          </label>
+          <button class="btn btn-dark" type="submit" [disabled]="saving">
+            {{ activeTab === 'in' ? 'Registra entrata' : 'Registra uscita' }}
+          </button>
+        </div>
+      </ng-container>
+
       <div class="movement-fields">
         <label class="field">
           <span>Quantità</span>
-          <input class="form-control" type="number" min="1" [(ngModel)]="manualMovement.quantity" name="movementQuantity" placeholder="Quantità" />
+          <input class="form-control" type="number" min="0.001" step="0.001" [(ngModel)]="manualMovement.quantity" name="movementQuantity" placeholder="Quantità" />
         </label>
-        <label class="field">
+        <label class="field" *ngIf="!isSimpleMobileMode || movementDetailsOpen">
           <span>Motivo</span>
           <select class="form-select" [(ngModel)]="manualMovement.reasonKey" name="movementReasonKey">
             <option value="">Seleziona motivo</option>
             <option *ngFor="let reason of movementReasons" [value]="reason.key">{{ reason.label }}</option>
           </select>
         </label>
-        <label class="field">
+        <label class="field" *ngIf="!isSimpleMobileMode || movementDetailsOpen">
           <span>Motivo personalizzato</span>
           <input class="form-control" [(ngModel)]="manualMovement.reason" name="movementReason" placeholder="Es. rifornimento fornitore" />
         </label>
-        <label class="field" *ngIf="activeTab === 'in'">
+        <label class="field" *ngIf="activeTab === 'in' && (!isSimpleMobileMode || movementDetailsOpen)">
           <span>Costo unitario</span>
           <input class="form-control" type="number" min="0" step="0.01" [(ngModel)]="manualMovement.unitCost" name="movementUnitCost" placeholder="Opzionale" />
         </label>
+        <button class="btn btn-outline-secondary movement-details-toggle" type="button" (click)="movementDetailsOpen = !movementDetailsOpen" *ngIf="isSimpleMobileMode">
+          <i class="fas" [class.fa-sliders-h]="!movementDetailsOpen" [class.fa-times]="movementDetailsOpen"></i>
+          {{ movementDetailsOpen ? 'Meno campi' : 'Altri campi' }}
+        </button>
       </div>
 
       <div class="movement-assignment" *ngIf="activeTab === 'out'">
@@ -312,7 +416,26 @@
           <strong>Destinazione uscita</strong>
         </div>
 
-        <div class="assignment-grid">
+        <label class="field full" *ngIf="isServiceOrderFlowEnabled">
+          <span>Ordine di servizio{{ requiresServiceOrderForOutput ? ' *' : '' }}</span>
+          <select
+            class="form-select"
+            [(ngModel)]="manualMovement.serviceOrderId"
+            name="movementServiceOrder"
+            (ngModelChange)="onMovementServiceOrderChange()"
+            [required]="requiresServiceOrderForOutput"
+          >
+            <option [ngValue]="0">Nessun ordine di servizio</option>
+            <option *ngFor="let order of references.serviceOrders" [ngValue]="order.id">
+              {{ serviceOrderLabel(order) }}
+            </option>
+          </select>
+          <small *ngIf="warehouseConfig.serviceOrderFlow.documentEnabled">
+            Genera riferimento per {{ serviceOrderDocumentLabel }}.
+          </small>
+        </label>
+
+        <div class="assignment-grid" *ngIf="!isSimpleMobileMode || movementDetailsOpen || !isServiceOrderFlowEnabled">
           <div class="assignment-column">
             <label class="field">
               <span>Cliente</span>
@@ -346,36 +469,10 @@
           </div>
         </div>
       </div>
-      <label class="field full">
+      <label class="field full" *ngIf="!isSimpleMobileMode || movementDetailsOpen">
         <span>Nota</span>
         <textarea class="form-control" rows="3" [(ngModel)]="manualMovement.note" name="movementNote" placeholder="Nota opzionale"></textarea>
       </label>
-
-      <div class="scanner-card movement-scanner" *ngIf="isMobileLike">
-        <video #scannerVideo playsinline muted></video>
-        <div class="scanner-actions">
-          <button class="btn btn-primary" type="button" (click)="startScanner(activeTab === 'in' ? 'in' : 'out')" *ngIf="!scannerActive">
-            Apri fotocamera
-          </button>
-          <button class="btn btn-outline-secondary" type="button" (click)="stopScanner()" *ngIf="scannerActive">
-            Ferma
-          </button>
-        </div>
-        <p *ngIf="scannerMessage">{{ scannerMessage }}</p>
-        <button class="manual-link" type="button" (click)="manualEntryMode = true; stopScanner()">inserimento manuale</button>
-      </div>
-
-      <ng-container *ngIf="!isMobileLike || manualEntryMode">
-        <div class="manual-barcode-card">
-          <label class="field">
-            <span>Codice a barre</span>
-            <input class="form-control" [(ngModel)]="manualMovement.barcode" name="movementBarcode" placeholder="Scansiona o inserisci il codice" />
-          </label>
-          <button class="btn btn-dark" type="submit" [disabled]="saving">
-            {{ activeTab === 'in' ? 'Registra entrata' : 'Registra uscita' }}
-          </button>
-        </div>
-      </ng-container>
     </form>
   </section>
 
@@ -503,50 +600,6 @@
     </div>
 
     <div class="product-settings-grid">
-      <div class="category-manager settings-card">
-        <form class="category-form" (ngSubmit)="saveCategory()">
-          <div class="card-head">
-            <div>
-              <span class="section-kicker">Organizzazione</span>
-              <h4>{{ categoryForm.id ? 'Modifica categoria' : 'Categorie prodotto' }}</h4>
-            </div>
-          </div>
-          <div class="category-error" *ngIf="categoryError">
-            {{ categoryError }}
-          </div>
-          <label class="field">
-            <span>Nome ufficiale</span>
-            <input class="form-control" [(ngModel)]="categoryForm.name" name="categoryName" placeholder="Es. Ricambi" />
-          </label>
-          <label class="field">
-            <span>Descrizione</span>
-            <textarea class="form-control" rows="2" [(ngModel)]="categoryForm.description" name="categoryDescription" placeholder="Uso della categoria"></textarea>
-          </label>
-          <label class="field">
-            <span>Sinonimi / alias</span>
-            <textarea class="form-control" rows="3" [(ngModel)]="categoryForm.aliasesText" name="categoryAliases" placeholder="Uno per riga: Pezzi di ricambio"></textarea>
-          </label>
-          <div class="form-actions">
-            <button class="btn btn-outline-dark" type="submit" [disabled]="saving">Salva categoria</button>
-            <button class="btn btn-outline-secondary" type="button" (click)="resetCategoryForm()">Pulisci</button>
-          </div>
-        </form>
-
-        <div class="category-list">
-          <div class="category-item" *ngFor="let category of categories">
-            <div>
-              <strong>{{ category.name }}</strong>
-              <small *ngIf="category.description">{{ category.description }}</small>
-              <small *ngIf="category.aliases?.length">Alias: {{ categoryAliasesLabel(category) }}</small>
-            </div>
-            <div class="category-actions">
-              <button class="btn btn-outline-primary btn-sm" type="button" (click)="editCategory(category)">Modifica</button>
-              <button class="btn btn-outline-danger btn-sm" type="button" (click)="deleteCategory(category)" [disabled]="category.name === 'Generale'">Archivia</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <form class="product-form settings-card product-editor-card" (ngSubmit)="saveProduct()">
         <div class="card-head">
           <div>
@@ -572,7 +625,8 @@
         <div class="barcode-line">
           <label class="field">
             <span>Codice a barre</span>
-            <input class="form-control" [(ngModel)]="productForm.barcode" name="barcode" placeholder="Scansiona o inserisci il codice" />
+            <input class="form-control" [(ngModel)]="productForm.barcode" name="barcode" [placeholder]="canAutoGenerateBarcode ? 'Lascia vuoto per generare codice interno' : 'Scansiona o inserisci il codice'" />
+            <small *ngIf="canAutoGenerateBarcode">Se manca il barcode, MVanager genera un codice {{ warehouseConfig.internalCodePrefix }} stampabile.</small>
           </label>
           <button class="btn btn-outline-primary" type="button" (click)="startScanner('product')" *ngIf="isMobileLike">
             Scansiona
@@ -614,11 +668,11 @@
         </div>
         <label class="field">
           <span>Soglia minima</span>
-          <input class="form-control" type="number" min="0" [(ngModel)]="productForm.minimumQuantity" name="minimumQuantity" placeholder="Avvisa quando la giacenza scende sotto questo valore" />
+          <input class="form-control" type="number" min="0" [attr.step]="quantityStep(productForm.unit)" [(ngModel)]="productForm.minimumQuantity" name="minimumQuantity" placeholder="Avvisa quando la giacenza scende sotto questo valore" />
         </label>
         <label class="field">
           <span>Giacenza iniziale</span>
-          <input class="form-control" type="number" min="0" [(ngModel)]="productForm.quantity" name="initialQuantity" placeholder="Quantità disponibile ora" [disabled]="!!productForm.id" />
+          <input class="form-control" type="number" min="0" [attr.step]="quantityStep(productForm.unit)" [(ngModel)]="productForm.quantity" name="initialQuantity" placeholder="Quantità disponibile ora" [disabled]="!!productForm.id" />
         </label>
         <label class="field">
           <span>Fornitore abituale</span>
@@ -647,35 +701,87 @@
         <button class="btn btn-outline-secondary" type="button" (click)="stopScanner()">Ferma</button>
       </div>
 
-      <form class="adjust-form settings-card" (ngSubmit)="adjustProduct()" *ngIf="canAdjust">
-        <div class="card-head">
-          <div>
-            <span class="section-kicker">Giacenza reale</span>
-            <h4>Rettifica inventario</h4>
+      <details class="settings-card category-manager">
+        <summary class="settings-summary">
+          <span>
+            <strong>Categorie prodotto</strong>
+            <small>{{ categories.length }} categorie configurate</small>
+          </span>
+          <i class="fas fa-chevron-down"></i>
+        </summary>
+
+        <form class="category-form" (ngSubmit)="saveCategory()">
+          <div class="category-error" *ngIf="categoryError">
+            {{ categoryError }}
+          </div>
+          <label class="field">
+            <span>Nome ufficiale</span>
+            <input class="form-control" [(ngModel)]="categoryForm.name" name="categoryName" placeholder="Es. Ricambi" />
+          </label>
+          <label class="field">
+            <span>Descrizione</span>
+            <textarea class="form-control" rows="2" [(ngModel)]="categoryForm.description" name="categoryDescription" placeholder="Uso della categoria"></textarea>
+          </label>
+          <label class="field">
+            <span>Sinonimi / alias</span>
+            <textarea class="form-control" rows="3" [(ngModel)]="categoryForm.aliasesText" name="categoryAliases" placeholder="Uno per riga: Pezzi di ricambio"></textarea>
+          </label>
+          <div class="form-actions">
+            <button class="btn btn-outline-dark" type="submit" [disabled]="saving">
+              {{ categoryForm.id ? 'Salva categoria' : 'Crea categoria' }}
+            </button>
+            <button class="btn btn-outline-secondary" type="button" (click)="resetCategoryForm()">Pulisci</button>
+          </div>
+        </form>
+
+        <div class="category-list">
+          <div class="category-item" *ngFor="let category of categories">
+            <div>
+              <strong>{{ category.name }}</strong>
+              <small *ngIf="category.description">{{ category.description }}</small>
+              <small *ngIf="category.aliases?.length">Alias: {{ categoryAliasesLabel(category) }}</small>
+            </div>
+            <div class="category-actions">
+              <button class="btn btn-outline-primary btn-sm" type="button" (click)="editCategory(category)">Modifica</button>
+              <button class="btn btn-outline-danger btn-sm" type="button" (click)="deleteCategory(category)" [disabled]="category.name === 'Generale'">Archivia</button>
+            </div>
           </div>
         </div>
-        <select class="form-select" [(ngModel)]="adjustment.productId" name="adjustProduct">
-          <option [ngValue]="0">Seleziona prodotto</option>
-          <option *ngFor="let product of products" [ngValue]="product.id">{{ product.name }} · {{ product.quantity }} {{ product.unit }}</option>
-        </select>
-        <input class="form-control" type="number" min="0" [(ngModel)]="adjustment.quantity" name="adjustQuantity" placeholder="Quantità reale" />
-        <textarea class="form-control" rows="3" [(ngModel)]="adjustment.note" name="adjustNote" placeholder="Nota rettifica"></textarea>
-        <button class="btn btn-outline-dark" type="submit">Salva rettifica</button>
-      </form>
+      </details>
+
+      <details class="settings-card adjust-details" *ngIf="canAdjust">
+        <summary class="settings-summary">
+          <span>
+            <strong>Rettifica inventario</strong>
+            <small>Usala solo quando la giacenza reale non torna.</small>
+          </span>
+          <i class="fas fa-chevron-down"></i>
+        </summary>
+
+        <form class="adjust-form" (ngSubmit)="adjustProduct()">
+          <select class="form-select" [(ngModel)]="adjustment.productId" name="adjustProduct">
+            <option [ngValue]="0">Seleziona prodotto</option>
+            <option *ngFor="let product of products" [ngValue]="product.id">{{ product.name }} · {{ product.quantity }} {{ product.unit }}</option>
+          </select>
+          <input class="form-control" type="number" min="0" [attr.step]="quantityStep(selectedAdjustmentProduct()?.unit)" [(ngModel)]="adjustment.quantity" name="adjustQuantity" placeholder="Quantità reale" />
+          <textarea class="form-control" rows="3" [(ngModel)]="adjustment.note" name="adjustNote" placeholder="Nota rettifica"></textarea>
+          <button class="btn btn-outline-dark" type="submit">Salva rettifica</button>
+        </form>
+      </details>
     </div>
   </section>
 
-  <section class="panel tools-panel" *ngIf="activeTab === 'tools' && canExport">
+  <section class="panel tools-panel" *ngIf="activeTab === 'tools' && (canExport || canManageProducts)">
     <div class="section-head tools-head">
       <div>
-        <span class="section-kicker">Dati magazzino</span>
-        <h4>Import / export</h4>
-        <p>Scarica CSV aggiornati o importa prodotti da un file.</p>
+        <span class="section-kicker">Strumenti</span>
+        <h4>Dati ed etichette</h4>
+        <p>Importa prodotti, scarica CSV e stampa codici interni senza entrare nelle schermate operative.</p>
       </div>
     </div>
 
     <div class="tools-grid">
-      <article class="settings-card tool-card import-card">
+      <article class="settings-card tool-card import-card" *ngIf="canExport">
         <div class="card-head">
           <div>
             <span class="section-kicker">Import</span>
@@ -694,7 +800,7 @@
         </div>
       </article>
 
-      <article class="settings-card tool-card">
+      <article class="settings-card tool-card" *ngIf="canExport">
         <div class="card-head">
           <div>
             <span class="section-kicker">Export</span>
@@ -709,6 +815,37 @@
             <i class="fas fa-file-export me-1"></i> Movimenti
           </button>
         </div>
+      </article>
+
+      <article class="settings-card tool-card label-tool-card" *ngIf="canManageProducts">
+        <div class="card-head">
+          <div>
+            <span class="section-kicker">Etichette</span>
+            <h4>Stampa codici interni</h4>
+          </div>
+          <span class="label-count">{{ selectedLabelCount }} selezionati</span>
+        </div>
+        <div class="label-actions">
+          <button class="btn btn-outline-dark" type="button" (click)="selectLabelSet('visible')">Seleziona visibili</button>
+          <button class="btn btn-outline-dark" type="button" (click)="selectLabelSet('low')">Sotto scorta</button>
+          <button class="btn btn-outline-secondary" type="button" (click)="selectLabelSet('clear')">Pulisci</button>
+        </div>
+        <label class="field">
+          <span>Copie per prodotto</span>
+          <input class="form-control" type="number" min="1" max="20" [(ngModel)]="labelCopies" />
+        </label>
+        <div class="label-product-list">
+          <label class="label-product-row" *ngFor="let product of products">
+            <input type="checkbox" [checked]="isLabelSelected(product)" (change)="toggleLabelSelection(product, $any($event.target).checked)" />
+            <span>
+              <strong>{{ product.name }}</strong>
+              <small>{{ product.barcode }} · {{ product.quantity }} {{ product.unit }}</small>
+            </span>
+          </label>
+        </div>
+        <button class="btn btn-dark" type="button" (click)="printProductLabels()" [disabled]="!selectedLabelCount">
+          <i class="fas fa-print me-1"></i> Stampa etichette
+        </button>
       </article>
     </div>
   </section>

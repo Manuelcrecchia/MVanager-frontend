@@ -25,6 +25,7 @@ interface TenantBackendConfig {
     workCategoryLabel?: string;
   };
   stampingConfig?: TenantStampingConfig;
+  internalWarehouseConfig?: TenantInternalWarehouseConfig;
   quoteConfig?: TenantQuoteConfig;
 }
 
@@ -76,6 +77,19 @@ export interface TenantWarehouseStampingLocation {
   label: string;
 }
 
+export interface TenantInternalWarehouseConfig {
+  mobileMode?: 'simple' | 'advanced';
+  barcodeMode?: 'barcode_required' | 'auto_internal_code';
+  internalCodePrefix?: string;
+  serviceOrderFlow?: {
+    enabled?: boolean;
+    requireServiceOrderForOutputs?: boolean;
+    documentEnabled?: boolean;
+    documentLabel?: string;
+    pdfTemplateKey?: string;
+  };
+}
+
 export interface TenantQuoteTypeConfig {
   key: string;
   label: string;
@@ -100,6 +114,7 @@ export interface TenantFieldMappingFieldConfig {
   type?: string;
   section?: string;
   enumValues?: string;
+  validationRule?: string;
   defaultValue?: string;
   pdfFieldKey?: string;
   displayRole?: string;
@@ -485,6 +500,32 @@ export class GlobalService {
     return this.getTenantStampingConfig().mode !== 'warehouse';
   }
 
+  getTenantInternalWarehouseConfig(): TenantInternalWarehouseConfig {
+    const rawConfig = this.tenantConfig?.internalWarehouseConfig || {};
+    const flow = rawConfig.serviceOrderFlow || {};
+    return {
+      mobileMode: rawConfig.mobileMode === 'advanced' ? 'advanced' : 'simple',
+      barcodeMode:
+        rawConfig.barcodeMode === 'auto_internal_code'
+          ? 'auto_internal_code'
+          : 'barcode_required',
+      internalCodePrefix:
+        String(rawConfig.internalCodePrefix || 'MAG').trim() || 'MAG',
+      serviceOrderFlow: {
+        enabled: flow.enabled === true,
+        requireServiceOrderForOutputs:
+          flow.requireServiceOrderForOutputs === true,
+        documentEnabled: flow.documentEnabled === true,
+        documentLabel:
+          String(flow.documentLabel || 'Materiale consegnato').trim() ||
+          'Materiale consegnato',
+        pdfTemplateKey:
+          String(flow.pdfTemplateKey || 'warehouse_delivery_default').trim() ||
+          'warehouse_delivery_default',
+      },
+    };
+  }
+
   getQuoteTypes(): TenantQuoteTypeConfig[] {
     return this.getTenantQuoteConfig()?.types || [];
   }
@@ -573,6 +614,9 @@ export class GlobalService {
     const type = String(field?.type || '')
       .trim()
       .toLowerCase();
+    if (type === 'phone') {
+      return 'tel';
+    }
     if (['number', 'date', 'email', 'tel'].includes(type)) {
       return type;
     }

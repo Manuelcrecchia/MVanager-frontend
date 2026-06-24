@@ -93,6 +93,11 @@ h2{
   color: rgba(0,0,0,0.65) !important;
 }
 
+:host ::ng-deep .customer-validation-error {
+  color: #dc3545 !important;
+  font-weight: 800;
+}
+
 /* Focus underline -> brand sky */
 .mdc-line-ripple::after{
   border-bottom-color: var(--brand-sky) !important;

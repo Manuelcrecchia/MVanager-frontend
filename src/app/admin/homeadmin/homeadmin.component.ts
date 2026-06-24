@@ -398,8 +398,17 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.navigateInHome('listCustomer');
   }
 
+  navigateToAddCustomer() {
+    this.navigateInHome('addCustomer');
+  }
+
   goToShifts() {
-    this.navigateInHome('shifts');
+    if (this.isDesktopHome) {
+      this.navigateInHome('shifts');
+      return;
+    }
+
+    this.router.navigate(['/admin/shifts']);
   }
   navigateToTimbrature() {
     this.navigateInHome('timbratureHome');
@@ -610,6 +619,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'customers',
             action: () => this.navigateToListCustomer(),
             desktopPath: 'listCustomer',
+          },
+          {
+            label: 'Nuovo cliente',
+            icon: 'fas fa-user-plus',
+            permission: 'CUSTOMERS_MANAGE',
+            feature: 'customers',
+            action: () => this.navigateToAddCustomer(),
+            desktopPath: 'addCustomer',
           },
           {
             label: 'Gestione Preventivi',

@@ -67,6 +67,8 @@ interface DayCell {
   eventLayout?: Map<number, {col: number, totalCols: number}>;
 }
 
+type EditScope = 'single' | 'series';
+
 @Component({
   selector: 'app-calendar-home',
   templateUrl: './calendar-home.component.html',
@@ -83,12 +85,18 @@ export class CalendarHomeComponent implements OnInit {
 
   showPopup = false;
   showDayPopup = false;
+  showEditScopeChoice = false;
   dayPopupDate: Date = new Date();
   dayPopupEvents: CalEvent[] = [];
+  pendingEditEvent: CalEvent | null = null;
+  pendingEditDate: Date | null = null;
   isNewEvent = true;
   editingEventId: number | null = null;
   isRecurringInstance = false;
   hasRecurrenceRule = false;
+  editingSingleOccurrence = false;
+  editingOccurrenceStart: Date | null = null;
+  editingSelectedDate: Date | null = null;
 
   readonly MAX_VISIBLE_EVENTS = 5;
   readonly MAX_OVERLAP_COLS = 4;
@@ -491,6 +499,7 @@ export class CalendarHomeComponent implements OnInit {
     const start = new Date(date); start.setSeconds(0,0);
     const end = new Date(start.getTime()+30*60000);
     this.isNewEvent=true; this.editingEventId=null; this.isRecurringInstance=false; this.hasRecurrenceRule=false;
+    this.editingSingleOccurrence=false; this.editingOccurrenceStart=null; this.editingSelectedDate=null;
     this.popupTitle=title; this.popupDescription=description;
     this.popupStartDate=this.toInputDatetime(start); this.popupEndDate=this.toInputDatetime(end);
     this.popupCategory=category||this.globalService.getDefaultAppointmentCategory(this.categories[0]?.id || '')||'';
@@ -535,32 +544,108 @@ export class CalendarHomeComponent implements OnInit {
     );
   }
 
-  openEditPopup(ev: CalEvent) {
+  private getOriginalCalEvent(ev: CalEvent): CalEvent {
+    const originalId = ev.originalId ?? ev.id;
+    const raw = this.rawEvents.find((item) => Number(item.id) === Number(originalId));
+    return raw ? this.toCalEvent(raw) : ev;
+  }
+
+  private spansMultipleDays(ev: CalEvent): boolean {
+    return !this.isSameDay(ev.start, ev.end);
+  }
+
+  private shouldAskEditScope(ev: CalEvent): boolean {
+    return !!ev.isRecurring ||
+      !!(ev.recurrenceRule && ev.recurrenceRule.trim()) ||
+      this.spansMultipleDays(ev);
+  }
+
+  private singleDayView(ev: CalEvent, selectedDate?: Date | null): CalEvent {
+    const day = selectedDate ? new Date(selectedDate) : new Date(ev.start);
+    const dayStart = new Date(day); dayStart.setHours(0,0,0,0);
+    const dayEnd = new Date(day); dayEnd.setHours(23,59,0,0);
+    const start = ev.start > dayStart ? new Date(ev.start) : dayStart;
+    const end = ev.end < dayEnd ? new Date(ev.end) : dayEnd;
+
+    if (end <= start) {
+      end.setTime(start.getTime() + 30 * 60000);
+    }
+
+    return { ...ev, start, end, recurrenceRule: '' };
+  }
+
+  requestEditPopup(ev: CalEvent, selectedDate?: Date | null) {
+    if (this.shouldAskEditScope(ev)) {
+      this.pendingEditEvent = ev;
+      this.pendingEditDate = selectedDate ? new Date(selectedDate) : new Date(ev.start);
+      this.showEditScopeChoice = true;
+      return;
+    }
+
+    this.openEditPopup(ev, 'series', selectedDate);
+  }
+
+  chooseEditScope(scope: EditScope) {
+    if (!this.pendingEditEvent) return;
+    const ev = this.pendingEditEvent;
+    const selectedDate = this.pendingEditDate ? new Date(this.pendingEditDate) : new Date(ev.start);
+    this.showEditScopeChoice = false;
+    this.pendingEditEvent = null;
+    this.pendingEditDate = null;
+    this.openEditPopup(ev, scope, selectedDate);
+  }
+
+  closeEditScopeChoice() {
+    this.showEditScopeChoice = false;
+    this.pendingEditEvent = null;
+    this.pendingEditDate = null;
+  }
+
+  pendingEditIsRecurring(): boolean {
+    const ev = this.pendingEditEvent;
+    return !!ev && (!!ev.isRecurring || !!(ev.recurrenceRule && ev.recurrenceRule.trim()));
+  }
+
+  openEditPopup(ev: CalEvent, scope: EditScope = 'series', selectedDate?: Date | null) {
+    const original = this.getOriginalCalEvent(ev);
+    const popupEvent = scope === 'single'
+      ? this.singleDayView(ev, selectedDate)
+      : original;
+
     this.isNewEvent=false; this.editingEventId=ev.originalId??ev.id;
-    this.isRecurringInstance=!!ev.isRecurring; this.hasRecurrenceRule=!!(ev.recurrenceRule&&ev.recurrenceRule.trim()!=='');
-    this.popupTitle=ev.title; this.popupDescription=ev.description||'';
-    this.popupStartDate=this.toInputDatetime(ev.start); this.popupEndDate=this.toInputDatetime(ev.end);
-    this.popupCategory=ev.categories; this.recurrenceEnabled=this.hasRecurrenceRule; this.showDeleteConfirm=false;
-    this.popupInspectionAdminIds = Array.isArray(ev.inspectionAdminIds)
-      ? [...ev.inspectionAdminIds]
+    this.isRecurringInstance=!!ev.isRecurring; this.hasRecurrenceRule=!!(original.recurrenceRule&&original.recurrenceRule.trim()!=='');
+    this.editingSingleOccurrence=scope === 'single';
+    this.editingOccurrenceStart=new Date(ev.start);
+    this.editingSelectedDate=selectedDate ? new Date(selectedDate) : new Date(ev.start);
+    this.popupTitle=popupEvent.title; this.popupDescription=popupEvent.description||'';
+    this.popupStartDate=this.toInputDatetime(popupEvent.start); this.popupEndDate=this.toInputDatetime(popupEvent.end);
+    this.popupCategory=popupEvent.categories; this.recurrenceEnabled=this.editingSingleOccurrence ? false : this.hasRecurrenceRule; this.showDeleteConfirm=false;
+    this.popupInspectionAdminIds = Array.isArray(popupEvent.inspectionAdminIds)
+      ? [...popupEvent.inspectionAdminIds]
       : [];
     this.popupInspectionReminderMinutes =
-      ev.inspectionReminderMinutes !== null && ev.inspectionReminderMinutes !== undefined
-        ? Number(ev.inspectionReminderMinutes)
+      popupEvent.inspectionReminderMinutes !== null && popupEvent.inspectionReminderMinutes !== undefined
+        ? Number(popupEvent.inspectionReminderMinutes)
         : 30;
-    if (this.recurrenceEnabled) {
-      const parts = this.parseRRule(ev.recurrenceRule);
+    if (this.recurrenceEnabled && !this.editingSingleOccurrence) {
+      const parts = this.parseRRule(original.recurrenceRule);
       this.recurrenceFreq=(parts['FREQ'] as any)||'DAILY';
       this.recurrenceInterval=parseInt(parts['INTERVAL']||'1');
       this.recurrenceDays=parts['BYDAY']?parts['BYDAY'].split(','):[];
       if (parts['UNTIL']) { this.recurrenceEndType='until'; const u=parts['UNTIL']; this.recurrenceUntil=`${u.substring(0,4)}-${u.substring(4,6)}-${u.substring(6,8)}`; }
       else if (parts['COUNT']) { this.recurrenceEndType='count'; this.recurrenceCount=parseInt(parts['COUNT']); }
       else this.recurrenceEndType='never';
+    } else {
+      this.recurrenceFreq='DAILY'; this.recurrenceInterval=1;
+      this.recurrenceDays=[]; this.recurrenceEndType='never'; this.recurrenceUntil=''; this.recurrenceCount=1;
     }
     this.autocompleteOpen=false; this.showPopup=true;
   }
 
-  closePopup() { this.showPopup=false; this.showDeleteConfirm=false; }
+  closePopup() {
+    this.showPopup=false; this.showDeleteConfirm=false;
+    this.editingSingleOccurrence=false; this.editingOccurrenceStart=null; this.editingSelectedDate=null;
+  }
 
   showDayEventsPopup(cell: DayCell) {
     this.dayPopupDate = cell.date;
@@ -577,12 +662,25 @@ export class CalendarHomeComponent implements OnInit {
     this.openNewPopup(d);
   }
 
-  onEventClick(ev: CalEvent, event: MouseEvent) {
+  onEventClick(ev: CalEvent, event: MouseEvent, selectedDate?: Date | null) {
     event.stopPropagation();
-    this.openEditPopup(ev);
+    event.preventDefault();
+    this.requestEditPopup(ev, selectedDate);
   }
 
-  onEventDblClick(ev: CalEvent, event: MouseEvent) { event.stopPropagation(); this.openEditPopup(ev); }
+  onDayPopupEventClick(ev: CalEvent, event: MouseEvent) {
+    event.stopPropagation();
+    event.preventDefault();
+    const selectedDate = new Date(this.dayPopupDate);
+    this.closeDayPopup();
+    this.requestEditPopup(ev, selectedDate);
+  }
+
+  onEventDblClick(ev: CalEvent, event: MouseEvent, selectedDate?: Date | null) {
+    event.stopPropagation();
+    event.preventDefault();
+    this.requestEditPopup(ev, selectedDate);
+  }
 
   // ── AUTOCOMPLETE ───────────────────────────────────────────────────────
 
@@ -710,6 +808,10 @@ export class CalendarHomeComponent implements OnInit {
           ? this.popupInspectionReminderMinutes
           : null,
     };
+    if (!this.isNewEvent && this.editingSingleOccurrence) {
+      this.saveSingleOccurrence(body, isInspection);
+      return;
+    }
     if (!this.isNewEvent) body.id = this.editingEventId;
     this.http.post(this.globalService.url+(this.isNewEvent?'appointments/add':'appointments/edit'), body, {
       headers: this.globalService.headers, responseType: 'text',
@@ -723,6 +825,41 @@ export class CalendarHomeComponent implements OnInit {
         });
         this.sendInspectionConfirmation(body);
       }
+    });
+  }
+
+  private saveSingleOccurrence(body: any, isInspection: boolean) {
+    const occurrenceStart = this.editingOccurrenceStart || new Date(this.popupStartDate);
+    const selectedDate = this.editingSelectedDate || occurrenceStart;
+    const payload = {
+      ...body,
+      id: this.editingEventId,
+      recurrenceRule: '',
+      recurrenceException: null,
+      occurrenceDate: this.toICSDate(occurrenceStart),
+      selectedDate: this.toInputDate(selectedDate),
+    };
+
+    this.http.post(this.globalService.url + 'appointments/editSingleOccurrence', payload, {
+      headers: this.globalService.headers,
+      responseType: 'text',
+    }).subscribe({
+      next: () => {
+        this.closePopup();
+        this.loadAll();
+        if (isInspection) {
+          this.inspectionAlarmSync.setToken(this.globalService.token);
+          this.inspectionAlarmSync.syncSoon('calendar-save-single', true).catch((err) => {
+            console.error('[Calendar] Errore sync promemoria occorrenza:', err);
+          });
+          this.sendInspectionConfirmation(body);
+        }
+      },
+      error: (err) => {
+        console.error('[Calendar] Errore modifica singola occorrenza:', err);
+        this.popupService.text = err?.error?.error || 'Errore durante la modifica del singolo evento';
+        this.popupService.openPopup();
+      },
     });
   }
 
@@ -760,7 +897,7 @@ export class CalendarHomeComponent implements OnInit {
   }
 
   deleteSingle() {
-    const occDate = this.toICSDate(new Date(this.popupStartDate));
+    const occDate = this.toICSDate(this.editingOccurrenceStart || new Date(this.popupStartDate));
     this.http.post(this.globalService.url+'appointments/deleteSingleOccurrence',{id:this.editingEventId,occurrenceDate:occDate},{
       headers:this.globalService.headers,responseType:'text',
     }).subscribe(()=>{this.closePopup();this.loadAll();});
@@ -792,6 +929,11 @@ export class CalendarHomeComponent implements OnInit {
   toInputDatetime(d: Date): string {
     const pad=(n:number)=>n.toString().padStart(2,'0');
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  toInputDate(d: Date): string {
+    const pad=(n:number)=>n.toString().padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   }
 
   normalize(s: string): string { return (s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim(); }

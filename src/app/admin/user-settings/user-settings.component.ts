@@ -130,11 +130,19 @@ export class UserSettingsComponent implements OnInit {
             parsed = response;
           }
 
+          const availableKeysFromResponse = Array.isArray(parsed?.permissions)
+            ? new Set<string>(parsed.permissions.map((key: string) => String(key)))
+            : null;
           const backendGroups = Array.isArray(parsed?.groups)
             ? parsed.groups
                 .map((g: any) => ({
                   title: String(g.title || ''),
-                  items: Array.isArray(g.items) ? g.items : [],
+                  items: (Array.isArray(g.items) ? g.items : [])
+                    .filter((permission: any) =>
+                      !availableKeysFromResponse ||
+                        availableKeysFromResponse.has(String(permission?.key || permission)),
+                    )
+                    .map((permission: any) => this.normalizePermissionOption(permission)),
                 }))
                 .filter((g: any) => g.title && g.items.length)
             : [];
@@ -144,14 +152,20 @@ export class UserSettingsComponent implements OnInit {
             : Array.isArray(parsed?.data)
               ? parsed.data
               : Array.isArray(parsed?.permissions)
-                ? parsed.permissions.map((key: string) => ({ key, label: key }))
+                ? parsed.permissions.map((key: string) => this.normalizePermissionOption(key))
                 : parsed && typeof parsed === 'object'
                   ? Object.values(parsed)
                   : [];
 
           this.permissionGroups = backendGroups.length
             ? backendGroups
-            : this.buildPermissionGroups(arr as PermissionOption[]);
+            : this.buildPermissionGroups(
+                (arr as any[])
+                  .map((permission: any) => this.normalizePermissionOption(permission))
+                  .filter((permission) =>
+                    !availableKeysFromResponse || availableKeysFromResponse.has(permission.key),
+                  ),
+              );
           this.permissionOptions = this.permissionGroups.flatMap((g) => g.items);
           this.availablePermissionKeys = new Set(
             this.permissionOptions.map((permission) => permission.key),
@@ -167,6 +181,22 @@ export class UserSettingsComponent implements OnInit {
           alert(err?.error?.error || 'Errore durante il caricamento dei permessi disponibili.');
         },
       });
+  }
+
+  private normalizePermissionOption(permission: any): PermissionOption {
+    if (permission && typeof permission === 'object') {
+      const key = String(permission.key || '').trim();
+      return {
+        key,
+        label: String(permission.label || key).trim(),
+        description: permission.description
+          ? String(permission.description).trim()
+          : undefined,
+      };
+    }
+
+    const key = String(permission || '').trim();
+    return { key, label: key };
   }
 
   togglePermission(target: { permissions: string[] }, key: string) {

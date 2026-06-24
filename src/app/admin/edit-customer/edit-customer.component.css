@@ -51,3 +51,8 @@
   border-radius: 10px;
   padding: 7px 8px;
 }
+
+:host ::ng-deep .customer-validation-error {
+  color: #dc3545 !important;
+  font-weight: 800;
+}

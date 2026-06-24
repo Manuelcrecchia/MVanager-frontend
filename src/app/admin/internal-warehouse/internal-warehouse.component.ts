@@ -99,6 +99,19 @@ interface WarehouseReferences {
   serviceOrders: any[];
 }
 
+interface InternalWarehouseConfig {
+  mobileMode: 'simple' | 'advanced';
+  barcodeMode: 'barcode_required' | 'auto_internal_code';
+  internalCodePrefix: string;
+  serviceOrderFlow: {
+    enabled: boolean;
+    requireServiceOrderForOutputs: boolean;
+    documentEnabled: boolean;
+    documentLabel: string;
+    pdfTemplateKey: string;
+  };
+}
+
 interface WarehouseMovementSummary {
   key: string;
   label: string;
@@ -132,6 +145,7 @@ interface WarehouseRequest {
 export class InternalWarehouseComponent implements OnInit, OnDestroy {
   @ViewChildren('scannerVideo') scannerVideos?: QueryList<ElementRef<HTMLVideoElement>>;
   private readonly validTabs: WarehouseTab[] = ['list', 'requests', 'in', 'out', 'movements', 'products', 'tools'];
+  private readonly fractionalUnits = new Set(['litri', 'ml', 'kg', 'g', 'metri']);
 
   activeTab: WarehouseTab = 'list';
   products: WarehouseProduct[] = [];
@@ -160,6 +174,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     { key: 'paia', label: 'Paia' },
   ];
   references: WarehouseReferences = { customers: [], employees: [], appointments: [], serviceOrders: [] };
+  warehouseConfig: InternalWarehouseConfig = this.defaultWarehouseConfig();
   reportMovements: WarehouseMovement[] = [];
   reportSummary: WarehouseMovementSummary[] = [];
   productRequests: WarehouseRequest[] = [];
@@ -223,6 +238,9 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   scannerMode: MovementType | 'product' = 'in';
   scannerMessage = '';
   manualEntryMode = false;
+  movementDetailsOpen = false;
+  selectedLabelIds = new Set<number>();
+  labelCopies = 1;
   private scannerControls?: IScannerControls;
   private scannerReader?: BrowserMultiFormatReader;
   private lastScanValue = '';
@@ -293,6 +311,21 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     return this.global.hasPermission('INTERNAL_WAREHOUSE_EXPORT');
   }
 
+  get pendingRequestEmployeesCount(): number {
+    return new Set(this.productRequests.map((request) => request.employeeId).filter(Boolean)).size;
+  }
+
+  get pendingRequestQuantityTotal(): number {
+    return this.productRequests.reduce((total, request) => total + Number(request.quantity || 0), 0);
+  }
+
+  get oldestPendingRequest(): WarehouseRequest | null {
+    if (!this.productRequests.length) return null;
+    return [...this.productRequests].sort((a, b) => {
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    })[0];
+  }
+
   private api(path = ''): string {
     return `${this.global.url}admin/internal-warehouse${path}`;
   }
@@ -307,6 +340,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     this.activeTab = tab;
     this.message = '';
     this.error = '';
+    this.movementDetailsOpen = false;
     if (!['in', 'out', 'products'].includes(tab)) {
       this.stopScanner();
     }
@@ -338,11 +372,26 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     this.loadProducts();
   }
 
+  quickStartMovement(type: MovementType): void {
+    const allowed = type === 'in' ? this.canRegisterIn : this.canRegisterOut;
+    if (!allowed) return;
+    this.setTab(type);
+    this.manualEntryMode = false;
+    void this.startScanner(type);
+  }
+
+  quickCreateProduct(): void {
+    if (!this.canManageProducts) return;
+    this.resetProductForm();
+    this.setTab('products');
+  }
+
   loadMeta(): void {
-    this.http.get<{ movementReasons: MovementReason[]; units: WarehouseUnit[] }>(this.api('/meta')).subscribe({
+    this.http.get<{ movementReasons: MovementReason[]; units: WarehouseUnit[]; config?: Partial<InternalWarehouseConfig> }>(this.api('/meta')).subscribe({
       next: (meta) => {
         this.movementReasons = meta?.movementReasons || [];
         if (meta?.units?.length) this.units = meta.units;
+        this.warehouseConfig = this.normalizeWarehouseConfig(meta?.config);
       },
       error: () => undefined,
     });
@@ -468,14 +517,18 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     this.clearFeedback();
     const payload = {
       ...this.productForm,
-      minimumQuantity: Number(this.productForm.minimumQuantity || 0),
-      quantity: Number(this.productForm.quantity || 0),
+      minimumQuantity: this.parseQuantityInput(this.productForm.minimumQuantity, 0, 0),
+      quantity: this.parseQuantityInput(this.productForm.quantity, 0, 0),
       indicativePrice: this.productForm.indicativePrice === null || this.productForm.indicativePrice === undefined
         ? null
         : Number(this.productForm.indicativePrice || 0),
     };
 
-    if (!payload.name.trim() || !payload.barcode.trim()) {
+    if (!payload.name.trim()) {
+      this.error = 'Nome prodotto obbligatorio.';
+      return;
+    }
+    if (!payload.barcode.trim() && !this.canAutoGenerateBarcode) {
       this.error = 'Nome e codice a barre sono obbligatori.';
       return;
     }
@@ -499,6 +552,9 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         this.loadCategories();
         this.loadSummary();
         this.selectedProduct = product;
+        if (!payload.id) {
+          this.selectedLabelIds = new Set([product.id]);
+        }
       },
       error: (err) => {
         this.saving = false;
@@ -594,12 +650,15 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   registerManual(type: MovementType): void {
     const allowed = type === 'in' ? this.canRegisterIn : this.canRegisterOut;
     if (!allowed || this.saving) return;
-    this.registerMovement(type, this.manualMovement.barcode, Number(this.manualMovement.quantity || 1), {
+    this.registerMovement(type, this.manualMovement.barcode, this.parseQuantityInput(this.manualMovement.quantity, 1, 0.001), {
       reasonKey: this.manualMovement.reasonKey,
       reason: this.manualMovement.reason,
       note: this.manualMovement.note,
       customerId: this.manualMovement.customerId,
       employeeId: this.manualMovement.employeeId,
+      serviceOrderId: this.manualMovement.serviceOrderId,
+      referenceType: this.manualMovement.referenceType,
+      referenceLabel: this.manualMovement.referenceLabel,
       unitCost: this.manualMovement.unitCost,
       requestId: this.preparingRequest?.id,
       resetManual: true,
@@ -612,7 +671,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     this.saving = true;
       this.http.post<{ product: WarehouseProduct }>(this.api('/movements/adjust'), {
       productId: this.adjustment.productId,
-      quantity: Number(this.adjustment.quantity || 0),
+      quantity: this.parseQuantityInput(this.adjustment.quantity, 0, 0),
       reasonKey: 'inventory',
       note: this.adjustment.note,
     }).subscribe({
@@ -795,7 +854,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const scanQuantity = Math.max(1, Number(this.manualMovement.quantity || 1));
+    const scanQuantity = this.parseQuantityInput(this.manualMovement.quantity, 1, 0.001);
     if (scanQuantity > 1) {
       this.stopScanner();
     }
@@ -805,6 +864,9 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       note: this.manualMovement.note,
       customerId: this.manualMovement.customerId,
       employeeId: this.manualMovement.employeeId,
+      serviceOrderId: this.manualMovement.serviceOrderId,
+      referenceType: this.manualMovement.referenceType,
+      referenceLabel: this.manualMovement.referenceLabel,
       requestId: this.preparingRequest?.id,
       fromScanner: true,
     });
@@ -831,7 +893,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     } = {},
   ): void {
     const cleanBarcode = String(barcode || '').trim();
-    const cleanQuantity = Math.max(1, Number(quantity || 1));
+    const cleanQuantity = this.parseQuantityInput(quantity, 1, 0.001);
     if (!cleanBarcode) {
       this.error = 'Inserisci un codice a barre.';
       return;
@@ -839,7 +901,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
     this.clearFeedback();
     this.saving = true;
-    this.http.post<{ product: WarehouseProduct; movement: WarehouseMovement }>(
+    this.http.post<{ product: WarehouseProduct; movement: WarehouseMovement; deliveryDocument?: any }>(
       this.api(`/movements/${type}`),
       {
         barcode: cleanBarcode,
@@ -857,11 +919,16 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         requestId: options.requestId,
       },
     ).subscribe({
-      next: ({ product }) => {
+      next: ({ product, deliveryDocument }) => {
         this.saving = false;
         const verb = type === 'in' ? 'Entrata registrata' : 'Uscita registrata';
         const signedQuantity = type === 'in' ? `+${cleanQuantity}` : `-${cleanQuantity}`;
         this.message = `${verb}: ${product.name} ${signedQuantity} (${product.quantity} ${product.unit})`;
+        if (deliveryDocument?.path) {
+          this.message = `${this.message}. Documento ${deliveryDocument.documentLabel || 'materiale'} generato.`;
+        } else if (deliveryDocument?.error) {
+          this.message = `${this.message}. Movimento salvato, ma documento non generato: ${deliveryDocument.error}`;
+        }
         this.scannerMessage = this.message;
         this.playScanFeedback();
         if (options.resetManual) {
@@ -904,7 +971,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     this.preparingRequest = request;
     this.manualMovement = {
       barcode: '',
-      quantity: Math.max(1, Number(request.quantity || 1)),
+      quantity: this.parseQuantityInput(request.quantity, 1, 0.001),
       reasonKey: 'employee_assignment',
       reason: 'Richiesta prodotto dipendente',
       note: request.note || '',
@@ -966,6 +1033,14 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
   get defaultCategoryId(): number {
     return this.categories.find((category) => category.name === 'Generale')?.id || this.categories[0]?.id || 0;
+  }
+
+  quantityStep(unit?: string | null): string {
+    return this.fractionalUnits.has(String(unit || '').trim()) ? '0.001' : '1';
+  }
+
+  selectedAdjustmentProduct(): WarehouseProduct | null {
+    return this.products.find((product) => Number(product.id) === Number(this.adjustment.productId)) || null;
   }
 
   emptyCategoryForm() {
@@ -1074,6 +1149,53 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     });
   }
 
+  toggleLabelSelection(product: WarehouseProduct, checked: boolean): void {
+    const next = new Set(this.selectedLabelIds);
+    if (checked) next.add(product.id);
+    else next.delete(product.id);
+    this.selectedLabelIds = next;
+  }
+
+  isLabelSelected(product: WarehouseProduct): boolean {
+    return this.selectedLabelIds.has(product.id);
+  }
+
+  selectLabelSet(kind: 'visible' | 'low' | 'clear'): void {
+    if (kind === 'clear') {
+      this.selectedLabelIds = new Set();
+      return;
+    }
+    const source = kind === 'low'
+      ? this.products.filter((product) => product.isLowStock || product.isOutOfStock)
+      : this.products;
+    this.selectedLabelIds = new Set(source.map((product) => product.id));
+  }
+
+  selectedLabelProducts(): WarehouseProduct[] {
+    return this.products.filter((product) => this.selectedLabelIds.has(product.id));
+  }
+
+  printProductLabels(): void {
+    const products = this.selectedLabelProducts();
+    if (!products.length) {
+      this.error = 'Seleziona almeno un prodotto da stampare.';
+      return;
+    }
+    const copies = Math.min(20, Math.max(1, Math.floor(Number(this.labelCopies || 1))));
+    this.labelCopies = copies;
+    const labels = products.flatMap((product) => Array.from({ length: copies }, () => product));
+    const popup = window.open('', '_blank', 'width=900,height=700');
+    if (!popup) {
+      this.error = 'Pop-up bloccato: consenti l’apertura della finestra di stampa.';
+      return;
+    }
+    popup.document.open();
+    popup.document.write(this.buildLabelsDocument(labels));
+    popup.document.close();
+    popup.focus();
+    setTimeout(() => popup.print(), 250);
+  }
+
   importProducts(event: Event): void {
     if (!this.canExport) return;
     const input = event.target as HTMLInputElement;
@@ -1143,6 +1265,157 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     return `${order?.numeroOrdine || `Ordine #${order?.id}`} - cliente ${order?.numeroCliente || '-'}`;
   }
 
+  get canAutoGenerateBarcode(): boolean {
+    return this.warehouseConfig.barcodeMode === 'auto_internal_code';
+  }
+
+  get isServiceOrderFlowEnabled(): boolean {
+    return this.warehouseConfig.serviceOrderFlow.enabled === true;
+  }
+
+  get requiresServiceOrderForOutput(): boolean {
+    return this.warehouseConfig.serviceOrderFlow.requireServiceOrderForOutputs === true;
+  }
+
+  get serviceOrderDocumentLabel(): string {
+    return this.warehouseConfig.serviceOrderFlow.documentLabel || 'Materiale consegnato';
+  }
+
+  get isSimpleMobileMode(): boolean {
+    return this.isMobileLike && this.warehouseConfig.mobileMode === 'simple';
+  }
+
+  get selectedLabelCount(): number {
+    return this.selectedLabelIds.size;
+  }
+
+  onMovementServiceOrderChange(): void {
+    const order = this.references.serviceOrders.find((item) => Number(item?.id) === Number(this.manualMovement.serviceOrderId));
+    if (!order) {
+      this.manualMovement.referenceType = '';
+      this.manualMovement.referenceLabel = '';
+      return;
+    }
+    this.manualMovement.referenceType = 'service_order';
+    this.manualMovement.referenceLabel = this.serviceOrderLabel(order);
+    if (order.numeroCliente && !this.manualMovement.customerId) {
+      this.manualMovement.customerId = String(order.numeroCliente);
+    }
+  }
+
+  private defaultWarehouseConfig(): InternalWarehouseConfig {
+    return {
+      mobileMode: 'simple',
+      barcodeMode: 'barcode_required',
+      internalCodePrefix: 'MAG',
+      serviceOrderFlow: {
+        enabled: false,
+        requireServiceOrderForOutputs: false,
+        documentEnabled: false,
+        documentLabel: 'Materiale consegnato',
+        pdfTemplateKey: 'warehouse_delivery_default',
+      },
+    };
+  }
+
+  private normalizeWarehouseConfig(config?: Partial<InternalWarehouseConfig> | null): InternalWarehouseConfig {
+    const fallback = this.defaultWarehouseConfig();
+    const flow = (config?.serviceOrderFlow || {}) as Partial<InternalWarehouseConfig['serviceOrderFlow']>;
+    return {
+      mobileMode: config?.mobileMode === 'advanced' ? 'advanced' : 'simple',
+      barcodeMode: config?.barcodeMode === 'auto_internal_code' ? 'auto_internal_code' : 'barcode_required',
+      internalCodePrefix: String(config?.internalCodePrefix || fallback.internalCodePrefix).trim() || fallback.internalCodePrefix,
+      serviceOrderFlow: {
+        enabled: flow.enabled === true,
+        requireServiceOrderForOutputs: flow.requireServiceOrderForOutputs === true,
+        documentEnabled: flow.documentEnabled === true,
+        documentLabel: String(flow.documentLabel || fallback.serviceOrderFlow.documentLabel).trim() || fallback.serviceOrderFlow.documentLabel,
+        pdfTemplateKey: String(flow.pdfTemplateKey || fallback.serviceOrderFlow.pdfTemplateKey).trim() || fallback.serviceOrderFlow.pdfTemplateKey,
+      },
+    };
+  }
+
+  private buildLabelsDocument(products: WarehouseProduct[]): string {
+    const labels = products.map((product) => `
+      <article class="label">
+        <div class="label-main">
+          <strong>${this.escapeHtml(product.name)}</strong>
+          <span>${this.escapeHtml(product.category || 'Magazzino')}</span>
+        </div>
+        ${this.code128Svg(product.barcode)}
+        <div class="label-code">${this.escapeHtml(product.barcode)}</div>
+        <small>${this.escapeHtml(product.unit || 'pz')} · ${this.escapeHtml(product.supplierCode || product.supplier || '')}</small>
+      </article>
+    `).join('');
+    return `<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Etichette magazzino</title>
+          <style>
+            @page { size: A4; margin: 10mm; }
+            * { box-sizing: border-box; }
+            body { margin: 0; color: #111827; font-family: Arial, Helvetica, sans-serif; }
+            .sheet { display: grid; grid-template-columns: repeat(3, 63mm); grid-auto-rows: 38mm; gap: 4mm; }
+            .label { display: grid; grid-template-rows: auto 16mm auto auto; align-content: start; gap: 1.5mm; overflow: hidden; border: 1px solid #111827; border-radius: 2mm; padding: 3mm; break-inside: avoid; }
+            .label-main { display: grid; gap: 0.5mm; min-width: 0; }
+            strong { display: block; font-size: 10pt; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            span, small { color: #4b5563; font-size: 7pt; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            svg { width: 100%; height: 16mm; }
+            .label-code { color: #111827; font-family: "Courier New", monospace; font-size: 8pt; font-weight: 700; letter-spacing: 0; text-align: center; }
+            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+          </style>
+        </head>
+        <body><main class="sheet">${labels}</main></body>
+      </html>`;
+  }
+
+  private code128Svg(value: string): string {
+    const patterns = [
+      '212222', '222122', '222221', '121223', '121322', '131222', '122213', '122312', '132212', '221213',
+      '221312', '231212', '112232', '122132', '122231', '113222', '123122', '123221', '223211', '221132',
+      '221231', '213212', '223112', '312131', '311222', '321122', '321221', '312212', '322112', '322211',
+      '212123', '212321', '232121', '111323', '131123', '131321', '112313', '132113', '132311', '211313',
+      '231113', '231311', '112133', '112331', '132131', '113123', '113321', '133121', '313121', '211331',
+      '231131', '213113', '213311', '213131', '311123', '311321', '331121', '312113', '312311', '332111',
+      '314111', '221411', '431111', '111224', '111422', '121124', '121421', '141122', '141221', '112214',
+      '112412', '122114', '122411', '142112', '142211', '241211', '221114', '413111', '241112', '134111',
+      '111242', '121142', '121241', '114212', '124112', '124211', '411212', '421112', '421211', '212141',
+      '214121', '412121', '111143', '111341', '131141', '114113', '114311', '411113', '411311', '113141',
+      '114131', '311141', '411131', '211412', '211214', '211232', '2331112',
+    ];
+    const clean = String(value || '').replace(/[^\x20-\x7e]/g, '').trim() || ' ';
+    const codes = [104, ...clean.split('').map((char) => char.charCodeAt(0) - 32)];
+    let checksum = 104;
+    for (let index = 1; index < codes.length; index += 1) {
+      checksum += codes[index] * index;
+    }
+    codes.push(checksum % 103, 106);
+    let x = 10;
+    const bars = codes.map((code) => patterns[code] || patterns[0]).map((pattern) => {
+      let isBar = true;
+      let rects = '';
+      for (const part of pattern) {
+        const width = Number(part) * 2;
+        if (isBar) rects += `<rect x="${x}" y="0" width="${width}" height="48"></rect>`;
+        x += width;
+        isBar = !isBar;
+      }
+      return rects;
+    }).join('');
+    const width = x + 10;
+    return `<svg viewBox="0 0 ${width} 48" preserveAspectRatio="none" aria-hidden="true">${bars}</svg>`;
+  }
+
+  private escapeHtml(value: unknown): string {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   private playScanFeedback(): void {
     if ('vibrate' in navigator) {
       navigator.vibrate?.(80);
@@ -1177,6 +1450,13 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
   private parseServerError(err: any, fallback: string): string {
     return this.popup.parseServerError(err, fallback);
+  }
+
+  private parseQuantityInput(value: unknown, fallback: number, min: number): number {
+    const raw = String(value ?? '').trim().replace(',', '.');
+    const parsed = raw ? Number.parseFloat(raw) : fallback;
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(min, Math.round((parsed + Number.EPSILON) * 1000) / 1000);
   }
 
   goBack(): void {

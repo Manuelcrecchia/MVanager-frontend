@@ -6,6 +6,11 @@ import { CustomerModelService } from '../../service/customer-model.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { AutomaticAddInspectionToCalendarService } from '../../service/automatic-add-inspection-to-calendar.service';
 import { TenantFieldMappingFieldConfig } from '../../service/global.service';
+import {
+  MappedFieldValidationError,
+  mappedFieldKey,
+  validateMappedFields,
+} from '../mapped-field-validation';
 
 @Component({
   selector: 'app-add-customer',
@@ -16,6 +21,8 @@ export class AddCustomerComponent {
   employeeCategories: any[] = [];
   requirementCounts: { [categoryId: number]: number } = {};
   employeeCategoriesLoaded = false;
+  visibleCustomerFields: TenantFieldMappingFieldConfig[] = [];
+  validationErrors: Record<string, string> = {};
 
   constructor(
     public globalService: GlobalService,
@@ -27,7 +34,14 @@ export class AddCustomerComponent {
   ) {}
 
   ngOnInit(): void {
-    this.globalService.loadTenantConfig(false, { showError: false });
+    this.globalService
+      .loadTenantConfig(false, { showError: false })
+      .then(() => {
+        const target = this.customerModelService as unknown as Record<string, any>;
+        this.globalService.applyFieldDefaults('customer', target);
+        this.globalService.applyCalculatedFields('customer', target);
+        this.refreshVisibleCustomerFields();
+      });
     this.loadEmployeeCategories();
   }
 
@@ -63,9 +77,11 @@ export class AddCustomerComponent {
     if (field.key && field.key !== field.dbColumn) {
       target[field.key] = value;
     }
+    delete this.validationErrors[mappedFieldKey(field)];
+    this.syncCustomerFieldRules();
   }
 
-  getRepeatableTextRows(field: { dbColumn: string; key?: string }): string[] {
+  getRepeatableTextRows(field: TenantFieldMappingFieldConfig): string[] {
     const source = this.customerModelService as unknown as Record<string, any>;
     const rawValue = source[field.dbColumn] ?? (field.key ? source[field.key] : undefined);
     if (Array.isArray(rawValue)) {
@@ -83,18 +99,18 @@ export class AddCustomerComponent {
     return [];
   }
 
-  addTextRow(field: { dbColumn: string; key?: string }): void {
+  addTextRow(field: TenantFieldMappingFieldConfig): void {
     this.setRepeatableTextRows(field, [...this.getRepeatableTextRows(field), '']);
   }
 
-  removeTextRow(field: { dbColumn: string; key?: string }, index: number): void {
+  removeTextRow(field: TenantFieldMappingFieldConfig, index: number): void {
     this.setRepeatableTextRows(
       field,
       this.getRepeatableTextRows(field).filter((_, rowIndex) => rowIndex !== index),
     );
   }
 
-  updateTextRow(field: { dbColumn: string; key?: string }, index: number, value: string): void {
+  updateTextRow(field: TenantFieldMappingFieldConfig, index: number, value: string): void {
     const rows = this.getRepeatableTextRows(field).map((row, rowIndex) => (
       rowIndex === index ? value : row
     ));
@@ -105,16 +121,42 @@ export class AddCustomerComponent {
     return index;
   }
 
-  private setRepeatableTextRows(field: { dbColumn: string; key?: string }, rows: string[]): void {
+  private setRepeatableTextRows(field: TenantFieldMappingFieldConfig, rows: string[]): void {
     const target = this.customerModelService as unknown as Record<string, any>;
     target[field.dbColumn] = rows;
     if (field.key && field.key !== field.dbColumn) {
       target[field.key] = rows;
     }
+    delete this.validationErrors[mappedFieldKey(field)];
+    this.syncCustomerFieldRules();
+  }
+
+  private syncCustomerFieldRules(): void {
+    const target = this.customerModelService as unknown as Record<string, any>;
+    this.globalService.clearHiddenFieldValues('customer', target);
+    this.globalService.applyFieldDefaults('customer', target);
+    this.globalService.applyCalculatedFields('customer', target);
+    this.refreshVisibleCustomerFields();
+  }
+
+  private refreshVisibleCustomerFields(): void {
+    this.visibleCustomerFields = this.globalService.getVisibleFieldMappingFields(
+      'customer',
+      this.customerModelService as unknown as Record<string, any>,
+    );
+  }
+
+  trackByCustomerField(index: number, field: TenantFieldMappingFieldConfig): string {
+    return String(field?.dbColumn || field?.key || index);
+  }
+
+  getFieldError(field: TenantFieldMappingFieldConfig): string {
+    return this.validationErrors[mappedFieldKey(field)] || '';
   }
 
   addCustomer(): void {
     const source = this.customerModelService as unknown as Record<string, any>;
+    this.validationErrors = {};
     const missingFields = this.globalService.getMissingRequiredFields('customer', source);
     if (missingFields.length) {
       this.popup.show(
@@ -124,11 +166,19 @@ export class AddCustomerComponent {
       return;
     }
 
+    const formatErrors = validateMappedFields(this.visibleCustomerFields, source);
+    if (formatErrors.length) {
+      this.showValidationErrors(formatErrors);
+      return;
+    }
+
+    const sourceNumeroPreventivo = String(source['numeroPreventivo'] || '').trim();
     const body = this.globalService.applyFieldMappingToPayload(
       'customer',
       {
         codiceOperatore: this.globalService.userCode,
-        numeroCliente: source['numeroCliente'] || source['numeroPreventivo'] || undefined,
+        numeroCliente: source['numeroCliente'] || sourceNumeroPreventivo || undefined,
+        numeroPreventivo: sourceNumeroPreventivo || undefined,
         tipoCliente: source['tipoCliente'] ||
           source['tipoPreventivo'] ||
           this.globalService.getDefaultQuoteType(''),
@@ -137,7 +187,7 @@ export class AddCustomerComponent {
       source,
     );
 
-    const numeroPreventivo = source['numeroPreventivo'];
+    const numeroPreventivo = sourceNumeroPreventivo;
     const sourceCustomerType = String(
       source['tipoCliente'] ||
         source['tipoPreventivo'] ||
@@ -256,5 +306,17 @@ export class AddCustomerComponent {
     } catch {}
     if (err.status === 0) return 'Impossibile connettersi al server';
     return 'Errore durante il salvataggio. Riprova.';
+  }
+
+  private showValidationErrors(errors: MappedFieldValidationError[]): void {
+    this.validationErrors = errors.reduce<Record<string, string>>((acc, error) => {
+      acc[error.fieldKey] = error.message;
+      return acc;
+    }, {});
+    this.popup.show(
+      errors.map((error) => `${error.label}: ${error.message}`).join('\n'),
+      'Correggi i campi',
+      'warning',
+    );
   }
 }

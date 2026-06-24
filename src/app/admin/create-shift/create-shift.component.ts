@@ -67,6 +67,15 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   employeeList: any[] = [];
   previousWeekShiftList: { cliente: string; dipendenti: string[] }[] = [];
   durationOptions: number[] = Array.from({ length: 33 }, (_, i) => i * 15);
+  postponePopupOpen = false;
+  postponing = false;
+  postponeError = '';
+  postponeTarget: any = null;
+  postponeForm = {
+    date: '',
+    time: '',
+    duration: 60,
+  };
 
   private autosaveTimers: { [jobId: string]: any } = {};
   private autosaveDelayMs = 700;
@@ -409,6 +418,91 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     });
   }
 
+  openPostponePopup(app: any): void {
+    const baseDate = app.startDate instanceof Date && !isNaN(app.startDate.getTime())
+      ? new Date(app.startDate)
+      : new Date(this.selectedDate);
+    const nextDate = new Date(baseDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+
+    this.postponeTarget = app;
+    this.postponeForm = {
+      date: this.formatDate(nextDate),
+      time: this.getShiftTime(app) || '08:00',
+      duration: Number(app.duration) > 0 ? Number(app.duration) : 60,
+    };
+    this.postponeError = '';
+    this.postponePopupOpen = true;
+  }
+
+  closePostponePopup(): void {
+    if (this.postponing) return;
+    this.postponePopupOpen = false;
+    this.postponeTarget = null;
+    this.postponeError = '';
+  }
+
+  savePostponedAppointment(): void {
+    const app = this.postponeTarget;
+    if (!app) return;
+
+    const startDate = this.combineLocalDateAndTime(
+      this.postponeForm.date,
+      this.postponeForm.time,
+    );
+    const duration = Math.max(15, Number(this.postponeForm.duration) || 60);
+
+    if (!startDate) {
+      this.postponeError = 'Inserisci una data e un orario validi.';
+      return;
+    }
+
+    const currentStart = app.startDate instanceof Date && !isNaN(app.startDate.getTime())
+      ? app.startDate
+      : new Date(this.selectedDate);
+
+    if (startDate.getTime() <= currentStart.getTime()) {
+      this.postponeError = 'La nuova data deve essere successiva al lavoro originale.';
+      return;
+    }
+
+    const endDate = new Date(startDate.getTime() + duration * 60000);
+    const body = {
+      title: app.title,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      recurrenceRule: '',
+      dayLong: false,
+      description: app.description || '',
+      categories: app.categories,
+      recurrenceException: null,
+      inspectionAdminIds: [],
+      inspectionReminderMinutes: null,
+    };
+
+    this.postponing = true;
+    this.postponeError = '';
+
+    this.http
+      .post(this.globalService.url + 'appointments/add', body, {
+        headers: this.globalService.headers,
+        responseType: 'text',
+      })
+      .subscribe({
+        next: () => {
+          this.postponing = false;
+          this.postponePopupOpen = false;
+          this.postponeTarget = null;
+          alert(`Lavoro posticipato al ${this.postponeForm.date} alle ${this.postponeForm.time}.`);
+        },
+        error: (err) => {
+          console.error('Errore posticipo appuntamento:', err);
+          this.postponing = false;
+          this.postponeError = this.parseServerError(err);
+        },
+      });
+  }
+
   finalSave(forceSave = false): void {
     const dateStr = this.formatDate(this.selectedDate);
 
@@ -542,6 +636,20 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     }
 
     return null;
+  }
+
+  private combineLocalDateAndTime(dateValue: string, timeValue: string): Date | null {
+    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue || '');
+    const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(timeValue || '');
+    if (!dateMatch || !timeMatch) return null;
+
+    const [, year, month, day] = dateMatch;
+    const [, hour, minute] = timeMatch;
+    const h = Number(hour);
+    const m = Number(minute);
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+
+    return new Date(Number(year), Number(month) - 1, Number(day), h, m, 0, 0);
   }
 
   toSqlDateTime(date: Date): string {

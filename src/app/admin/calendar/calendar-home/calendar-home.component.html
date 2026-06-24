@@ -84,8 +84,8 @@
               class="ev-pill"
               [ngClass]="getCategoryClass(ev.categories)"
               [ngStyle]="getCategoryStyle(ev.categories)"
-              (click)="onEventClick(ev,$event)"
-              (dblclick)="onEventDblClick(ev,$event)">
+              (click)="onEventClick(ev,$event,cell.date)"
+              (dblclick)="onEventDblClick(ev,$event,cell.date)">
               <span class="ev-pill-time">{{ formatTime(ev.start) }}</span>
               <span class="ev-pill-title">{{ ev.title }}</span>
             </div>
@@ -137,8 +137,8 @@
             [ngClass]="getCategoryClass(ev.categories)"
             [ngStyle]="getEventBlockStyle(ev, cell.eventLayout)"
             [title]="ev.title"
-            (click)="onEventClick(ev,$event)"
-            (dblclick)="onEventDblClick(ev,$event)">
+            (click)="onEventClick(ev,$event,cell.date)"
+            (dblclick)="onEventDblClick(ev,$event,cell.date)">
             <span class="evb-title">{{ ev.title }}</span>
             <span class="evb-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</span>
           </div>
@@ -185,8 +185,8 @@
             [ngClass]="getCategoryClass(ev.categories)"
             [ngStyle]="getEventBlockStyle(ev, weekCells[0].eventLayout)"
             [title]="ev.title"
-            (click)="onEventClick(ev,$event)"
-            (dblclick)="onEventDblClick(ev,$event)">
+            (click)="onEventClick(ev,$event,weekCells[0].date)"
+            (dblclick)="onEventDblClick(ev,$event,weekCells[0].date)">
             <span class="evb-title">{{ ev.title }}</span>
             <span class="evb-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</span>
           </div>
@@ -211,12 +211,37 @@
     <div class="popup-body">
       <div class="day-event-row" *ngFor="let ev of dayPopupEvents"
         [ngClass]="getCategoryClass(ev.categories)"
-        [ngStyle]="getCategoryStyle(ev.categories)">
+        [ngStyle]="getCategoryStyle(ev.categories)"
+        (click)="onDayPopupEventClick(ev, $event)">
         <div class="day-event-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</div>
         <div class="day-event-title">{{ ev.title }}</div>
         <div class="day-event-desc" *ngIf="ev.description">{{ ev.description }}</div>
       </div>
       <p class="empty-line" *ngIf="!dayPopupEvents.length">Nessun evento in questo giorno.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ EDIT SCOPE POPUP ═══ -->
+<div class="popup-overlay" *ngIf="showEditScopeChoice" (click)="closeEditScopeChoice()">
+  <div class="popup-box scope-choice-box" (click)="$event.stopPropagation()">
+    <div class="popup-header">
+      <h3>Modifica evento</h3>
+      <button class="popup-close" (click)="closeEditScopeChoice()">✕</button>
+    </div>
+    <div class="popup-body">
+      <p class="scope-choice-text">
+        Questo evento {{ pendingEditIsRecurring() ? 'fa parte di una ricorrenza' : 'copre piu giorni' }}.
+        Cosa vuoi modificare?
+      </p>
+      <div class="scope-choice-actions">
+        <button class="btn-primary" (click)="chooseEditScope('single')">
+          Solo questo giorno
+        </button>
+        <button class="btn-secondary" (click)="chooseEditScope('series')">
+          {{ pendingEditIsRecurring() ? 'Tutta la ricorrenza' : "Tutto l'evento" }}
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -311,8 +336,12 @@
         </div>
       </div>
 
+      <div class="single-edit-note" *ngIf="editingSingleOccurrence">
+        Stai modificando solo il giorno selezionato. La ricorrenza originale non verra cambiata.
+      </div>
+
       <!-- Recurrence toggle -->
-      <div class="form-group form-inline">
+      <div class="form-group form-inline" *ngIf="!editingSingleOccurrence">
         <label>Abilita Ricorrenza</label>
         <label class="toggle-switch">
           <input type="checkbox" [(ngModel)]="recurrenceEnabled">
@@ -321,7 +350,7 @@
       </div>
 
       <!-- Recurrence options -->
-      <div class="recurrence-box" *ngIf="recurrenceEnabled">
+      <div class="recurrence-box" *ngIf="recurrenceEnabled && !editingSingleOccurrence">
         <div class="form-group">
           <label>Ripeti</label>
           <select [(ngModel)]="recurrenceFreq" class="form-input">

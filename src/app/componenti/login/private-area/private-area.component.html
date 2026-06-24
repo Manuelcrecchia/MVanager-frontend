@@ -417,18 +417,20 @@
       {{ companiesError }}
     </div>
 
-    <form (submit)="submitLogin($event, email.value, password.value)" novalidate>
+    <form (submit)="submitLogin($event, email, password)" autocomplete="on" novalidate>
 
       <div class="mb-3">
         <label for="email" class="form-label">E-mail</label>
         <input
-          #email
+          [(ngModel)]="email"
           type="email"
           id="email"
+          name="email"
           class="form-control"
           placeholder="Inserisci la tua email..."
+          autocomplete="username"
           [disabled]="!loginReady"
-          (keydown.enter)="submitLogin($event, email.value, password.value)"
+          (keydown.enter)="submitLogin($event, email, password)"
           required
         />
       </div>
@@ -438,13 +440,16 @@
 
         <div class="input-group">
           <input
-            #password
+            #passwordInput
+            [(ngModel)]="password"
             type="password"
             id="password"
+            name="password"
             class="form-control"
             placeholder="Inserisci la password..."
+            autocomplete="current-password"
             [disabled]="!loginReady"
-            (keydown.enter)="submitLogin($event, email.value, password.value)"
+            (keydown.enter)="submitLogin($event, email, password)"
             required
           />
 
@@ -452,7 +457,7 @@
             type="button"
             class="btn btn-eye"
             [disabled]="!loginReady"
-            (click)="togglePasswordVisibility(password)"
+            (click)="togglePasswordVisibility(passwordInput)"
           >
             👁️
           </button>
@@ -462,7 +467,7 @@
 <button
   type="button"
   [disabled]="!loginReady"
-  (click)="navigateToPassworddimenticata(email.value)"
+  (click)="navigateToPassworddimenticata(email)"
   class="forgot-link btn btn-link p-0">
   Password dimenticata?
 </button>

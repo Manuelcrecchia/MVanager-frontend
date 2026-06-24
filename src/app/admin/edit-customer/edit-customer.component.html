@@ -31,7 +31,7 @@
     <div class="row g-3">
       <div
         class="col-md-6"
-        *ngFor="let field of globalService.getVisibleFieldMappingFields('customer')"
+        *ngFor="let field of visibleCustomerFields; trackBy: trackByCustomerField"
       >
         <ng-container [ngSwitch]="field.type">
           <mat-checkbox
@@ -53,6 +53,7 @@
               [ngModel]="$any(customerModelService)[field.dbColumn]"
               (ngModelChange)="updateField(field, $event)"
             ></textarea>
+            <mat-hint class="customer-validation-error" *ngIf="getFieldError(field)">{{ getFieldError(field) }}</mat-hint>
           </mat-form-field>
 
           <mat-form-field *ngSwitchCase="'enum'" appearance="fill" class="w-100">
@@ -71,6 +72,7 @@
                 {{ option }}
               </mat-option>
             </mat-select>
+            <mat-hint class="customer-validation-error" *ngIf="getFieldError(field)">{{ getFieldError(field) }}</mat-hint>
           </mat-form-field>
 
           <div *ngSwitchCase="'list'" class="border rounded-3 p-3 h-100">
@@ -125,6 +127,7 @@
               [ngModel]="$any(customerModelService)[field.dbColumn]"
               (ngModelChange)="updateField(field, $event)"
             />
+            <mat-hint class="customer-validation-error" *ngIf="getFieldError(field)">{{ getFieldError(field) }}</mat-hint>
           </mat-form-field>
         </ng-container>
       </div>

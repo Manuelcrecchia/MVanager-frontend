@@ -10,14 +10,14 @@ import { CustomerModelService } from '../../service/customer-model.service';
   styleUrls: ['./view-pdf.component.css'],
 })
 export class ViewPdfComponent implements OnInit {
-  pdfPrev: string = '';
+  pdfSrc: string = '';
   downloadName = 'document.pdf';
 
   numeroPreventivo!: string;
   signedPdfMode = false;
   confirmCustomerMode = false;
   loadingPdf = false;
-  private signedPdfBlob: Blob | null = null;
+  private currentPdfBlob: Blob | null = null;
 
   constructor(
     private globalService: GlobalService,
@@ -47,8 +47,8 @@ export class ViewPdfComponent implements OnInit {
         this.confirmCustomerMode =
           (params['confirmCustomer'] === '1' || params['confirmCustomer'] === 'true') &&
           this.globalService.canCreateCustomers();
-        this.pdfPrev = '';
-        this.signedPdfBlob = null;
+        this.releasePdfUrl();
+        this.currentPdfBlob = null;
 
         // Nome file
         this.http
@@ -82,30 +82,13 @@ export class ViewPdfComponent implements OnInit {
           return;
         }
 
-        // PDF base64
-        this.loadingPdf = true;
-        this.http
-          .post(this.globalService.url + 'pdfs/sendQuote', body, {
-            headers: this.globalService.headers,
-            responseType: 'text',
-          })
-          .subscribe({
-            next: (response) => {
-              if (response !== 'Unauthorized') {
-                this.pdfPrev = response;
-              } else {
-                this.router.navigateByUrl('/');
-              }
-              this.loadingPdf = false;
-            },
-            error: (err) => {
-              console.error('Errore caricamento PDF:', err);
-              alert(this.parseServerError(err));
-              this.loadingPdf = false;
-            },
-          });
+        this.loadQuotePdf(numeroPreventivo);
       });
     });
+  }
+
+  ngOnDestroy(): void {
+    this.releasePdfUrl();
   }
 
   back() {
@@ -115,8 +98,8 @@ export class ViewPdfComponent implements OnInit {
   }
 
   downloadPdf() {
-    if (this.signedPdfMode && this.signedPdfBlob) {
-      this.downloadBlob(this.signedPdfBlob);
+    if (this.currentPdfBlob) {
+      this.downloadBlob(this.currentPdfBlob);
       return;
     }
 
@@ -138,8 +121,8 @@ export class ViewPdfComponent implements OnInit {
       });
   }
   printPdf() {
-    if (this.signedPdfMode && this.signedPdfBlob) {
-      this.printBlob(this.signedPdfBlob);
+    if (this.currentPdfBlob) {
+      this.printBlob(this.currentPdfBlob);
       return;
     }
 
@@ -225,9 +208,8 @@ export class ViewPdfComponent implements OnInit {
         },
       )
       .subscribe({
-        next: async (blob) => {
-          this.signedPdfBlob = blob;
-          this.pdfPrev = await this.blobToBase64(blob);
+        next: (blob) => {
+          this.setPdfBlob(blob);
           this.loadingPdf = false;
         },
         error: (err) => {
@@ -236,6 +218,40 @@ export class ViewPdfComponent implements OnInit {
           this.loadingPdf = false;
         },
       });
+  }
+
+  private loadQuotePdf(numeroPreventivo: string): void {
+    this.loadingPdf = true;
+
+    this.http
+      .get(this.globalService.url + 'quotes/getPdfBlob', {
+        headers: this.globalService.headers,
+        params: { numeroPreventivo },
+        responseType: 'blob',
+      })
+      .subscribe({
+        next: (blob) => {
+          this.setPdfBlob(blob);
+          this.loadingPdf = false;
+        },
+        error: (err) => {
+          console.error('Errore caricamento PDF:', err);
+          alert(this.parseServerError(err));
+          this.loadingPdf = false;
+        },
+      });
+  }
+
+  private setPdfBlob(blob: Blob): void {
+    this.currentPdfBlob = new Blob([blob], { type: 'application/pdf' });
+    this.releasePdfUrl();
+    this.pdfSrc = URL.createObjectURL(this.currentPdfBlob);
+  }
+
+  private releasePdfUrl(): void {
+    if (!this.pdfSrc) return;
+    URL.revokeObjectURL(this.pdfSrc);
+    this.pdfSrc = '';
   }
 
   private downloadBlob(blob: Blob): void {
@@ -265,18 +281,6 @@ export class ViewPdfComponent implements OnInit {
         } catch {}
       }, 300);
     };
-  }
-
-  private blobToBase64(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = String(reader.result || '');
-        resolve(result.includes(',') ? result.split(',')[1] : result);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
   }
 
   private parseServerError(err: any): string {

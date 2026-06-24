@@ -11,10 +11,10 @@
     </div>
 
     <ngx-extended-pdf-viewer
-      *ngIf="pdfPrev"
+      *ngIf="pdfSrc"
       #pdfViewer
       class="ngx-extended-pdf-viewer pdf-viewer"
-      [base64Src]="pdfPrev"
+      [src]="pdfSrc"
       useBrowserLocale="true"
       backgroundColor="#ffffff"
       [height]="'100%'"
@@ -24,7 +24,7 @@
     </ngx-extended-pdf-viewer>
   </div>
 
-  <div class="confirm-panel" *ngIf="confirmCustomerMode && pdfPrev">
+  <div class="confirm-panel" *ngIf="confirmCustomerMode && pdfSrc">
     <button
       type="button"
       class="btn btn-confirm-customer"

@@ -56,6 +56,15 @@
             Modifica
           </button>
           <button
+            class="btn btn-outline-dark btn-sm"
+            type="button"
+            (click)="generateDeliveryDocument(order.id)"
+            [disabled]="generatingDeliveryId === order.id"
+            *ngIf="canGenerateDeliveryDocument()"
+          >
+            {{ generatingDeliveryId === order.id ? 'Genero...' : 'Materiale' }}
+          </button>
+          <button
             class="btn btn-outline-danger btn-sm"
             type="button"
             (click)="deleteOrder(order.id)"
