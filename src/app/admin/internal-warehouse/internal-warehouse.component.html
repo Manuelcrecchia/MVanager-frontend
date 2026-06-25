@@ -145,8 +145,8 @@
     <div class="request-board" *ngIf="productRequests.length">
       <article class="request-card" *ngFor="let request of productRequests">
         <div class="request-quantity">
-          <strong>{{ request.quantity }}</strong>
-          <span>{{ request.product?.unit || 'pz' }}</span>
+          <strong>{{ requestItems(request).length }}</strong>
+          <span>{{ requestItems(request).length === 1 ? 'prodotto' : 'prodotti' }}</span>
         </div>
 
         <div class="request-main">
@@ -154,7 +154,7 @@
             <span class="category">{{ request.product?.category || 'Categoria' }}</span>
             <span class="request-date">{{ request.createdAt | date : "dd/MM HH:mm" }}</span>
           </div>
-          <strong>{{ request.product?.name || 'Prodotto' }}</strong>
+          <strong>{{ requestProductSummary(request) }}</strong>
           <div class="request-meta">
             <span><i class="fas fa-user"></i> {{ employeeLabel(request.employee) }}</span>
             <span *ngIf="request.customerId">
@@ -162,6 +162,36 @@
             </span>
           </div>
           <p class="request-note" *ngIf="request.note">{{ request.note }}</p>
+          <div class="request-item-list">
+            <div class="request-item" *ngFor="let item of requestItems(request)" [class.done]="requestItemRemaining(item) <= 0">
+              <span>
+                <strong>{{ item.product?.name || 'Prodotto' }}</strong>
+                <small>
+                  Da prendere: {{ requestItemRemaining(item) }} {{ item.product?.unit || 'pz' }}
+                  <ng-container *ngIf="item.fulfilledQuantity"> · presi {{ item.fulfilledQuantity }} / {{ item.quantity }}</ng-container>
+                  · {{ requestStatusLabel(item.status) }}
+                </small>
+              </span>
+              <button
+                class="btn btn-sm btn-outline-dark"
+                type="button"
+                (click)="prepareRequest(request, item)"
+                *ngIf="canRegisterOut && item.status === 'pending' && requestItemRemaining(item) > 0"
+              >
+                Prepara
+              </button>
+            </div>
+          </div>
+          <div class="cancel-reason-box" *ngIf="cancelRequestForm.requestId === request.id">
+            <label class="field full">
+              <span>Motivo annullamento visibile al dipendente</span>
+              <textarea class="form-control" rows="3" [(ngModel)]="cancelRequestForm.reason" name="cancelReason{{ request.id }}" placeholder="Es. Prodotto non disponibile, sostituito con altro materiale..."></textarea>
+            </label>
+            <div class="cancel-reason-actions">
+              <button class="btn btn-danger" type="button" (click)="confirmCancelRequest(request)">Conferma annullamento</button>
+              <button class="btn btn-outline-secondary" type="button" (click)="clearCancelRequest()">Chiudi</button>
+            </div>
+          </div>
         </div>
 
         <div class="request-actions">
@@ -169,7 +199,7 @@
           <button class="btn btn-dark" type="button" (click)="prepareRequest(request)" *ngIf="canRegisterOut">
             <i class="fas fa-barcode me-1"></i> Prepara
           </button>
-          <button class="btn btn-outline-danger" type="button" (click)="updateRequestStatus(request, 'cancelled')" *ngIf="canRegisterOut">
+          <button class="btn btn-outline-danger" type="button" (click)="startCancelRequest(request)" *ngIf="canRegisterOut">
             <i class="fas fa-times me-1"></i> Annulla
           </button>
         </div>
@@ -350,12 +380,21 @@
       </div>
 
       <div class="prepare-banner" *ngIf="preparingRequest && activeTab === 'out'">
-        <strong>{{ preparingRequest.product?.name || 'Prodotto richiesto' }}</strong>
-        <span>
-          {{ preparingRequest.quantity }} {{ preparingRequest.product?.unit || '' }}
-          · {{ employeeLabel(preparingRequest.employee) }}
-          <ng-container *ngIf="preparingRequest.customerId"> · cliente {{ customerNameForRecord(preparingRequest.customerId, preparingRequest.customer) }}</ng-container>
-        </span>
+        <div class="prepare-banner-main">
+          <strong>{{ preparingRequestItem?.product?.name || requestProductSummary(preparingRequest) }}</strong>
+          <span>
+            Da prendere ora: {{ preparingRequestItem ? requestItemRemaining(preparingRequestItem) : preparingRequest.quantity }} {{ preparingRequestItem?.product?.unit || preparingRequest.product?.unit || '' }}
+            · {{ employeeLabel(preparingRequest.employee) }}
+            <ng-container *ngIf="preparingRequest.customerId"> · cliente {{ customerNameForRecord(preparingRequest.customerId, preparingRequest.customer) }}</ng-container>
+          </span>
+        </div>
+        <div class="prepare-picking-list">
+          <div class="request-item" *ngFor="let item of requestItems(preparingRequest)" [class.done]="requestItemRemaining(item) <= 0">
+            <strong>{{ requestItemRemaining(item) }} {{ item.product?.unit || 'pz' }}</strong>
+            <span>{{ item.product?.name || 'Prodotto' }}</span>
+            <small *ngIf="item.fulfilledQuantity">presi {{ item.fulfilledQuantity }} / {{ item.quantity }}</small>
+          </div>
+        </div>
       </div>
 
       <div class="scanner-card movement-scanner" *ngIf="isMobileLike">

@@ -195,11 +195,8 @@ export class GlobalService {
               : data.version === this.version;
 
           if (!supported) {
-            const allowed = Array.isArray(data.allowedVersions)
-              ? data.allowedVersions.join(', ')
-              : data.version;
             this.popup.showError(
-              `Versione non valida!\nApp: ${this.version}\nVersioni consentite: ${allowed}`,
+              this.buildUnsupportedVersionMessage(data.allowedVersions || data.version),
               'Versione app non supportata',
             );
             resolve(false);
@@ -211,12 +208,38 @@ export class GlobalService {
         .catch((error) => {
           console.error('Errore verifica versione server', url, error);
           this.popup.showError(
-            `Impossibile verificare la versione del server.\n${url}`,
-            'Server non raggiungibile',
+            this.buildVersionCheckFailedMessage(),
+            'Versione app',
           );
           resolve(false);
         });
     });
+  }
+
+  private buildUnsupportedVersionMessage(allowedVersions: unknown): string {
+    return [
+      'AGGIORNA O CONTATTA L\'ASSISTENZA',
+      `Versione app in uso: ${this.version}`,
+      `Versioni disponibili: ${this.formatAllowedVersions(allowedVersions)}`,
+    ].join('\n');
+  }
+
+  private buildVersionCheckFailedMessage(): string {
+    return [
+      'IMPOSSIBILE VERIFICARE LA VERSIONE DELL\'APP',
+      `Versione app in uso: ${this.version}`,
+      'Versioni disponibili: non verificabili',
+      'Controlla la connessione o contatta l\'assistenza.',
+    ].join('\n');
+  }
+
+  private formatAllowedVersions(allowedVersions: unknown): string {
+    if (Array.isArray(allowedVersions)) {
+      return allowedVersions.length ? allowedVersions.join(', ') : 'non indicate';
+    }
+
+    const value = String(allowedVersions || '').trim();
+    return value || 'non indicate';
   }
 
   get token(): string {

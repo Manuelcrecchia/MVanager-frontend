@@ -36,6 +36,19 @@
   word-break: break-word;
 }
 
+.app-alert-message {
+  display: grid;
+  gap: 8px;
+}
+
+.app-alert .app-alert-lead {
+  color: #172033;
+  font-size: 1.12rem;
+  line-height: 1.25;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .app-alert [mat-dialog-content] {
   margin: 0;
   padding: 0;

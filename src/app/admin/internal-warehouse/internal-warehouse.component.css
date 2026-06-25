@@ -886,6 +886,59 @@
   padding-left: 9px;
 }
 
+.request-item-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.request-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 8px 10px;
+}
+
+.request-item.done {
+  opacity: 0.7;
+  background: #f0fdf4;
+}
+
+.request-item span,
+.request-item small {
+  display: block;
+}
+
+.request-item strong {
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.request-item small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.cancel-reason-box {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff7f7;
+  padding: 10px;
+}
+
+.cancel-reason-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .request-card .request-actions {
   display: grid;
   grid-template-columns: 1fr;
@@ -922,9 +975,15 @@
   padding: 12px;
 }
 
-.prepare-banner strong,
-.prepare-banner span {
+.prepare-banner-main strong,
+.prepare-banner-main span {
   display: block;
+}
+
+.prepare-picking-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .stock-badge {

@@ -14,6 +14,8 @@ export class PopupServiceService {
   private readonly nativeAlert = window.alert.bind(window);
   private lastDialogKey = '';
   private lastDialogAt = 0;
+  private readonly shownHttpErrors = new WeakSet<object>();
+  private readonly scheduledHttpErrors = new WeakSet<object>();
 
   constructor(private dialog: MatDialog) { }
 
@@ -50,8 +52,24 @@ export class PopupServiceService {
     this.show(message, title, 'error');
   }
 
-  showHttpError(err: any, fallback = 'Errore imprevisto. Riprova.'): void {
-    this.showError(this.parseServerError(err, fallback));
+  showHttpError(err: any, fallback = 'Errore imprevisto. Riprova.', title = 'Errore'): void {
+    this.markHttpErrorShown(err);
+    this.showError(this.parseServerError(err, fallback), title);
+  }
+
+  scheduleHttpError(err: any, fallback = 'Operazione non completata. Riprova.', title = 'Operazione non riuscita'): void {
+    const key = this.getErrorObject(err);
+    if (!key || this.shownHttpErrors.has(key) || this.scheduledHttpErrors.has(key)) {
+      return;
+    }
+
+    this.scheduledHttpErrors.add(key);
+    setTimeout(() => {
+      this.scheduledHttpErrors.delete(key);
+      if (!this.shownHttpErrors.has(key)) {
+        this.showHttpError(err, fallback, title);
+      }
+    }, 0);
   }
 
   closePopup() {
@@ -98,11 +116,21 @@ export class PopupServiceService {
       }
 
       const body = typeof err?.error === 'string' ? JSON.parse(err.error) : err?.error;
+      const detailedMessage = this.extractDetailedServerMessage(body);
+      if (detailedMessage) return detailedMessage;
       if (body?.error) return String(body.error);
       if (body?.message) return String(body.message);
 
       if (typeof err?.error === 'string' && err.error.trim()) {
         return err.error;
+      }
+
+      const status = Number(err?.status || 0);
+      if (status >= 500) {
+        return 'Il server ha risposto con un errore. Riprova tra poco o contatta l\'assistenza.';
+      }
+      if (status === 404) {
+        return 'Risorsa non trovata. Aggiorna la pagina e riprova.';
       }
 
       if (err?.message) {
@@ -115,6 +143,60 @@ export class PopupServiceService {
     }
 
     return fallback;
+  }
+
+  private markHttpErrorShown(err: unknown): void {
+    const key = this.getErrorObject(err);
+    if (key) {
+      this.shownHttpErrors.add(key);
+    }
+  }
+
+  private getErrorObject(err: unknown): object | null {
+    return typeof err === 'object' && err !== null ? err : null;
+  }
+
+  private extractDetailedServerMessage(body: any): string {
+    const details = body?.details || body?.errors;
+    if (!details) {
+      return '';
+    }
+
+    if (Array.isArray(details)) {
+      const lines = details
+        .map((item) => this.formatServerDetail(item))
+        .filter((line) => !!line);
+      return lines.join('\n');
+    }
+
+    if (typeof details === 'object') {
+      const lines = Object.entries(details)
+        .map(([field, value]) => {
+          const text = Array.isArray(value) ? value.join(', ') : String(value || '');
+          return text ? `${field}: ${text}` : '';
+        })
+        .filter((line) => !!line);
+      return lines.join('\n');
+    }
+
+    return String(details || '');
+  }
+
+  private formatServerDetail(item: unknown): string {
+    if (typeof item === 'string') {
+      return item;
+    }
+
+    if (typeof item === 'object' && item !== null) {
+      const value = item as { message?: unknown; field?: unknown; path?: unknown };
+      const message = String(value.message || '').trim();
+      const field = String(value.field || value.path || '').trim();
+      if (message && field) return `${field}: ${message}`;
+      if (message) return message;
+      if (field) return field;
+    }
+
+    return '';
   }
 
   private formatMessage(message: unknown): string {

@@ -122,6 +122,18 @@ interface WarehouseMovementSummary {
   products: Array<{ productId: number; name: string; unit: string; quantity: number }>;
 }
 
+interface WarehouseRequestItem {
+  id: number | null;
+  requestId: number;
+  productId: number;
+  categoryId: number | null;
+  quantity: number;
+  fulfilledQuantity: number;
+  remainingQuantity?: number;
+  status: 'pending' | 'fulfilled' | 'rejected' | 'cancelled';
+  product?: WarehouseProduct;
+}
+
 interface WarehouseRequest {
   id: number;
   employeeId: number;
@@ -130,9 +142,12 @@ interface WarehouseRequest {
   customerId?: string | null;
   quantity: number;
   note: string;
+  adminNote?: string;
+  cancelReason?: string;
   status: 'pending' | 'approved' | 'rejected' | 'fulfilled' | 'cancelled';
   createdAt: string;
   product?: WarehouseProduct;
+  items?: WarehouseRequestItem[];
   employee?: any | null;
   customer?: any | null;
 }
@@ -179,6 +194,11 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   reportSummary: WarehouseMovementSummary[] = [];
   productRequests: WarehouseRequest[] = [];
   preparingRequest: WarehouseRequest | null = null;
+  preparingRequestItem: WarehouseRequestItem | null = null;
+  cancelRequestForm = {
+    requestId: 0,
+    reason: '',
+  };
   duplicateProduct: WarehouseProduct | null = null;
   importResult: any = null;
   selectedPhotoFile: File | null = null;
@@ -316,7 +336,10 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   }
 
   get pendingRequestQuantityTotal(): number {
-    return this.productRequests.reduce((total, request) => total + Number(request.quantity || 0), 0);
+    return this.productRequests.reduce((total, request) => {
+      return total + this.requestItems(request)
+        .reduce((sum, item) => sum + this.requestItemRemaining(item), 0);
+    }, 0);
   }
 
   get oldestPendingRequest(): WarehouseRequest | null {
@@ -661,6 +684,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       referenceLabel: this.manualMovement.referenceLabel,
       unitCost: this.manualMovement.unitCost,
       requestId: this.preparingRequest?.id,
+      requestItemId: this.preparingRequestItem?.id,
       resetManual: true,
     });
   }
@@ -868,6 +892,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       referenceType: this.manualMovement.referenceType,
       referenceLabel: this.manualMovement.referenceLabel,
       requestId: this.preparingRequest?.id,
+      requestItemId: this.preparingRequestItem?.id,
       fromScanner: true,
     });
   }
@@ -888,6 +913,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       referenceLabel?: string;
       unitCost?: number | null;
       requestId?: number;
+      requestItemId?: number | null;
       resetManual?: boolean;
       fromScanner?: boolean;
     } = {},
@@ -901,7 +927,13 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
     this.clearFeedback();
     this.saving = true;
-    this.http.post<{ product: WarehouseProduct; movement: WarehouseMovement; deliveryDocument?: any }>(
+    this.http.post<{
+      product: WarehouseProduct;
+      movement: WarehouseMovement;
+      warehouseRequest?: WarehouseRequest | null;
+      warehouseRequestItem?: WarehouseRequestItem | null;
+      deliveryDocument?: any;
+    }>(
       this.api(`/movements/${type}`),
       {
         barcode: cleanBarcode,
@@ -917,12 +949,14 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         referenceLabel: options.referenceLabel,
         unitCost: options.unitCost,
         requestId: options.requestId,
+        requestItemId: options.requestItemId || undefined,
       },
     ).subscribe({
-      next: ({ product, deliveryDocument }) => {
+      next: ({ product, movement, warehouseRequest, deliveryDocument }) => {
         this.saving = false;
         const verb = type === 'in' ? 'Entrata registrata' : 'Uscita registrata';
-        const signedQuantity = type === 'in' ? `+${cleanQuantity}` : `-${cleanQuantity}`;
+        const registeredQuantity = this.parseQuantityInput(movement?.quantity ?? cleanQuantity, cleanQuantity, 0.001);
+        const signedQuantity = type === 'in' ? `+${registeredQuantity}` : `-${registeredQuantity}`;
         this.message = `${verb}: ${product.name} ${signedQuantity} (${product.quantity} ${product.unit})`;
         if (deliveryDocument?.path) {
           this.message = `${this.message}. Documento ${deliveryDocument.documentLabel || 'materiale'} generato.`;
@@ -949,9 +983,18 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
           this.manualEntryMode = false;
         }
         if (this.preparingRequest?.id === options.requestId) {
-          this.message = `${this.message}. Richiesta evasa.`;
-          this.preparingRequest = null;
-          this.loadProductRequests();
+          if (warehouseRequest && warehouseRequest.status !== 'fulfilled') {
+            this.preparingRequest = warehouseRequest;
+            this.preparingRequestItem = this.nextPendingRequestItem(warehouseRequest);
+            this.applyRequestAssignment(warehouseRequest, this.preparingRequestItem);
+            const remaining = this.remainingRequestQuantityTotal(warehouseRequest);
+            this.message = `${this.message}. Prodotto preparato. Restano ${remaining} pezzi da preparare.`;
+          } else {
+            this.message = `${this.message}. Richiesta evasa.`;
+            this.preparingRequest = null;
+            this.preparingRequestItem = null;
+            this.loadProductRequests();
+          }
         }
         this.loadProducts();
         this.loadSummary();
@@ -966,12 +1009,22 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     });
   }
 
-  prepareRequest(request: WarehouseRequest): void {
+  prepareRequest(request: WarehouseRequest, item: WarehouseRequestItem | null = null): void {
     if (!this.canRegisterOut) return;
     this.preparingRequest = request;
+    this.preparingRequestItem = item || this.nextPendingRequestItem(request);
+    this.applyRequestAssignment(request, this.preparingRequestItem);
+    this.setTab('out');
+    const targetProduct = this.preparingRequestItem?.product || request.product;
+    const pendingCount = this.remainingRequestQuantityTotal(request);
+    this.message = `Prepara ${targetProduct?.name || 'prodotto'} per ${this.employeeLabel(request.employee)}. Scansiona il codice a barre per scalare la richiesta${pendingCount > 1 ? ` (${pendingCount} pezzi in coda)` : ''}.`;
+  }
+
+  private applyRequestAssignment(request: WarehouseRequest, item: WarehouseRequestItem | null = this.nextPendingRequestItem(request)): void {
+    const remainingQuantity = item ? this.requestItemRemaining(item) : Number(request.quantity || 1);
     this.manualMovement = {
       barcode: '',
-      quantity: this.parseQuantityInput(request.quantity, 1, 0.001),
+      quantity: Math.min(1, Math.max(remainingQuantity, 0.001)),
       reasonKey: 'employee_assignment',
       reason: 'Richiesta prodotto dipendente',
       note: request.note || '',
@@ -983,18 +1036,106 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       referenceLabel: `Richiesta #${request.id}`,
       unitCost: null,
     };
-    this.setTab('out');
-    this.message = `Prepara ${request.product?.name || 'prodotto'} per ${this.employeeLabel(request.employee)}. Scansiona il codice a barre per evadere la richiesta.`;
+    this.referenceSearch.employee = this.employeeLabel(request.employee);
+    this.referenceSearch.customer = request.customerId
+      ? this.customerNameForRecord(request.customerId, request.customer)
+      : '';
+    this.ensureCurrentAssignmentReferences(request);
   }
 
-  updateRequestStatus(request: WarehouseRequest, status: WarehouseRequest['status']): void {
-    this.http.patch<WarehouseRequest>(this.api(`/requests/${request.id}`), { status }).subscribe({
+  private ensureCurrentAssignmentReferences(request: WarehouseRequest): void {
+    if (request.employee && !this.references.employees.some((item) => Number(item?.id) === Number(request.employeeId))) {
+      this.references = {
+        ...this.references,
+        employees: [request.employee, ...this.references.employees],
+      };
+    }
+
+    if (
+      request.customer &&
+      request.customerId &&
+      !this.references.customers.some((item) => String(item?.numeroCliente || '') === String(request.customerId))
+    ) {
+      this.references = {
+        ...this.references,
+        customers: [request.customer, ...this.references.customers],
+      };
+    }
+  }
+
+  startCancelRequest(request: WarehouseRequest): void {
+    this.cancelRequestForm = {
+      requestId: request.id,
+      reason: request.adminNote || '',
+    };
+  }
+
+  clearCancelRequest(): void {
+    this.cancelRequestForm = { requestId: 0, reason: '' };
+  }
+
+  confirmCancelRequest(request: WarehouseRequest): void {
+    const reason = this.cancelRequestForm.reason.trim();
+    if (!reason) {
+      this.error = 'Inserisci il motivo da mostrare al dipendente.';
+      this.popup.showError(this.error);
+      return;
+    }
+    this.updateRequestStatus(request, 'cancelled', reason);
+  }
+
+  updateRequestStatus(request: WarehouseRequest, status: WarehouseRequest['status'], adminNote = ''): void {
+    this.http.patch<WarehouseRequest>(this.api(`/requests/${request.id}`), { status, adminNote }).subscribe({
       next: () => {
         this.message = 'Richiesta aggiornata.';
+        this.clearCancelRequest();
         this.loadProductRequests();
       },
       error: (err) => this.handleError(err, 'Impossibile aggiornare la richiesta.'),
     });
+  }
+
+  requestItems(request: WarehouseRequest): WarehouseRequestItem[] {
+    if (request.items?.length) return request.items;
+    return [{
+      id: null,
+      requestId: request.id,
+      productId: request.productId,
+      categoryId: request.categoryId,
+      quantity: Number(request.quantity || 1),
+      fulfilledQuantity: request.status === 'fulfilled' ? Number(request.quantity || 1) : 0,
+      remainingQuantity: request.status === 'fulfilled' ? 0 : Number(request.quantity || 1),
+      status: request.status === 'fulfilled'
+        ? 'fulfilled'
+        : request.status === 'cancelled'
+          ? 'cancelled'
+          : request.status === 'rejected'
+            ? 'rejected'
+            : 'pending',
+      product: request.product,
+    }];
+  }
+
+  nextPendingRequestItem(request: WarehouseRequest): WarehouseRequestItem | null {
+    return this.requestItems(request).find((item) => item.status === 'pending' && this.requestItemRemaining(item) > 0) || null;
+  }
+
+  requestItemRemaining(item: WarehouseRequestItem): number {
+    const explicitRemaining = item.remainingQuantity;
+    if (explicitRemaining !== null && explicitRemaining !== undefined) {
+      return this.parseQuantityInput(explicitRemaining, 0, 0);
+    }
+    return Math.max(0, this.parseQuantityInput(item.quantity, 0, 0) - this.parseQuantityInput(item.fulfilledQuantity, 0, 0));
+  }
+
+  remainingRequestQuantityTotal(request: WarehouseRequest): number {
+    return this.requestItems(request).reduce((total, item) => total + this.requestItemRemaining(item), 0);
+  }
+
+  requestProductSummary(request: WarehouseRequest): string {
+    const items = this.requestItems(request);
+    if (items.length === 1) return items[0].product?.name || request.product?.name || 'Prodotto';
+    return `${items.length} prodotti richiesti`;
   }
 
   requestStatusLabel(status: string): string {
