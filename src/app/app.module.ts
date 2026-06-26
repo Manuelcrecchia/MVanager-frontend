@@ -98,12 +98,15 @@ import { CustomerNotesComponent } from './admin/customer-notes/customer-notes.co
 import { ServiceOrdersComponent } from './admin/service-orders/service-orders.component';
 import { AddServiceOrderComponent } from './admin/add-service-order/add-service-order.component';
 import { QuoteAcceptComponent } from './public/quote-accept/quote-accept.component';
+import { ContractAcceptComponent } from './public/contract-accept/contract-accept.component';
 import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work-completion-stats.component';
 import { EmailHomeComponent } from './admin/email-home/email-home.component';
 import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
 import { NotificationSettingsComponent } from './admin/notification-settings/notification-settings.component';
 import { AppErrorHandler } from './app-error-handler';
 import { InternalWarehouseComponent } from './admin/internal-warehouse/internal-warehouse.component';
+import { InvoicesComponent } from './admin/invoices/invoices.component';
+import { EmployeeContractsComponent } from './admin/employee-contracts/employee-contracts.component';
 
 registerLocaleData(localeIt);
 
@@ -154,11 +157,14 @@ registerLocaleData(localeIt);
     ServiceOrdersComponent,
     AddServiceOrderComponent,
     QuoteAcceptComponent,
+    ContractAcceptComponent,
     WorkCompletionStatsComponent,
     EmailHomeComponent,
     EmailSettingsComponent,
     NotificationSettingsComponent,
     InternalWarehouseComponent,
+    InvoicesComponent,
+    EmployeeContractsComponent,
   ],
   imports: [
     BrowserModule,

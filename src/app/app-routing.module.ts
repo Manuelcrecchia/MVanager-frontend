@@ -47,11 +47,14 @@ import { RiepilogoOreClientiComponent } from './admin/riepilogo-ore-clienti/riep
 import { TimbratureHomeComponent } from './admin/timbrature-home/timbrature-home.component';
 import { TimbratureDettaglioComponent } from './admin/timbrature-dettaglio/timbrature-dettaglio.component';
 import { QuoteAcceptComponent } from './public/quote-accept/quote-accept.component';
+import { ContractAcceptComponent } from './public/contract-accept/contract-accept.component';
 import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work-completion-stats.component';
 import { EmailHomeComponent } from './admin/email-home/email-home.component';
 import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
 import { NotificationSettingsComponent } from './admin/notification-settings/notification-settings.component';
 import { InternalWarehouseComponent } from './admin/internal-warehouse/internal-warehouse.component';
+import { InvoicesComponent } from './admin/invoices/invoices.component';
+import { EmployeeContractsComponent } from './admin/employee-contracts/employee-contracts.component';
 
 // ✅ Documenti interni (assumo questo path; se diverso, aggiorna SOLO l'import)
 import { InternalDocumentsComponent } from './admin/internal-documents/internal-documents.component';
@@ -62,6 +65,7 @@ import { AdminShellRedirectGuard } from './admin-shell-redirect.guard';
 
 const routes: Routes = [
   { path: 'quote-accept/:token', component: QuoteAcceptComponent },
+  { path: 'contract-accept/:token', component: ContractAcceptComponent },
   { path: 'passworddimenticata', component: PassworddimenticataComponent },
   { path: 'loginPrivateArea', component: PrivateAreaComponent },
   { path: '', component: PrivateAreaComponent, pathMatch: 'full' },
@@ -120,6 +124,12 @@ const routes: Routes = [
         data: { permission: 'EMPLOYEE_VIEW' },
       },
       {
+        path: 'employee-contracts',
+        component: EmployeeContractsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'EMPLOYEE_VIEW', feature: 'employeeContracts' },
+      },
+      {
         path: 'employee-deadlines',
         component: DeadlinesManagementComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
@@ -160,6 +170,12 @@ const routes: Routes = [
         component: QuotesHomeComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
         data: { permission: 'QUOTES_VIEW' },
+      },
+      {
+        path: 'invoices',
+        component: InvoicesComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'INVOICES_VIEW' },
       },
       {
         path: 'calendarHome',
@@ -339,7 +355,7 @@ const routes: Routes = [
         path: 'documenti/client/:id',
         component: DocumentManagerComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'CUSTOMERS_MANAGE' },
+        data: { permission: 'CUSTOMER_DOCS_MANAGE' },
       },
       {
         path: 'view-pdf',
@@ -408,6 +424,12 @@ const routes: Routes = [
     component: QuotesHomeComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'QUOTES_VIEW' },
+  },
+  {
+    path: 'invoices',
+    component: InvoicesComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'INVOICES_VIEW' },
   },
   {
     path: 'addQuote',
@@ -510,6 +532,12 @@ const routes: Routes = [
     data: { permission: 'EMPLOYEE_VIEW' },
   },
   {
+    path: 'employee-contracts',
+    component: EmployeeContractsComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'EMPLOYEE_VIEW', feature: 'employeeContracts' },
+  },
+  {
     path: 'gestioneusers',
     component: GestioneUsersComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
@@ -583,7 +611,7 @@ const routes: Routes = [
     path: 'documenti/client/:id',
     component: DocumentManagerComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'CUSTOMERS_MANAGE' },
+    data: { permission: 'CUSTOMER_DOCS_MANAGE' },
   },
 
   // documenti interni

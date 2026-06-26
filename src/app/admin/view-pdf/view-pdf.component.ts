@@ -12,10 +12,14 @@ import { CustomerModelService } from '../../service/customer-model.service';
 export class ViewPdfComponent implements OnInit {
   pdfSrc: string = '';
   downloadName = 'document.pdf';
+  documentTitle = 'Preventivo';
+  documentType: 'quote' | 'employeeContract' = 'quote';
 
   numeroPreventivo!: string;
+  employeeContractId = '';
   signedPdfMode = false;
   confirmCustomerMode = false;
+  confirmEmployeeMode = false;
   loadingPdf = false;
   private currentPdfBlob: Blob | null = null;
 
@@ -38,17 +42,28 @@ export class ViewPdfComponent implements OnInit {
   ngOnInit(): void {
     this.globalService.loadTenantConfig(false, { showError: false }).finally(() => {
       this.route.queryParams.subscribe((params) => {
+        this.releasePdfUrl();
+        this.currentPdfBlob = null;
+        this.signedPdfMode = params['signed'] === '1' || params['signed'] === 'true';
+        this.confirmCustomerMode = false;
+        this.confirmEmployeeMode = false;
+
+        const employeeContractId = String(params['employeeContractId'] || params['contractId'] || '').trim();
+        if (employeeContractId) {
+          this.loadEmployeeContractDocument(employeeContractId, params);
+          return;
+        }
+
         const numeroPreventivo = params['numeroPreventivo'];
         if (!numeroPreventivo) return;
 
         const body = { numeroPreventivo };
+        this.documentType = 'quote';
+        this.documentTitle = this.signedPdfMode ? 'Preventivo firmato' : 'Preventivo';
         this.numeroPreventivo = params['numeroPreventivo'];
-        this.signedPdfMode = params['signed'] === '1' || params['signed'] === 'true';
         this.confirmCustomerMode =
           (params['confirmCustomer'] === '1' || params['confirmCustomer'] === 'true') &&
           this.globalService.canCreateCustomers();
-        this.releasePdfUrl();
-        this.currentPdfBlob = null;
 
         // Nome file
         this.http
@@ -92,6 +107,11 @@ export class ViewPdfComponent implements OnInit {
   }
 
   back() {
+    if (this.documentType === 'employeeContract') {
+      this.router.navigate(['/homeAdmin', 'employee-contracts']);
+      return;
+    }
+
     this.router.navigate(['/homeAdmin', 'quotesHome'], {
       queryParams: this.signedPdfMode ? { showCompleted: 1 } : {},
     });
@@ -195,6 +215,38 @@ export class ViewPdfComponent implements OnInit {
       });
   }
 
+  confirmAndCreateEmployee(): void {
+    if (!this.globalService.hasPermission('EMPLOYEE_CREATE')) {
+      alert('Permesso creazione dipendenti non disponibile per questa azienda.');
+      this.back();
+      return;
+    }
+
+    if (!this.employeeContractId) {
+      alert('Contratto non valido');
+      return;
+    }
+
+    this.http
+      .post<{ message?: string }>(
+        this.globalService.url + 'employee-contracts/completeOnboarding',
+        { id: this.employeeContractId },
+        { headers: this.globalService.headers },
+      )
+      .subscribe({
+        next: (response) => {
+          alert(response.message || 'Dipendente creato o collegato.');
+          this.router.navigate(['/homeAdmin', 'employee-contracts'], {
+            queryParams: { contractId: this.employeeContractId, review: 1 },
+          });
+        },
+        error: (err) => {
+          console.error('Errore completamento contratto:', err);
+          alert(this.parseServerError(err));
+        },
+      });
+  }
+
   private loadSignedPdf(body: { numeroPreventivo: string }): void {
     this.loadingPdf = true;
 
@@ -236,6 +288,45 @@ export class ViewPdfComponent implements OnInit {
         },
         error: (err) => {
           console.error('Errore caricamento PDF:', err);
+          alert(this.parseServerError(err));
+          this.loadingPdf = false;
+        },
+      });
+  }
+
+  private loadEmployeeContractDocument(employeeContractId: string, params: Record<string, any>): void {
+    this.documentType = 'employeeContract';
+    this.employeeContractId = employeeContractId;
+    this.documentTitle = this.signedPdfMode ? 'Contratto firmato' : 'Contratto';
+    this.confirmEmployeeMode =
+      this.signedPdfMode &&
+      (params['confirmEmployee'] === '1' || params['confirmEmployee'] === 'true') &&
+      this.globalService.hasPermission('EMPLOYEE_CREATE');
+
+    const contractNumber = String(params['contractNumber'] || employeeContractId).trim();
+    const displayName = String(params['displayName'] || '').trim();
+    const base = this.sanitizeFilename(
+      [contractNumber, displayName].filter(Boolean).join(' '),
+    );
+    this.downloadName = this.signedPdfMode
+      ? `${base} firmato.pdf`
+      : `${base}.pdf`;
+
+    this.loadingPdf = true;
+
+    this.http
+      .get(this.globalService.url + `employee-contracts/${employeeContractId}/pdf`, {
+        headers: this.globalService.headers,
+        params: this.signedPdfMode ? { signed: '1' } : {},
+        responseType: 'blob',
+      })
+      .subscribe({
+        next: (blob) => {
+          this.setPdfBlob(blob);
+          this.loadingPdf = false;
+        },
+        error: (err) => {
+          console.error('Errore caricamento PDF contratto:', err);
           alert(this.parseServerError(err));
           this.loadingPdf = false;
         },

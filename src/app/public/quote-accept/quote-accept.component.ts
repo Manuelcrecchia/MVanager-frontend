@@ -217,7 +217,7 @@ export class QuoteAcceptComponent implements OnInit {
       acceptedByEmail: this.acceptedByEmail,
       acceptTerms: this.acceptTerms ? 'yes' : 'no',
       signatureDataUrl,
-      tenantId: this.tenantService.tenant,
+      tenantId: this.getPublicTenant(),
     };
 
     this.http
@@ -353,12 +353,29 @@ export class QuoteAcceptComponent implements OnInit {
       acceptance.pdfUrl ||
       `${this.globalService.url}quotes/accept/${this.token}/pdf`;
     const url = new URL(rawUrl, window.location.origin);
-    url.searchParams.set('tenant', this.tenantService.tenant);
+    const tenant = this.getPublicTenant();
+    if (tenant) {
+      url.searchParams.set('tenant', tenant);
+    }
     return url.toString();
   }
 
   private getTenantParams(): HttpParams {
-    return new HttpParams().set('tenant', this.tenantService.tenant);
+    const tenant = this.getPublicTenant();
+    return tenant ? new HttpParams().set('tenant', tenant) : new HttpParams();
+  }
+
+  private getPublicTenant(): string {
+    return this.normalizeTenant(
+      this.route.snapshot.queryParamMap.get('tenant') ||
+      this.route.snapshot.queryParamMap.get('tenantId') ||
+      this.tenantService.tenant,
+    );
+  }
+
+  private normalizeTenant(value: string | null | undefined): string {
+    const tenant = String(value || '').trim().toLowerCase();
+    return /^[a-z0-9][a-z0-9_-]{1,79}$/.test(tenant) ? tenant : '';
   }
 
   private validateAcceptanceForm(): string {

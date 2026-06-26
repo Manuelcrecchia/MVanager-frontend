@@ -52,6 +52,16 @@ export class SocketService {
     });
   }
 
+  onEmployeeContractUpdate(): Observable<any> {
+    return new Observable((subscriber) => {
+      const listener = (data: any) => subscriber.next(data);
+      this.socket.on('employeeContractUpdated', listener);
+      return () => {
+        this.socket.off('employeeContractUpdated', listener);
+      };
+    });
+  }
+
   onAdminTodoUpdate(): Observable<any> {
     return new Observable((subscriber) => {
       const listener = (data: any) => {

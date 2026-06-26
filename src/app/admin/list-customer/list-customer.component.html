@@ -219,7 +219,7 @@
                 </button>
 
                 <button
-                  *ngIf="customer.active !== false"
+                  *ngIf="globalService.hasPermission('CUSTOMER_DOCS_MANAGE') && customer.active !== false"
                   mat-raised-button
                   color="primary"
                   (click)="viewDocuments(customer.numeroCliente)"

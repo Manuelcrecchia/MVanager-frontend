@@ -1,0 +1,398 @@
+.quote-card {
+  background: linear-gradient(135deg, rgba(255,122,0,.10), rgba(13,110,253,.08)),
+              rgba(255,255,255,.65);
+  border: 1px solid rgba(255,255,255,.70);
+  border-radius: 22px;
+  box-shadow: 0 20px 60px rgba(2,6,23,.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow: visible;
+}
+
+.quote-card.notification-target {
+  border: 2px solid rgba(255,122,0,.95);
+  box-shadow: 0 22px 70px rgba(255,122,0,.28), 0 18px 54px rgba(2,6,23,.16);
+}
+
+.quote-header-btn {
+  width: 100%;
+  border: 0;
+  background: linear-gradient(135deg, rgba(142,197,255,.40), rgba(255,122,0,.22));
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 950;
+  color: #000;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.quote-header-btn:hover {
+  background: linear-gradient(135deg, rgba(142,197,255,.55), rgba(255,122,0,.32));
+}
+
+.quote-title {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chev {
+  font-size: 18px;
+  color: #000;
+  transition: transform 0.2s ease;
+}
+
+.chev--open {
+  transform: rotate(180deg);
+}
+
+.btn-pdf {
+  border-radius: 12px;
+  font-weight: 950;
+  color: #000 !important;
+  background: linear-gradient(135deg, rgba(142,197,255,.70), rgba(255,122,0,.35));
+  border: 1px solid rgba(0,0,0,.08);
+  padding: 6px 10px;
+  line-height: 1;
+}
+
+.btn-pdf:hover {
+  background: linear-gradient(135deg, rgba(142,197,255,.85), rgba(255,122,0,.45));
+}
+
+.quote-actions {
+  background: rgba(255,255,255,.22);
+  border-top: 1px solid rgba(0,0,0,.06);
+}
+
+.quote-actions-inner {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.btn-quote-action {
+  position: relative;
+  overflow: visible !important;
+  min-width: 46px;
+  min-height: 40px;
+  border-radius: 14px !important;
+  font-weight: 950 !important;
+  color: #000 !important;
+  box-shadow: 0 10px 22px rgba(2,6,23,.10) !important;
+  border: 0 !important;
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+.btn-quote-action i,
+.btn-pdf i {
+  min-width: 16px;
+  text-align: center;
+}
+
+.action-with-tooltip {
+  position: relative;
+  overflow: visible !important;
+}
+
+.action-with-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  transform: translateX(-50%) translateY(4px);
+  z-index: 80;
+  width: max-content;
+  max-width: 220px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .14s ease, transform .14s ease;
+}
+
+.action-with-tooltip:hover::after,
+.action-with-tooltip:focus-visible::after,
+.action-with-tooltip:active::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.btn-quote-edit {
+  background: linear-gradient(135deg, rgba(142,197,255,.85), rgba(13,110,253,.25)) !important;
+  border: 1px solid rgba(13,110,253,.18) !important;
+}
+
+.btn-quote-delete {
+  background: linear-gradient(135deg, rgba(255,122,0,.55), rgba(255,255,255,.35)) !important;
+  border: 1px solid rgba(255,122,0,.25) !important;
+}
+
+.btn-quote-chat,
+.btn-quote-send,
+.btn-quote-copy {
+  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+}
+
+.btn-quote-whatsapp {
+  background: linear-gradient(135deg, #25d366, #d9fbe6) !important;
+  border: 1px solid rgba(37, 211, 102, .30) !important;
+}
+
+.btn-quote-email {
+  background: linear-gradient(135deg, rgba(142,197,255,.85), rgba(255,255,255,.45)) !important;
+  border: 1px solid rgba(13,110,253,.18) !important;
+}
+
+.btn-quote-verify {
+  background: linear-gradient(135deg, rgba(142,197,255,.75), rgba(255,255,255,.35)) !important;
+  border: 1px solid rgba(142,197,255,.35) !important;
+}
+
+.btn-quote-confirm {
+  background: linear-gradient(135deg, rgba(142,197,255,.75), rgba(255,255,255,.35)) !important;
+  border: 1px solid rgba(142,197,255,.35) !important;
+}
+
+.btn-quote-refuse {
+  background: linear-gradient(135deg, rgba(255,122,0,.55), rgba(255,255,255,.35)) !important;
+  border: 1px solid rgba(255,122,0,.25) !important;
+}
+
+.btn-pink {
+  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+  color: #000 !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 14px 34px rgba(255,122,0,.30);
+}
+
+.btn-pink:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.completed-toggle {
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.55);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.notice,
+.state-panel,
+.form-panel {
+  border: 1px solid rgba(255,255,255,.70);
+  border-radius: 22px;
+  background: rgba(255,255,255,.65);
+  box-shadow: 0 20px 60px rgba(2,6,23,.10);
+  backdrop-filter: blur(12px);
+}
+
+.notice {
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-weight: 800;
+}
+
+.notice.success {
+  color: #166534;
+  background: rgba(236,253,243,.88);
+  border-color: rgba(183,239,197,.75);
+}
+
+.notice.error {
+  color: #991b1b;
+  background: rgba(254,242,242,.90);
+  border-color: rgba(254,202,202,.78);
+}
+
+.state-panel {
+  padding: 22px;
+  color: #637083;
+  font-weight: 800;
+}
+
+.form-panel {
+  padding: 20px;
+  margin-bottom: 18px;
+}
+
+.form-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.form-head h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.icon-btn {
+  align-items: center;
+  background: rgba(142,197,255,.45);
+  border: 1px solid rgba(13,110,253,.14);
+  border-radius: 12px;
+  color: #000;
+  cursor: pointer;
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.contract-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.contract-field-section {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+}
+
+.contract-field-section-head {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.contract-field-section-head h3 {
+  margin: 0;
+  color: #172033;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.contract-field-section-head span {
+  color: #637083;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.contract-field-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.contract-form label {
+  display: grid;
+  gap: 7px;
+  color: #475569;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.contract-form input,
+.contract-form select,
+.contract-form textarea {
+  width: 100%;
+  border: 1px solid #d9e0ea;
+  border-radius: 12px;
+  background: #fff;
+  color: #172033;
+  font-size: 15px;
+}
+
+.contract-form input,
+.contract-form select {
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.contract-form textarea {
+  padding: 12px;
+  resize: vertical;
+}
+
+.checkbox-field {
+  align-items: center;
+  border: 1px solid #d9e0ea;
+  border-radius: 12px;
+  display: flex;
+  min-height: 42px;
+  padding: 0 12px;
+  background: #fff;
+}
+
+.checkbox-field input {
+  width: auto;
+}
+
+.contract-form .wide,
+.form-actions {
+  grid-column: 1 / -1;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+@media (max-width: 768px) {
+  .top-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .top-actions > div {
+    width: 100%;
+  }
+
+  .top-actions .form-control {
+    max-width: 100% !important;
+    min-width: 100% !important;
+  }
+
+  .top-actions .d-flex.flex-wrap {
+    flex-direction: column;
+  }
+
+  .top-actions label {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .quote-actions-inner button {
+    width: calc(50% - 6px);
+  }
+
+  .contract-form,
+  .contract-field-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .quote-actions-inner button {
+    width: 100%;
+  }
+}

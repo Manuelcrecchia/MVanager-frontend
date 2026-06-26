@@ -385,7 +385,7 @@ export class EmailHomeComponent implements OnInit {
     return (
       this.globalService.hasPermission('INTERNAL_DOCS_ACCESS') ||
       this.globalService.hasPermission('EMPLOYEE_DOCS_MANAGE') ||
-      this.globalService.hasPermission('CUSTOMERS_VIEW')
+      this.globalService.hasPermission('CUSTOMER_DOCS_MANAGE')
     );
   }
 

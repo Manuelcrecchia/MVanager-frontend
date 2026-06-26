@@ -27,6 +27,8 @@ interface TenantBackendConfig {
   stampingConfig?: TenantStampingConfig;
   internalWarehouseConfig?: TenantInternalWarehouseConfig;
   quoteConfig?: TenantQuoteConfig;
+  contractConfig?: TenantContractConfig;
+  invoiceConfig?: TenantInvoiceConfig;
 }
 
 export interface TenantAppointmentCategoryConfig {
@@ -145,6 +147,41 @@ export interface TenantQuoteConfig {
   defaultType?: string;
   types?: TenantQuoteTypeConfig[];
   fieldMapping?: TenantFieldMappingConfig;
+}
+
+export interface TenantContractConfig {
+  templateKey?: string;
+  acceptance?: {
+    expiryDays?: number | null;
+    publicBaseUrl?: string;
+    publicAppBaseUrl?: string;
+  };
+  fieldMapping?: {
+    fields?: TenantFieldMappingFieldConfig[];
+  };
+  employeeMapping?: Array<{
+    from: string;
+    to: string;
+  }>;
+}
+
+export interface TenantInvoiceConfig {
+  enabled?: boolean;
+  issuer?: {
+    country?: string;
+    vatNumber?: string;
+    fiscalCode?: string;
+    name?: string;
+    taxRegime?: string;
+    address?: string;
+    zip?: string;
+    city?: string;
+    province?: string;
+  };
+  provider?: {
+    type?: string;
+    environment?: string;
+  };
 }
 
 @Injectable({
@@ -342,10 +379,36 @@ export class GlobalService {
     return this.hasTenantFeature(feature);
   }
 
+  isFeatureAvailableInApp(feature: string): boolean {
+    if (
+      feature === 'invoices' &&
+      (environment as { invoicesEnabled?: boolean }).invoicesEnabled !== true
+    ) {
+      return false;
+    }
+
+    return this.hasTenantFeature(feature);
+  }
+
   hasTenantFeature(feature: string): boolean {
     const purchasedFeatures = this.tenantConfig?.features;
     if (Array.isArray(purchasedFeatures)) {
-      return purchasedFeatures.includes(feature);
+      if (purchasedFeatures.includes(feature)) return true;
+      if (feature === 'documents') {
+        return purchasedFeatures.some((item) =>
+          ['documents', 'internalDocuments', 'employeeDocuments', 'customerDocuments'].includes(item)
+        );
+      }
+      if (feature === 'internalDocuments') {
+        return purchasedFeatures.includes('documents');
+      }
+      if (feature === 'employeeDocuments') {
+        return purchasedFeatures.includes('documents') && purchasedFeatures.includes('employees');
+      }
+      if (feature === 'customerDocuments') {
+        return purchasedFeatures.includes('documents') && purchasedFeatures.includes('customers');
+      }
+      return false;
     }
 
     const employeeFeatures = this.tenantConfig?.employeeFeatures;
@@ -379,6 +442,17 @@ export class GlobalService {
 
   getTenantQuoteConfig(): TenantQuoteConfig | null {
     return this.tenantConfig?.quoteConfig || null;
+  }
+
+  getTenantContractConfig(): TenantContractConfig | null {
+    return this.tenantConfig?.contractConfig || null;
+  }
+
+  getContractFields(): TenantFieldMappingFieldConfig[] {
+    const fields = this.getTenantContractConfig()?.fieldMapping?.fields;
+    return Array.isArray(fields)
+      ? fields.filter((field) => field?.visible !== false)
+      : [];
   }
 
   getTenantAppointmentsConfig(): TenantAppointmentsConfig | null {

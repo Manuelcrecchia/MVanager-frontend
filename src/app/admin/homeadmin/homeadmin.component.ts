@@ -62,6 +62,7 @@ interface PermissionOption {
 })
 export class HomeAdminComponent implements OnInit, OnDestroy {
   private quoteAcceptanceSubscription?: Subscription;
+  private employeeContractSubscription?: Subscription;
   private routerEventsSubscription?: Subscription;
   private adminTodoSubscription?: Subscription;
   private emailUnreadIntervalId?: ReturnType<typeof setInterval>;
@@ -77,6 +78,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     'editQuote',
     'email',
     'emailSettings',
+    'employee-contracts',
     'employee-deadlines',
     'equipment-deadlines',
     'equipmentSettings',
@@ -87,6 +89,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     'gestioneusers',
     'internal-deadlines',
     'internal-documents',
+    'invoices',
     'leave-settings',
     'listCustomer',
     'notificationSettings',
@@ -130,6 +133,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   expandedHomeCategoryId = '';
   permessiInAttesa: number = 0;
   pendingQuoteReviews: number = 0;
+  pendingEmployeeContractReviews: number = 0;
   emailUnreadCount: number = 0;
   internalWarehouseLowStockCount: number = 0;
   internalWarehousePendingRequestCount: number = 0;
@@ -152,6 +156,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       this.checkPermessiInAttesa();
       this.loadDeadlineSummary();
       this.loadPendingQuoteReviews();
+      this.loadPendingEmployeeContractReviews();
       this.loadEmailUnreadSummary();
       this.loadInternalWarehouseSummary();
       this.loadUnassignedPermissionNotice();
@@ -165,6 +170,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.updateDesktopHomeState();
     this.bindRouterState();
     this.bindQuoteAcceptanceUpdates();
+    this.bindEmployeeContractUpdates();
     if (this.canUseTodoView()) {
       this.bindAdminTodoUpdates();
     }
@@ -173,6 +179,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.quoteAcceptanceSubscription?.unsubscribe();
+    this.employeeContractSubscription?.unsubscribe();
     this.routerEventsSubscription?.unsubscribe();
     this.adminTodoSubscription?.unsubscribe();
     if (this.emailUnreadIntervalId) {
@@ -283,6 +290,35 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       });
   }
 
+  loadPendingEmployeeContractReviews(): void {
+    if (
+      !this.canUsePermission('EMPLOYEE_VIEW') ||
+      !this.global.isFeatureAvailableInApp('employeeContracts')
+    ) {
+      this.pendingEmployeeContractReviews = 0;
+      return;
+    }
+
+    this.http
+      .get<{ count: number }>(
+        this.global.url + 'employee-contracts/pendingOfficeReviewCount',
+        {
+          headers: this.global.headers,
+        },
+      )
+      .subscribe({
+        next: (res) => {
+          this.pendingEmployeeContractReviews = Number(res?.count) || 0;
+        },
+        error: (err) => {
+          console.error(
+            'Errore caricamento contratti da verificare:',
+            err,
+          );
+        },
+      });
+  }
+
   loadEmailUnreadSummary(): void {
     if (!this.canUsePermission('EMAIL_VIEW')) {
       this.emailUnreadCount = 0;
@@ -362,6 +398,33 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       });
   }
 
+  private bindEmployeeContractUpdates(): void {
+    if (this.employeeContractSubscription) {
+      return;
+    }
+
+    this.employeeContractSubscription = this.socketService
+      .onEmployeeContractUpdate()
+      .subscribe((update: any) => {
+        this.loadPendingEmployeeContractReviews();
+
+        const contractNumber = update?.contractNumber || '';
+        if (update?.kind === 'accepted') {
+          this.snackBar.open(
+            `Contratto ${contractNumber} firmato dal candidato`,
+            'Chiudi',
+            { duration: 5000 },
+          );
+        } else if (update?.kind === 'office_confirmed') {
+          this.snackBar.open(
+            `Contratto ${contractNumber} verificato dall'ufficio`,
+            'Chiudi',
+            { duration: 5000 },
+          );
+        }
+      });
+  }
+
   navigateToCalendarHome() {
     this.navigateInHome('calendarHome');
   }
@@ -388,6 +451,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   navigateToServiceOrders() {
     this.navigateInHome('service-orders');
+  }
+
+  navigateToInvoices() {
+    this.navigateInHome('invoices');
   }
 
   navigateToGestionePermessi() {
@@ -436,6 +503,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
   navigateToGestioneemployees() {
     this.navigateInHome('gestioneemployees');
+  }
+
+  navigateToEmployeeContracts() {
+    this.navigateInHome('employee-contracts');
   }
 
   navigateToEmployeeDeadlines() {
@@ -533,7 +604,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
         label: 'Documenti interni',
         icon: 'fas fa-file',
         permission: 'INTERNAL_DOCS_ACCESS',
-        feature: 'documents',
+        feature: 'internalDocuments',
         action: () => this.navigateToInternalDocuments(),
         desktopPath: 'internal-documents',
       },
@@ -596,6 +667,16 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             desktopPath: 'gestioneemployees',
           },
           {
+            label: 'Contratti',
+            icon: 'fas fa-file-signature',
+            permission: 'EMPLOYEE_VIEW',
+            feature: 'employeeContracts',
+            action: () => this.navigateToEmployeeContracts(),
+            desktopPath: 'employee-contracts',
+            badgeCount: () => this.pendingEmployeeContractReviews,
+            badgeClass: () => 'badge bg-danger ms-1',
+          },
+          {
             label: 'Gestione permessi e dipendenti',
             icon: 'fas fa-clipboard-check',
             permission: 'EMPLOYEE_PERMITS_MANAGE',
@@ -637,6 +718,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             desktopPath: 'quotesHome',
             badgeCount: () => this.pendingQuoteReviews,
             badgeClass: () => 'badge bg-danger ms-1',
+          },
+          {
+            label: 'Fatture elettroniche',
+            icon: 'fas fa-file-invoice-dollar',
+            permission: 'INVOICES_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToInvoices(),
+            desktopPath: 'invoices',
           },
           {
             label: 'Ordini di servizio',
@@ -1173,7 +1262,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   canUsePermission(permission: string, feature?: string): boolean {
     return (
       this.global.hasPermission(permission) &&
-      (!feature || this.global.hasTenantFeature(feature))
+      (!feature || this.global.isFeatureAvailableInApp(feature))
     );
   }
 

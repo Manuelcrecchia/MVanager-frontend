@@ -70,11 +70,14 @@ export class AuthLevelGuard implements CanActivate {
     EMPLOYEE_DEADLINES_CREATE: 'deadlines',
     EMPLOYEE_DEADLINES_EDIT: 'deadlines',
     EMPLOYEE_DEADLINES_DELETE: 'deadlines',
-    INTERNAL_DOCS_ACCESS: 'documents',
-    EMPLOYEE_DOCS_MANAGE: 'documents',
+    INTERNAL_DOCS_ACCESS: 'internalDocuments',
+    EMPLOYEE_DOCS_MANAGE: 'employeeDocuments',
+    CUSTOMER_DOCS_MANAGE: 'customerDocuments',
     STATS_VIEW: 'stats',
     EMAIL_VIEW: 'email',
     EMAIL_SETTINGS: 'email',
+    INVOICES_VIEW: 'invoices',
+    INVOICES_MANAGE: 'invoices',
     NOTIFICATIONS_VIEW: 'notifications',
     NOTIFICATIONS_MANAGE: 'notifications',
     TODOS_VIEW: 'todos',
@@ -88,6 +91,7 @@ export class AuthLevelGuard implements CanActivate {
   async canActivate(route: ActivatedRouteSnapshot): Promise<boolean> {
     const required = route.data['permission'] as string | undefined;
     const requiredAny = route.data['permissionsAny'] as string[] | undefined;
+    const requiredFeature = route.data['feature'] as string | undefined;
 
     // non loggato
     if (!this.global.token) {
@@ -97,7 +101,7 @@ export class AuthLevelGuard implements CanActivate {
     }
 
     // nessun vincolo: solo autenticazione
-    if (!required && !requiredAny) return true;
+    if (!required && !requiredAny && !requiredFeature) return true;
 
     const tenantConfig = await this.global.loadTenantConfig(false);
     if (!tenantConfig) {
@@ -106,13 +110,13 @@ export class AuthLevelGuard implements CanActivate {
       return false;
     }
 
-    const ok =
+    const permissionOk = !required && !requiredAny ? true :
       (required ? this.canUsePermission(required) : false) ||
       (Array.isArray(requiredAny)
         ? requiredAny.some((p) => this.canUsePermission(p))
         : false);
 
-    if (ok) return true;
+    if (permissionOk && (!requiredFeature || this.global.isFeatureAvailableInApp(requiredFeature))) return true;
 
     this.popup.showError(
       'Accesso non autorizzato a questa sezione.',
@@ -125,7 +129,7 @@ export class AuthLevelGuard implements CanActivate {
     const feature = this.permissionFeatureMap[permission];
     return (
       this.global.hasPermission(permission) &&
-      (!feature || this.global.hasTenantFeature(feature))
+      (!feature || this.global.isFeatureAvailableInApp(feature))
     );
   }
 }

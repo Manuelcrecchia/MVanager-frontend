@@ -86,6 +86,7 @@ export class NotificationNavigationService {
     const numeroPreventivo = this.firstString(data['numeroPreventivo']);
     const acceptanceId = this.firstString(data['acceptanceId']);
     const numeroCliente = this.firstString(data['numeroCliente']);
+    const contractId = this.firstString(data['contractId'], data['employeeContractId']);
 
     if (screen === 'calendar' || type === 'SOPRALLUOGO_REMINDER' || type === 'SOPRALLUOGO_ASSIGNED') {
       const params = new URLSearchParams();
@@ -121,6 +122,13 @@ export class NotificationNavigationService {
       params.set('review', '1');
       params.set('showCompleted', '1');
       return `/quotesHome?${params}`;
+    }
+
+    if (screen === 'employeeContractReview' || type === 'EMPLOYEE_CONTRACT_ACCEPTED_REVIEW') {
+      const params = new URLSearchParams();
+      if (contractId) params.set('contractId', contractId);
+      params.set('review', '1');
+      return `/employee-contracts?${params}`;
     }
 
     if (screen === 'customers' || type === 'CUSTOMER_ARCHIVE_REMINDER') {

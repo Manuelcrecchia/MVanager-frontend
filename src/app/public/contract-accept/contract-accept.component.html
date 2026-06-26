@@ -1,0 +1,144 @@
+<div class="contract-accept-page">
+  <section class="hero">
+    <div>
+      <span class="eyebrow">{{ contract?.companyName || 'Firma online' }}</span>
+      <h1>{{ statusTitle }}</h1>
+      <p>{{ statusDescription }}</p>
+    </div>
+  </section>
+
+  <section class="state-panel" *ngIf="loading">
+    <div class="spinner"></div>
+    <p>Caricamento contratto...</p>
+  </section>
+
+  <section class="state-panel error" *ngIf="!loading && !contract && errorMessage">
+    <h2>Impossibile aprire il contratto</h2>
+    <p>{{ errorMessage }}</p>
+  </section>
+
+  <div class="content-grid" *ngIf="!loading && contract">
+    <section class="summary-card">
+      <div class="summary-head">
+        <div>
+          <span class="label">Contratto</span>
+          <h2>{{ contract.contractNumber }}</h2>
+        </div>
+        <span class="status-pill" [class.success]="isAccepted" [class.warning]="isExpired || isCancelled">
+          {{ contract.status }}
+        </span>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-item" *ngFor="let field of summaryFields">
+          <span>{{ field.label }}</span>
+          <strong>{{ field.value }}</strong>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a class="btn btn-secondary" [href]="pdfUrl" target="_blank" rel="noreferrer">
+          Apri PDF
+        </a>
+        <a class="btn btn-secondary" [href]="pdfUrl" target="_blank" rel="noreferrer" download>
+          Scarica PDF
+        </a>
+      </div>
+
+      <div class="notice success" *ngIf="successMessage">{{ successMessage }}</div>
+      <div class="notice error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+      <form class="acceptance-form" *ngIf="isPending" (ngSubmit)="submitAcceptance()">
+        <label>
+          Nome e cognome
+          <input type="text" name="acceptedByName" [(ngModel)]="acceptedByName" maxlength="255" required />
+        </label>
+
+        <label>
+          Email
+          <input type="email" name="acceptedByEmail" [(ngModel)]="acceptedByEmail" maxlength="255" />
+        </label>
+
+        <label>
+          Telefono
+          <input type="tel" name="acceptedByPhone" [(ngModel)]="acceptedByPhone" maxlength="50" />
+        </label>
+
+        <label class="check-row">
+          <input type="checkbox" name="acceptTerms" [(ngModel)]="acceptTerms" required />
+          <span>{{ contract.acceptanceText }}</span>
+        </label>
+
+        <button
+          *ngIf="!showSignaturePad"
+          class="btn btn-primary"
+          type="button"
+          (click)="openSignatureStep()"
+          [disabled]="submitting"
+        >
+          Procedi alla firma
+        </button>
+
+        <div class="signature-panel" *ngIf="showSignaturePad">
+          <div class="signature-panel-head">
+            <div>
+              <h3>Firma candidato</h3>
+              <p>Disegna la firma nel riquadro con dito o mouse.</p>
+            </div>
+            <button class="btn btn-secondary" type="button" (click)="clearSignature()" [disabled]="submitting">
+              Cancella
+            </button>
+          </div>
+
+          <div class="canvas-wrap">
+            <canvas
+              #signatureCanvas
+              class="signature-canvas"
+              (pointerdown)="startSignature($event)"
+              (pointermove)="moveSignature($event)"
+              (pointerup)="endSignature($event)"
+              (pointerleave)="endSignature($event)"
+              (pointercancel)="endSignature($event)"
+            ></canvas>
+            <span class="signature-placeholder" *ngIf="!hasSignature">Firma qui</span>
+          </div>
+
+          <button class="btn btn-primary" type="submit" [disabled]="submitting">
+            {{ submitting ? 'Firma in corso...' : 'Firma e accetta' }}
+          </button>
+        </div>
+      </form>
+
+      <div class="status-box success" *ngIf="isAccepted">
+        <h3>Firma registrata</h3>
+        <p *ngIf="contract.acceptedAt">
+          Data firma:
+          <strong>{{ contract.acceptedAt | date:'dd/MM/yyyy HH:mm' }}</strong>
+        </p>
+        <p *ngIf="contract.needsOfficeReview">
+          L'ufficio verifichera' il documento e completera' l'attivazione del dipendente.
+        </p>
+        <p *ngIf="contract.employeeId">
+          Profilo dipendente:
+          <strong>#{{ contract.employeeId }}</strong>
+        </p>
+      </div>
+
+      <div class="status-box warning" *ngIf="isExpired || isCancelled">
+        <h3>Serve un nuovo link</h3>
+        <p>{{ statusDescription }}</p>
+      </div>
+    </section>
+
+    <section class="preview-card" *ngIf="safePdfUrl">
+      <div class="preview-head">
+        <div>
+          <h2>Anteprima PDF</h2>
+          <p>{{ contract.signedPdfAvailable ? 'PDF firmato.' : 'PDF da firmare.' }}</p>
+        </div>
+        <span class="hash">SHA-256: {{ contract.contractHashSha256 }}</span>
+      </div>
+      <iframe [src]="safePdfUrl" [title]="'Contratto ' + contract.contractNumber"></iframe>
+    </section>
+  </div>
+</div>

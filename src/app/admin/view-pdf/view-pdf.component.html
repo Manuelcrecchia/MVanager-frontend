@@ -7,7 +7,7 @@
 
   <div class="pdf-shell">
     <div *ngIf="loadingPdf" class="pdf-loading">
-      Caricamento preventivo...
+      Caricamento documento...
     </div>
 
     <ngx-extended-pdf-viewer
@@ -35,11 +35,22 @@
     </button>
   </div>
 
+  <div class="confirm-panel" *ngIf="confirmEmployeeMode && pdfSrc">
+    <button
+      type="button"
+      class="btn btn-confirm-customer"
+      (click)="confirmAndCreateEmployee()"
+    >
+      <i class="fas fa-user-plus me-2"></i>
+      Verifica e crea dipendente
+    </button>
+  </div>
+
   <ng-template #customToolbar>
     <div class="pdf-toolbar">
       <div class="pdf-toolbar-left">
         <span class="pdf-toolbar-title">
-          {{ signedPdfMode ? 'Preventivo firmato' : 'Preventivo' }}
+          {{ documentTitle }}
         </span>
       </div>
 

@@ -1,0 +1,296 @@
+<section class="invoice-page">
+  <header class="invoice-toolbar">
+    <div>
+      <p class="eyebrow">Ciclo attivo</p>
+      <h1>Fatture elettroniche</h1>
+    </div>
+    <button type="button" class="primary-btn" (click)="newInvoice()">
+      <i class="fas fa-plus"></i>
+      Nuova
+    </button>
+    <button type="button" class="ghost-btn" (click)="importPassive()" [disabled]="saving">
+      <i class="fas fa-download"></i>
+      Import passive
+    </button>
+  </header>
+
+  <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
+  <div class="alert alert-success" *ngIf="success">{{ success }}</div>
+
+  <div class="invoice-layout">
+    <aside class="invoice-list">
+      <div class="filters">
+        <input type="search" [(ngModel)]="search" (keyup.enter)="loadInvoices()" placeholder="Cerca numero, cliente, P.IVA" />
+        <select [(ngModel)]="directionFilter" (change)="loadInvoices()">
+          <option value="outbound">Attive</option>
+          <option value="inbound">Passive</option>
+          <option value="">Tutte</option>
+        </select>
+        <select [(ngModel)]="statusFilter" (change)="loadInvoices()">
+          <option *ngFor="let item of statuses" [value]="item.key">{{ item.label }}</option>
+        </select>
+      </div>
+
+      <button
+        type="button"
+        class="invoice-row"
+        *ngFor="let invoice of invoices"
+        [class.active]="invoice.id === selected.id"
+        (click)="selectInvoice(invoice)"
+      >
+        <span>
+          <strong>{{ invoice.series ? invoice.series + '/' : '' }}{{ invoice.number }}</strong>
+          <small>{{ invoice.customerName || 'Cliente non indicato' }}</small>
+        </span>
+        <span class="row-meta">
+          <em>{{ statusLabel(invoice.status) }}</em>
+          <b>{{ invoice.total || 0 | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b>
+        </span>
+      </button>
+
+      <p class="empty" *ngIf="!loading && invoices.length === 0">Nessuna fattura trovata</p>
+    </aside>
+
+    <main class="invoice-editor">
+      <div class="status-strip">
+        <span class="status-pill">{{ statusLabel(selected.status) }}</span>
+        <span *ngIf="selected.providerStatus">Aruba: {{ selected.providerStatus }}</span>
+        <span *ngIf="selected.sdiIdentification">SdI: {{ selected.sdiIdentification }}</span>
+        <span *ngIf="selected.conservationStatus">Conservazione: {{ selected.conservationStatus }}</span>
+      </div>
+
+      <form class="invoice-form" (ngSubmit)="save()">
+        <div class="form-grid compact">
+          <label>
+            Numero
+            <input [(ngModel)]="selected.number" name="number" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Serie
+            <input [(ngModel)]="selected.series" name="series" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Tipo
+            <select [(ngModel)]="selected.type" name="type" [disabled]="!canEdit()">
+              <option value="TD01">TD01 Fattura</option>
+              <option value="TD04">TD04 Nota credito</option>
+              <option value="TD24">TD24 Differita</option>
+              <option value="TD26">TD26 Cessione beni ammortizzabili</option>
+            </select>
+          </label>
+          <label>
+            Data
+            <input type="date" [(ngModel)]="selected.issueDate" name="issueDate" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Scadenza
+            <input type="date" [(ngModel)]="selected.dueDate" name="dueDate" [readonly]="!canEdit()" />
+          </label>
+        </div>
+
+        <div class="form-grid" *ngIf="selected.type === 'TD04'">
+          <label>
+            Fattura collegata
+            <input [(ngModel)]="selected.relatedInvoiceNumber" name="relatedInvoiceNumber" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Data collegata
+            <input type="date" [(ngModel)]="selected.relatedInvoiceDate" name="relatedInvoiceDate" [readonly]="!canEdit()" />
+          </label>
+          <label class="wide">
+            Motivo nota credito
+            <textarea rows="2" [(ngModel)]="selected.creditNoteReason" name="creditNoteReason" [readonly]="!canEdit()"></textarea>
+          </label>
+        </div>
+
+        <h2>Cliente</h2>
+        <div class="form-grid">
+          <label>
+            Ragione sociale
+            <input [(ngModel)]="selected.customerName" name="customerName" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Partita IVA
+            <input [(ngModel)]="selected.customerVatNumber" name="customerVatNumber" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Codice fiscale
+            <input [(ngModel)]="selected.customerFiscalCode" name="customerFiscalCode" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Codice SDI
+            <input [(ngModel)]="selected.customerSdiCode" name="customerSdiCode" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            PEC
+            <input type="email" [(ngModel)]="selected.customerPec" name="customerPec" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Indirizzo
+            <input [(ngModel)]="selected.customerAddress" name="customerAddress" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Comune
+            <input [(ngModel)]="selected.customerCity" name="customerCity" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Provincia
+            <input [(ngModel)]="selected.customerProvince" name="customerProvince" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            CAP
+            <input [(ngModel)]="selected.customerZip" name="customerZip" [readonly]="!canEdit()" />
+          </label>
+        </div>
+
+        <h2>Righe</h2>
+        <div class="line-table">
+          <div class="line-row header">
+            <span>Descrizione</span>
+            <span>Q.tà</span>
+            <span>Prezzo</span>
+            <span>Sconto</span>
+            <span>IVA</span>
+            <span>Natura</span>
+            <span></span>
+          </div>
+          <div class="line-row" *ngFor="let line of selected.lines; let i = index">
+            <input [(ngModel)]="line.description" [name]="'description' + i" [readonly]="!canEdit()" />
+            <input type="number" step="0.01" [(ngModel)]="line.quantity" [name]="'quantity' + i" [readonly]="!canEdit()" />
+            <input type="number" step="0.01" [(ngModel)]="line.unitPrice" [name]="'unitPrice' + i" [readonly]="!canEdit()" />
+            <input type="number" step="0.01" [(ngModel)]="line.discountPercent" [name]="'discount' + i" [readonly]="!canEdit()" />
+            <input type="number" step="0.01" [(ngModel)]="line.vatRate" [name]="'vat' + i" [readonly]="!canEdit()" />
+            <input [(ngModel)]="line.vatNature" [name]="'nature' + i" [readonly]="!canEdit()" />
+            <button type="button" class="icon-btn danger" (click)="removeLine(i)" [disabled]="!canEdit()">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <button type="button" class="ghost-btn" (click)="addLine()" [disabled]="!canEdit()">
+          <i class="fas fa-plus"></i>
+          Riga
+        </button>
+
+        <h2>Fiscalità</h2>
+        <div class="form-grid">
+          <label class="checkbox-field">
+            <span>Split payment</span>
+            <input type="checkbox" [(ngModel)]="selected.splitPayment" name="splitPayment" [disabled]="!canEdit()" />
+          </label>
+          <label>
+            Esigibilità IVA
+            <select [(ngModel)]="selected.vatExigibility" name="vatExigibility" [disabled]="!canEdit() || !!selected.splitPayment">
+              <option value="I">Immediata</option>
+              <option value="D">Differita</option>
+              <option value="S">Split payment</option>
+            </select>
+          </label>
+          <label class="checkbox-field">
+            <span>Bollo</span>
+            <input type="checkbox" [(ngModel)]="selected.stampDutyEnabled" name="stampDutyEnabled" [disabled]="!canEdit()" />
+          </label>
+          <label *ngIf="selected.stampDutyEnabled">
+            Importo bollo
+            <input type="number" step="0.01" [(ngModel)]="selected.stampDutyAmount" name="stampDutyAmount" [readonly]="!canEdit()" />
+          </label>
+          <label class="checkbox-field">
+            <span>Ritenuta</span>
+            <input type="checkbox" [(ngModel)]="selected.withholdingEnabled" name="withholdingEnabled" [disabled]="!canEdit()" />
+          </label>
+          <label *ngIf="selected.withholdingEnabled">
+            Tipo ritenuta
+            <input [(ngModel)]="selected.withholdingType" name="withholdingType" [readonly]="!canEdit()" />
+          </label>
+          <label *ngIf="selected.withholdingEnabled">
+            Causale
+            <input [(ngModel)]="selected.withholdingReason" name="withholdingReason" [readonly]="!canEdit()" />
+          </label>
+          <label *ngIf="selected.withholdingEnabled">
+            Aliquota ritenuta
+            <input type="number" step="0.01" [(ngModel)]="selected.withholdingRate" name="withholdingRate" [readonly]="!canEdit()" />
+          </label>
+          <label *ngIf="selected.withholdingEnabled">
+            Importo ritenuta
+            <input type="number" step="0.01" [(ngModel)]="selected.withholdingAmount" name="withholdingAmount" [readonly]="!canEdit()" />
+          </label>
+          <label class="checkbox-field">
+            <span>Cassa previdenziale</span>
+            <input type="checkbox" [(ngModel)]="selected.pensionFundEnabled" name="pensionFundEnabled" [disabled]="!canEdit()" />
+          </label>
+          <label *ngIf="selected.pensionFundEnabled">
+            Tipo cassa
+            <input [(ngModel)]="selected.pensionFundType" name="pensionFundType" [readonly]="!canEdit()" />
+          </label>
+          <label *ngIf="selected.pensionFundEnabled">
+            Aliquota cassa
+            <input type="number" step="0.01" [(ngModel)]="selected.pensionFundRate" name="pensionFundRate" [readonly]="!canEdit()" />
+          </label>
+          <label *ngIf="selected.pensionFundEnabled">
+            Importo cassa
+            <input type="number" step="0.01" [(ngModel)]="selected.pensionFundAmount" name="pensionFundAmount" [readonly]="!canEdit()" />
+          </label>
+          <label *ngIf="selected.pensionFundEnabled">
+            IVA cassa
+            <input type="number" step="0.01" [(ngModel)]="selected.pensionFundVatRate" name="pensionFundVatRate" [readonly]="!canEdit()" />
+          </label>
+          <label *ngIf="selected.pensionFundEnabled">
+            Natura IVA cassa
+            <input [(ngModel)]="selected.pensionFundVatNature" name="pensionFundVatNature" [readonly]="!canEdit()" />
+          </label>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Metodo pagamento
+            <select [(ngModel)]="selected.paymentMethod" name="paymentMethod" [disabled]="!canEdit()">
+              <option *ngFor="let item of paymentMethods" [value]="item.key">{{ item.label }}</option>
+            </select>
+          </label>
+          <label>
+            IBAN
+            <input [(ngModel)]="selected.paymentIban" name="paymentIban" [readonly]="!canEdit()" />
+          </label>
+          <label class="wide">
+            Note
+            <textarea rows="3" [(ngModel)]="selected.notes" name="notes" [readonly]="!canEdit()"></textarea>
+          </label>
+        </div>
+
+        <footer class="editor-footer">
+          <div class="totals">
+            <span>Imponibile <b>{{ totals().subtotal | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
+            <span>IVA <b>{{ totals().vatTotal | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
+            <span>Totale <b>{{ totals().total | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
+          </div>
+          <div class="actions">
+            <button type="submit" class="primary-btn" [disabled]="saving || !canEdit()">Salva</button>
+            <button type="button" class="ghost-btn" (click)="issue()" [disabled]="saving || !selected.id">Emetti</button>
+            <button type="button" class="primary-btn" (click)="send()" [disabled]="saving || !selected.id">Invia Aruba</button>
+            <button type="button" class="ghost-btn" (click)="validate()" [disabled]="saving || !selected.id">Valida</button>
+            <button type="button" class="ghost-btn" (click)="sync()" [disabled]="saving || !selected.id">Sync</button>
+            <button type="button" class="ghost-btn" (click)="generateXml()" [disabled]="saving || !selected.id">XML</button>
+            <button type="button" class="ghost-btn" (click)="downloadPdf()" [disabled]="saving || !selected.id">PDF</button>
+            <button type="button" class="ghost-btn" (click)="markPaid()" [disabled]="saving || !selected.id">Pagata</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteDraft()" [disabled]="saving || selected.status !== 'draft'">Elimina</button>
+          </div>
+        </footer>
+      </form>
+
+      <section class="technical-panels">
+        <article>
+          <h2>Eventi</h2>
+          <div class="event" *ngFor="let event of events">
+            <strong>{{ event.eventType }}</strong>
+            <span>{{ event.status || '-' }} · {{ event.direction }} · {{ event.receivedAt | date:'short':'':'it-IT' }}</span>
+            <small>{{ event.message || event.providerFilename }}</small>
+          </div>
+          <p class="empty" *ngIf="events.length === 0">Nessun evento registrato</p>
+        </article>
+        <article *ngIf="xmlPreview">
+          <h2>XML</h2>
+          <pre>{{ xmlPreview }}</pre>
+        </article>
+      </section>
+    </main>
+  </div>
+</section>

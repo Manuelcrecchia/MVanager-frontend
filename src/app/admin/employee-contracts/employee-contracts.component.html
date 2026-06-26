@@ -1,0 +1,313 @@
+<div class="container py-4 page-wrap contracts-page">
+  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <button class="btn btn-back-glass" type="button" (click)="back()">
+        &larr; Torna Indietro
+      </button>
+      <button
+        *ngIf="globalService.hasPermission('EMPLOYEE_CREATE')"
+        class="btn btn-pink"
+        type="button"
+        (click)="openNewForm()"
+        [disabled]="contractConfigMissing || contractFields.length === 0"
+      >
+        <i class="fas fa-plus me-1"></i> Nuovo
+      </button>
+    </div>
+
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <input
+        class="form-control form-control-glass"
+        style="max-width: 220px; min-width: 160px;"
+        placeholder="Numero contratto"
+        #inputNumeroContratto
+        (input)="searchContractNumber(inputNumeroContratto.value)"
+      />
+      <input
+        class="form-control form-control-glass"
+        style="max-width: 220px; min-width: 160px;"
+        placeholder="Nominativo"
+        #inputNominativo
+        (input)="searchContractName(inputNominativo.value)"
+      />
+      <label class="d-flex align-items-center gap-2 completed-toggle">
+        <input
+          type="checkbox"
+          [(ngModel)]="showCompletedContracts"
+          (change)="refreshContractList()"
+          style="width: 18px; height: 18px;"
+        />
+        <span class="fw-bold" style="font-size: 13px;">Completati</span>
+      </label>
+    </div>
+  </div>
+
+  <h2 class="text-center page-title mb-4 text-dark">Contratti dipendenti</h2>
+
+  <div class="notice error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <div class="notice error" *ngIf="!errorMessage && contractConfigMissing">
+    Configura i campi contratto in MVControl prima di creare contratti dipendenti.
+  </div>
+  <div class="notice success" *ngIf="successMessage">{{ successMessage }}</div>
+
+  <section class="form-panel" *ngIf="showForm">
+    <div class="form-head">
+      <h2>{{ editingContract ? 'Modifica contratto' : 'Nuovo contratto' }}</h2>
+      <button class="icon-btn" type="button" (click)="closeForm()" aria-label="Chiudi">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <form class="contract-form" (ngSubmit)="createContract()">
+      <section
+        class="contract-field-section"
+        *ngFor="let section of visibleContractSections; trackBy: trackByContractSection"
+      >
+        <div class="contract-field-section-head">
+          <h3>{{ section.label }}</h3>
+          <span>{{ section.fields.length }}</span>
+        </div>
+
+        <div class="contract-field-grid">
+          <label
+            *ngFor="let field of section.fields; let fieldIndex = index; trackBy: trackByContractField"
+            [class.wide]="isWideContractField(field)"
+          >
+          {{ field.label || field.key }}
+
+          <textarea
+            *ngIf="isContractTextarea(field)"
+            [name]="'contractField' + getContractFieldKey(field)"
+            rows="3"
+            [ngModel]="getContractFieldValue(field)"
+            (ngModelChange)="updateContractField(field, $event)"
+            [required]="field.required === true"
+          ></textarea>
+
+          <select
+            *ngIf="!isContractTextarea(field) && isContractSelect(field)"
+            [name]="'contractField' + getContractFieldKey(field)"
+            [ngModel]="getContractFieldValue(field)"
+            (ngModelChange)="updateContractField(field, $event)"
+            [required]="field.required === true"
+          >
+            <option value=""></option>
+            <option *ngFor="let option of getContractEnumOptions(field)" [value]="option">
+              {{ option }}
+            </option>
+          </select>
+
+          <span class="checkbox-field" *ngIf="!isContractTextarea(field) && !isContractSelect(field) && isContractBoolean(field)">
+            <input
+              type="checkbox"
+              [name]="'contractField' + getContractFieldKey(field)"
+              [ngModel]="getContractFieldValue(field)"
+              (ngModelChange)="updateContractField(field, $event)"
+            />
+          </span>
+
+          <input
+            *ngIf="!isContractTextarea(field) && !isContractSelect(field) && !isContractBoolean(field)"
+            [type]="getContractFieldInputType(field)"
+            [name]="'contractField' + getContractFieldKey(field)"
+            [ngModel]="getContractFieldValue(field)"
+            (ngModelChange)="updateContractField(field, $event)"
+            [required]="field.required === true"
+          />
+          </label>
+        </div>
+      </section>
+
+      <div class="form-actions">
+        <button class="btn btn-light" type="button" (click)="closeForm()">Chiudi</button>
+        <button class="btn btn-primary" type="submit" [disabled]="saving">
+          {{ saving ? 'Salvataggio...' : (editingContract ? 'Salva modifiche' : 'Crea contratto') }}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="state-panel" *ngIf="loading">
+    Caricamento contratti...
+  </section>
+
+  <section class="state-panel" *ngIf="!loading && filteredContracts.length === 0">
+    Nessun contratto trovato.
+  </section>
+
+  <section class="d-flex flex-column gap-3" *ngIf="!loading && filteredContracts.length">
+    <div *ngFor="let contract of filteredContracts">
+      <div
+        class="quote-card"
+        [class.notification-target]="contract.id === highlightedContractId"
+        [attr.id]="'employee-contract-' + contract.id"
+      >
+        <button
+          type="button"
+          class="quote-header-btn"
+          (click)="toggleContractOpen(contract.id)"
+        >
+          <span class="quote-title">
+            {{ contract.contractNumber }} - {{ getContractDisplayName(contract) }}
+            <span
+              *ngIf="contract.status === 'sent' && !showCompletedContracts"
+              class="badge bg-warning text-dark ms-2"
+            >
+              In attesa candidato
+            </span>
+            <span
+              *ngIf="contract.signaturePresent"
+              class="badge bg-info text-dark ms-2"
+            >
+              Firmato
+            </span>
+            <span
+              *ngIf="contract.needsOfficeReview"
+              class="badge bg-danger ms-2"
+            >
+              Da verificare
+            </span>
+            <span
+              *ngIf="contract.employeeId"
+              class="badge bg-success ms-2"
+            >
+              Dipendente creato
+            </span>
+            <ng-container *ngIf="showCompletedContracts">
+              <i *ngIf="contract.status === 'accepted'" class="fas fa-check-circle text-success ms-2"></i>
+              <i *ngIf="contract.status === 'cancelled' || contract.status === 'expired'" class="fas fa-times-circle text-danger ms-2"></i>
+            </ng-container>
+          </span>
+
+          <span class="d-flex align-items-center gap-2">
+            <button
+              type="button"
+              class="btn btn-sm btn-pdf action-with-tooltip"
+              (click)="viewContractPdf(contract); $event.stopPropagation()"
+              title="Apri il PDF del contratto"
+              aria-label="Apri il PDF del contratto"
+              data-tooltip="Apre il PDF del contratto"
+            >
+              <i class="fas fa-file-pdf"></i>
+            </button>
+            <span class="chev" [class.chev--open]="isContractOpen(contract.id)">▾</span>
+          </span>
+        </button>
+
+        <div class="quote-actions" *ngIf="isContractOpen(contract.id)">
+          <div class="quote-actions-inner">
+            <button
+              *ngIf="!showCompletedContracts && canEdit(contract)"
+              class="btn btn-quote-action btn-quote-edit action-with-tooltip"
+              (click)="openEditForm(contract)"
+              title="Modifica il contratto"
+              aria-label="Modifica il contratto"
+              data-tooltip="Modifica contratto"
+            >
+              <i class="fas fa-pen-to-square"></i>
+            </button>
+
+            <button
+              *ngIf="!showCompletedContracts && canDelete(contract)"
+              class="btn btn-quote-action btn-quote-delete action-with-tooltip"
+              (click)="deleteContract(contract)"
+              title="Elimina il contratto"
+              aria-label="Elimina il contratto"
+              data-tooltip="Elimina contratto"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
+
+            <button
+              *ngIf="!showCompletedContracts && canSend(contract)"
+              class="btn btn-quote-action btn-quote-whatsapp action-with-tooltip"
+              (click)="openContractWhatsApp(contract)"
+              title="Apri la chat WhatsApp del candidato senza messaggio precompilato"
+              aria-label="Apri WhatsApp"
+              data-tooltip="Apri WhatsApp"
+            >
+              <i class="fab fa-whatsapp"></i>
+            </button>
+
+            <button
+              *ngIf="!showCompletedContracts && canSend(contract) && canComposeEmail()"
+              class="btn btn-quote-action btn-quote-email action-with-tooltip"
+              (click)="composeContractEmail(contract)"
+              title="Crea una nuova email con il candidato già come destinatario"
+              aria-label="Scrivi email"
+              data-tooltip="Scrivi email"
+            >
+              <i class="fas fa-envelope"></i>
+            </button>
+
+            <button
+              *ngIf="!showCompletedContracts && canSend(contract)"
+              class="btn btn-quote-action btn-quote-chat action-with-tooltip"
+              (click)="sendSignatureLink(contract)"
+              title="Genera e invia su WhatsApp il link per far firmare il contratto"
+              aria-label="Invia link firma"
+              data-tooltip="Link firma"
+            >
+              <i class="fas fa-file-signature"></i>
+            </button>
+
+            <button
+              *ngIf="!showCompletedContracts && canSendContractPdf(contract)"
+              class="btn btn-quote-action btn-quote-send action-with-tooltip"
+              (click)="sendContractPdf(contract)"
+              title="Invia il PDF del contratto via email"
+              aria-label="Invia PDF contratto via email"
+              data-tooltip="Invia PDF via email"
+            >
+              <i class="fas fa-file-export"></i>
+            </button>
+
+            <button
+              *ngIf="!showCompletedContracts && canAcceptContract(contract)"
+              class="btn btn-quote-action btn-quote-confirm action-with-tooltip"
+              (click)="acceptContract(contract)"
+              title="Accetta manualmente il contratto e verifica il PDF prima di creare il dipendente"
+              aria-label="Accetta contratto"
+              data-tooltip="Accetta contratto"
+            >
+              <i class="fas fa-check"></i>
+            </button>
+
+            <button
+              *ngIf="!showCompletedContracts && canRefuseContract(contract)"
+              class="btn btn-quote-action btn-quote-refuse action-with-tooltip"
+              (click)="refuseContract(contract)"
+              title="Segna il contratto come rifiutato"
+              aria-label="Rifiuta contratto"
+              data-tooltip="Rifiuta contratto"
+            >
+              <i class="fas fa-times"></i>
+            </button>
+
+            <button
+              *ngIf="canDuplicate(contract)"
+              class="btn btn-quote-action btn-quote-copy action-with-tooltip"
+              (click)="duplicateContract(contract)"
+              title="Duplica il contratto bloccato in una nuova bozza modificabile"
+              aria-label="Duplica contratto"
+              data-tooltip="Duplica contratto"
+            >
+              <i class="fas fa-copy"></i>
+            </button>
+
+            <button
+              *ngIf="showCompletedContracts && canCompleteOnboarding(contract)"
+              class="btn btn-quote-action btn-quote-verify action-with-tooltip"
+              (click)="reviewSignedContractAndCreateEmployee(contract)"
+              title="Apre il contratto firmato; dopo la verifica puoi creare il dipendente"
+              aria-label="Verifica contratto"
+              data-tooltip="Verifica firmato"
+            >
+              <i class="fas fa-file-signature"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
