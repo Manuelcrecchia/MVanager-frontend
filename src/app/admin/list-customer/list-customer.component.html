@@ -193,6 +193,20 @@
                 </button>
 
                 <button
+                  *ngIf="canGenerateSalesInvoice(customer)"
+                  mat-raised-button
+                  color="primary"
+                  (click)="generateSalesInvoice(customer)"
+                  class="action-with-tooltip invoice-action-button"
+                  title="Genera una fattura vendita con i dati del cliente già compilati"
+                  aria-label="Genera fattura vendita"
+                  data-tooltip="Genera fattura vendita"
+                >
+                  <mat-icon>receipt_long</mat-icon>
+                  <span>Genera fattura</span>
+                </button>
+
+                <button
                   *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
                   color="warn"

@@ -78,6 +78,8 @@ export class AuthLevelGuard implements CanActivate {
     EMAIL_SETTINGS: 'email',
     INVOICES_VIEW: 'invoices',
     INVOICES_MANAGE: 'invoices',
+    ACCOUNTING_VIEW: 'invoices',
+    ACCOUNTING_MANAGE: 'invoices',
     NOTIFICATIONS_VIEW: 'notifications',
     NOTIFICATIONS_MANAGE: 'notifications',
     TODOS_VIEW: 'todos',

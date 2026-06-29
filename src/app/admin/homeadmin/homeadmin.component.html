@@ -22,7 +22,7 @@
         --glass-border: rgba(255, 255, 255, 0.35);
         --shadow: 0 20px 60px rgba(2, 6, 23, 0.18);
         --home-safe-top: max(env(safe-area-inset-top, 0px), 44px);
-        --sidebar-width: 320px;
+        --sidebar-width: 260px;
       }
 
       body {
@@ -225,8 +225,9 @@
 
       .home-desktop-content {
         min-height: 100vh;
-        padding: 24px 40px 40px 60px;
+        padding: 18px 24px 32px 32px;
         transition: margin-left 0.25s ease;
+        overflow-x: auto;
       }
 
       .sidebar-toggle-btn {
@@ -321,14 +322,14 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
-        padding: 8px 16px 6px;
+        gap: 8px;
+        padding: 6px 12px 5px;
         border-bottom: 1px solid rgba(15, 23, 42, 0.06);
       }
 
       .sidebar-logo .logo {
-        max-height: min(12vh, 96px);
-        max-width: clamp(112px, 58%, 180px);
+        max-height: min(9vh, 68px);
+        max-width: clamp(88px, 50%, 130px);
         width: auto;
         object-fit: contain;
         filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.1));
@@ -337,15 +338,15 @@
       .sidebar-logo-actions {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         flex: 0 0 auto;
       }
 
       .sidebar-icon-btn {
-        width: 42px;
-        height: 42px;
+        width: 34px;
+        height: 34px;
         border: 1px solid rgba(15, 23, 42, 0.08);
-        border-radius: 14px;
+        border-radius: 10px;
         display: inline-grid;
         place-items: center;
         background: rgba(255, 255, 255, 0.66);
@@ -382,17 +383,17 @@
       .sidebar-nav {
         flex: 1;
         overflow-y: auto;
-        padding: 10px 20px 16px;
+        padding: 8px 12px 12px;
       }
 
       .sidebar-nav .home-category-panel__eyebrow {
         width: calc(100% - 10px);
         margin: 0 5px 8px;
-        padding: 2px 6px 8px;
+        padding: 2px 5px 6px;
         border: 0;
         background: transparent;
         color: rgba(15, 23, 42, 0.62);
-        font-size: 0.76rem;
+        font-size: 0.66rem;
         font-weight: 950;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -413,14 +414,14 @@
 
       .sidebar-nav .home-category-item {
         width: calc(100% - 10px);
-        min-height: 60px;
+        min-height: 48px;
         display: flex;
         align-items: center;
-        gap: 14px;
-        padding: 14px 18px;
-        margin: 0 5px 8px 5px;
+        gap: 10px;
+        padding: 9px 12px;
+        margin: 0 5px 6px 5px;
         border: 1px solid rgba(15, 23, 42, 0.08);
-        border-radius: 16px;
+        border-radius: 12px;
         background: rgba(255, 255, 255, 0.62);
         color: var(--brand-black);
         text-align: left;
@@ -430,7 +431,7 @@
 
       .sidebar-nav .home-category-item__label {
         display: block;
-        font-size: 1rem;
+        font-size: 0.86rem;
         font-weight: 900;
         line-height: 1.2;
         overflow: hidden;
@@ -450,12 +451,12 @@
         flex: 0 0 auto;
         display: inline-grid;
         place-items: center;
-        width: 44px;
-        height: 44px;
-        border-radius: 14px;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
         background: rgba(13, 110, 253, 0.11);
         color: var(--brand-blue);
-        font-size: 18px;
+        font-size: 14px;
       }
 
       .sidebar-nav .home-category-item:hover .home-category-item__icon,
@@ -471,15 +472,15 @@
 
       .sidebar-nav .home-category-item__label {
         display: block;
-        font-size: 1rem;
+        font-size: 0.86rem;
         font-weight: 900;
         line-height: 1.2;
       }
 
       .sidebar-nav .home-category-item__count {
         display: block;
-        margin-top: 4px;
-        font-size: 0.78rem;
+        margin-top: 2px;
+        font-size: 0.68rem;
         font-weight: 800;
         opacity: 0.72;
       }
@@ -498,10 +499,10 @@
 
       .home-sidebar-dropdown {
         display: grid;
-        gap: 6px;
+        gap: 5px;
         width: calc(100% - 22px);
-        margin: -2px 11px 10px 22px;
-        padding: 8px;
+        margin: -2px 11px 8px 18px;
+        padding: 6px;
         border-left: 3px solid rgba(255, 122, 0, 0.38);
         border-radius: 0 14px 14px 0;
         background: rgba(255, 255, 255, 0.44);
@@ -509,17 +510,17 @@
       }
 
       .home-sidebar-subitem {
-        min-height: 42px;
+        min-height: 34px;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         width: 100%;
-        padding: 9px 11px;
+        padding: 7px 9px;
         border: 1px solid rgba(15, 23, 42, 0.06);
-        border-radius: 11px;
+        border-radius: 9px;
         background: rgba(255, 255, 255, 0.68);
         color: var(--brand-black);
-        font-size: 0.86rem;
+        font-size: 0.76rem;
         font-weight: 850;
         text-align: left;
         cursor: pointer;
@@ -527,7 +528,7 @@
       }
 
       .home-sidebar-subitem i {
-        width: 18px;
+        width: 15px;
         color: var(--brand-blue);
         text-align: center;
       }
@@ -573,15 +574,15 @@
       .sidebar-bottom-btn {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         width: calc(100% - 10px);
-        padding: 12px 14px;
+        padding: 8px 10px;
         margin: 0 5px;
         border: 1px solid rgba(15, 23, 42, 0.06);
-        border-radius: 12px;
+        border-radius: 10px;
         background: rgba(255, 255, 255, 0.5);
         color: var(--brand-black);
-        font-size: 0.9rem;
+        font-size: 0.78rem;
         font-weight: 800;
         text-align: left;
         transition: transform 0.18s ease, background 0.18s ease;
@@ -597,7 +598,7 @@
         flex-shrink: 0;
         display: grid;
         gap: 6px;
-        padding: 8px 20px 10px;
+        padding: 7px 12px 8px;
         border-bottom: 1px solid rgba(15, 23, 42, 0.06);
       }
 
@@ -644,23 +645,23 @@
       }
 
       .sidebar-bottom-btn i {
-        width: 20px;
+        width: 16px;
         text-align: center;
-        font-size: 0.9rem;
+        font-size: 0.8rem;
       }
 
       .sidebar-logout {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         width: calc(100% - 10px);
-        padding: 14px 14px;
+        padding: 9px 10px;
         margin: 6px 5px 0 5px;
         border: 2px solid rgba(220, 53, 69, 0.25);
-        border-radius: 12px;
+        border-radius: 10px;
         background: rgba(220, 53, 69, 0.08);
         color: #dc3545;
-        font-size: 0.95rem;
+        font-size: 0.8rem;
         font-weight: 900;
         text-align: left;
         transition: transform 0.18s ease, background 0.18s ease;
@@ -673,17 +674,18 @@
       }
 
       .sidebar-logout i {
-        width: 20px;
+        width: 16px;
         text-align: center;
-        font-size: 1rem;
+        font-size: 0.82rem;
       }
 
       /* ===== DESKTOP CONTENT ===== */
       .home-desktop-content {
         margin-left: var(--sidebar-width);
         min-height: 100vh;
-        padding: 24px 30px 40px 44px;
+        padding: 18px 22px 32px 30px;
         transition: margin-left 0.25s ease;
+        overflow-x: auto;
       }
 
       .desktop-workspace-grid {
@@ -745,8 +747,8 @@
 
       .home-desktop-content .home-embedded-content {
         min-height: calc(100vh - 120px);
-        border-radius: 22px;
-        overflow: hidden;
+        border-radius: 14px;
+        overflow: auto;
         background: rgba(255, 255, 255, 0.72);
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
         transition: box-shadow 0.28s ease, background 0.28s ease;
@@ -1394,7 +1396,7 @@
       <!-- ===================== -->
       <!-- DESKTOP SIDEBAR       -->
       <!-- ===================== -->
-      <aside class="home-desktop-sidebar" [class.sidebar-collapsed]="sidebarCollapsed" [style.width]="sidebarCollapsed ? '60px' : '320px'" *ngIf="isDesktopHome">
+      <aside class="home-desktop-sidebar" [class.sidebar-collapsed]="sidebarCollapsed" [style.width]="sidebarCollapsed ? '60px' : '260px'" *ngIf="isDesktopHome">
         <button class="sidebar-toggle-btn" (click)="toggleSidebar()" [attr.title]="sidebarCollapsed ? 'Espandi menu' : 'Comprimi menu'">
           <i class="fas" [class.fa-chevron-left]="!sidebarCollapsed" [class.fa-chevron-right]="sidebarCollapsed"></i>
         </button>
@@ -1551,7 +1553,7 @@
       <!-- ===================== -->
       <!-- DESKTOP CONTENT AREA  -->
       <!-- ===================== -->
-      <main class="home-desktop-content" [style.margin-left]="sidebarCollapsed ? '60px' : '320px'" *ngIf="isDesktopHome">
+      <main class="home-desktop-content" [style.margin-left]="sidebarCollapsed ? '60px' : '260px'" *ngIf="isDesktopHome">
         <div class="desktop-workspace-grid" [class.desktop-workspace-grid--no-todo]="!canUseTodoView() || isDesktopContentActive">
           <div class="desktop-workspace-main">
             <div class="home-embedded-content" *ngIf="isDesktopContentActive; else desktopMainChooser">

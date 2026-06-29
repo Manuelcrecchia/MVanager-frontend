@@ -2,7 +2,7 @@ export const environment = {
   production: true,
   apiUrl: 'https://mvanager.mvtechcore.it/',
   mobileDevApiUrl: '',
-  invoicesEnabled: false,
+  invoicesEnabled: true,
   companyRegistryEndpoint:
     'https://mvanager.mvtechcore.it/company-registry/companies',
 };

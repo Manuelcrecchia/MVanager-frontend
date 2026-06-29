@@ -54,6 +54,7 @@ import { EmailSettingsComponent } from './admin/email-settings/email-settings.co
 import { NotificationSettingsComponent } from './admin/notification-settings/notification-settings.component';
 import { InternalWarehouseComponent } from './admin/internal-warehouse/internal-warehouse.component';
 import { InvoicesComponent } from './admin/invoices/invoices.component';
+import { AccountingComponent } from './admin/accounting/accounting.component';
 import { EmployeeContractsComponent } from './admin/employee-contracts/employee-contracts.component';
 
 // ✅ Documenti interni (assumo questo path; se diverso, aggiorna SOLO l'import)
@@ -176,6 +177,12 @@ const routes: Routes = [
         component: InvoicesComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
         data: { permission: 'INVOICES_VIEW' },
+      },
+      {
+        path: 'accounting',
+        component: AccountingComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'ACCOUNTING_VIEW' },
       },
       {
         path: 'calendarHome',
@@ -430,6 +437,12 @@ const routes: Routes = [
     component: InvoicesComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'INVOICES_VIEW' },
+  },
+  {
+    path: 'accounting',
+    component: AccountingComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'ACCOUNTING_VIEW' },
   },
   {
     path: 'addQuote',

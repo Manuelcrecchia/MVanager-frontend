@@ -47,6 +47,7 @@
     "file-saver": "^2.0.5",
     "firebase": "^11.10.0",
     "gsap": "^3.13.0",
+    "jszip": "^3.10.1",
     "jwt-decode": "^4.0.0",
     "material": "^0.9.11",
     "material-icons": "^1.13.12",

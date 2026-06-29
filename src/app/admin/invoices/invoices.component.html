@@ -1,62 +1,123 @@
 <section class="invoice-page">
   <header class="invoice-toolbar">
     <div>
-      <p class="eyebrow">Ciclo attivo</p>
-      <h1>Fatture elettroniche</h1>
+      <p class="eyebrow">Pagamenti e fatture</p>
+      <h1>{{ viewTitle }}</h1>
     </div>
-    <button type="button" class="primary-btn" (click)="newInvoice()">
-      <i class="fas fa-plus"></i>
-      Nuova
-    </button>
-    <button type="button" class="ghost-btn" (click)="importPassive()" [disabled]="saving">
-      <i class="fas fa-download"></i>
-      Import passive
-    </button>
+    <ng-container *ngIf="activeView === 'invoices'">
+      <button type="button" class="primary-btn" (click)="newInvoice()">
+        <i class="fas fa-plus"></i>
+        Nuova
+      </button>
+      <button type="button" class="ghost-btn" (click)="newProforma()">
+        <i class="fas fa-file-invoice"></i>
+        Proforma
+      </button>
+      <button type="button" class="ghost-btn" *ngIf="directionFilter === 'outbound'" (click)="importSalesHistory()" [disabled]="saving">
+        <i class="fas fa-file-import"></i>
+        Import storico vendita
+      </button>
+      <button type="button" class="ghost-btn" *ngIf="directionFilter === 'inbound'" (click)="importPassive()" [disabled]="saving">
+        <i class="fas fa-download"></i>
+        Import XML acquisto
+      </button>
+      <button type="button" class="ghost-btn" *ngIf="directionFilter === 'inbound'" (click)="importPassiveFromProvider()" [disabled]="saving">
+        <i class="fas fa-cloud-download-alt"></i>
+        Import provider
+      </button>
+    </ng-container>
   </header>
 
-  <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
-  <div class="alert alert-success" *ngIf="success">{{ success }}</div>
+  <nav class="invoice-section-tabs" aria-label="Sezioni pagamenti e fatture">
+    <button type="button" [class.active]="activeView === 'invoices' && directionFilter === 'outbound'" (click)="setView('invoices', 'outbound')">
+      <i class="fas fa-file-invoice-dollar"></i>
+      Fatture vendita
+    </button>
+    <button type="button" [class.active]="activeView === 'invoices' && directionFilter === 'inbound'" (click)="setView('invoices', 'inbound')">
+      <i class="fas fa-file-download"></i>
+      Fatture acquisto
+    </button>
+    <button type="button" [class.active]="activeView === 'payments'" (click)="setView('payments')">
+      <i class="fas fa-calendar-check"></i>
+      Pagamenti
+    </button>
+    <button type="button" [class.active]="activeView === 'economics'" (click)="setView('economics')">
+      <i class="fas fa-chart-line"></i>
+      Economia
+    </button>
+    <button type="button" [class.active]="activeView === 'ddt'" (click)="setView('ddt')">
+      <i class="fas fa-truck"></i>
+      DDT
+    </button>
+    <button type="button" [class.active]="activeView === 'suppliers'" (click)="setView('suppliers')">
+      <i class="fas fa-building"></i>
+      Fornitori
+    </button>
+    <button type="button" [class.active]="activeView === 'settings'" (click)="setView('settings')">
+      <i class="fas fa-cog"></i>
+      Impostazioni
+    </button>
+  </nav>
 
-  <div class="invoice-layout">
+  <div class="invoice-feedback error" *ngIf="error">{{ error }}</div>
+  <div class="invoice-feedback success" *ngIf="success && !error">{{ success }}</div>
+
+  <div class="invoice-layout" *ngIf="activeView === 'invoices'">
     <aside class="invoice-list">
       <div class="filters">
-        <input type="search" [(ngModel)]="search" (keyup.enter)="loadInvoices()" placeholder="Cerca numero, cliente, P.IVA" />
+        <input type="search" [(ngModel)]="search" (keyup.enter)="loadInvoices()" [placeholder]="invoiceSearchPlaceholder()" />
         <select [(ngModel)]="directionFilter" (change)="loadInvoices()">
-          <option value="outbound">Attive</option>
-          <option value="inbound">Passive</option>
+          <option value="outbound">Vendita</option>
+          <option value="inbound">Acquisto</option>
           <option value="">Tutte</option>
         </select>
         <select [(ngModel)]="statusFilter" (change)="loadInvoices()">
           <option *ngFor="let item of statuses" [value]="item.key">{{ item.label }}</option>
         </select>
+        <select [(ngModel)]="documentKindFilter">
+          <option *ngFor="let item of documentKindOptions" [value]="item.key">{{ item.label }}</option>
+        </select>
       </div>
 
-      <button
-        type="button"
-        class="invoice-row"
-        *ngFor="let invoice of invoices"
-        [class.active]="invoice.id === selected.id"
-        (click)="selectInvoice(invoice)"
-      >
-        <span>
-          <strong>{{ invoice.series ? invoice.series + '/' : '' }}{{ invoice.number }}</strong>
-          <small>{{ invoice.customerName || 'Cliente non indicato' }}</small>
-        </span>
-        <span class="row-meta">
-          <em>{{ statusLabel(invoice.status) }}</em>
-          <b>{{ invoice.total || 0 | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b>
-        </span>
-      </button>
+      <section class="invoice-list-group" *ngFor="let group of invoiceListGroups()">
+        <header class="invoice-list-group__head">
+          <span>{{ group.label }}</span>
+          <strong>{{ group.items.length }}</strong>
+        </header>
 
-      <p class="empty" *ngIf="!loading && invoices.length === 0">Nessuna fattura trovata</p>
+        <button
+          type="button"
+          class="invoice-row"
+          *ngFor="let invoice of group.items"
+          [class.active]="invoice.id === selected.id"
+          [class.invoice-row--note]="isCreditOrDebitNote(invoice)"
+          [class.invoice-row--supplier]="isInbound(invoice)"
+          (click)="selectInvoice(invoice)"
+        >
+          <span>
+            <strong>{{ invoice.series ? invoice.series + '/' : '' }}{{ invoice.number }}</strong>
+            <small>{{ invoice.customerName || partyFallback(invoice) }}</small>
+          </span>
+          <span class="row-meta">
+            <em>{{ invoice.type }}</em>
+            <em>{{ statusLabel(invoice.status) }}</em>
+            <em>{{ paymentStatusLabel(invoice.paymentStatus) }}</em>
+            <b>{{ invoice.total || 0 | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b>
+          </span>
+        </button>
+      </section>
+
+      <p class="empty" *ngIf="!loading && invoiceListGroups().length === 0">Nessuna fattura trovata</p>
     </aside>
 
     <main class="invoice-editor">
       <div class="status-strip">
         <span class="status-pill">{{ statusLabel(selected.status) }}</span>
-        <span *ngIf="selected.providerStatus">Aruba: {{ selected.providerStatus }}</span>
+        <span *ngIf="selected.providerStatus">Provider: {{ selected.providerStatus }}</span>
         <span *ngIf="selected.sdiIdentification">SdI: {{ selected.sdiIdentification }}</span>
         <span *ngIf="selected.conservationStatus">Conservazione: {{ selected.conservationStatus }}</span>
+        <span>Pagamento: {{ paymentStatusLabel(selected.paymentStatus) }}</span>
+        <span *ngIf="selected.residualAmount !== undefined">Residuo: {{ selected.residualAmount || 0 | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</span>
       </div>
 
       <form class="invoice-form" (ngSubmit)="save()">
@@ -71,11 +132,8 @@
           </label>
           <label>
             Tipo
-            <select [(ngModel)]="selected.type" name="type" [disabled]="!canEdit()">
-              <option value="TD01">TD01 Fattura</option>
-              <option value="TD04">TD04 Nota credito</option>
-              <option value="TD24">TD24 Differita</option>
-              <option value="TD26">TD26 Cessione beni ammortizzabili</option>
+            <select [(ngModel)]="selected.type" name="type" [disabled]="!canEdit()" (change)="onDocumentTypeChange()">
+              <option *ngFor="let item of documentTypes" [value]="item.key">{{ item.label }}</option>
             </select>
           </label>
           <label>
@@ -88,7 +146,7 @@
           </label>
         </div>
 
-        <div class="form-grid" *ngIf="selected.type === 'TD04'">
+        <div class="form-grid" *ngIf="selected.type === 'TD04' || selected.type === 'TD05'">
           <label>
             Fattura collegata
             <input [(ngModel)]="selected.relatedInvoiceNumber" name="relatedInvoiceNumber" [readonly]="!canEdit()" />
@@ -98,20 +156,61 @@
             <input type="date" [(ngModel)]="selected.relatedInvoiceDate" name="relatedInvoiceDate" [readonly]="!canEdit()" />
           </label>
           <label class="wide">
-            Motivo nota credito
+            Motivo nota
             <textarea rows="2" [(ngModel)]="selected.creditNoteReason" name="creditNoteReason" [readonly]="!canEdit()"></textarea>
           </label>
         </div>
 
-        <h2>Cliente</h2>
+        <h2>{{ partyTitle() }}</h2>
         <div class="form-grid">
+          <label class="wide">
+            {{ partySearchLabel() }}
+            <div class="customer-picker">
+              <input
+                type="search"
+                [(ngModel)]="customerQuery"
+                name="customerQuery"
+                [placeholder]="partySearchPlaceholder()"
+                [readonly]="!canEdit()"
+                (focus)="openCustomerPicker()"
+                (input)="openCustomerPicker()"
+                (blur)="closeCustomerPickerSoon()"
+              />
+              <button
+                type="button"
+                class="customer-picker__clear"
+                *ngIf="canEdit() && (selectedCustomerCode || customerQuery)"
+                (click)="clearCustomerSelection()"
+              >
+                Compila manualmente
+              </button>
+              <div class="customer-picker__list" *ngIf="canEdit() && customerPickerOpen && filteredCustomers().length">
+                <button
+                  type="button"
+                  *ngFor="let customer of filteredCustomers()"
+                  (click)="selectCustomer(customer)"
+                  [class.active]="customer.numeroCliente === selectedCustomerCode"
+                >
+                  {{ customer.label }}
+                </button>
+              </div>
+            </div>
+          </label>
+          <label>
+            Tipo anagrafica
+            <select [(ngModel)]="selected.customerRecipientType" name="customerRecipientType" [disabled]="!canEdit()">
+              <option value="business">Azienda privata</option>
+              <option value="pa">Pubblica amministrazione</option>
+              <option value="private">Privato</option>
+            </select>
+          </label>
           <label>
             Ragione sociale
             <input [(ngModel)]="selected.customerName" name="customerName" [readonly]="!canEdit()" />
           </label>
           <label>
             Partita IVA
-            <input [(ngModel)]="selected.customerVatNumber" name="customerVatNumber" [readonly]="!canEdit()" />
+            <input [(ngModel)]="selected.customerVatNumber" name="customerVatNumber" [readonly]="!canEdit()" (ngModelChange)="onCustomerVatNumberChange()" />
           </label>
           <label>
             Codice fiscale
@@ -124,6 +223,10 @@
           <label>
             PEC
             <input type="email" [(ngModel)]="selected.customerPec" name="customerPec" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Email
+            <input type="email" [(ngModel)]="selected.customerEmail" name="customerEmail" [readonly]="!canEdit()" />
           </label>
           <label>
             Indirizzo
@@ -141,26 +244,44 @@
             CAP
             <input [(ngModel)]="selected.customerZip" name="customerZip" [readonly]="!canEdit()" />
           </label>
+          <label>
+            Nazione
+            <input [(ngModel)]="selected.customerCountry" name="customerCountry" maxlength="2" [readonly]="!canEdit()" (ngModelChange)="onCustomerCountryChange()" />
+          </label>
         </div>
 
         <h2>Righe</h2>
+        <datalist id="invoice-service-codes">
+          <option *ngFor="let service of activeServiceItems()" [value]="service.code">{{ service.name }}</option>
+        </datalist>
         <div class="line-table">
           <div class="line-row header">
+            <span>Codice</span>
             <span>Descrizione</span>
             <span>Q.tà</span>
+            <span>UM</span>
             <span>Prezzo</span>
+            <span>Tipo</span>
             <span>Sconto</span>
             <span>IVA</span>
             <span>Natura</span>
             <span></span>
           </div>
           <div class="line-row" *ngFor="let line of selected.lines; let i = index">
+            <input [(ngModel)]="line.serviceCode" [name]="'serviceCode' + i" list="invoice-service-codes" [readonly]="!canEdit()" (change)="applyServiceToLine(line)" />
             <input [(ngModel)]="line.description" [name]="'description' + i" [readonly]="!canEdit()" />
             <input type="number" step="0.01" [(ngModel)]="line.quantity" [name]="'quantity' + i" [readonly]="!canEdit()" />
-            <input type="number" step="0.01" [(ngModel)]="line.unitPrice" [name]="'unitPrice' + i" [readonly]="!canEdit()" />
+            <input [(ngModel)]="line.unit" [name]="'unit' + i" [readonly]="!canEdit()" />
+            <input type="number" step="0.01" [(ngModel)]="line.unitPriceInput" [name]="'unitPriceInput' + i" [readonly]="!canEdit()" (ngModelChange)="syncLinePriceMode(line)" />
+            <select [(ngModel)]="line.priceIncludesVat" [name]="'priceIncludesVat' + i" [disabled]="!canEdit()" (ngModelChange)="syncLinePriceMode(line)">
+              <option [ngValue]="false">IVA escl.</option>
+              <option [ngValue]="true">IVA incl.</option>
+            </select>
             <input type="number" step="0.01" [(ngModel)]="line.discountPercent" [name]="'discount' + i" [readonly]="!canEdit()" />
-            <input type="number" step="0.01" [(ngModel)]="line.vatRate" [name]="'vat' + i" [readonly]="!canEdit()" />
-            <input [(ngModel)]="line.vatNature" [name]="'nature' + i" [readonly]="!canEdit()" />
+            <input type="number" step="0.01" [(ngModel)]="line.vatRate" [name]="'vat' + i" [readonly]="!canEdit()" (ngModelChange)="onLineVatRateChange(line); syncLinePriceMode(line)" />
+            <select [(ngModel)]="line.vatNature" [name]="'nature' + i" [disabled]="!canEdit() || +line.vatRate !== 0">
+              <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
+            </select>
             <button type="button" class="icon-btn danger" (click)="removeLine(i)" [disabled]="!canEdit()">
               <i class="fas fa-trash"></i>
             </button>
@@ -231,15 +352,31 @@
           </label>
           <label *ngIf="selected.pensionFundEnabled">
             IVA cassa
-            <input type="number" step="0.01" [(ngModel)]="selected.pensionFundVatRate" name="pensionFundVatRate" [readonly]="!canEdit()" />
+            <input type="number" step="0.01" [(ngModel)]="selected.pensionFundVatRate" name="pensionFundVatRate" [readonly]="!canEdit()" (ngModelChange)="onPensionFundVatRateChange()" />
           </label>
           <label *ngIf="selected.pensionFundEnabled">
             Natura IVA cassa
-            <input [(ngModel)]="selected.pensionFundVatNature" name="pensionFundVatNature" [readonly]="!canEdit()" />
+            <select [(ngModel)]="selected.pensionFundVatNature" name="pensionFundVatNature" [disabled]="!canEdit() || +(selected.pensionFundVatRate || 0) !== 0">
+              <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
+            </select>
           </label>
         </div>
 
         <div class="form-grid">
+          <label>
+            Termine pagamento
+            <select [(ngModel)]="selected.paymentTermId" name="paymentTermId" [disabled]="!canEdit()" (change)="applyPaymentTerm()">
+              <option [ngValue]="null">Manuale</option>
+              <option *ngFor="let term of activePaymentTerms()" [ngValue]="term.id">{{ term.name }}</option>
+            </select>
+          </label>
+          <label>
+            Banca
+            <select [(ngModel)]="selected.bankAccountId" name="bankAccountId" [disabled]="!canEdit()" (change)="applyBankAccount()">
+              <option [ngValue]="null">Nessuna</option>
+              <option *ngFor="let account of activeBankAccounts()" [ngValue]="account.id">{{ account.bankName }} - {{ account.iban }}</option>
+            </select>
+          </label>
           <label>
             Metodo pagamento
             <select [(ngModel)]="selected.paymentMethod" name="paymentMethod" [disabled]="!canEdit()">
@@ -261,17 +398,51 @@
             <span>Imponibile <b>{{ totals().subtotal | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
             <span>IVA <b>{{ totals().vatTotal | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
             <span>Totale <b>{{ totals().total | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
+            <span>Pagato <b>{{ selected.paidAmount || 0 | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
+            <span>Residuo <b>{{ (selected.residualAmount ?? totals().total) | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
           </div>
-          <div class="actions">
-            <button type="submit" class="primary-btn" [disabled]="saving || !canEdit()">Salva</button>
-            <button type="button" class="ghost-btn" (click)="issue()" [disabled]="saving || !selected.id">Emetti</button>
-            <button type="button" class="primary-btn" (click)="send()" [disabled]="saving || !selected.id">Invia Aruba</button>
-            <button type="button" class="ghost-btn" (click)="validate()" [disabled]="saving || !selected.id">Valida</button>
-            <button type="button" class="ghost-btn" (click)="sync()" [disabled]="saving || !selected.id">Sync</button>
-            <button type="button" class="ghost-btn" (click)="generateXml()" [disabled]="saving || !selected.id">XML</button>
-            <button type="button" class="ghost-btn" (click)="downloadPdf()" [disabled]="saving || !selected.id">PDF</button>
-            <button type="button" class="ghost-btn" (click)="markPaid()" [disabled]="saving || !selected.id">Pagata</button>
-            <button type="button" class="ghost-btn danger" (click)="deleteDraft()" [disabled]="saving || selected.status !== 'draft'">Elimina</button>
+          <div class="invoice-actions-panel">
+            <section class="action-group action-group--main">
+              <span class="action-group__label">Principali</span>
+              <div class="action-group__buttons">
+                <button type="submit" class="primary-btn" [disabled]="saving || !canEdit()">Salva bozza</button>
+                <button type="button" class="primary-btn action-primary-wide" (click)="saveValidateSend()" [disabled]="saving || !canEdit() || isProforma(selected)">Invia SDI + email</button>
+                <button type="button" class="ghost-btn" (click)="downloadPdf()" [disabled]="saving || !selected.id">PDF</button>
+              </div>
+            </section>
+
+            <section class="action-group">
+              <span class="action-group__label">Documento</span>
+              <div class="action-group__buttons">
+                <button type="button" class="ghost-btn" (click)="createCreditNote()" [disabled]="saving || !selected.id || selected.type === 'TD04' || isProforma(selected)">Nota credito</button>
+                <button type="button" class="ghost-btn" (click)="createDebitNote()" [disabled]="saving || !selected.id || selected.type === 'TD05' || isProforma(selected)">Nota debito</button>
+                <button type="button" class="ghost-btn" (click)="convertProforma()" [disabled]="saving || !selected.id || !isProforma(selected)">Converti proforma</button>
+                <button type="button" class="ghost-btn" (click)="emailInvoice()" [disabled]="saving || !selected.id">Email</button>
+              </div>
+            </section>
+
+            <section class="action-group">
+              <span class="action-group__label">Pagamenti</span>
+              <div class="action-group__buttons">
+                <button type="button" class="ghost-btn" (click)="generateInstallments()" [disabled]="saving || !selected.id">Genera rate</button>
+                <button type="button" class="ghost-btn" (click)="registerPayment()" [disabled]="saving || !selected.id || selected.paymentStatus === 'paid'">Registra pagamento</button>
+                <button type="button" class="ghost-btn" (click)="markPaid()" [disabled]="saving || !selected.id || selected.paymentStatus === 'paid'">Segna saldata</button>
+              </div>
+            </section>
+
+            <details class="action-group action-group--advanced">
+              <summary>Avanzate/provider</summary>
+              <div class="action-group__buttons">
+                <button type="button" class="ghost-btn" (click)="saveAndValidate()" [disabled]="saving || !canEdit() || isProforma(selected)">Salva e valida</button>
+                <button type="button" class="ghost-btn" (click)="issue()" [disabled]="saving || !selected.id">Emetti</button>
+                <button type="button" class="ghost-btn" (click)="send()" [disabled]="saving || !canSendElectronic()">Invia provider</button>
+                <button type="button" class="ghost-btn" (click)="validate()" [disabled]="saving || !canSendElectronic()">Valida</button>
+                <button type="button" class="ghost-btn" (click)="sync()" [disabled]="saving || !canSendElectronic()">Sync</button>
+                <button type="button" class="ghost-btn" (click)="generateXml()" [disabled]="saving || !canSendElectronic()">XML</button>
+                <button type="button" class="ghost-btn" (click)="configureProvider()" [disabled]="saving">Configura provider</button>
+                <button type="button" class="ghost-btn danger" (click)="deleteDraft()" [disabled]="saving || selected.status !== 'draft'">Elimina</button>
+              </div>
+            </details>
           </div>
         </footer>
       </form>
@@ -286,6 +457,64 @@
           </div>
           <p class="empty" *ngIf="events.length === 0">Nessun evento registrato</p>
         </article>
+        <article>
+          <h2>Pagamenti</h2>
+          <div class="event" *ngFor="let payment of selected.payments || []">
+            <strong>{{ payment.amount | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+            <span>{{ payment.paymentDate | date:'dd/MM/yyyy' }} · {{ payment.method || '-' }}</span>
+            <small>{{ payment.reference || payment.notes || '-' }}</small>
+            <button type="button" class="icon-btn danger" (click)="deletePayment(payment)" [disabled]="saving">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+          <p class="empty" *ngIf="!selected.payments?.length">Nessun pagamento registrato</p>
+        </article>
+        <article>
+          <h2>Rate</h2>
+          <div class="installment-row header" *ngIf="selected.installments?.length">
+            <span>N.</span>
+            <span>Scadenza</span>
+            <span>Importo</span>
+            <span>Residuo</span>
+            <span>Stato</span>
+          </div>
+          <div class="installment-row" *ngFor="let installment of selected.installments || []; let i = index">
+            <input type="number" [(ngModel)]="installment.installmentNumber" [name]="'installmentNumber' + i" />
+            <input type="date" [(ngModel)]="installment.dueDate" [name]="'installmentDueDate' + i" />
+            <input type="number" step="0.01" [(ngModel)]="installment.amount" [name]="'installmentAmount' + i" />
+            <span>{{ installment.residualAmount || 0 | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</span>
+            <span>{{ installmentStatusLabel(installment.status) }}</span>
+          </div>
+          <div class="actions" *ngIf="selected.installments?.length">
+            <button type="button" class="ghost-btn" (click)="saveInstallments()" [disabled]="saving">Salva rate</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteInstallments()" [disabled]="saving">Elimina rate</button>
+          </div>
+          <p class="empty" *ngIf="!selected.installments?.length">Nessun piano rate</p>
+        </article>
+        <article>
+          <h2>Stato SdI</h2>
+          <div class="status-report" *ngIf="statusReport; else noStatusReport">
+            <span class="outcome-pill" [ngClass]="outcomeClass(statusReport.providerOutcome?.severity)">
+              {{ statusReport.providerOutcome?.label || statusReport.providerStatus || '-' }}
+            </span>
+            <p *ngIf="statusReport.sdiIdentification">SdI: <b>{{ statusReport.sdiIdentification }}</b></p>
+            <p *ngIf="statusReport.providerInvoiceFilename">File provider: <b>{{ statusReport.providerInvoiceFilename }}</b></p>
+            <p *ngIf="statusReport.conservationStatus">Conservazione: <b>{{ statusReport.conservationStatus }}</b></p>
+            <small *ngIf="statusReport.conservationMessage">{{ statusReport.conservationMessage }}</small>
+            <pre *ngIf="statusReport.providerMessage">{{ statusReport.providerMessage }}</pre>
+          </div>
+          <ng-template #noStatusReport>
+            <p class="empty">Nessun report stato disponibile</p>
+          </ng-template>
+        </article>
+        <article>
+          <h2>Documenti collegati</h2>
+          <div class="event" *ngFor="let link of linkedDocuments()">
+            <strong>{{ link.label }}</strong>
+            <span>{{ link.detail }}</span>
+          </div>
+          <p class="empty" *ngIf="linkedDocuments().length === 0">Nessun collegamento registrato</p>
+        </article>
         <article *ngIf="xmlPreview">
           <h2>XML</h2>
           <pre>{{ xmlPreview }}</pre>
@@ -293,4 +522,812 @@
       </section>
     </main>
   </div>
+
+  <section class="economics-panel" *ngIf="activeView === 'economics'">
+    <header class="ddt-header">
+      <div>
+        <p class="eyebrow">Economia</p>
+        <h2>Cruscotto gestionale</h2>
+      </div>
+      <div class="filters compact-filter economics-filters">
+        <label>
+          Dal
+          <input type="date" [(ngModel)]="economicFrom" />
+        </label>
+        <label>
+          Al
+          <input type="date" [(ngModel)]="economicTo" />
+        </label>
+        <button type="button" class="ghost-btn" (click)="loadEconomicSummary()">Aggiorna</button>
+      </div>
+    </header>
+
+    <ng-container *ngIf="economicSummary as summary; else noEconomicSummary">
+      <div class="economics-grid">
+        <article class="metric-panel strong">
+          <span>Utile lordo stimato</span>
+          <strong>{{ summary.totals.grossProfit | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>Margine {{ summary.totals.grossProfitRate | number:'1.1-1':'it-IT' }}%</small>
+        </article>
+        <article class="metric-panel">
+          <span>Ricavi imponibili</span>
+          <strong>{{ summary.totals.revenue | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>{{ summary.outbound.count }} documenti attivi</small>
+        </article>
+        <article class="metric-panel">
+          <span>Costi imponibili</span>
+          <strong>{{ summary.totals.costs | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>{{ summary.inbound.count }} documenti passivi</small>
+        </article>
+        <article class="metric-panel" [class.negative]="summary.totals.vatBalance < 0">
+          <span>Saldo IVA stimato</span>
+          <strong>{{ summary.totals.vatBalance | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>Debito {{ summary.totals.vatDebit | currency:'EUR':'symbol':'1.2-2':'it-IT' }} · Credito {{ summary.totals.vatCredit | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</small>
+        </article>
+      </div>
+
+      <div class="economics-grid cash-grid">
+        <article class="metric-panel">
+          <span>Incassato</span>
+          <strong>{{ summary.totals.collected | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>Da incassare {{ summary.totals.receivables | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</small>
+        </article>
+        <article class="metric-panel">
+          <span>Pagato</span>
+          <strong>{{ summary.totals.paid | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>Da pagare {{ summary.totals.payables | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</small>
+        </article>
+        <article class="metric-panel" [class.negative]="summary.totals.cashBalance < 0">
+          <span>Saldo cassa fatture</span>
+          <strong>{{ summary.totals.cashBalance | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>Incassato meno pagato</small>
+        </article>
+        <article class="metric-panel" [class.negative]="summary.totals.netExposure < 0">
+          <span>Saldo aperto</span>
+          <strong>{{ summary.totals.netExposure | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>Crediti meno debiti aperti</small>
+        </article>
+      </div>
+
+      <div class="economics-grid cash-grid">
+        <article class="metric-panel warning">
+          <span>Scaduti da incassare</span>
+          <strong>{{ summary.overdue.receivableAmount | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>{{ summary.overdue.receivableCount }} scadenze</small>
+        </article>
+        <article class="metric-panel warning">
+          <span>Scaduti da pagare</span>
+          <strong>{{ summary.overdue.payableAmount | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>{{ summary.overdue.payableCount }} scadenze</small>
+        </article>
+      </div>
+
+      <article class="economics-table-panel">
+        <h2>Andamento mensile</h2>
+        <div class="economics-chart" *ngIf="summary.monthly.length">
+          <div class="chart-row" *ngFor="let row of summary.monthly">
+            <span>{{ row.month }}</span>
+            <div class="bar-group">
+              <div class="bar revenue" [style.width]="economicBarWidth(row.revenue, summary)"></div>
+              <div class="bar costs" [style.width]="economicBarWidth(row.costs, summary)"></div>
+              <div class="bar profit" [style.width]="economicBarWidth(row.grossProfit, summary)"></div>
+            </div>
+          </div>
+          <div class="chart-legend">
+            <span><i class="legend revenue"></i> Ricavi</span>
+            <span><i class="legend costs"></i> Costi</span>
+            <span><i class="legend profit"></i> Utile</span>
+          </div>
+        </div>
+        <div class="economics-table">
+          <div class="economics-table-row header">
+            <span>Mese</span>
+            <span>Ricavi</span>
+            <span>Costi</span>
+            <span>Utile lordo</span>
+            <span>IVA debito</span>
+            <span>IVA credito</span>
+          </div>
+          <div class="economics-table-row" *ngFor="let row of summary.monthly">
+            <span>{{ row.month }}</span>
+            <span>{{ row.revenue | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</span>
+            <span>{{ row.costs | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</span>
+            <span>{{ row.grossProfit | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</span>
+            <span>{{ row.vatDebit | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</span>
+            <span>{{ row.vatCredit | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</span>
+          </div>
+        </div>
+        <p class="empty" *ngIf="summary.monthly.length === 0">Nessun movimento nel periodo selezionato</p>
+      </article>
+    </ng-container>
+
+    <ng-template #noEconomicSummary>
+      <p class="empty">Nessun dato economico disponibile</p>
+    </ng-template>
+  </section>
+
+  <section class="ddt-panel" *ngIf="activeView === 'ddt'">
+    <header class="ddt-header">
+      <div>
+        <p class="eyebrow">Documenti di trasporto</p>
+        <h2>DDT</h2>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary-btn" (click)="newDdt()">Nuovo DDT</button>
+      </div>
+    </header>
+
+    <div class="ddt-layout">
+      <aside class="ddt-list">
+        <div class="filters">
+          <input type="search" [(ngModel)]="ddtSearch" (keyup.enter)="loadDdts()" placeholder="Cerca DDT o cliente" />
+          <select [(ngModel)]="ddtStatusFilter" (change)="loadDdts()">
+            <option value="">Tutti</option>
+            <option value="draft">Bozze</option>
+            <option value="issued">Emessi</option>
+            <option value="invoiced">Fatturati</option>
+            <option value="cancelled">Annullati</option>
+          </select>
+        </div>
+
+        <div
+          class="invoice-row"
+          *ngFor="let ddt of ddts"
+          [class.active]="ddt.id === selectedDdt.id"
+          (click)="selectDdt(ddt)"
+          role="button"
+          tabindex="0"
+        >
+          <input
+            type="checkbox"
+            class="row-check"
+            [checked]="isDdtSelected(ddt)"
+            [disabled]="ddt.status === 'invoiced'"
+            (click)="toggleDdtSelection(ddt, $event)"
+          />
+          <span>
+            <strong>{{ ddt.series ? ddt.series + '/' : '' }}{{ ddt.number }}</strong>
+            <small>{{ ddt.customerName || 'Cliente non indicato' }}</small>
+          </span>
+          <span class="row-meta">
+            <em>{{ statusLabel(ddt.status) }}</em>
+            <b>{{ ddt.issueDate | date:'dd/MM/yyyy' }}</b>
+          </span>
+        </div>
+
+        <p class="empty" *ngIf="ddts.length === 0">Nessun DDT trovato</p>
+      </aside>
+
+      <form class="ddt-editor" (ngSubmit)="saveDdt()">
+        <div class="status-strip">
+          <span class="status-pill">{{ statusLabel(selectedDdt.status) }}</span>
+          <span *ngIf="selectedDdt.invoiceId">Fattura collegata: #{{ selectedDdt.invoiceId }}</span>
+        </div>
+
+        <div class="form-grid compact">
+          <label>
+            Numero
+            <input [(ngModel)]="selectedDdt.number" name="ddtNumber" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Serie
+            <input [(ngModel)]="selectedDdt.series" name="ddtSeries" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Data
+            <input type="date" [(ngModel)]="selectedDdt.issueDate" name="ddtIssueDate" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Causale
+            <input [(ngModel)]="selectedDdt.reason" name="ddtReason" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Trasporto a cura di
+            <input [(ngModel)]="selectedDdt.transportBy" name="ddtTransportBy" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+        </div>
+
+        <h2>Cliente DDT</h2>
+        <div class="form-grid">
+          <label class="wide">
+            Cerca cliente
+            <div class="customer-picker">
+              <input
+                type="search"
+                [(ngModel)]="ddtCustomerQuery"
+                name="ddtCustomerQuery"
+                placeholder="Scrivi nome, numero cliente, P.IVA o codice fiscale"
+                [readonly]="selectedDdt.status === 'invoiced'"
+                autocomplete="off"
+                (focus)="openDdtCustomerPicker()"
+                (input)="openDdtCustomerPicker()"
+                (blur)="closeDdtCustomerPickerSoon()"
+              />
+              <button
+                type="button"
+                class="customer-picker__clear"
+                *ngIf="selectedDdt.status !== 'invoiced' && (selectedDdtCustomerCode || ddtCustomerQuery)"
+                (click)="clearDdtCustomerSelection()"
+              >
+                Compila manualmente
+              </button>
+              <div class="customer-picker__list" *ngIf="selectedDdt.status !== 'invoiced' && ddtCustomerPickerOpen && filteredDdtCustomers().length">
+                <button
+                  type="button"
+                  *ngFor="let customer of filteredDdtCustomers()"
+                  (click)="selectDdtCustomer(customer)"
+                  [class.active]="customer.numeroCliente === selectedDdtCustomerCode"
+                >
+                  {{ customer.label }}
+                </button>
+              </div>
+            </div>
+          </label>
+          <label>
+            Ragione sociale
+            <input [(ngModel)]="selectedDdt.customerName" name="ddtCustomerName" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Partita IVA
+            <input [(ngModel)]="selectedDdt.customerVatNumber" name="ddtCustomerVat" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Codice fiscale
+            <input [(ngModel)]="selectedDdt.customerFiscalCode" name="ddtCustomerFiscalCode" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Indirizzo
+            <input [(ngModel)]="selectedDdt.customerAddress" name="ddtCustomerAddress" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Comune
+            <input [(ngModel)]="selectedDdt.customerCity" name="ddtCustomerCity" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Provincia
+            <input [(ngModel)]="selectedDdt.customerProvince" name="ddtCustomerProvince" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            CAP
+            <input [(ngModel)]="selectedDdt.customerZip" name="ddtCustomerZip" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Nazione
+            <input [(ngModel)]="selectedDdt.customerCountry" name="ddtCustomerCountry" maxlength="2" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+        </div>
+
+        <h2>Destinazione</h2>
+        <div class="form-grid">
+          <label>
+            Indirizzo
+            <input [(ngModel)]="selectedDdt.destinationAddress" name="ddtDestinationAddress" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Comune
+            <input [(ngModel)]="selectedDdt.destinationCity" name="ddtDestinationCity" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Provincia
+            <input [(ngModel)]="selectedDdt.destinationProvince" name="ddtDestinationProvince" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            CAP
+            <input [(ngModel)]="selectedDdt.destinationZip" name="ddtDestinationZip" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Nazione
+            <input [(ngModel)]="selectedDdt.destinationCountry" name="ddtDestinationCountry" maxlength="2" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Colli
+            <input type="number" [(ngModel)]="selectedDdt.packages" name="ddtPackages" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+          <label>
+            Peso
+            <input type="number" step="0.01" [(ngModel)]="selectedDdt.weight" name="ddtWeight" [readonly]="selectedDdt.status === 'invoiced'" />
+          </label>
+        </div>
+
+        <h2>Righe DDT</h2>
+        <datalist id="ddt-service-codes">
+          <option *ngFor="let service of activeServiceItems()" [value]="service.code">{{ service.name }}</option>
+        </datalist>
+        <div class="line-table">
+          <div class="ddt-line-row header">
+            <span>Codice</span>
+            <span>Descrizione</span>
+            <span>Q.tà</span>
+            <span>UM</span>
+            <span>Prezzo</span>
+            <span>Tipo</span>
+            <span>Sconto</span>
+            <span>IVA</span>
+            <span>Natura</span>
+            <span></span>
+          </div>
+          <div class="ddt-line-row" *ngFor="let line of selectedDdt.lines; let i = index">
+            <input [(ngModel)]="line.serviceCode" [name]="'ddtServiceCode' + i" list="ddt-service-codes" [readonly]="selectedDdt.status === 'invoiced'" (change)="applyServiceToLine(line)" />
+            <input [(ngModel)]="line.description" [name]="'ddtDescription' + i" [readonly]="selectedDdt.status === 'invoiced'" />
+            <input type="number" step="0.01" [(ngModel)]="line.quantity" [name]="'ddtQuantity' + i" [readonly]="selectedDdt.status === 'invoiced'" />
+            <input [(ngModel)]="line.unit" [name]="'ddtUnit' + i" [readonly]="selectedDdt.status === 'invoiced'" />
+            <input type="number" step="0.01" [(ngModel)]="line.unitPriceInput" [name]="'ddtUnitPriceInput' + i" [readonly]="selectedDdt.status === 'invoiced'" (ngModelChange)="syncLinePriceMode(line)" />
+            <select [(ngModel)]="line.priceIncludesVat" [name]="'ddtPriceIncludesVat' + i" [disabled]="selectedDdt.status === 'invoiced'" (ngModelChange)="syncLinePriceMode(line)">
+              <option [ngValue]="false">IVA escl.</option>
+              <option [ngValue]="true">IVA incl.</option>
+            </select>
+            <input type="number" step="0.01" [(ngModel)]="line.discountPercent" [name]="'ddtDiscount' + i" [readonly]="selectedDdt.status === 'invoiced'" />
+            <input type="number" step="0.01" [(ngModel)]="line.vatRate" [name]="'ddtVat' + i" [readonly]="selectedDdt.status === 'invoiced'" (ngModelChange)="onDdtVatRateChange(line); syncLinePriceMode(line)" />
+            <select [(ngModel)]="line.vatNature" [name]="'ddtNature' + i" [disabled]="selectedDdt.status === 'invoiced' || +line.vatRate !== 0">
+              <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
+            </select>
+            <button type="button" class="icon-btn danger" (click)="removeDdtLine(i)" [disabled]="selectedDdt.status === 'invoiced'">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <button type="button" class="ghost-btn" (click)="addDdtLine()" [disabled]="selectedDdt.status === 'invoiced'">
+          <i class="fas fa-plus"></i>
+          Riga DDT
+        </button>
+
+        <footer class="editor-footer">
+          <div class="totals">
+            <span>Imponibile <b>{{ ddtTotals().subtotal | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
+            <span>IVA <b>{{ ddtTotals().vatTotal | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
+            <span>Totale <b>{{ ddtTotals().total | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
+          </div>
+          <div class="actions">
+            <button type="submit" class="primary-btn" [disabled]="saving || selectedDdt.status === 'invoiced'">Salva DDT</button>
+            <button type="button" class="ghost-btn" (click)="issueDdt()" [disabled]="saving || !selectedDdt.id || selectedDdt.status === 'invoiced'">Emetti DDT</button>
+            <button type="button" class="primary-btn" (click)="createInvoiceFromDdt()" [disabled]="saving || (!selectedDdt.id && selectedDdtIds.length === 0)">Fattura differita {{ selectedDdtIds.length ? '(' + selectedDdtIds.length + ')' : '' }}</button>
+            <button type="button" class="ghost-btn" (click)="downloadDdtPdf()" [disabled]="saving || !selectedDdt.id">PDF DDT</button>
+            <button type="button" class="ghost-btn" (click)="emailDdt()" [disabled]="saving || !selectedDdt.id">Email DDT</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteDdt()" [disabled]="saving || selectedDdt.status !== 'draft'">Elimina DDT</button>
+          </div>
+        </footer>
+      </form>
+    </div>
+  </section>
+
+  <section class="invoice-ops-grid" [class.invoice-ops-grid--single]="activeView === 'payments'" *ngIf="activeView === 'payments' || activeView === 'suppliers'">
+    <article class="ops-panel" *ngIf="activeView === 'payments'">
+      <header class="ddt-header">
+        <div>
+          <p class="eyebrow">Pagamenti</p>
+          <h2>Scadenziario</h2>
+        </div>
+        <div class="filters compact-filter schedule-filters">
+          <input type="search" [(ngModel)]="scheduleSearch" placeholder="Cerca scadenza, cliente, fornitore" />
+          <select [(ngModel)]="scheduleDirection" (change)="loadPaymentSchedule()">
+            <option value="">Tutte</option>
+            <option value="outbound">Da incassare</option>
+            <option value="inbound">Da pagare</option>
+          </select>
+          <select [(ngModel)]="scheduleStatus" (change)="loadPaymentSchedule()">
+            <option *ngFor="let item of scheduleStatusOptions" [value]="item.key">{{ item.label }}</option>
+          </select>
+          <button type="button" class="ghost-btn" (click)="loadPaymentSchedule()">Aggiorna</button>
+        </div>
+      </header>
+
+      <div class="schedule-summary" *ngIf="scheduleSummary() as summary">
+        <div class="schedule-card schedule-card--credit">
+          <span>Da incassare</span>
+          <strong>{{ summary.residualCollect | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>Incassato {{ summary.collected | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</small>
+        </div>
+        <div class="schedule-card schedule-card--debit">
+          <span>Da pagare</span>
+          <strong>{{ summary.residualPay | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>Pagato {{ summary.paid | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</small>
+        </div>
+        <div class="schedule-card schedule-card--overdue">
+          <span>Scaduto aperto</span>
+          <strong>{{ summary.overdue | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
+          <small>{{ filteredPaymentScheduleItems().length }} scadenze visualizzate</small>
+        </div>
+      </div>
+
+      <div class="schedule-table-wrap">
+        <table class="schedule-table">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Ragione sociale</th>
+              <th>Descrizione</th>
+              <th>Riferimento</th>
+              <th class="money">Dare</th>
+              <th class="money">Avere</th>
+              <th class="money">Pagato</th>
+              <th class="money">Residuo</th>
+              <th>Stato</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let item of filteredPaymentScheduleItems()"
+              [class.schedule-row--paid]="scheduleItemStatusClass(item) === 'paid'"
+              [class.schedule-row--partial]="scheduleItemStatusClass(item) === 'partial'"
+              [class.schedule-row--overdue]="scheduleItemStatusClass(item) === 'overdue'"
+            >
+              <td>{{ item.dueDate ? (item.dueDate | date:'dd/MM/yyyy') : 'Senza scadenza' }}</td>
+              <td>
+                <strong>{{ item.subjectName || scheduleSubjectFallback(item) }}</strong>
+                <small>{{ item.direction === 'inbound' ? 'Fattura acquisto' : 'Fattura vendita' }}</small>
+              </td>
+              <td>{{ item.installmentNumber ? 'Rata ' + item.installmentNumber : 'Saldo' }}</td>
+              <td>{{ scheduleReference(item) }}</td>
+              <td class="money debit">{{ scheduleDebitAmount(item) ? (scheduleDebitAmount(item) | currency:'EUR':'symbol':'1.2-2':'it-IT') : '-' }}</td>
+              <td class="money credit">{{ scheduleCreditAmount(item) ? (scheduleCreditAmount(item) | currency:'EUR':'symbol':'1.2-2':'it-IT') : '-' }}</td>
+              <td class="money">{{ (item.paidAmount || 0) | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</td>
+              <td class="money residual">{{ scheduleResidual(item) | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</td>
+              <td><span class="schedule-status" [ngClass]="'schedule-status--' + scheduleItemStatusClass(item)">{{ scheduleItemStatusLabel(item) }}</span></td>
+              <td><button type="button" class="icon-btn" (click)="selectScheduleItem(item)" aria-label="Apri fattura"><i class="fas fa-arrow-right"></i></button></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="empty" *ngIf="filteredPaymentScheduleItems().length === 0">Nessuna scadenza trovata</p>
+      </div>
+    </article>
+
+    <article class="ops-panel" *ngIf="activeView === 'suppliers'">
+      <header class="ddt-header">
+        <div>
+          <p class="eyebrow">Ciclo passivo</p>
+          <h2>Fornitori</h2>
+        </div>
+        <div class="filters compact-filter">
+          <input type="search" [(ngModel)]="supplierSearch" (keyup.enter)="loadSuppliers()" placeholder="Cerca fornitore" />
+          <button type="button" class="ghost-btn" (click)="loadSuppliers()">Cerca</button>
+        </div>
+      </header>
+      <div class="ops-list">
+        <div class="supplier-row" *ngFor="let supplier of suppliers" (click)="editSupplier(supplier)">
+          <strong>{{ supplier.name }}</strong>
+          <span>{{ supplier.vatNumber || supplier.fiscalCode || '-' }}</span>
+          <small>{{ supplierLocation(supplier) }}</small>
+        </div>
+        <p class="empty" *ngIf="suppliers.length === 0">Nessun fornitore trovato</p>
+      </div>
+
+      <form class="supplier-editor" (ngSubmit)="saveSupplier()">
+        <div class="form-grid compact">
+          <label>
+            Nome
+            <input [(ngModel)]="selectedSupplier.name" name="supplierName" />
+          </label>
+          <label>
+            Partita IVA
+            <input [(ngModel)]="selectedSupplier.vatNumber" name="supplierVatNumber" />
+          </label>
+          <label>
+            Codice fiscale
+            <input [(ngModel)]="selectedSupplier.fiscalCode" name="supplierFiscalCode" />
+          </label>
+          <label>
+            Email
+            <input type="email" [(ngModel)]="selectedSupplier.email" name="supplierEmail" />
+          </label>
+          <label>
+            PEC
+            <input type="email" [(ngModel)]="selectedSupplier.pec" name="supplierPec" />
+          </label>
+          <label>
+            Indirizzo
+            <input [(ngModel)]="selectedSupplier.address" name="supplierAddress" />
+          </label>
+          <label>
+            Comune
+            <input [(ngModel)]="selectedSupplier.city" name="supplierCity" />
+          </label>
+          <label>
+            Provincia
+            <input [(ngModel)]="selectedSupplier.province" name="supplierProvince" maxlength="8" />
+          </label>
+          <label>
+            CAP
+            <input [(ngModel)]="selectedSupplier.zip" name="supplierZip" />
+          </label>
+          <label>
+            Nazione
+            <input [(ngModel)]="selectedSupplier.country" name="supplierCountry" maxlength="2" />
+          </label>
+        </div>
+        <div class="actions">
+          <button type="button" class="ghost-btn" (click)="newSupplier()">Nuovo fornitore</button>
+          <button type="submit" class="primary-btn" [disabled]="saving">Salva fornitore</button>
+          <button type="button" class="ghost-btn danger" (click)="deleteSupplier()" [disabled]="saving || !selectedSupplier.id">Elimina fornitore</button>
+        </div>
+      </form>
+    </article>
+  </section>
+
+  <section class="settings-panel" *ngIf="activeView === 'settings'">
+    <article class="ops-panel">
+      <header class="ddt-header">
+        <div>
+          <p class="eyebrow">Scadenze</p>
+          <h2>Termini pagamento</h2>
+        </div>
+        <button type="button" class="ghost-btn" (click)="newPaymentTerm()">Nuovo termine</button>
+      </header>
+      <div class="settings-layout">
+        <div class="settings-list">
+          <button type="button" class="settings-row" *ngFor="let term of paymentTerms" (click)="editPaymentTerm(term)" [class.inactive]="term.active === false">
+            <strong>{{ term.name }}</strong>
+            <span>{{ term.method || '-' }} · {{ term.installmentCount }} rate · {{ term.firstDueDays }} gg</span>
+            <small>{{ term.isDefault ? 'Default' : '' }} {{ term.endOfMonth ? 'Fine mese' : '' }}</small>
+          </button>
+        </div>
+        <form class="settings-form" (ngSubmit)="savePaymentTerm()">
+          <div class="form-grid compact">
+            <label>
+              Codice
+              <input [(ngModel)]="selectedPaymentTerm.code" name="paymentTermCode" />
+            </label>
+            <label>
+              Nome
+              <input [(ngModel)]="selectedPaymentTerm.name" name="paymentTermName" required />
+            </label>
+            <label>
+              Metodo
+              <select [(ngModel)]="selectedPaymentTerm.method" name="paymentTermMethod">
+                <option *ngFor="let item of paymentMethods" [value]="item.key">{{ item.label }}</option>
+              </select>
+            </label>
+            <label>
+              Rate
+              <input type="number" min="1" [(ngModel)]="selectedPaymentTerm.installmentCount" name="paymentTermInstallmentCount" />
+            </label>
+            <label>
+              Prima scadenza gg
+              <input type="number" min="0" [(ngModel)]="selectedPaymentTerm.firstDueDays" name="paymentTermFirstDueDays" />
+            </label>
+            <label>
+              Intervallo gg
+              <input type="number" min="1" [(ngModel)]="selectedPaymentTerm.intervalDays" name="paymentTermIntervalDays" />
+            </label>
+            <label class="checkbox-field">
+              <span>Fine mese</span>
+              <input type="checkbox" [(ngModel)]="selectedPaymentTerm.endOfMonth" name="paymentTermEndOfMonth" />
+            </label>
+            <label class="checkbox-field">
+              <span>Default</span>
+              <input type="checkbox" [(ngModel)]="selectedPaymentTerm.isDefault" name="paymentTermDefault" />
+            </label>
+            <label class="checkbox-field">
+              <span>Attivo</span>
+              <input type="checkbox" [(ngModel)]="selectedPaymentTerm.active" name="paymentTermActive" />
+            </label>
+          </div>
+          <div class="actions">
+            <button type="submit" class="primary-btn" [disabled]="saving">Salva termine</button>
+            <button type="button" class="ghost-btn danger" (click)="deletePaymentTerm()" [disabled]="saving || !selectedPaymentTerm.id">Disattiva</button>
+          </div>
+        </form>
+      </div>
+    </article>
+
+    <article class="ops-panel">
+      <header class="ddt-header">
+        <div>
+          <p class="eyebrow">Incassi</p>
+          <h2>Banche e IBAN</h2>
+        </div>
+        <button type="button" class="ghost-btn" (click)="newBankAccount()">Nuova banca</button>
+      </header>
+      <div class="settings-layout">
+        <div class="settings-list">
+          <button type="button" class="settings-row" *ngFor="let account of bankAccounts" (click)="editBankAccount(account)" [class.inactive]="account.active === false">
+            <strong>{{ account.bankName || 'Banca' }}</strong>
+            <span>{{ account.iban }}</span>
+            <small>{{ account.isDefault ? 'Default' : '' }} {{ account.holder || '' }}</small>
+          </button>
+        </div>
+        <form class="settings-form" (ngSubmit)="saveBankAccount()">
+          <div class="form-grid compact">
+            <label>
+              Banca
+              <input [(ngModel)]="selectedBankAccount.bankName" name="bankName" />
+            </label>
+            <label>
+              Intestatario
+              <input [(ngModel)]="selectedBankAccount.holder" name="bankHolder" />
+            </label>
+            <label class="wide">
+              IBAN
+              <input [(ngModel)]="selectedBankAccount.iban" name="bankIban" required />
+            </label>
+            <label>
+              BIC
+              <input [(ngModel)]="selectedBankAccount.bic" name="bankBic" />
+            </label>
+            <label class="checkbox-field">
+              <span>Default</span>
+              <input type="checkbox" [(ngModel)]="selectedBankAccount.isDefault" name="bankDefault" />
+            </label>
+            <label class="checkbox-field">
+              <span>Attiva</span>
+              <input type="checkbox" [(ngModel)]="selectedBankAccount.active" name="bankActive" />
+            </label>
+          </div>
+          <div class="actions">
+            <button type="submit" class="primary-btn" [disabled]="saving">Salva banca</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteBankAccount()" [disabled]="saving || !selectedBankAccount.id">Disattiva</button>
+          </div>
+        </form>
+      </div>
+    </article>
+
+    <article class="ops-panel">
+      <header class="ddt-header">
+        <div>
+          <p class="eyebrow">Righe fattura</p>
+          <h2>Catalogo servizi</h2>
+        </div>
+        <button type="button" class="ghost-btn" (click)="newServiceItem()">Nuovo servizio</button>
+      </header>
+      <div class="settings-layout">
+        <div class="settings-list">
+          <button type="button" class="settings-row" *ngFor="let service of serviceItems" (click)="editServiceItem(service)" [class.inactive]="service.active === false">
+            <strong>{{ service.code }} - {{ service.name }}</strong>
+            <span>{{ service.unitPrice | currency:'EUR':'symbol':'1.2-2':'it-IT' }} · IVA {{ service.vatRate | number:'1.0-2':'it-IT' }}%</span>
+            <small>{{ service.description }}</small>
+          </button>
+        </div>
+        <form class="settings-form" (ngSubmit)="saveServiceItem()">
+          <div class="form-grid compact">
+            <label>
+              Codice
+              <input [(ngModel)]="selectedServiceItem.code" name="serviceCode" required />
+            </label>
+            <label>
+              Nome
+              <input [(ngModel)]="selectedServiceItem.name" name="serviceName" required />
+            </label>
+            <label>
+              UM
+              <input [(ngModel)]="selectedServiceItem.unit" name="serviceUnit" />
+            </label>
+            <label>
+              Prezzo
+              <input type="number" step="0.01" [(ngModel)]="selectedServiceItem.unitPrice" name="serviceUnitPrice" />
+            </label>
+            <label>
+              Tipo prezzo
+              <select [(ngModel)]="selectedServiceItem.priceIncludesVat" name="servicePriceIncludesVat">
+                <option [ngValue]="false">IVA esclusa</option>
+                <option [ngValue]="true">IVA inclusa</option>
+              </select>
+            </label>
+            <label>
+              IVA
+              <input type="number" step="0.01" [(ngModel)]="selectedServiceItem.vatRate" name="serviceVatRate" />
+            </label>
+            <label>
+              Natura
+              <select [(ngModel)]="selectedServiceItem.vatNature" name="serviceVatNature" [disabled]="+selectedServiceItem.vatRate !== 0">
+                <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
+              </select>
+            </label>
+            <label class="checkbox-field">
+              <span>Attivo</span>
+              <input type="checkbox" [(ngModel)]="selectedServiceItem.active" name="serviceActive" />
+            </label>
+            <label class="wide">
+              Descrizione
+              <textarea rows="2" [(ngModel)]="selectedServiceItem.description" name="serviceDescription"></textarea>
+            </label>
+          </div>
+          <div class="actions">
+            <button type="submit" class="primary-btn" [disabled]="saving">Salva servizio</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteServiceItem()" [disabled]="saving || !selectedServiceItem.id">Disattiva</button>
+          </div>
+        </form>
+      </div>
+    </article>
+
+    <article class="ops-panel">
+      <header class="ddt-header">
+        <div>
+          <p class="eyebrow">Clienti</p>
+          <h2>Generazione fattura</h2>
+        </div>
+      </header>
+      <div class="settings-layout">
+        <div class="settings-list">
+          <div class="settings-row">
+            <strong>Da scheda cliente</strong>
+            <span>{{ customerInvoiceDefaults.enabled ? 'Attiva' : 'Disattiva' }}</span>
+            <small>Servizio {{ customerInvoiceDefaults.defaultServiceCode || 'primo attivo' }}</small>
+          </div>
+          <div class="settings-row" *ngFor="let profile of customerInvoiceDefaults.vatProfiles">
+            <strong>{{ profile.code || '-' }} - {{ profile.label || 'Profilo IVA' }}</strong>
+            <span>IVA {{ profile.vatRate | number:'1.0-2':'it-IT' }}% {{ profile.vatNature || '' }}</span>
+            <small>{{ profile.splitPayment ? 'Split payment' : 'IVA ordinaria' }}</small>
+          </div>
+        </div>
+        <form class="settings-form" (ngSubmit)="saveCustomerInvoiceDefaults()">
+          <div class="form-grid compact">
+            <label class="checkbox-field">
+              <span>Attiva</span>
+              <input type="checkbox" [(ngModel)]="customerInvoiceDefaults.enabled" name="customerInvoiceDefaultsEnabled" />
+            </label>
+            <label>
+              Servizio default
+              <select [(ngModel)]="customerInvoiceDefaults.defaultServiceCode" name="customerInvoiceDefaultServiceCode">
+                <option value="">Primo servizio attivo</option>
+                <option *ngFor="let service of activeServiceItems()" [value]="service.code">{{ service.code }} - {{ service.name }}</option>
+              </select>
+            </label>
+            <label>
+              Importo da
+              <select [(ngModel)]="customerInvoiceDefaults.amountSource" name="customerInvoiceAmountSource">
+                <option value="service">Catalogo servizi</option>
+                <option value="customerField">Campo cliente</option>
+                <option value="fixed">Importo fisso</option>
+              </select>
+            </label>
+            <label>
+              Campo importo
+              <input [(ngModel)]="customerInvoiceDefaults.amountField" name="customerInvoiceAmountField" [disabled]="customerInvoiceDefaults.amountSource !== 'customerField'" placeholder="importoFattura" />
+            </label>
+            <label>
+              Importo fisso
+              <input type="number" step="0.01" [(ngModel)]="customerInvoiceDefaults.fixedAmount" name="customerInvoiceFixedAmount" [disabled]="customerInvoiceDefaults.amountSource !== 'fixed'" />
+            </label>
+            <label class="wide">
+              Descrizione
+              <textarea rows="2" [(ngModel)]="customerInvoiceDefaults.descriptionTemplate" name="customerInvoiceDescriptionTemplate"></textarea>
+            </label>
+            <label>
+              Campo profilo IVA
+              <input [(ngModel)]="customerInvoiceDefaults.vatProfileSourceField" name="customerInvoiceVatProfileSourceField" placeholder="customerVatProfile" />
+            </label>
+            <label>
+              Profilo default
+              <select [(ngModel)]="customerInvoiceDefaults.defaultVatProfileCode" name="customerInvoiceDefaultVatProfileCode">
+                <option *ngFor="let profile of customerInvoiceDefaults.vatProfiles" [value]="profile.code">{{ profile.code || '-' }} - {{ profile.label }}</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="vat-profile-table">
+            <div class="vat-profile-row vat-profile-row--header">
+              <span>Codice</span>
+              <span>Etichetta</span>
+              <span>IVA</span>
+              <span>Natura</span>
+              <span>Split</span>
+              <span>Esig.</span>
+              <span></span>
+            </div>
+            <div class="vat-profile-row" *ngFor="let profile of customerInvoiceDefaults.vatProfiles; let i = index">
+              <input [(ngModel)]="profile.code" [name]="'customerVatProfileCode' + i" />
+              <input [(ngModel)]="profile.label" [name]="'customerVatProfileLabel' + i" />
+              <input type="number" step="0.01" [(ngModel)]="profile.vatRate" [name]="'customerVatProfileRate' + i" (ngModelChange)="onCustomerVatProfileRateChange(profile)" />
+              <select [(ngModel)]="profile.vatNature" [name]="'customerVatProfileNature' + i" [disabled]="+profile.vatRate !== 0">
+                <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
+              </select>
+              <input type="checkbox" [(ngModel)]="profile.splitPayment" [name]="'customerVatProfileSplit' + i" (ngModelChange)="onCustomerVatProfileSplitPaymentChange(profile)" />
+              <select [(ngModel)]="profile.vatExigibility" [name]="'customerVatProfileExigibility' + i">
+                <option value="I">Immediata</option>
+                <option value="D">Differita</option>
+                <option value="S">Split payment</option>
+              </select>
+              <button type="button" class="icon-btn danger" (click)="removeCustomerVatProfile(i)" [disabled]="customerInvoiceDefaults.vatProfiles.length <= 1">
+                <span class="material-icons">close</span>
+              </button>
+            </div>
+          </div>
+          <div class="actions">
+            <button type="button" class="ghost-btn" (click)="addCustomerVatProfile()">Aggiungi profilo IVA</button>
+            <button type="submit" class="primary-btn" [disabled]="saving">Salva generazione</button>
+          </div>
+        </form>
+      </div>
+    </article>
+  </section>
 </section>

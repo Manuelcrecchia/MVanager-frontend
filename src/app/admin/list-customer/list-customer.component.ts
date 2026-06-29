@@ -307,6 +307,25 @@ export class ListCustomerComponent {
     this.router.navigateByUrl('/addCustomer');
   }
 
+  canGenerateSalesInvoice(customer: any): boolean {
+    return customer?.active !== false &&
+      this.globalService.isFeatureAvailableInApp('invoices') &&
+      this.globalService.hasPermission('INVOICES_MANAGE');
+  }
+
+  generateSalesInvoice(customer: any): void {
+    const numeroCliente = String(customer?.numeroCliente || '').trim();
+    if (!numeroCliente) return;
+    this.router.navigate(['/homeAdmin/invoices'], {
+      queryParams: {
+        view: 'invoices',
+        direction: 'outbound',
+        fromCustomer: '1',
+        customerId: numeroCliente,
+      },
+    });
+  }
+
   navigateToNotes(numeroCliente: string, displayName: string) {
     this.router.navigate(['/customerNotes'], {
       queryParams: { numeroCliente, displayName },

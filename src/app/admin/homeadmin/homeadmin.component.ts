@@ -453,8 +453,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.navigateInHome('service-orders');
   }
 
-  navigateToInvoices() {
-    this.navigateInHome('invoices');
+  navigateToInvoices(view: string = 'invoices', direction: string = 'outbound') {
+    const queryParams: Record<string, string> = { view };
+    if (direction) queryParams['direction'] = direction;
+    this.navigateInHome('invoices', queryParams);
+  }
+
+  navigateToAccounting(view: string = 'dashboard') {
+    this.navigateInHome('accounting', { view });
   }
 
   navigateToGestionePermessi() {
@@ -720,20 +726,143 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             badgeClass: () => 'badge bg-danger ms-1',
           },
           {
-            label: 'Fatture elettroniche',
-            icon: 'fas fa-file-invoice-dollar',
-            permission: 'INVOICES_VIEW',
-            feature: 'invoices',
-            action: () => this.navigateToInvoices(),
-            desktopPath: 'invoices',
-          },
-          {
             label: 'Ordini di servizio',
             icon: 'fas fa-clipboard-list',
             permission: 'SERVICE_ORDERS_VIEW',
             feature: 'serviceOrders',
             action: () => this.navigateToServiceOrders(),
             desktopPath: 'service-orders',
+          },
+        ],
+      },
+      {
+        id: 'billing',
+        label: 'Pagamenti e fatture',
+        icon: 'fas fa-file-invoice-dollar',
+        buttons: [
+          {
+            label: 'Fatture vendita',
+            icon: 'fas fa-file-invoice-dollar',
+            permission: 'INVOICES_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToInvoices('invoices', 'outbound'),
+            desktopPath: 'invoices',
+            queryParams: { view: 'invoices', direction: 'outbound' },
+          },
+          {
+            label: 'Fatture acquisto',
+            icon: 'fas fa-file-download',
+            permission: 'INVOICES_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToInvoices('invoices', 'inbound'),
+            desktopPath: 'invoices',
+            queryParams: { view: 'invoices', direction: 'inbound' },
+          },
+          {
+            label: 'Pagamenti',
+            icon: 'fas fa-calendar-check',
+            permission: 'INVOICES_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToInvoices('payments', ''),
+            desktopPath: 'invoices',
+            queryParams: { view: 'payments' },
+          },
+          {
+            label: 'Economia',
+            icon: 'fas fa-chart-line',
+            permission: 'INVOICES_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToInvoices('economics', ''),
+            desktopPath: 'invoices',
+            queryParams: { view: 'economics' },
+          },
+          {
+            label: 'DDT',
+            icon: 'fas fa-truck',
+            permission: 'INVOICES_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToInvoices('ddt', ''),
+            desktopPath: 'invoices',
+            queryParams: { view: 'ddt' },
+          },
+          {
+            label: 'Fornitori',
+            icon: 'fas fa-building',
+            permission: 'INVOICES_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToInvoices('suppliers', ''),
+            desktopPath: 'invoices',
+            queryParams: { view: 'suppliers' },
+          },
+          {
+            label: 'Impostazioni',
+            icon: 'fas fa-cog',
+            permission: 'INVOICES_MANAGE',
+            feature: 'invoices',
+            action: () => this.navigateToInvoices('settings', ''),
+            desktopPath: 'invoices',
+            queryParams: { view: 'settings' },
+          },
+        ],
+      },
+      {
+        id: 'accounting',
+        label: 'Contabilita',
+        icon: 'fas fa-balance-scale',
+        buttons: [
+          {
+            label: 'Cruscotto',
+            icon: 'fas fa-chart-pie',
+            permission: 'ACCOUNTING_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToAccounting('dashboard'),
+            desktopPath: 'accounting',
+            queryParams: { view: 'dashboard' },
+          },
+          {
+            label: 'Piano dei conti',
+            icon: 'fas fa-list-ol',
+            permission: 'ACCOUNTING_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToAccounting('accounts'),
+            desktopPath: 'accounting',
+            queryParams: { view: 'accounts' },
+          },
+          {
+            label: 'Prima nota',
+            icon: 'fas fa-book',
+            permission: 'ACCOUNTING_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToAccounting('entries'),
+            desktopPath: 'accounting',
+            queryParams: { view: 'entries' },
+          },
+          {
+            label: 'Mastri',
+            icon: 'fas fa-stream',
+            permission: 'ACCOUNTING_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToAccounting('ledger'),
+            desktopPath: 'accounting',
+            queryParams: { view: 'ledger' },
+          },
+          {
+            label: 'Registro IVA',
+            icon: 'fas fa-percent',
+            permission: 'ACCOUNTING_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToAccounting('vat'),
+            desktopPath: 'accounting',
+            queryParams: { view: 'vat' },
+          },
+          {
+            label: 'Report',
+            icon: 'fas fa-balance-scale',
+            permission: 'ACCOUNTING_VIEW',
+            feature: 'invoices',
+            action: () => this.navigateToAccounting('reports'),
+            desktopPath: 'accounting',
+            queryParams: { view: 'reports' },
           },
         ],
       },
@@ -1402,14 +1531,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     return cleanUrl.replace('/homeAdmin/', '').split('/')[0];
   }
 
-  private navigateInHome(path: string): void {
+  private navigateInHome(path: string, queryParams?: Record<string, string>): void {
     if (this.isDesktopHome) {
       this.isDesktopContentActive = true;
-      this.router.navigate(['/homeAdmin', path]);
+      this.router.navigate(['/homeAdmin', path], { queryParams });
       return;
     }
 
-    this.router.navigateByUrl(`/${path}`);
+    this.router.navigate([`/${path}`], { queryParams });
   }
 
   private redirectStandaloneRouteIntoDesktopHome(): boolean {

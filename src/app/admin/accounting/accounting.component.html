@@ -1,0 +1,304 @@
+<section class="accounting-page">
+  <header class="accounting-toolbar">
+    <div>
+      <p class="eyebrow">Contabilita'</p>
+      <h1>Contabilita' aziendale</h1>
+    </div>
+    <div class="toolbar-actions">
+      <button type="button" class="ghost-btn" (click)="loadCurrentTab()" [disabled]="loading">
+        <i class="fas fa-sync-alt"></i>
+        Aggiorna
+      </button>
+      <button type="button" class="primary-btn" (click)="syncFromInvoices()" [disabled]="saving">
+        <i class="fas fa-link"></i>
+        Sincronizza da fatture
+      </button>
+    </div>
+  </header>
+
+  <nav class="accounting-tabs" aria-label="Sezioni contabilita'">
+    <button type="button" *ngFor="let tab of tabs" [class.active]="activeTab === tab.key" (click)="setTab(tab.key)">
+      <i [class]="tab.icon"></i>
+      {{ tab.label }}
+    </button>
+  </nav>
+
+  <div class="feedback error" *ngIf="error">{{ error }}</div>
+  <div class="feedback success" *ngIf="success && !error">{{ success }}</div>
+
+  <div class="period-filter" *ngIf="activeTab !== 'accounts'">
+    <label>
+      Da
+      <input type="date" [(ngModel)]="filters.startDate" />
+    </label>
+    <label>
+      A
+      <input type="date" [(ngModel)]="filters.endDate" />
+    </label>
+    <button type="button" class="ghost-btn" (click)="loadCurrentTab()">Applica</button>
+  </div>
+
+  <p class="loading" *ngIf="loading">Caricamento...</p>
+
+  <section class="dashboard-grid" *ngIf="activeTab === 'dashboard' && reports">
+    <article class="metric-card">
+      <span>Ricavi</span>
+      <strong>{{ money(reports.incomeStatement?.revenue) }}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Costi</span>
+      <strong>{{ money(reports.incomeStatement?.costs) }}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Risultato lordo</span>
+      <strong [class.negative]="(reports.incomeStatement?.grossProfit || 0) < 0">
+        {{ money(reports.incomeStatement?.grossProfit) }}
+      </strong>
+    </article>
+    <article class="metric-card">
+      <span>Saldo IVA</span>
+      <strong [class.negative]="(reports.vat?.vatBalance || 0) < 0">{{ money(reports.vat?.vatBalance) }}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Attivita'</span>
+      <strong>{{ money(reports.balanceSheet?.assets) }}</strong>
+    </article>
+    <article class="metric-card">
+      <span>Passivita'</span>
+      <strong>{{ money(reports.balanceSheet?.liabilities) }}</strong>
+    </article>
+  </section>
+
+  <section class="split-layout" *ngIf="activeTab === 'accounts'">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Piano dei conti</h2>
+        <button type="button" class="ghost-btn" (click)="newAccount()">Nuovo conto</button>
+      </div>
+      <button type="button" class="list-row" *ngFor="let account of accounts" (click)="editAccount(account)">
+        <span>
+          <strong>{{ account.code }} - {{ account.name }}</strong>
+          <small>{{ typeLabel(account.type) }} · {{ account.normalBalance === 'credit' ? 'Avere' : 'Dare' }}</small>
+        </span>
+        <em *ngIf="account.systemKey">Sistema</em>
+      </button>
+    </div>
+
+    <form class="panel edit-panel" (ngSubmit)="saveAccount()">
+      <h2>{{ selectedAccount.id ? 'Modifica conto' : 'Nuovo conto' }}</h2>
+      <div class="form-grid">
+        <label>Codice <input name="code" [(ngModel)]="selectedAccount.code" required /></label>
+        <label>Nome <input name="name" [(ngModel)]="selectedAccount.name" required /></label>
+        <label>
+          Tipo
+          <select name="type" [(ngModel)]="selectedAccount.type">
+            <option value="asset">Attivita'</option>
+            <option value="liability">Passivita'</option>
+            <option value="equity">Patrimonio</option>
+            <option value="revenue">Ricavi</option>
+            <option value="cost">Costi</option>
+            <option value="vat">IVA</option>
+            <option value="bank">Banca</option>
+            <option value="cash">Cassa</option>
+            <option value="receivable">Clienti</option>
+            <option value="payable">Fornitori</option>
+            <option value="other">Altro</option>
+          </select>
+        </label>
+        <label>
+          Saldo naturale
+          <select name="normalBalance" [(ngModel)]="selectedAccount.normalBalance">
+            <option value="debit">Dare</option>
+            <option value="credit">Avere</option>
+          </select>
+        </label>
+      </div>
+      <label>Note <textarea name="notes" [(ngModel)]="selectedAccount.notes"></textarea></label>
+      <div class="button-row">
+        <button type="submit" class="primary-btn" [disabled]="saving">Salva conto</button>
+        <button type="button" class="danger-btn" *ngIf="selectedAccount.id && !selectedAccount.systemKey" (click)="deleteAccount(selectedAccount)">Elimina</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="entries-layout" *ngIf="activeTab === 'entries'">
+    <form class="panel manual-entry" (ngSubmit)="saveManualEntry()">
+      <h2>Prima nota manuale</h2>
+      <div class="form-grid">
+        <label>Data <input type="date" name="entryDate" [(ngModel)]="manualEntry.entryDate" /></label>
+        <label>Numero <input name="number" [(ngModel)]="manualEntry.number" /></label>
+      </div>
+      <label>Descrizione <input name="description" [(ngModel)]="manualEntry.description" /></label>
+
+      <div class="journal-line" *ngFor="let row of manualEntry.lines; let i = index">
+        <select [name]="'accountId' + i" [(ngModel)]="row.accountId">
+          <option [ngValue]="null">Conto</option>
+          <option *ngFor="let account of accounts" [ngValue]="account.id">{{ account.code }} - {{ account.name }}</option>
+        </select>
+        <input type="number" step="0.01" [name]="'debit' + i" [(ngModel)]="row.debit" placeholder="Dare" />
+        <input type="number" step="0.01" [name]="'credit' + i" [(ngModel)]="row.credit" placeholder="Avere" />
+        <input [name]="'desc' + i" [(ngModel)]="row.description" placeholder="Descrizione riga" />
+        <button type="button" class="icon-btn" (click)="removeManualLine(i)" [disabled]="manualEntry.lines.length <= 2">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="journal-totals" [class.unbalanced]="!manualBalanced()">
+        <span>Dare {{ money(manualDebitTotal()) }}</span>
+        <span>Avere {{ money(manualCreditTotal()) }}</span>
+      </div>
+      <div class="button-row">
+        <button type="button" class="ghost-btn" (click)="addManualLine()">Aggiungi riga</button>
+        <button type="submit" class="primary-btn" [disabled]="saving || !manualBalanced()">Salva scrittura</button>
+      </div>
+    </form>
+
+    <div class="panel entries-panel">
+      <h2>Scritture</h2>
+
+      <section class="entry-section entry-section--incoming" *ngIf="entriesByDirection('incoming').length">
+        <header>
+          <span>Entrate</span>
+          <strong>{{ money(entryDirectionTotal('incoming')) }}</strong>
+        </header>
+        <div class="entry-row entry-row--incoming" *ngFor="let entry of entriesByDirection('incoming')">
+          <div class="entry-main">
+            <strong>{{ entry.entryDate }} · {{ entry.number || entry.id }}</strong>
+            <small>{{ sourceLabel(entry.sourceType) }} · {{ entry.description }}</small>
+          </div>
+          <span class="movement-badge movement-badge--incoming">{{ entryDirectionLabel(entry) }}</span>
+          <div class="entry-amounts">
+            <span>{{ money(entryDirectionAmount(entry)) }}</span>
+            <small>Dare {{ money(entry.debitTotal) }} · Avere {{ money(entry.creditTotal) }}</small>
+          </div>
+          <button type="button" class="icon-btn" *ngIf="entry.sourceType === 'manual' && !entry.locked" (click)="deleteEntry(entry)">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </section>
+
+      <section class="entry-section entry-section--outgoing" *ngIf="entriesByDirection('outgoing').length">
+        <header>
+          <span>Uscite</span>
+          <strong>{{ money(entryDirectionTotal('outgoing')) }}</strong>
+        </header>
+        <div class="entry-row entry-row--outgoing" *ngFor="let entry of entriesByDirection('outgoing')">
+          <div class="entry-main">
+            <strong>{{ entry.entryDate }} · {{ entry.number || entry.id }}</strong>
+            <small>{{ sourceLabel(entry.sourceType) }} · {{ entry.description }}</small>
+          </div>
+          <span class="movement-badge movement-badge--outgoing">{{ entryDirectionLabel(entry) }}</span>
+          <div class="entry-amounts">
+            <span>{{ money(entryDirectionAmount(entry)) }}</span>
+            <small>Dare {{ money(entry.debitTotal) }} · Avere {{ money(entry.creditTotal) }}</small>
+          </div>
+          <button type="button" class="icon-btn" *ngIf="entry.sourceType === 'manual' && !entry.locked" (click)="deleteEntry(entry)">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </section>
+
+      <section class="entry-section" *ngIf="entriesByDirection('neutral').length">
+        <header>
+          <span>Altre scritture</span>
+          <strong>{{ money(entryDirectionTotal('neutral')) }}</strong>
+        </header>
+        <div class="entry-row" *ngFor="let entry of entriesByDirection('neutral')">
+          <div class="entry-main">
+            <strong>{{ entry.entryDate }} · {{ entry.number || entry.id }}</strong>
+            <small>{{ sourceLabel(entry.sourceType) }} · {{ entry.description }}</small>
+          </div>
+          <span class="movement-badge">{{ entryDirectionLabel(entry) }}</span>
+          <div class="entry-amounts">
+            <span>{{ money(entryDirectionAmount(entry)) }}</span>
+            <small>Dare {{ money(entry.debitTotal) }} · Avere {{ money(entry.creditTotal) }}</small>
+          </div>
+          <button type="button" class="icon-btn" *ngIf="entry.sourceType === 'manual' && !entry.locked" (click)="deleteEntry(entry)">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </section>
+
+      <p class="subtle" *ngIf="entries.length === 0">Nessuna scrittura nel periodo selezionato.</p>
+    </div>
+  </section>
+
+  <section class="panel" *ngIf="activeTab === 'ledger'">
+    <div class="panel-head">
+      <h2>Mastri</h2>
+      <select [(ngModel)]="ledger.accountId" (change)="loadLedger()">
+        <option *ngFor="let account of accounts" [ngValue]="account.id">{{ account.code }} - {{ account.name }}</option>
+      </select>
+    </div>
+    <p class="subtle">Saldo iniziale periodo: <strong>{{ money(ledger.openingBalance) }}</strong></p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Descrizione</th><th>Dare</th><th>Avere</th><th>Saldo</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of ledger.lines">
+            <td>{{ row.entry?.entryDate }}</td>
+            <td>{{ row.description || row.entry?.description }}</td>
+            <td>{{ money(row.debit) }}</td>
+            <td>{{ money(row.credit) }}</td>
+            <td>{{ money(row.runningBalance) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" *ngIf="activeTab === 'vat'">
+    <h2>Registro IVA</h2>
+    <div class="summary-strip">
+      <span>IVA vendite <strong>{{ money(vatRegister.totals.outboundVat) }}</strong></span>
+      <span>IVA acquisti <strong>{{ money(vatRegister.totals.inboundVat) }}</strong></span>
+      <span>Saldo <strong>{{ money(vatRegister.totals.vatBalance) }}</strong></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Numero</th><th>Tipo</th><th>Soggetto</th><th>Imponibile</th><th>IVA</th><th>Totale</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of vatRegister.rows">
+            <td>{{ row.issueDate }}</td>
+            <td>{{ row.number }}</td>
+            <td>{{ row.direction === 'inbound' ? 'Acquisto' : 'Vendita' }} · {{ row.type }}</td>
+            <td>{{ row.partyName }}</td>
+            <td>{{ money(row.taxable) }}</td>
+            <td>{{ money(row.vat) }}</td>
+            <td>{{ money(row.total) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" *ngIf="activeTab === 'reports' && reports">
+    <h2>Report contabili</h2>
+    <div class="summary-strip">
+      <span>Dare <strong>{{ money(reports.totals?.debitTotal) }}</strong></span>
+      <span>Avere <strong>{{ money(reports.totals?.creditTotal) }}</strong></span>
+      <span>IVA split <strong>{{ money(reports.vat?.vatSplitPayment) }}</strong></span>
+      <span [class.negative]="!reports.totals?.balanced">{{ reports.totals?.balanced ? 'Bilanciato' : 'Da controllare' }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Conto</th><th>Tipo</th><th>Dare</th><th>Avere</th><th>Saldo</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of reports.trialBalance">
+            <td>{{ accountLabel(row.account) }}</td>
+            <td>{{ typeLabel(row.account.type) }}</td>
+            <td>{{ money(row.debit) }}</td>
+            <td>{{ money(row.credit) }}</td>
+            <td>{{ money(row.balance) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>

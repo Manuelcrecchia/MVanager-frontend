@@ -106,6 +106,7 @@ import { NotificationSettingsComponent } from './admin/notification-settings/not
 import { AppErrorHandler } from './app-error-handler';
 import { InternalWarehouseComponent } from './admin/internal-warehouse/internal-warehouse.component';
 import { InvoicesComponent } from './admin/invoices/invoices.component';
+import { AccountingComponent } from './admin/accounting/accounting.component';
 import { EmployeeContractsComponent } from './admin/employee-contracts/employee-contracts.component';
 
 registerLocaleData(localeIt);
@@ -164,6 +165,7 @@ registerLocaleData(localeIt);
     NotificationSettingsComponent,
     InternalWarehouseComponent,
     InvoicesComponent,
+    AccountingComponent,
     EmployeeContractsComponent,
   ],
   imports: [

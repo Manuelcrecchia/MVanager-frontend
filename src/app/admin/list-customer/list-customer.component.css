@@ -352,6 +352,20 @@ button[mat-raised-button] i {
   text-align: center;
 }
 
+.invoice-action-button {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 7px;
+  min-width: 148px !important;
+  padding-inline: 14px !important;
+}
+
+.invoice-action-button span {
+  font-size: .86rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
 .action-with-tooltip {
   position: relative;
   overflow: visible !important;
