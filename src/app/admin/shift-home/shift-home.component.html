@@ -1,93 +1,70 @@
 <div class="container py-4 turni-page">
-  <div class="d-flex justify-content-start align-items-center mb-3 turni-back-row">
-    <button
-      class="btn btn-outline-primary rounded-pill btn-back-glass"
-      (click)="back()"
-    >
-      ⬅ Torna Indietro
-    </button>
-  </div>
-
-  <h2 class="text-center mb-4 turni-title text-dark">Gestione Turni</h2>
-
-  <div
-    class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 turni-toolbar"
-  >
-    <div class="d-flex align-items-center gap-2 turni-date-nav">
-      <button
-        class="btn btn-secondary rounded-pill btn-nav-glass"
-        (click)="prevDay()"
-      >
-        ←
+  <section class="turni-hero">
+    <div class="turni-hero__top">
+      <button class="btn btn-back-glass" (click)="back()">
+        Indietro
       </button>
 
-      <div class="shift-mini-cal-wrapper">
-        <button class="shift-date-btn" (click)="toggleMiniCal()">
-          {{ selectedDate | date: "fullDate" }} ▾
-        </button>
-        <div
-          class="shift-mini-cal"
-          *ngIf="showMiniCal"
-          (click)="$event.stopPropagation()"
-        >
-          <div class="smc-header">
-            <button (click)="miniPrev()">‹</button>
-            <span>{{ miniCalTitle }}</span>
-            <button (click)="miniNext()">›</button>
-          </div>
-          <div class="smc-grid">
-            <div class="smc-dow" *ngFor="let d of DAYS_SHORT">{{ d }}</div>
-            <ng-container *ngFor="let week of miniCalGrid">
-              <div
-                class="smc-day"
-                *ngFor="let day of week"
-                [class.smc-today]="isSameDay(day, selectedDate)"
-                [class.smc-other]="day.getMonth() !== miniCalDate.getMonth()"
-                (click)="miniSelectDay(day)"
-              >
-                {{ day.getDate() }}
-              </div>
-            </ng-container>
-          </div>
-        </div>
+      <div class="turni-hero__title">
+        <span>Turni</span>
+        <strong>{{ selectedDate | date: "EEEE d MMMM y" : "" : "it-IT" }}</strong>
       </div>
 
-      <button
-        class="btn btn-secondary rounded-pill btn-nav-glass"
-        (click)="nextDay()"
-      >
-        →
-      </button>
+      <div class="turni-date-nav">
+        <button class="btn btn-nav-glass" (click)="prevDay()" aria-label="Giorno precedente">
+          ←
+        </button>
+
+        <div class="shift-mini-cal-wrapper">
+          <button class="shift-date-btn" (click)="toggleMiniCal()">
+            {{ selectedDate | date: "dd/MM/yyyy" }} ▾
+          </button>
+          <div class="shift-mini-cal" *ngIf="showMiniCal" (click)="$event.stopPropagation()">
+            <div class="smc-header">
+              <button (click)="miniPrev()">‹</button>
+              <span>{{ miniCalTitle }}</span>
+              <button (click)="miniNext()">›</button>
+            </div>
+            <div class="smc-grid">
+              <div class="smc-dow" *ngFor="let d of DAYS_SHORT">{{ d }}</div>
+              <ng-container *ngFor="let week of miniCalGrid">
+                <div
+                  class="smc-day"
+                  *ngFor="let day of week"
+                  [class.smc-today]="isSameDay(day, selectedDate)"
+                  [class.smc-other]="day.getMonth() !== miniCalDate.getMonth()"
+                  (click)="miniSelectDay(day)"
+                >
+                  {{ day.getDate() }}
+                </div>
+              </ng-container>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-nav-glass" (click)="nextDay()" aria-label="Giorno successivo">
+          →
+        </button>
+      </div>
     </div>
 
-    <div class="d-flex align-items-center gap-2 turni-primary-actions">
-      <button
-        class="btn rounded-pill px-3 btn-view-glass"
-        (click)="toggleViewMode()"
-        [title]="
-          viewMode === 'employee'
-            ? 'Visualizza per cliente'
-            : 'Visualizza per dipendente'
-        "
-      >
-        {{ viewMode === "employee" ? "🏢 Per cliente" : "👤 Per dipendente" }}
-      </button>
-
-      <button
-        class="btn btn-primary rounded-pill px-4 btn-create-glass"
-        (click)="createShifts()"
-        title="Crea nuovi turni per questa data"
-      >
-        ➕ Crea Turni
-      </button>
+    <div class="turni-hero__stats">
+      <div>
+        <span>Lavori</span>
+        <strong>{{ totalShiftCount }}</strong>
+      </div>
+      <div>
+        <span>Dipendenti</span>
+        <strong>{{ totalEmployeeCount }}</strong>
+      </div>
+      <div>
+        <span>Pubblicati</span>
+        <strong>{{ publishedEmployeeCount }}</strong>
+      </div>
     </div>
-  </div>
 
-  <div class="border rounded p-3 mb-4 bg-light shadow-sm turni-controls">
-    <div
-      class="d-flex justify-content-between align-items-center flex-wrap gap-2"
-    >
-      <div class="d-flex align-items-center">
+    <div class="turni-actionbar">
+      <div class="publish-toggle">
         <input
           type="checkbox"
           id="selectAll"
@@ -96,22 +73,22 @@
           (change)="toggleSelectAll()"
           [disabled]="isSaving"
         />
-
-        <label for="selectAll" class="ms-2 fw-bold">
-          Seleziona tutto (pubblica)
-        </label>
+        <label for="selectAll">Seleziona tutto per la pubblicazione</label>
       </div>
 
-      <button
-        class="btn btn-primary rounded-pill btn-save-glass"
-        (click)="savePublication()"
-        [disabled]="isSaving"
-      >
-        <span *ngIf="!isSaving"> 📣 Pubblica selezionati </span>
-        <span *ngIf="isSaving"> ⏳ Pubblicazione... </span>
-      </button>
+      <div class="turni-primary-actions">
+        <button class="btn btn-view-glass" (click)="toggleViewMode()">
+          {{ viewMode === "employee" ? "Vista cliente" : "Vista dipendente" }}
+        </button>
+        <button class="btn btn-create-glass" (click)="createShifts()">
+          Crea turni
+        </button>
+        <button class="btn btn-save-glass" (click)="savePublication()" [disabled]="isSaving">
+          {{ isSaving ? "Pubblicazione..." : "Pubblica" }}
+        </button>
+      </div>
     </div>
-  </div>
+  </section>
 
   <div *ngIf="shifts.length === 0" class="alert alert-info text-center">
     Nessun turno presente per il giorno selezionato.

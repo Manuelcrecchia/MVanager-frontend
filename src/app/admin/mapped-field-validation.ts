@@ -93,6 +93,10 @@ function isValidDate(value: string): boolean {
   );
 }
 
+function isValidTime(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value.trim());
+}
+
 function normalizeValidationRule(value: unknown): string {
   const normalized = String(value || '')
     .trim()
@@ -143,6 +147,10 @@ export function validateMappedField(
 
   if (type === 'date' && !isValidDate(text)) {
     return fail('deve essere una data valida.');
+  }
+
+  if (type === 'time' && !isValidTime(text)) {
+    return fail('deve essere un orario valido.');
   }
 
   if (type === 'email') {

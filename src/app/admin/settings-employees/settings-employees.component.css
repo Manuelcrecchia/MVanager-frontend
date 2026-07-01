@@ -82,6 +82,59 @@
   border: 1px solid rgba(0,0,0,0.12);
 }
 
+.mobility-check {
+  align-items: center;
+  background: rgba(47,183,255,0.07);
+  border: 1px solid rgba(47,183,255,0.24);
+  border-radius: 14px;
+  display: flex;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 12px;
+}
+
+.mobility-check input {
+  height: 18px;
+  width: 18px;
+}
+
+.mobility-check span {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+
+.mobility-check small {
+  color: rgba(0,0,0,0.58);
+  font-size: 12px;
+}
+
+.mobility-check--compact {
+  background: transparent;
+  border-color: rgba(0,0,0,0.12);
+  justify-content: center;
+  min-height: 36px;
+  padding: 6px 8px;
+}
+
+.mobility-badge {
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 999px;
+  color: #047857;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.mobility-badge--muted {
+  background: rgba(100,116,139,0.12);
+  border-color: rgba(100,116,139,0.2);
+  color: #475569;
+}
+
 .actions-cell {
   display: flex !important;
   flex-wrap: wrap !important;

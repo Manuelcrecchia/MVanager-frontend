@@ -3,6 +3,8 @@ export const environment = {
   apiUrl: 'http://mvanager.localhost:5001/',
   mobileDevApiUrl: '',
   invoicesEnabled: true,
+  googleMapsApiKey: '',
+  googleMapsMapId: '',
   companyRegistryEndpoint:
     'http://mvanager.localhost:5001/company-registry/companies',
 };

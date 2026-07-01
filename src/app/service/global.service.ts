@@ -27,8 +27,11 @@ interface TenantBackendConfig {
   stampingConfig?: TenantStampingConfig;
   internalWarehouseConfig?: TenantInternalWarehouseConfig;
   quoteConfig?: TenantQuoteConfig;
+  addressConfig?: TenantCustomerAddressConfig;
   contractConfig?: TenantContractConfig;
+  routePlanningConfig?: TenantRoutePlanningConfig;
   invoiceConfig?: TenantInvoiceConfig;
+  mapsConfig?: TenantMapsConfig;
 }
 
 export interface TenantAppointmentCategoryConfig {
@@ -147,6 +150,23 @@ export interface TenantQuoteConfig {
   defaultType?: string;
   types?: TenantQuoteTypeConfig[];
   fieldMapping?: TenantFieldMappingConfig;
+  addressConfig?: TenantCustomerAddressConfig;
+}
+
+export interface TenantCustomerAddressFieldSet {
+  address?: string;
+  city?: string;
+  province?: string;
+  zip?: string;
+  country?: string;
+  latitude?: string;
+  longitude?: string;
+}
+
+export interface TenantCustomerAddressConfig {
+  workSameAsBilling?: boolean;
+  billing?: TenantCustomerAddressFieldSet;
+  work?: TenantCustomerAddressFieldSet;
 }
 
 export interface TenantContractConfig {
@@ -163,6 +183,14 @@ export interface TenantContractConfig {
     from: string;
     to: string;
   }>;
+}
+
+export interface TenantRoutePlanningConfig {
+  employeeSelfTransportField?: string;
+  minimizeSplitRejoins?: boolean;
+  requireSelfTransportForSoloLegs?: boolean;
+  splitPenaltyMinutes?: number | string | null;
+  rejoinPenaltyMinutes?: number | string | null;
 }
 
 export interface TenantInvoiceConfig {
@@ -182,6 +210,11 @@ export interface TenantInvoiceConfig {
     type?: string;
     environment?: string;
   };
+}
+
+export interface TenantMapsConfig {
+  googleMapsApiKey?: string;
+  googleMapsMapId?: string;
 }
 
 @Injectable({
@@ -448,6 +481,26 @@ export class GlobalService {
     return this.tenantConfig?.contractConfig || null;
   }
 
+  getTenantRoutePlanningConfig(): TenantRoutePlanningConfig | null {
+    return this.tenantConfig?.routePlanningConfig || null;
+  }
+
+  getEmployeeSelfTransportField(): string {
+    return String(
+      this.getTenantRoutePlanningConfig()?.employeeSelfTransportField || 'automunito',
+    ).trim() || 'automunito';
+  }
+
+  isEmployeeSelfTransported(employee: Record<string, any> | null | undefined): boolean {
+    if (!employee) return false;
+    const value = employee[this.getEmployeeSelfTransportField()] ?? employee['automunito'];
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value === 1;
+    return ['1', 'true', 'yes', 'si', 'sì', 'on'].includes(
+      String(value || '').trim().toLowerCase(),
+    );
+  }
+
   getContractFields(): TenantFieldMappingFieldConfig[] {
     const fields = this.getTenantContractConfig()?.fieldMapping?.fields;
     return Array.isArray(fields)
@@ -623,6 +676,218 @@ export class GlobalService {
     };
   }
 
+  getGoogleMapsConfig(): TenantMapsConfig {
+    const config = this.tenantConfig?.mapsConfig || {};
+    const envConfig = environment as {
+      googleMapsApiKey?: string;
+      googleMapsMapId?: string;
+    };
+    return {
+      googleMapsApiKey: String(
+        config.googleMapsApiKey || envConfig.googleMapsApiKey || '',
+      ).trim(),
+      googleMapsMapId: String(
+        config.googleMapsMapId || envConfig.googleMapsMapId || '',
+      ).trim(),
+    };
+  }
+
+  getTenantCustomerAddressConfig(): TenantCustomerAddressConfig {
+    const explicitConfig =
+      this.tenantConfig?.addressConfig ||
+      this.getTenantQuoteConfig()?.addressConfig ||
+      {};
+    const fallbackBilling = this.inferBillingAddressFieldsFromRoles();
+    const fallbackWork = this.inferWorkAddressFieldsFromRoles();
+    return this.normalizeCustomerAddressConfig(
+      explicitConfig,
+      fallbackBilling,
+      fallbackWork,
+    );
+  }
+
+  getEffectiveCustomerAddressFields(
+    kind: 'work' | 'billing' = 'work',
+  ): TenantCustomerAddressFieldSet {
+    const config = this.getTenantCustomerAddressConfig();
+    if (kind === 'billing') {
+      return config.billing || {};
+    }
+    return config.workSameAsBilling === true
+      ? config.billing || {}
+      : config.work || {};
+  }
+
+  buildCustomerAddress(
+    record: Record<string, any>,
+    kind: 'work' | 'billing' = 'work',
+  ): string {
+    if (!record) return '';
+
+    const configuredAddress = this.composeCustomerAddressFromFieldSet(
+      record,
+      this.getEffectiveCustomerAddressFields(kind),
+    );
+    if (configuredAddress) return configuredAddress;
+
+    const roleAddress = [
+      this.getRecordValueByRole('customer', record, 'customerAddress'),
+      this.getRecordValueByRole('customer', record, 'customerZip'),
+      this.getRecordValueByRole('customer', record, 'customerCity'),
+      this.getRecordValueByRole('customer', record, 'customerProvince'),
+      this.getRecordValueByRole('customer', record, 'customerCountry'),
+    ]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join(', ');
+    if (roleAddress) return roleAddress;
+
+    return this.composeCustomerAddressFromLikelyKeys(record);
+  }
+
+  private normalizeCustomerAddressConfig(
+    config: TenantCustomerAddressConfig,
+    fallbackBilling: TenantCustomerAddressFieldSet,
+    fallbackWork: TenantCustomerAddressFieldSet = {},
+  ): TenantCustomerAddressConfig {
+    const billing = this.normalizeCustomerAddressFieldSet(
+      config.billing || {},
+      fallbackBilling,
+    );
+    const hasExplicitWorkMode = Object.prototype.hasOwnProperty.call(
+      config || {},
+      'workSameAsBilling',
+    );
+    const hasFallbackWork = Object.values(fallbackWork || {}).some(Boolean);
+    const workSameAsBilling = hasExplicitWorkMode
+      ? config.workSameAsBilling !== false
+      : !hasFallbackWork;
+    return {
+      workSameAsBilling,
+      billing,
+      work: this.normalizeCustomerAddressFieldSet(
+        config.work || {},
+        workSameAsBilling ? billing : fallbackWork,
+      ),
+    };
+  }
+
+  private normalizeCustomerAddressFieldSet(
+    fieldSet: TenantCustomerAddressFieldSet,
+    fallback: TenantCustomerAddressFieldSet = {},
+  ): TenantCustomerAddressFieldSet {
+    const keys: Array<keyof TenantCustomerAddressFieldSet> = [
+      'address',
+      'city',
+      'province',
+      'zip',
+      'country',
+      'latitude',
+      'longitude',
+    ];
+    return keys.reduce((acc, key) => {
+      acc[key] = String(fieldSet?.[key] || fallback?.[key] || '').trim();
+      return acc;
+    }, {} as TenantCustomerAddressFieldSet);
+  }
+
+  private inferBillingAddressFieldsFromRoles(): TenantCustomerAddressFieldSet {
+    const fieldKey = (role: string) => {
+      const field = this.getFieldMappingFields('customer').find(
+        (item) => String(item.displayRole || '').trim() === role,
+      );
+      return String(field?.dbColumn || field?.key || '').trim();
+    };
+    return {
+      address: fieldKey('customerBillingAddress') || fieldKey('customerAddress'),
+      city: fieldKey('customerBillingCity') || fieldKey('customerCity'),
+      province: fieldKey('customerBillingProvince') || fieldKey('customerProvince'),
+      zip: fieldKey('customerBillingZip') || fieldKey('customerZip'),
+      country: fieldKey('customerBillingCountry') || fieldKey('customerCountry'),
+      latitude: fieldKey('customerLatitude'),
+      longitude: fieldKey('customerLongitude'),
+    };
+  }
+
+  private inferWorkAddressFieldsFromRoles(): TenantCustomerAddressFieldSet {
+    const fieldKey = (role: string) => {
+      const field = this.getFieldMappingFields('customer').find(
+        (item) => String(item.displayRole || '').trim() === role,
+      );
+      return String(field?.dbColumn || field?.key || '').trim();
+    };
+    return {
+      address: fieldKey('customerWorkAddress'),
+      city: fieldKey('customerWorkCity'),
+      province: fieldKey('customerWorkProvince'),
+      zip: fieldKey('customerWorkZip'),
+      country: fieldKey('customerWorkCountry'),
+      latitude: fieldKey('customerWorkLatitude'),
+      longitude: fieldKey('customerWorkLongitude'),
+    };
+  }
+
+  private composeCustomerAddressFromFieldSet(
+    record: Record<string, any>,
+    fieldSet: TenantCustomerAddressFieldSet,
+  ): string {
+    const address = this.readCustomerAddressField(record, fieldSet.address);
+    const zip = this.readCustomerAddressField(record, fieldSet.zip);
+    const city = this.readCustomerAddressField(record, fieldSet.city);
+    const province = this.readCustomerAddressField(record, fieldSet.province);
+    const country = this.readCustomerAddressField(record, fieldSet.country);
+    const cityLine = [zip, city, province].filter(Boolean).join(' ');
+    return [address, cityLine, country]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  private readCustomerAddressField(
+    record: Record<string, any>,
+    fieldKey: string | undefined,
+  ): string {
+    const key = String(fieldKey || '').trim();
+    if (!key || !record) return '';
+    const field = this.getFieldConfig('customer', key);
+    const value = field
+      ? this.readMappedValue(record, field)
+      : Object.prototype.hasOwnProperty.call(record, key)
+        ? record[key]
+        : undefined;
+    return String(value || '').trim();
+  }
+
+  private composeCustomerAddressFromLikelyKeys(
+    record: Record<string, any>,
+  ): string {
+    const keys = Object.keys(record || {}).filter((key) => {
+      const normalized = key
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+      return (
+        normalized.includes('indirizzo') ||
+        normalized.includes('address') ||
+        normalized.includes('via') ||
+        normalized.includes('citta') ||
+        normalized.includes('city') ||
+        normalized.includes('cap') ||
+        normalized.includes('zip') ||
+        normalized.includes('partenza') ||
+        normalized.includes('arrivo')
+      );
+    });
+    const departureKeys = keys.filter((key) =>
+      key.toLowerCase().includes('partenza'),
+    );
+    const sourceKeys = departureKeys.length ? departureKeys : keys;
+    return [...new Set(
+      sourceKeys
+        .map((key) => String(record[key] || '').trim())
+        .filter((value) => value && value.length > 2),
+    )].slice(0, 5).join(', ');
+  }
+
   getQuoteTypes(): TenantQuoteTypeConfig[] {
     return this.getTenantQuoteConfig()?.types || [];
   }
@@ -714,7 +979,7 @@ export class GlobalService {
     if (type === 'phone') {
       return 'tel';
     }
-    if (['number', 'date', 'email', 'tel'].includes(type)) {
+    if (['number', 'date', 'time', 'email', 'tel'].includes(type)) {
       return type;
     }
     return 'text';

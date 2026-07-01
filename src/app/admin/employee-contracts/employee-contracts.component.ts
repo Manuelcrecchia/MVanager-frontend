@@ -634,6 +634,7 @@ export class EmployeeContractsComponent implements OnInit {
     if (type === 'email') return 'email';
     if (type === 'phone') return 'tel';
     if (type === 'date') return 'date';
+    if (type === 'time') return 'time';
     if (type === 'number' || type === 'money') return 'number';
     return 'text';
   }

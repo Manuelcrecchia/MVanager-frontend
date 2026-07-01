@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router, ActivatedRoute } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
@@ -38,12 +38,40 @@ interface ClientRow {
   appointmentId: number;
 }
 
+interface RoutePlannerStop {
+  id: string;
+  shiftId: number;
+  title: string;
+  label: string;
+  address: string;
+  start: string | null;
+  plannedStart: string;
+  plannedEnd: string;
+  duration: number;
+  travelBefore: number;
+  mapX: number;
+  mapY: number;
+  teamIndex: number;
+}
+
+interface RoutePlannerTeam {
+  index: number;
+  name: string;
+  stops: RoutePlannerStop[];
+  totalWorkMinutes: number;
+  totalTravelMinutes: number;
+  totalMinutes: number;
+  googleMapsUrl: string;
+}
+
 @Component({
   selector: 'app-shift-home',
   templateUrl: './shift-home.component.html',
   styleUrl: './shift-home.component.css',
 })
 export class ShiftHomeComponent implements OnInit {
+  @ViewChild('routePlannerMap') routePlannerMap?: ElementRef<HTMLDivElement>;
+
   selectedDate: Date = new Date();
 
   // Mini calendar
@@ -155,6 +183,18 @@ export class ShiftHomeComponent implements OnInit {
   selectedEmployees: number[] = [];
   selectAll: boolean = false;
   isSaving: boolean = false;
+  routePlannerOpen = false;
+  routePlannerTeamsCount = 2;
+  routePlannerStartTime = '08:00';
+  routePlannerTravelMinutes = 15;
+  routePlannerTeams: RoutePlannerTeam[] = [];
+  routePlannerMessage = '';
+  googleMapsLoading = false;
+  googleMapsError = '';
+  private googleMapsPromise: Promise<void> | null = null;
+  private googleMap: any = null;
+  private googleDirectionsRenderers: any[] = [];
+  private googleMarkers: any[] = [];
 
   tooltipVisible: boolean = false;
   tooltipText: string = '';
@@ -328,6 +368,9 @@ export class ShiftHomeComponent implements OnInit {
 
           this.shifts = shiftsArray;
           this.groupedByEmployee = this.organizeByEmployee(shiftsArray);
+          if (this.routePlannerOpen) {
+            this.generateRoutePreview();
+          }
 
           const allIds = this.groupedKeys()
             .map((name) => this.getEmpId(name))
@@ -426,6 +469,594 @@ export class ShiftHomeComponent implements OnInit {
     }
 
     return result;
+  }
+
+  canUseRoutePlanning(): boolean {
+    return (
+      this.globalService.hasTenantFeature('routePlanning') &&
+      this.globalService.hasPermission('SHIFTS_MANAGE')
+    );
+  }
+
+  toggleRoutePlanner(): void {
+    this.routePlannerOpen = !this.routePlannerOpen;
+    if (this.routePlannerOpen) {
+      this.googleMapsError = '';
+      this.generateRoutePreview();
+    } else {
+      this.clearGoogleMapOverlays();
+      this.googleMap = null;
+      this.googleMapsLoading = false;
+      this.googleMapsError = '';
+    }
+  }
+
+  get totalShiftCount(): number {
+    return this.shifts.length;
+  }
+
+  get totalEmployeeCount(): number {
+    const ids = new Set<number>();
+    for (const shift of this.shifts) {
+      for (const emp of Array.isArray(shift?.employees) ? shift.employees : []) {
+        const id = Number(emp?.id);
+        if (id) ids.add(id);
+      }
+    }
+    return ids.size;
+  }
+
+  get publishedEmployeeCount(): number {
+    const ids = new Set<number>();
+    for (const shift of this.shifts) {
+      for (const emp of Array.isArray(shift?.employees) ? shift.employees : []) {
+        const id = Number(emp?.id);
+        if (id && this.getShiftEmployeeLink(emp)?.published === true) ids.add(id);
+      }
+    }
+    return ids.size;
+  }
+
+  get routePlannerStopsCount(): number {
+    return this.routePlannerTeams.reduce((total, team) => total + team.stops.length, 0);
+  }
+
+  get mapStops(): RoutePlannerStop[] {
+    return this.routePlannerTeams.flatMap((team) => team.stops);
+  }
+
+  get hasRoutePlannerPlan(): boolean {
+    return this.routePlannerTeams.some((team) => team.stops.length);
+  }
+
+  generateRoutePreview(): void {
+    const stops = this.buildRoutePlannerStops();
+    const teamsCount = Math.max(1, Math.min(12, Math.floor(Number(this.routePlannerTeamsCount) || 1)));
+    this.routePlannerTeamsCount = teamsCount;
+
+    const teams: RoutePlannerTeam[] = Array.from({ length: teamsCount }, (_, index) => ({
+      index,
+      name: `Squadra ${index + 1}`,
+      stops: [],
+      totalWorkMinutes: 0,
+      totalTravelMinutes: 0,
+      totalMinutes: 0,
+      googleMapsUrl: '',
+    }));
+
+    if (!stops.length) {
+      this.routePlannerTeams = teams;
+      this.routePlannerMessage = 'Nessun lavoro pianificabile per questa data.';
+      this.renderGoogleMapSoon();
+      return;
+    }
+
+    const orderedStops = this.orderStopsForMap(stops);
+    for (const stop of orderedStops) {
+      const targetTeam = [...teams].sort((a, b) => a.totalMinutes - b.totalMinutes)[0];
+      const travelBefore = targetTeam.stops.length ? this.normalizedTravelMinutes() : 0;
+      const startMinutes = this.resolvePlannedStartMinutes(targetTeam, stop, travelBefore);
+      const plannedStop = {
+        ...stop,
+        travelBefore,
+        plannedStart: this.minutesToTime(startMinutes),
+        plannedEnd: this.minutesToTime(startMinutes + stop.duration),
+        teamIndex: targetTeam.index,
+      };
+
+      targetTeam.stops.push(plannedStop);
+      targetTeam.totalWorkMinutes += plannedStop.duration;
+      targetTeam.totalTravelMinutes += travelBefore;
+      targetTeam.totalMinutes = (startMinutes + plannedStop.duration) - this.basePlannerStartMinutes();
+    }
+
+    for (const team of teams) {
+      team.totalMinutes = team.totalWorkMinutes + team.totalTravelMinutes;
+      team.googleMapsUrl = this.buildGoogleMapsDirectionsUrl(team.stops);
+    }
+
+    this.routePlannerTeams = teams;
+    this.routePlannerMessage = this.hasGoogleMapsKey()
+      ? 'Preview calcolata sui turni del giorno. La mappa usa Google Maps per disegnare i percorsi.'
+      : 'Preview calcolata sui turni del giorno. La mappa e schematica e non usa servizi a pagamento.';
+    this.renderGoogleMapSoon();
+  }
+
+  routeTeamColor(index: number): string {
+    const colors = ['#2563eb', '#16a34a', '#ea580c', '#9333ea', '#0891b2', '#be123c'];
+    return colors[index % colors.length];
+  }
+
+  markerTitle(stop: RoutePlannerStop): string {
+    return `${stop.label} - ${stop.plannedStart}/${stop.plannedEnd}`;
+  }
+
+  routePolylinePoints(team: RoutePlannerTeam): string {
+    return team.stops
+      .map((stop) => `${Math.max(0, Math.min(100, stop.mapX))},${Math.max(0, Math.min(100, stop.mapY))}`)
+      .join(' ');
+  }
+
+  hasGoogleMapsKey(): boolean {
+    return !!this.globalService.getGoogleMapsConfig().googleMapsApiKey;
+  }
+
+  private renderGoogleMapSoon(): void {
+    if (!this.routePlannerOpen) return;
+    window.setTimeout(() => this.renderGoogleMap(), 0);
+  }
+
+  private renderGoogleMap(): void {
+    if (!this.routePlannerOpen) return;
+
+    if (!this.hasGoogleMapsKey()) {
+      this.googleMapsLoading = false;
+      this.googleMapsError = '';
+      this.clearGoogleMapOverlays();
+      return;
+    }
+
+    if (!this.routePlannerMap?.nativeElement) {
+      this.renderGoogleMapSoon();
+      return;
+    }
+
+    this.googleMapsLoading = true;
+    this.googleMapsError = '';
+
+    this.loadGoogleMaps()
+      .then(() => {
+        this.googleMapsLoading = false;
+        this.drawGoogleRoutes();
+      })
+      .catch((error) => {
+        this.googleMapsLoading = false;
+        this.googleMapsError =
+          error?.message || 'Impossibile caricare Google Maps. Verifica chiave e API abilitate.';
+      });
+  }
+
+  private loadGoogleMaps(): Promise<void> {
+    const win = window as any;
+    if (win.google?.maps) {
+      return Promise.resolve();
+    }
+    if (this.googleMapsPromise) {
+      return this.googleMapsPromise;
+    }
+
+    const config = this.globalService.getGoogleMapsConfig();
+    const apiKey = config.googleMapsApiKey;
+    if (!apiKey) {
+      return Promise.reject(new Error('Chiave Google Maps mancante.'));
+    }
+
+    this.googleMapsPromise = new Promise<void>((resolve, reject) => {
+      const callbackName = `__mvanagerGoogleMapsReady_${Date.now()}`;
+      win[callbackName] = () => {
+        delete win[callbackName];
+        resolve();
+      };
+
+      const params = new URLSearchParams({
+        key: apiKey,
+        callback: callbackName,
+        loading: 'async',
+        language: 'it',
+        region: 'IT',
+      });
+      if (config.googleMapsMapId) {
+        params.set('map_ids', config.googleMapsMapId);
+      }
+
+      const existingScript = document.getElementById('mvanager-google-maps-js');
+      existingScript?.remove();
+
+      const script = document.createElement('script');
+      script.id = 'mvanager-google-maps-js';
+      script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
+      script.async = true;
+      script.defer = true;
+      script.onerror = () => {
+        delete win[callbackName];
+        this.googleMapsPromise = null;
+        script.remove();
+        reject(new Error('Caricamento script Google Maps fallito.'));
+      };
+      document.head.appendChild(script);
+    });
+
+    return this.googleMapsPromise;
+  }
+
+  private drawGoogleRoutes(): void {
+    const google = (window as any).google;
+    const mapElement = this.routePlannerMap?.nativeElement;
+    if (!google?.maps || !mapElement) return;
+
+    const mapConfig = this.globalService.getGoogleMapsConfig();
+    if (!this.googleMap) {
+      this.googleMap = new google.maps.Map(mapElement, {
+        center: { lat: 41.9028, lng: 12.4964 },
+        zoom: 11,
+        mapId: mapConfig.googleMapsMapId || undefined,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+      });
+    }
+
+    this.clearGoogleMapOverlays();
+
+    if (!this.hasRoutePlannerPlan) {
+      this.googleMap.setCenter({ lat: 41.9028, lng: 12.4964 });
+      this.googleMap.setZoom(11);
+      return;
+    }
+
+    const directionsService = new google.maps.DirectionsService();
+    const geocoder = new google.maps.Geocoder();
+    const bounds = new google.maps.LatLngBounds();
+    const routePromises = this.routePlannerTeams
+      .filter((team) => team.stops.length > 0)
+      .map((team) => this.drawTeamRoute(google, directionsService, geocoder, bounds, team));
+
+    Promise.all(routePromises).then((statuses) => {
+      const failed = statuses.filter((status) => status !== 'OK');
+      if (!bounds.isEmpty()) {
+        this.googleMap.fitBounds(bounds, 40);
+      }
+      this.googleMapsError = failed.length
+        ? 'Alcuni indirizzi non sono stati risolti da Google Maps. Controlla le vie salvate sui clienti.'
+        : '';
+    });
+  }
+
+  private drawTeamRoute(
+    google: any,
+    directionsService: any,
+    geocoder: any,
+    bounds: any,
+    team: RoutePlannerTeam,
+  ): Promise<string> {
+    const color = this.routeTeamColor(team.index);
+    const locations = team.stops
+      .map((stop) => stop.address || stop.title)
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+
+    if (!locations.length) return Promise.resolve('ZERO_RESULTS');
+
+    if (locations.length === 1) {
+      return this.drawSingleGoogleMarker(google, geocoder, bounds, team.stops[0], color);
+    }
+
+    const renderer = new google.maps.DirectionsRenderer({
+      map: this.googleMap,
+      suppressMarkers: true,
+      preserveViewport: true,
+      polylineOptions: {
+        strokeColor: color,
+        strokeOpacity: 0.88,
+        strokeWeight: 5,
+      },
+    });
+    this.googleDirectionsRenderers.push(renderer);
+
+    const request = {
+      origin: locations[0],
+      destination: locations[locations.length - 1],
+      waypoints: locations.slice(1, -1).slice(0, 23).map((location) => ({
+        location,
+        stopover: true,
+      })),
+      optimizeWaypoints: false,
+      travelMode: google.maps.TravelMode.DRIVING,
+    };
+
+    return directionsService.route(request)
+      .then((response: any) => {
+        renderer.setDirections(response);
+        this.addRouteMarkersFromDirections(google, bounds, response, team, color);
+        return 'OK';
+      })
+      .catch(() => Promise.all(
+        team.stops.map((stop) => this.drawSingleGoogleMarker(google, geocoder, bounds, stop, color)),
+      ).then(() => 'PARTIAL'));
+  }
+
+  private addRouteMarkersFromDirections(
+    google: any,
+    bounds: any,
+    response: any,
+    team: RoutePlannerTeam,
+    color: string,
+  ): void {
+    const legs = response?.routes?.[0]?.legs || [];
+    if (!legs.length) return;
+
+    const positions = [
+      legs[0].start_location,
+      ...legs.map((leg: any) => leg.end_location),
+    ];
+
+    positions.slice(0, team.stops.length).forEach((position: any, index: number) => {
+      const stop = team.stops[index];
+      if (!position || !stop) return;
+      bounds.extend(position);
+      this.googleMarkers.push(new google.maps.Marker({
+        map: this.googleMap,
+        position,
+        label: {
+          text: String(index + 1),
+          color: '#ffffff',
+          fontWeight: '700',
+        },
+        title: `${team.name}: ${stop.title}`,
+        icon: this.buildMarkerIcon(color),
+      }));
+    });
+  }
+
+  private drawSingleGoogleMarker(
+    google: any,
+    geocoder: any,
+    bounds: any,
+    stop: RoutePlannerStop,
+    color: string,
+  ): Promise<string> {
+    const address = stop.address || stop.title;
+    return geocoder.geocode({ address, region: 'IT' })
+      .then((result: any) => {
+        const location = result?.results?.[0]?.geometry?.location;
+        if (!location) return 'ZERO_RESULTS';
+        bounds.extend(location);
+        this.googleMarkers.push(new google.maps.Marker({
+          map: this.googleMap,
+          position: location,
+          label: {
+            text: stop.label,
+            color: '#ffffff',
+            fontWeight: '700',
+          },
+          title: stop.title,
+          icon: this.buildMarkerIcon(color),
+        }));
+        return 'OK';
+      })
+      .catch(() => 'ZERO_RESULTS');
+  }
+
+  private buildMarkerIcon(color: string): any {
+    const google = (window as any).google;
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">` +
+      `<path fill="${color}" d="M18 2C11.4 2 6 7.3 6 13.9c0 8.6 12 20.1 12 20.1s12-11.5 12-20.1C30 7.3 24.6 2 18 2z"/>` +
+      `<circle cx="18" cy="14" r="5" fill="white" opacity=".95"/></svg>`;
+
+    return {
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+      scaledSize: new google.maps.Size(36, 36),
+      labelOrigin: new google.maps.Point(18, 14),
+    };
+  }
+
+  private clearGoogleMapOverlays(): void {
+    this.googleDirectionsRenderers.forEach((renderer) => renderer.setMap(null));
+    this.googleMarkers.forEach((marker) => marker.setMap(null));
+    this.googleDirectionsRenderers = [];
+    this.googleMarkers = [];
+  }
+
+  private buildRoutePlannerStops(): RoutePlannerStop[] {
+    return this.shifts
+      .filter((shift) => shift?.appointmentId || shift?.title || shift?.appointment?.title)
+      .map((shift, index) => {
+        const title = this.cleanShiftTitle(shift?.appointment?.title || shift?.title || `Lavoro ${index + 1}`);
+        const address = this.getShiftAddress(shift) || title;
+        const point = this.buildPseudoMapPoint(`${address}-${shift?.id || index}`);
+        return {
+          id: String(shift?.id || shift?.appointmentId || index),
+          shiftId: Number(shift?.id) || 0,
+          title,
+          label: `${index + 1}`,
+          address,
+          start: shift?.startDate || null,
+          plannedStart: '--:--',
+          plannedEnd: '--:--',
+          duration: Math.max(15, Number(shift?.duration) || this.inferShiftDuration(shift) || 60),
+          travelBefore: 0,
+          mapX: point.x,
+          mapY: point.y,
+          teamIndex: 0,
+        };
+      });
+  }
+
+  private orderStopsForMap(stops: RoutePlannerStop[]): RoutePlannerStop[] {
+    const center = { x: 50, y: 50 };
+    return [...stops].sort((a, b) => {
+      const startA = this.timeToMinutesFromDate(a.start);
+      const startB = this.timeToMinutesFromDate(b.start);
+      if (startA !== null && startB !== null && startA !== startB) return startA - startB;
+      if (startA !== null && startB === null) return -1;
+      if (startA === null && startB !== null) return 1;
+
+      const angleA = Math.atan2(a.mapY - center.y, a.mapX - center.x);
+      const angleB = Math.atan2(b.mapY - center.y, b.mapX - center.x);
+      return angleA - angleB;
+    });
+  }
+
+  private resolvePlannedStartMinutes(
+    team: RoutePlannerTeam,
+    stop: RoutePlannerStop,
+    travelBefore: number,
+  ): number {
+    const baseStart = this.basePlannerStartMinutes();
+    const previous = team.stops[team.stops.length - 1];
+    const earliestForTeam = previous
+      ? this.timeToMinutes(previous.plannedEnd) + travelBefore
+      : baseStart;
+    const requestedStart = this.timeToMinutesFromDate(stop.start);
+    return Math.max(earliestForTeam, requestedStart ?? baseStart);
+  }
+
+  private inferShiftDuration(shift: any): number {
+    const start = shift?.startDate ? new Date(shift.startDate) : null;
+    const end = shift?.endDate ? new Date(shift.endDate) : null;
+    if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+    return Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+  }
+
+  private normalizedTravelMinutes(): number {
+    return Math.max(0, Math.min(180, Math.floor(Number(this.routePlannerTravelMinutes) || 0)));
+  }
+
+  private basePlannerStartMinutes(): number {
+    return this.timeToMinutes(this.routePlannerStartTime) || 8 * 60;
+  }
+
+  private timeToMinutes(value: string | null | undefined): number {
+    const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || '').trim());
+    if (!match) return 0;
+    const h = Number(match[1]);
+    const m = Number(match[2]);
+    if (h < 0 || h > 23 || m < 0 || m > 59) return 0;
+    return h * 60 + m;
+  }
+
+  private timeToMinutesFromDate(value: string | null): number | null {
+    if (!value) return null;
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return null;
+    return date.getHours() * 60 + date.getMinutes();
+  }
+
+  private minutesToTime(minutes: number): string {
+    const normalized = ((Math.floor(minutes) % 1440) + 1440) % 1440;
+    const h = Math.floor(normalized / 60);
+    const m = normalized % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+
+  private buildPseudoMapPoint(seed: string): { x: number; y: number } {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    }
+    const x = 12 + (hash % 76);
+    const y = 14 + ((Math.floor(hash / 97)) % 70);
+    return { x, y };
+  }
+
+  private getShiftAddress(shift: any): string {
+    const customer = this.getShiftCustomer(shift);
+    const dynamicCustomerAddress = this.buildCustomerAddress(customer);
+    const candidates = [
+      dynamicCustomerAddress,
+      shift?.appointment?.customer?.address,
+      shift?.appointment?.Customer?.address,
+      shift?.appointment?.customer?.indirizzo,
+      shift?.appointment?.Customer?.indirizzo,
+      shift?.appointment?.customer?.customerAddress,
+      shift?.appointment?.Customer?.customerAddress,
+      shift?.appointment?.description,
+      shift?.description,
+      shift?.appointment?.title,
+      shift?.title,
+    ];
+    return candidates
+      .map((value) => String(value || '').trim())
+      .find((value) => value.length > 3) || '';
+  }
+
+  private getShiftCustomer(shift: any): any {
+    return (
+      shift?.appointment?.customer ||
+      shift?.appointment?.Customer ||
+      shift?.customer ||
+      shift?.Customer ||
+      null
+    );
+  }
+
+  private buildCustomerAddress(customer: any): string {
+    if (!customer || typeof customer !== 'object') return '';
+
+    const configuredAddress = this.globalService.buildCustomerAddress(customer, 'work');
+    if (configuredAddress) return configuredAddress;
+
+    const preferredKeys = Object.keys(customer).filter((key) => {
+      const normalized = key
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+      return (
+        normalized.includes('indirizzo') ||
+        normalized.includes('address') ||
+        normalized.includes('via') ||
+        normalized.includes('citta') ||
+        normalized.includes('city') ||
+        normalized.includes('cap') ||
+        normalized.includes('zip') ||
+        normalized.includes('partenza') ||
+        normalized.includes('arrivo')
+      );
+    });
+
+    const partenza = preferredKeys
+      .filter((key) => key.toLowerCase().includes('partenza'))
+      .map((key) => String(customer[key] || '').trim())
+      .filter(Boolean);
+    if (partenza.length) return [...new Set(partenza)].join(', ');
+
+    return [...new Set(
+      preferredKeys
+        .map((key) => String(customer[key] || '').trim())
+        .filter((value) => value && value.length > 2),
+    )].slice(0, 5).join(', ');
+  }
+
+  private buildGoogleMapsDirectionsUrl(stops: RoutePlannerStop[]): string {
+    if (!stops.length) return '';
+    const locations = stops
+      .map((stop) => stop.address || stop.title)
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+    if (!locations.length) return '';
+
+    const params = new URLSearchParams();
+    params.set('api', '1');
+    params.set('travelmode', 'driving');
+    if (locations.length === 1) {
+      params.set('destination', locations[0]);
+    } else {
+      params.set('origin', locations[0]);
+      params.set('destination', locations[locations.length - 1]);
+      const waypoints = locations.slice(1, -1).slice(0, 9);
+      if (waypoints.length) params.set('waypoints', waypoints.join('|'));
+    }
+    return `https://www.google.com/maps/dir/?${params.toString()}`;
   }
 
   toggleEmployeeSelection(empId: number): void {
@@ -686,7 +1317,9 @@ export class ShiftHomeComponent implements OnInit {
     const raw =
       shift?.appointment?.numeroCliente ??
       shift?.appointment?.customer?.numeroCliente ??
+      shift?.appointment?.Customer?.numeroCliente ??
       shift?.customer?.numeroCliente ??
+      shift?.Customer?.numeroCliente ??
       null;
 
     if (raw === null || raw === undefined) return null;

@@ -137,6 +137,83 @@ button[mat-raised-button]:hover{
   box-shadow: 0 18px 45px rgba(0,0,0,0.45);
 }
 
+.access-work-panel {
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.94);
+  color: #111827;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.18);
+}
+
+.access-work-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.access-work-panel__header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.access-work-panel__general {
+  display: grid;
+  grid-template-columns: minmax(180px, .8fr) repeat(2, minmax(140px, .6fr));
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.access-week-table {
+  overflow: hidden;
+  border: 1px solid rgba(17,24,39,0.1);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.access-week-table__head,
+.access-week-table__row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(120px, .6fr) minmax(120px, .6fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.access-week-table__head {
+  padding: 10px 12px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: .78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.access-week-table__row {
+  min-height: 54px;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(17,24,39,0.08);
+}
+
+.access-time-input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(17,24,39,0.16);
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  padding: 7px 10px;
+  font-weight: 800;
+}
+
+.access-time-input:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
 .staff-requirements {
   padding: 16px;
   border-radius: 18px;
@@ -207,5 +284,15 @@ button[mat-raised-button]:hover{
 
   .btn-back {
     margin-bottom: 16px;
+  }
+
+  .access-work-panel__general,
+  .access-week-table__head,
+  .access-week-table__row {
+    grid-template-columns: 1fr;
+  }
+
+  .access-week-table__head {
+    display: none;
   }
 }

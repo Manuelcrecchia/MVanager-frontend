@@ -115,6 +115,97 @@
       </div>
     </div>
 
+    <section class="access-work-panel mt-4" *ngIf="hasAccessWorkFields()">
+      <div class="access-work-panel__header">
+        <h3>Accesso lavori</h3>
+      </div>
+
+      <div class="access-work-panel__general">
+        <mat-form-field appearance="fill" *ngIf="getAccessFieldByRole('customerWorkDurationMinutes') as durationField">
+          <mat-label>Durata lavoro (ore)</mat-label>
+          <input
+            matInput
+            type="number"
+            min="0"
+            step="0.25"
+            [name]="durationField.dbColumn"
+            [ngModel]="getAccessDurationHours(durationField)"
+            (ngModelChange)="updateAccessDurationHours(durationField, $event)"
+          />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" *ngIf="getAccessFieldByRole('customerAccessStart') as startField">
+          <mat-label>Dalle</mat-label>
+          <input
+            matInput
+            type="time"
+            [name]="startField.dbColumn"
+            [ngModel]="getAccessFieldValue(startField)"
+            (ngModelChange)="updateAccessField(startField, $event)"
+          />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" *ngIf="getAccessFieldByRole('customerAccessEnd') as endField">
+          <mat-label>Fino alle</mat-label>
+          <input
+            matInput
+            type="time"
+            [name]="endField.dbColumn"
+            [ngModel]="getAccessFieldValue(endField)"
+            (ngModelChange)="updateAccessField(endField, $event)"
+          />
+        </mat-form-field>
+      </div>
+
+      <div class="access-week-table">
+        <div class="access-week-table__head">
+          <span>Giorno</span>
+          <span>Dalle</span>
+          <span>Fino alle</span>
+        </div>
+
+        <div
+          class="access-week-table__row"
+          *ngFor="let day of accessWeekDays; trackBy: trackByAccessDay"
+        >
+          <mat-checkbox
+            [name]="'accessEnabled' + day.key"
+            [ngModel]="isAccessDayEnabled(day)"
+            (ngModelChange)="setAccessDayEnabled(day, $event)"
+          >
+            {{ day.label }}
+          </mat-checkbox>
+          <input
+            class="access-time-input"
+            type="time"
+            [name]="day.startKey"
+            [disabled]="!isAccessDayEnabled(day)"
+            [ngModel]="getAccessFieldValueByKey(day.startKey)"
+            (ngModelChange)="updateAccessFieldByKey(day.startKey, $event)"
+          />
+          <input
+            class="access-time-input"
+            type="time"
+            [name]="day.endKey"
+            [disabled]="!isAccessDayEnabled(day)"
+            [ngModel]="getAccessFieldValueByKey(day.endKey)"
+            (ngModelChange)="updateAccessFieldByKey(day.endKey, $event)"
+          />
+        </div>
+      </div>
+
+      <mat-form-field appearance="fill" class="w-100 mt-3" *ngIf="getAccessFieldByRole('customerAccessNotes') as notesField">
+        <mat-label>Note accesso</mat-label>
+        <textarea
+          matInput
+          rows="2"
+          [name]="notesField.dbColumn"
+          [ngModel]="getAccessFieldValue(notesField)"
+          (ngModelChange)="updateAccessField(notesField, $event)"
+        ></textarea>
+      </mat-form-field>
+    </section>
+
     <section class="staff-requirements mt-4">
       <h3>Personale richiesto</h3>
       <p class="staff-requirements__hint">

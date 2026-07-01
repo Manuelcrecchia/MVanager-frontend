@@ -1,17 +1,213 @@
-<div class="container py-4" style="max-width:960px; margin:0 auto;">
-  <div class="d-flex justify-content-start align-items-center mb-3">
+<div class="create-shift-page">
+  <section class="create-shift-hero">
     <button class="btn-back" type="button" (click)="goBack()">
-      &larr; Torna Indietro
+      <i class="fas fa-arrow-left"></i>
+      <span>Indietro</span>
     </button>
-  </div>
 
-  <h2 class="text-dark">Assegnazione Turni</h2>
+    <div class="create-shift-title">
+      <span>Turni</span>
+      <h2>Assegnazione Turni</h2>
+      <p>{{ selectedDate | date : "EEEE d MMMM y" }}</p>
+    </div>
 
-  <div class="row" style="height: calc(100vh - 150px)">
+    <div class="create-shift-actions">
+      <button
+        class="route-primary-btn"
+        type="button"
+        *ngIf="canUseRoutePlanning()"
+        (click)="generateAndApplyRoutePlan()"
+        [disabled]="routePlannerLoading || routePlannerAiLoading"
+      >
+        <i class="fas fa-route"></i>
+        {{ routePlannerLoading ? "Genero..." : "Genera giri" }}
+      </button>
+      <span class="route-feature-disabled" *ngIf="!canUseRoutePlanning()">
+        Giri non abilitati
+      </span>
+      <button class="save-hero-btn" type="button" (click)="finalSave()">
+        <i class="fas fa-save"></i>
+        Salva Turni
+      </button>
+    </div>
+  </section>
+
+  <section class="create-shift-stats">
+    <div>
+      <span>Lavori</span>
+      <strong>{{ appointments.length }}</strong>
+    </div>
+    <div>
+      <span>Assegnati</span>
+      <strong>{{ totalAssignedJobs }}</strong>
+    </div>
+    <div>
+      <span>Dipendenti</span>
+      <strong>{{ employeeList.length }}</strong>
+    </div>
+  </section>
+
+  <section class="route-planner-panel" *ngIf="canUseRoutePlanning() && routePlannerOpen">
+    <div class="route-planner-panel__header">
+      <div>
+        <span>Assistente turni</span>
+        <strong>{{ routePlannerLoading ? "Generazione in corso" : "Giri automatici" }}</strong>
+        <small>{{ routePlannerAvailableEmployeesCount || employeeList.length }} dipendenti disponibili</small>
+      </div>
+    </div>
+
+    <div class="route-planner-status">
+      <p class="route-planner-note">{{ routePlannerMessage }}</p>
+      <p class="route-planner-applied" *ngIf="routePlannerApplyMessage">{{ routePlannerApplyMessage }}</p>
+      <div class="route-planner-warnings" *ngIf="routePlannerWarnings.length">
+        <span *ngFor="let warning of routePlannerWarnings">{{ warning }}</span>
+      </div>
+    </div>
+
+    <div class="route-ai-panel">
+      <div
+        class="route-ai-chat"
+        [class.route-ai-chat--loading]="routePlannerAiLoading || routePlannerLoading"
+      >
+        <div class="route-ai-chat__header">
+          <div>
+            <span>Assistente turni locale</span>
+            <strong>{{ routePlannerAiEngine }}</strong>
+          </div>
+          <div class="route-ai-loading-pill" *ngIf="routePlannerAiLoading || routePlannerLoading">
+            <span class="route-ai-spinner"></span>
+            {{ routePlannerAiLoading ? "Sto pensando" : "Rigenero" }}
+          </div>
+          <button
+            class="route-ai-clear"
+            type="button"
+            (click)="clearRoutePlannerAiPreferences()"
+            [disabled]="!routePlannerAiDirectives.length"
+            title="Togli preferenze temporanee"
+          >
+            <i class="fas fa-eraser"></i>
+          </button>
+        </div>
+        <div class="route-ai-context" *ngIf="routePlannerAiContextStop">
+          <span>{{ routePlannerAiContextStop.title }}</span>
+          <button type="button" (click)="clearRoutePlannerAiContext()" title="Togli contesto">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="route-ai-messages">
+          <p
+            *ngFor="let message of routePlannerAiMessages"
+            [class.route-ai-message--user]="message.role === 'user'"
+          >
+            {{ message.text }}
+          </p>
+          <div class="route-ai-loading-message" *ngIf="routePlannerAiLoading || routePlannerLoading" aria-live="polite">
+            <span class="route-ai-spinner"></span>
+            <div>
+              <strong>{{ routePlannerAiLoading ? "Assistente in risposta" : "Turni in aggiornamento" }}</strong>
+              <small>
+                {{ routePlannerAiLoading ? "Sto leggendo la richiesta..." : "Sto rigenerando e riapplicando i giri..." }}
+              </small>
+            </div>
+          </div>
+        </div>
+        <div class="route-ai-conflict-actions" *ngIf="routePlannerConflictActionButtons.length">
+          <button
+            *ngFor="let item of routePlannerConflictActionButtons"
+            class="route-ai-delete-selected"
+            style="width: auto; margin-right: 6px; color: #1d4ed8; background: #dbeafe;"
+            type="button"
+            (click)="applyRoutePlannerConflictAction(item.action)"
+            [disabled]="routePlannerAiLoading || routePlannerLoading"
+            [title]="item.title"
+          >
+            <i class="fas" [ngClass]="item.icon"></i>
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
+        <div class="route-ai-input">
+          <input
+            type="text"
+            [(ngModel)]="routePlannerAiInput"
+            (keyup.enter)="sendRoutePlannerAiMessage()"
+            [disabled]="routePlannerAiLoading || routePlannerLoading"
+            [placeholder]="(routePlannerAiLoading || routePlannerLoading) ? 'Attendi il caricamento...' : 'Es. evita Marco nei condomini'"
+          />
+          <button
+            type="button"
+            (click)="sendRoutePlannerAiMessage()"
+            [disabled]="routePlannerAiLoading || routePlannerLoading || !routePlannerAiInput.trim()"
+          >
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="route-ai-preferences">
+        <div class="route-ai-preferences__header">
+          <span>Preferenze attive</span>
+          <div class="route-ai-preference-actions">
+            <button
+              type="button"
+              class="route-ai-delete-selected"
+              (click)="deleteSelectedRoutePlannerPreferences()"
+              [disabled]="!selectedRoutePlannerPreferenceCount || routePlannerDeletingPreferences || routePlannerLoading"
+              title="Cancella preferenze selezionate"
+            >
+              <i class="fas fa-trash-alt"></i>
+              <strong *ngIf="selectedRoutePlannerPreferenceCount">{{ selectedRoutePlannerPreferenceCount }}</strong>
+            </button>
+            <button
+              type="button"
+              class="route-ai-delete-selected"
+              (click)="deleteAllRoutePlannerPreferences()"
+              [disabled]="!visibleRoutePlannerPreferences.length || routePlannerDeletingPreferences || routePlannerLoading"
+              title="Cancella tutte le preferenze attive"
+            >
+              tutte
+            </button>
+          </div>
+        </div>
+        <div *ngIf="!visibleRoutePlannerPreferences.length" class="route-ai-empty">
+          Nessuna preferenza attiva.
+        </div>
+        <div class="route-ai-preference-list" *ngIf="visibleRoutePlannerPreferences.length">
+          <div
+            *ngFor="let preference of visibleRoutePlannerPreferences"
+            class="route-ai-preference-row"
+            [class.route-ai-chip--avoid]="preference.weight < 0"
+          >
+            <label class="route-ai-preference-check" title="Seleziona">
+              <input
+                type="checkbox"
+                [disabled]="routePlannerDeletingPreferences || routePlannerLoading"
+                [checked]="isRoutePlannerPreferenceSelected(preference)"
+                (change)="toggleRoutePlannerPreferenceSelection(preference, $any($event.target).checked)"
+              />
+            </label>
+            <span>{{ routePlannerPreferenceLabel(preference) }}</span>
+            <button
+              type="button"
+              class="route-ai-delete-one"
+              (click)="deleteRoutePlannerPreference(preference)"
+              [disabled]="routePlannerDeletingPreferences || routePlannerLoading"
+              title="Togli preferenza attiva"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="row shift-board">
     <!-- COLONNA SINISTRA -->
-    <div class="col-md-8 border-end" style="height: 100%; overflow-y: auto">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <button (click)="prevDay()" class="btn btn-secondary">&larr;</button>
+    <div class="col-md-8 shift-work-column">
+      <div class="shift-date-toolbar">
+        <button (click)="prevDay()" class="btn btn-secondary" aria-label="Giorno precedente">
+          <i class="fas fa-chevron-left"></i>
+        </button>
         <div class="shift-mini-cal-wrapper">
           <button class="shift-date-btn" (click)="toggleMiniCal()">
             {{ selectedDate | date : "fullDate" }} ▾
@@ -36,7 +232,9 @@
             </div>
           </div>
         </div>
-        <button (click)="nextDay()" class="btn btn-secondary">&rarr;</button>
+        <button (click)="nextDay()" class="btn btn-secondary" aria-label="Giorno successivo">
+          <i class="fas fa-chevron-right"></i>
+        </button>
       </div>
 
       <div *ngIf="loading" class="text-center">Caricamento...</div>
@@ -49,16 +247,17 @@
 
       <div *ngIf="!loading && appointments.length > 0" class="list-group">
         <div class="text-center mb-3">
-          <button class="btn btn-outline-primary btn-sm" (click)="addExtra()">
-            ➕ Aggiungi lavoro extra
+          <button class="btn btn-outline-primary btn-sm add-extra-btn" (click)="addExtra()">
+            <i class="fas fa-plus"></i>
+            Aggiungi lavoro extra
           </button>
         </div>
 
         <div
           *ngFor="let a of appointments"
-          class="list-group-item d-flex align-items-center justify-content-between"
+          class="list-group-item shift-job-card"
         >
-          <div class="flex-grow-1 me-3">
+          <div class="shift-job-main">
             <div>
               <div class="job-title-row" *ngIf="!a.isExtra">
                 <strong>{{ a.title }}</strong>
@@ -90,39 +289,40 @@
             </div>
           </div>
 
+          <div class="shift-job-actions">
           <button
-            class="btn btn-sm btn-outline-primary me-2"
+            class="btn btn-sm btn-outline-primary"
             (click)="openAssignmentDialog(a)"
             title="Assegna dipendenti"
           >
-            👥
+            <i class="fas fa-user-friends"></i>
           </button>
 
           <button
-            class="btn btn-sm btn-outline-warning me-2"
+            class="btn btn-sm btn-outline-warning"
             (click)="openVehicleDialog(a)"
             title="Assegna mezzo"
           >
-            🚗
+            <i class="fas fa-car"></i>
           </button>
 
-          <span class="badge bg-light text-dark me-2" *ngIf="getVehicleLabel(a.id)">
+          <span class="badge bg-light text-dark shift-job-badge" *ngIf="getVehicleLabel(a.id)">
             {{ getVehicleLabel(a.id) }}
           </span>
 
           <button
-            class="btn btn-sm btn-outline-info me-2"
+            class="btn btn-sm btn-outline-info"
             (click)="openEquipmentDialog(a)"
             title="Assegna attrezzature"
           >
-            🧰
+            <i class="fas fa-toolbox"></i>
           </button>
 
-          <span class="badge bg-light text-dark me-2" *ngIf="getEquipmentLabel(a.id)">
+          <span class="badge bg-light text-dark shift-job-badge" *ngIf="getEquipmentLabel(a.id)">
             {{ getEquipmentLabel(a.id) }}
           </span>
 
-          <div class="me-2" style="min-width: 90px">
+          <div class="shift-time-field">
             <input
               type="text"
               class="form-control form-control-sm"
@@ -132,7 +332,7 @@
             />
           </div>
 
-          <div class="me-2" style="min-width: 100px">
+          <div class="shift-duration-field">
             <select
               class="form-control form-control-sm"
               [(ngModel)]="a.duration"
@@ -144,7 +344,7 @@
             </select>
           </div>
 
-          <div *ngIf="!isComplete(a)" class="text-danger me-2">❗</div>
+          <div *ngIf="!isComplete(a)" class="text-danger shift-job-warning">❗</div>
 
           <button
             *ngIf="a.isExtra"
@@ -153,31 +353,40 @@
           >
             ❌
           </button>
+          </div>
         </div>
 
         <div class="text-center mt-3">
-          <button class="btn btn-outline-primary btn-sm" (click)="addExtra()">
-            ➕ Aggiungi lavoro extra
+          <button class="btn btn-outline-primary btn-sm add-extra-btn" (click)="addExtra()">
+            <i class="fas fa-plus"></i>
+            Aggiungi lavoro extra
           </button>
         </div>
       </div>
 
       <div class="text-center mt-4">
         <button class="btn btn-success" (click)="finalSave()">
-          💾 Salva Turni
+          <i class="fas fa-save"></i>
+          Salva Turni
         </button>
       </div>
     </div>
 
     <!-- COLONNA DESTRA -->
-    <div class="col-md-4" style="height: 100%; overflow-y: auto">
+    <div class="col-md-4 shift-summary-column">
       <h5 class="text-center">Lavori selezionati per dipendente</h5>
       <div *ngFor="let emp of employeeList" class="card my-2 shadow-sm">
         <div class="card-header bg-light fw-bold">
           {{ emp.nome }} {{ emp.cognome }}
-          <span class="float-end text-muted"
-            >Totale: {{ getEmployeeTotalDuration(emp.id) }}</span
+          <span
+            class="float-end employee-total"
+            [class.employee-total--over]="isEmployeeOverDailyCapacity(emp)"
           >
+            Totale: {{ getEmployeeTotalDuration(emp.id) }} / {{ getEmployeeDailyCapacityDuration(emp) }}
+          </span>
+          <small class="employee-capacity-alert" *ngIf="isEmployeeOverDailyCapacity(emp)">
+            Supera le ore giornaliere
+          </small>
         </div>
         <div
           cdkDropList

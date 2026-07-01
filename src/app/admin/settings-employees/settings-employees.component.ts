@@ -11,6 +11,7 @@ interface Employee {
   email: string;
   cellulare: string;
   oreGiornaliereDefault?: string | number | null;
+  automunito?: boolean | number | string | null;
   active: boolean;
 }
 
@@ -41,6 +42,7 @@ export class SettingsEmployeesComponent implements OnInit {
     email: '',
     cellulare: '',
     oreGiornaliereDefault: null,
+    automunito: false,
   };
   employeess: Employee[] = [];
   showArchived = false;
@@ -90,6 +92,7 @@ export class SettingsEmployeesComponent implements OnInit {
         emp.email,
         emp.cellulare,
         emp.oreGiornaliereDefault,
+        this.isEmployeeSelfTransported(emp) ? 'automunito auto patente guida' : 'non automunito senza auto',
         emp.active ? 'attivo' : 'archiviato',
         ...this.getEmployeeCategoryNames(emp),
       ].join(' '));
@@ -369,6 +372,7 @@ export class SettingsEmployeesComponent implements OnInit {
       email: this.employeeEdit.email,
       cellulare: this.employeeEdit.cellulare,
       oreGiornaliereDefault: this.employeeEdit.oreGiornaliereDefault,
+      automunito: this.isEmployeeSelfTransported(this.employeeEdit),
     };
 
     this.http
@@ -395,6 +399,7 @@ export class SettingsEmployeesComponent implements OnInit {
       email: this.employeesAdd.email,
       cellulare: this.employeesAdd.cellulare,
       oreGiornaliereDefault: this.employeesAdd.oreGiornaliereDefault,
+      automunito: this.isEmployeeSelfTransported(this.employeesAdd),
     };
 
     this.isLoading = true;
@@ -412,6 +417,7 @@ export class SettingsEmployeesComponent implements OnInit {
             email: '',
             cellulare: '',
             oreGiornaliereDefault: null,
+            automunito: false,
           };
           this.fetchEmployees();
         },
@@ -444,6 +450,10 @@ export class SettingsEmployeesComponent implements OnInit {
       .replace(/\p{Diacritic}/gu, '')
       .toLowerCase()
       .trim();
+  }
+
+  isEmployeeSelfTransported(emp: Partial<Employee> | any): boolean {
+    return this.globalService.isEmployeeSelfTransported(emp);
   }
 
   unarchiveEmployee(emp: Employee): void {

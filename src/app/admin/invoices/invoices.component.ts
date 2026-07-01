@@ -2813,11 +2813,11 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       cliente: () => this.global.getRecordDisplayName('customer', customer) || this.customerValue(customer, 'customerTitle'),
       partitaIva: () => this.customerValue(customer, 'customerVatNumber'),
       codiceFiscale: () => this.customerValue(customer, 'customerFiscalCode'),
-      indirizzo: () => this.customerValue(customer, 'customerAddress'),
-      comune: () => this.customerValue(customer, 'customerCity'),
-      provincia: () => this.customerValue(customer, 'customerProvince'),
-      cap: () => this.customerValue(customer, 'customerZip'),
-      nazione: () => this.customerValue(customer, 'customerCountry'),
+      indirizzo: () => this.customerAddressPart(customer, 'billing', 'address', 'customerAddress'),
+      comune: () => this.customerAddressPart(customer, 'billing', 'city', 'customerCity'),
+      provincia: () => this.customerAddressPart(customer, 'billing', 'province', 'customerProvince'),
+      cap: () => this.customerAddressPart(customer, 'billing', 'zip', 'customerZip'),
+      nazione: () => this.customerAddressPart(customer, 'billing', 'country', 'customerCountry'),
     };
     return aliases[normalized]?.() ?? this.customerConfiguredValue(customer, normalized);
   }
@@ -2848,11 +2848,11 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.selected.customerFiscalCode = this.stringValue(this.customerValue(customer, 'customerFiscalCode')).toUpperCase();
     this.selected.customerPec = this.stringValue(this.customerValue(customer, 'customerPec'));
     this.selected.customerEmail = this.stringValue(this.customerValue(customer, 'customerEmail'));
-    this.selected.customerAddress = this.stringValue(this.customerValue(customer, 'customerAddress'));
-    this.selected.customerCity = this.stringValue(this.customerValue(customer, 'customerCity'));
-    this.selected.customerProvince = this.stringValue(this.customerValue(customer, 'customerProvince')).toUpperCase();
-    this.selected.customerZip = this.onlyDigits(this.customerValue(customer, 'customerZip'));
-    this.selected.customerCountry = this.stringValue(this.customerValue(customer, 'customerCountry') || 'IT').toUpperCase();
+    this.selected.customerAddress = this.stringValue(this.customerAddressPart(customer, 'billing', 'address', 'customerAddress'));
+    this.selected.customerCity = this.stringValue(this.customerAddressPart(customer, 'billing', 'city', 'customerCity'));
+    this.selected.customerProvince = this.stringValue(this.customerAddressPart(customer, 'billing', 'province', 'customerProvince')).toUpperCase();
+    this.selected.customerZip = this.onlyDigits(this.customerAddressPart(customer, 'billing', 'zip', 'customerZip'));
+    this.selected.customerCountry = this.stringValue(this.customerAddressPart(customer, 'billing', 'country', 'customerCountry') || 'IT').toUpperCase();
     const sdiCode = this.stringValue(this.customerValue(customer, 'customerSdiCode')).toUpperCase();
     this.selected.customerSdiCode = sdiCode || this.defaultSdiForCountry(this.selected.customerCountry);
   }
@@ -2862,11 +2862,16 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       this.global.getRecordDisplayName('customer', customer) ||
       this.customerValue(customer, 'customerTitle'),
     );
-    const address = this.stringValue(this.customerValue(customer, 'customerAddress'));
-    const city = this.stringValue(this.customerValue(customer, 'customerCity'));
-    const province = this.stringValue(this.customerValue(customer, 'customerProvince')).toUpperCase();
-    const zip = this.onlyDigits(this.customerValue(customer, 'customerZip'));
-    const country = this.stringValue(this.customerValue(customer, 'customerCountry') || 'IT').toUpperCase();
+    const address = this.stringValue(this.customerAddressPart(customer, 'billing', 'address', 'customerAddress'));
+    const city = this.stringValue(this.customerAddressPart(customer, 'billing', 'city', 'customerCity'));
+    const province = this.stringValue(this.customerAddressPart(customer, 'billing', 'province', 'customerProvince')).toUpperCase();
+    const zip = this.onlyDigits(this.customerAddressPart(customer, 'billing', 'zip', 'customerZip'));
+    const country = this.stringValue(this.customerAddressPart(customer, 'billing', 'country', 'customerCountry') || 'IT').toUpperCase();
+    const destinationAddress = this.stringValue(this.customerAddressPart(customer, 'work', 'address', 'customerAddress') || address);
+    const destinationCity = this.stringValue(this.customerAddressPart(customer, 'work', 'city', 'customerCity') || city);
+    const destinationProvince = this.stringValue(this.customerAddressPart(customer, 'work', 'province', 'customerProvince') || province).toUpperCase();
+    const destinationZip = this.onlyDigits(this.customerAddressPart(customer, 'work', 'zip', 'customerZip') || zip);
+    const destinationCountry = this.stringValue(this.customerAddressPart(customer, 'work', 'country', 'customerCountry') || country).toUpperCase();
 
     this.selectedDdt.customerId = this.stringValue(customer?.['numeroCliente'] || this.customerValue(customer, 'customerId'));
     this.selectedDdt.customerName = name;
@@ -2877,11 +2882,28 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.selectedDdt.customerProvince = province;
     this.selectedDdt.customerZip = zip;
     this.selectedDdt.customerCountry = country;
-    this.selectedDdt.destinationAddress = address;
-    this.selectedDdt.destinationCity = city;
-    this.selectedDdt.destinationProvince = province;
-    this.selectedDdt.destinationZip = zip;
-    this.selectedDdt.destinationCountry = country;
+    this.selectedDdt.destinationAddress = destinationAddress;
+    this.selectedDdt.destinationCity = destinationCity;
+    this.selectedDdt.destinationProvince = destinationProvince;
+    this.selectedDdt.destinationZip = destinationZip;
+    this.selectedDdt.destinationCountry = destinationCountry;
+  }
+
+  private customerAddressPart(
+    customer: Record<string, any>,
+    kind: 'work' | 'billing',
+    part: 'address' | 'city' | 'province' | 'zip' | 'country',
+    fallbackRole: string,
+  ): any {
+    const fieldSet = this.global.getEffectiveCustomerAddressFields(kind);
+    const fieldKey = this.stringValue(fieldSet?.[part]);
+    if (fieldKey) {
+      const configured = this.customerConfiguredValue(customer, fieldKey);
+      if (configured !== undefined && configured !== null && String(configured).trim() !== '') {
+        return configured;
+      }
+    }
+    return this.customerValue(customer, fallbackRole);
   }
 
   private customerValue(customer: Record<string, any>, role: string): any {
