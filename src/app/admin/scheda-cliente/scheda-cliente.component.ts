@@ -103,6 +103,6 @@ export class SchedaClienteComponent implements OnInit {
   }
 
   back() {
-    this.router.navigateByUrl('/listCustomer');
+    this.router.navigateByUrl('/homeAdmin/listCustomer');
   }
 }

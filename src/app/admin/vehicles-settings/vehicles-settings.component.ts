@@ -12,9 +12,12 @@ interface Vehicle {
 }
 
 interface EquipmentTarget {
-  id: string;
+  id: number | string;
+  equipmentId?: number | null;
   targetKey: string;
   targetLabel: string;
+  name?: string;
+  quantity: number;
 }
 
 interface ResourceCertification {
@@ -61,9 +64,12 @@ export class VehiclesSettingsComponent implements OnInit {
   selectedEquipmentCategoryIds: number[] = [];
 
   addForm: { name: string; plate: string } = { name: '', plate: '' };
+  equipmentAddForm: { name: string; quantity: number } = { name: '', quantity: 1 };
 
   editingId: number | null = null;
   editForm: { name: string; plate: string } = { name: '', plate: '' };
+  editingEquipmentId: number | null = null;
+  equipmentEditForm: { name: string; quantity: number } = { name: '', quantity: 1 };
 
   constructor(
     private http: HttpClient,
@@ -131,7 +137,12 @@ export class VehiclesSettingsComponent implements OnInit {
     if (!query) return this.equipmentTargets;
 
     return this.equipmentTargets.filter((target) =>
-      this.normalizeSearch([target.targetLabel, target.targetKey].join(' ')).includes(query),
+      this.normalizeSearch([
+        target.targetLabel,
+        target.targetKey,
+        target.name,
+        target.quantity,
+      ].join(' ')).includes(query),
     );
   }
 
@@ -210,16 +221,116 @@ export class VehiclesSettingsComponent implements OnInit {
 
   loadEquipmentTargets(): void {
     this.http
-      .get<EquipmentTarget[]>(this.globalService.url + 'admin/deadlines/equipment/targets')
+      .get<EquipmentTarget[]>(this.globalService.url + 'equipment/getAll')
       .subscribe({
         next: (res) => {
-          this.equipmentTargets = (res || []).sort((a, b) =>
-            String(a.targetLabel || '').localeCompare(String(b.targetLabel || ''), 'it'),
-          );
+          this.equipmentTargets = (res || [])
+            .map((item: any) => this.normalizeEquipmentTarget(item))
+            .sort((a, b) =>
+              String(a.targetLabel || '').localeCompare(String(b.targetLabel || ''), 'it'),
+            );
         },
         error: (err) => {
           console.error('Errore attrezzature:', err);
           this.equipmentTargets = [];
+        },
+      });
+  }
+
+  addEquipment(): void {
+    const name = String(this.equipmentAddForm.name || '').trim();
+    const quantity = this.parseEquipmentQuantity(this.equipmentAddForm.quantity);
+    if (name.length < 2) {
+      alert('Inserisci un nome attrezzatura valido');
+      return;
+    }
+    if (quantity === null) {
+      alert('Inserisci una quantità valida');
+      return;
+    }
+
+    this.http
+      .post(this.globalService.url + 'equipment/add', { name, quantity })
+      .subscribe({
+        next: () => {
+          this.equipmentAddForm = { name: '', quantity: 1 };
+          this.loadEquipmentTargets();
+        },
+        error: (err) => {
+          console.error('Errore addEquipment:', err);
+          alert(this.parseServerError(err, 'Errore aggiunta attrezzatura'));
+        },
+      });
+  }
+
+  startEquipmentEdit(target: EquipmentTarget): void {
+    const id = this.getEquipmentNumericId(target);
+    if (!id) return;
+    this.editingEquipmentId = id;
+    this.equipmentEditForm = {
+      name: target.name || target.targetLabel || '',
+      quantity: target.quantity || 1,
+    };
+  }
+
+  cancelEquipmentEdit(): void {
+    this.editingEquipmentId = null;
+    this.equipmentEditForm = { name: '', quantity: 1 };
+  }
+
+  saveEquipmentEdit(): void {
+    if (this.editingEquipmentId == null) return;
+    const name = String(this.equipmentEditForm.name || '').trim();
+    const quantity = this.parseEquipmentQuantity(this.equipmentEditForm.quantity);
+    if (name.length < 2) {
+      alert('Inserisci un nome attrezzatura valido');
+      return;
+    }
+    if (quantity === null) {
+      alert('Inserisci una quantità valida');
+      return;
+    }
+
+    this.http
+      .post(this.globalService.url + 'equipment/edit', {
+        id: this.editingEquipmentId,
+        name,
+        quantity,
+      })
+      .subscribe({
+        next: () => {
+          this.cancelEquipmentEdit();
+          this.loadEquipmentTargets();
+        },
+        error: (err) => {
+          console.error('Errore saveEquipmentEdit:', err);
+          alert(this.parseServerError(err, 'Errore modifica attrezzatura'));
+        },
+      });
+  }
+
+  deleteEquipment(target: EquipmentTarget): void {
+    const id = this.getEquipmentNumericId(target);
+    if (!id) return;
+    const ok = confirm(
+      `Eliminare l'attrezzatura "${target.targetLabel || target.targetKey}"?\n\nVerranno rimosse anche le scadenze e le categorie collegate.`,
+    );
+    if (!ok) return;
+
+    this.http
+      .post(this.globalService.url + 'equipment/delete', { id })
+      .subscribe({
+        next: () => {
+          if (this.editingEquipmentId === id) this.cancelEquipmentEdit();
+          if (this.selectedEquipmentForCategories?.targetKey === target.targetKey) {
+            this.closeEquipmentCategories();
+          }
+          this.loadEquipmentTargets();
+          this.loadEquipmentCategoryAssignments();
+        },
+        error: (err) => {
+          console.error('Errore deleteEquipment:', err);
+          alert(this.parseServerError(err, 'Errore eliminazione attrezzatura'));
         },
       });
   }
@@ -662,6 +773,30 @@ export class VehiclesSettingsComponent implements OnInit {
     return ids
       .map((id) => this.equipmentCategories.find((category) => Number(category.id) === Number(id))?.name)
       .filter((name): name is string => !!name);
+  }
+
+  private normalizeEquipmentTarget(item: any): EquipmentTarget {
+    const targetKey = String(item?.targetKey || item?.id || '').trim();
+    const quantity = this.parseEquipmentQuantity(item?.quantity) || 1;
+    return {
+      ...item,
+      id: item?.id ?? targetKey,
+      equipmentId: Number(item?.equipmentId || item?.id) || null,
+      targetKey,
+      targetLabel: String(item?.targetLabel || item?.name || targetKey).trim(),
+      name: String(item?.name || item?.targetLabel || targetKey).trim(),
+      quantity,
+    };
+  }
+
+  private getEquipmentNumericId(target: EquipmentTarget): number | null {
+    const id = Number(target.equipmentId || target.id);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }
+
+  private parseEquipmentQuantity(value: unknown): number | null {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : null;
   }
 
   private emptyCategoryDraft(): ResourceCategory {

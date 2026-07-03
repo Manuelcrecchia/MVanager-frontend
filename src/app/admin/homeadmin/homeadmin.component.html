@@ -1244,6 +1244,119 @@
         color: #fff;
       }
 
+      /* ===== EMAIL HEALTH NOTICE ===== */
+      .email-health-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        background: rgba(15, 23, 42, 0.42);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+
+      .email-health-modal {
+        width: min(620px, 100%);
+        border-radius: 8px;
+        border: 1px solid rgba(220, 53, 69, 0.2);
+        background: #fff;
+        box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+        color: #111827;
+        overflow: hidden;
+      }
+
+      .email-health-modal-header {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        gap: 12px;
+        padding: 18px;
+        background: #fff5f5;
+        border-bottom: 1px solid rgba(220, 53, 69, 0.12);
+      }
+
+      .email-health-modal-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        display: inline-grid;
+        place-items: center;
+        background: #dc3545;
+        color: #fff;
+      }
+
+      .email-health-modal h2 {
+        margin: 0;
+        font-size: 1.18rem;
+        font-weight: 950;
+      }
+
+      .email-health-modal p {
+        margin: 5px 0 0;
+        color: #4b5563;
+        font-weight: 700;
+      }
+
+      .email-health-list {
+        display: grid;
+        gap: 10px;
+        max-height: min(320px, 48vh);
+        overflow: auto;
+        padding: 16px 18px;
+      }
+
+      .email-health-item {
+        border: 1px solid rgba(220, 53, 69, 0.16);
+        border-radius: 8px;
+        padding: 12px;
+        background: #fffafa;
+      }
+
+      .email-health-item strong,
+      .email-health-item span,
+      .email-health-item small {
+        display: block;
+      }
+
+      .email-health-item span {
+        color: #991b1b;
+        font-weight: 900;
+      }
+
+      .email-health-item small {
+        margin-top: 4px;
+        color: #4b5563;
+        line-height: 1.35;
+      }
+
+      .email-health-modal-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 14px 18px 18px;
+      }
+
+      .email-health-settings-btn,
+      .email-health-close-btn {
+        border: 0;
+        border-radius: 8px;
+        min-height: 42px;
+        padding: 0 14px;
+        font-weight: 900;
+      }
+
+      .email-health-settings-btn {
+        background: #0d6efd;
+        color: #fff;
+      }
+
+      .email-health-close-btn {
+        background: #eef2f7;
+        color: #111827;
+      }
+
       /* ===== ANIMATIONS ===== */
       @keyframes homeSlideFromRight {
         from {
@@ -1393,6 +1506,42 @@
     <div class="clouds"></div>
 
     <div class="page" [class.home-ios]="isIos">
+      <div class="email-health-modal-backdrop" *ngIf="emailHealthNoticeVisible" role="dialog" aria-modal="true">
+        <section class="email-health-modal" aria-label="Problema configurazione email">
+          <header class="email-health-modal-header">
+            <span class="email-health-modal-icon">
+              <i class="fas fa-exclamation-triangle"></i>
+            </span>
+            <div>
+              <h2>Attenzione: una o più email non funzionano</h2>
+              <p>Il sistema non riesce a collegarsi ad alcune caselle configurate.</p>
+            </div>
+          </header>
+
+          <div class="email-health-list">
+            <article class="email-health-item" *ngFor="let issue of emailHealthIssues">
+              <strong>{{ emailHealthIssueTitle(issue) }}</strong>
+              <span>{{ emailHealthIssueSummary(issue) }}</span>
+              <small>{{ emailHealthIssueDetail(issue) }}</small>
+            </article>
+          </div>
+
+          <footer class="email-health-modal-actions">
+            <button
+              class="email-health-settings-btn"
+              type="button"
+              *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')"
+              (click)="goToEmailSettingsFromNotice()"
+            >
+              Vai alle impostazioni email
+            </button>
+            <button class="email-health-close-btn" type="button" (click)="closeEmailHealthNotice()">
+              Chiudi
+            </button>
+          </footer>
+        </section>
+      </div>
+
       <!-- ===================== -->
       <!-- DESKTOP SIDEBAR       -->
       <!-- ===================== -->

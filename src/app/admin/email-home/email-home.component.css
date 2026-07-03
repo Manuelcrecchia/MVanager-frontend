@@ -90,6 +90,13 @@
   gap: 10px;
 }
 
+.mailbox-indicators {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .mailbox-unread-dot {
   width: 9px;
   height: 9px;
@@ -97,6 +104,23 @@
   background: #0f7cff;
   box-shadow: 0 0 0 3px rgba(15, 124, 255, 0.12);
   flex: 0 0 auto;
+}
+
+.mailbox-health-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.mailbox-health-text {
+  color: #b91c1c !important;
+  font-weight: 800;
 }
 
 .folder-row {

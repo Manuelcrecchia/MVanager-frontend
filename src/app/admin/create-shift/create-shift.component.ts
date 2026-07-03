@@ -49,6 +49,11 @@ interface RouteStaffRequirement {
   requiredCount: number;
 }
 
+interface EquipmentAssignment {
+  targetKey: string;
+  quantity: number;
+}
+
 interface RoutePlannerTeam {
   index: number;
   name: string;
@@ -198,7 +203,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   assignedCapisquadra: { [appointmentId: string]: number[] } = {};
   assignedCapisquadraNotes: { [appointmentId: string]: { [employeeId: number]: string } } = {};
   assignedVehicles: { [appointmentId: string]: number[] } = {};
-  assignedEquipment: { [appointmentId: string]: string[] } = {};
+  assignedEquipment: { [appointmentId: string]: EquipmentAssignment[] } = {};
   vehiclesCache: any[] = [];
   equipmentTargetsCache: any[] = [];
   loading = false;
@@ -430,7 +435,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       duration: app.duration ?? 0,
       sortOrderByEmployee: app.sortOrderByEmployee || {},
       vehicleIds: this.assignedVehicles[app.id] || [],
-      equipmentKeys: this.assignedEquipment[app.id] || [],
+      equipmentKeys: this.normalizeEquipmentAssignments(this.assignedEquipment[app.id] || []),
     };
 
     if (includeAssignments) {
@@ -456,6 +461,25 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
           alert(this.parseServerError(err));
         },
       });
+  }
+
+  private normalizeEquipmentAssignments(value: any): EquipmentAssignment[] {
+    const rawItems = Array.isArray(value) ? value : [];
+    const byTarget = new Map<string, number>();
+
+    for (const item of rawItems) {
+      const targetKey = item && typeof item === 'object'
+        ? String(item.targetKey || item.id || '').trim()
+        : String(item || '').trim();
+      if (!targetKey) continue;
+      const rawQuantity = item && typeof item === 'object'
+        ? item.quantity ?? item.assignedQuantity
+        : 1;
+      const quantity = Math.max(1, Math.floor(Number(rawQuantity || 1)) || 1);
+      byTarget.set(targetKey, (byTarget.get(targetKey) || 0) + quantity);
+    }
+
+    return [...byTarget.entries()].map(([targetKey, quantity]) => ({ targetKey, quantity }));
   }
 
   changeDuration(app: any, delta: number) {
@@ -4740,7 +4764,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         duration: app.duration || 60,
         sortOrderByEmployee: app.sortOrderByEmployee || {},
         vehicleIds: this.assignedVehicles[app.id] || [],
-        equipmentKeys: this.assignedEquipment[app.id] || [],
+        equipmentKeys: this.normalizeEquipmentAssignments(this.assignedEquipment[app.id] || []),
       };
     });
 
@@ -5061,7 +5085,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
             });
 
             this.assignedVehicles[extraId] = Array.isArray(s.vehicleIds) ? s.vehicleIds : (s.vehicleId != null ? [s.vehicleId] : []);
-            this.assignedEquipment[extraId] = Array.isArray(s.equipmentKeys) ? s.equipmentKeys : [];
+            this.assignedEquipment[extraId] = this.normalizeEquipmentAssignments(s.equipmentAssignments || s.equipmentKeys);
           } else {
             const app = this.appointments.find(
               (a) =>
@@ -5137,7 +5161,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
               });
 
               this.assignedVehicles[newId] = Array.isArray(s.vehicleIds) ? s.vehicleIds : (s.vehicleId != null ? [s.vehicleId] : []);
-              this.assignedEquipment[newId] = Array.isArray(s.equipmentKeys) ? s.equipmentKeys : [];
+              this.assignedEquipment[newId] = this.normalizeEquipmentAssignments(s.equipmentAssignments || s.equipmentKeys);
               continue;
             }
 
@@ -5191,7 +5215,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
             });
 
             this.assignedVehicles[app.id] = Array.isArray(s.vehicleIds) ? s.vehicleIds : (s.vehicleId != null ? [s.vehicleId] : []);
-            this.assignedEquipment[app.id] = Array.isArray(s.equipmentKeys) ? s.equipmentKeys : [];
+            this.assignedEquipment[app.id] = this.normalizeEquipmentAssignments(s.equipmentAssignments || s.equipmentKeys);
           }
         }
 
@@ -5244,7 +5268,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     if (!this.equipmentTargetsCache || this.equipmentTargetsCache.length === 0) {
       this.loadEquipmentTargetsCache();
       alert(
-        'Nessuna attrezzatura trovata. Crea prima una scadenza in Scadenze attrezzature.',
+        'Nessuna attrezzatura trovata. Aggiungila da Gestione attrezzature.',
       );
       return;
     }
@@ -5252,7 +5276,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     const dialogRef = this.dialog.open(EquipmentAssignDialogComponent, {
       width: '520px',
       data: {
-        assignedEquipmentKeys: this.assignedEquipment[app.id] || [],
+        assignedEquipmentAssignments: this.assignedEquipment[app.id] || [],
         equipment: this.equipmentTargetsCache || [],
       },
       panelClass: 'glass-dialog',
@@ -5260,19 +5284,22 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
-        this.assignedEquipment[app.id] = result.equipmentKeys || [];
+        this.assignedEquipment[app.id] = this.normalizeEquipmentAssignments(
+          result.equipmentAssignments || result.equipmentKeys,
+        );
         this.scheduleAutosave(app);
       }
     });
   }
 
   getEquipmentLabel(appId: string): string {
-    const keys = this.assignedEquipment[appId] || [];
-    if (!keys.length) return '';
-    return keys
-      .map((key: string) => {
-        const item = (this.equipmentTargetsCache || []).find((x: any) => x.targetKey === key);
-        return item ? (item.targetLabel || item.targetKey) : key;
+    const assignments = this.normalizeEquipmentAssignments(this.assignedEquipment[appId] || []);
+    if (!assignments.length) return '';
+    return assignments
+      .map((assignment) => {
+        const item = (this.equipmentTargetsCache || []).find((x: any) => x.targetKey === assignment.targetKey);
+        const label = item ? (item.targetLabel || item.targetKey) : assignment.targetKey;
+        return assignment.quantity > 1 ? `${label} x ${assignment.quantity}` : label;
       })
       .filter(Boolean)
       .join(', ');

@@ -1,8 +1,14 @@
 <section class="invoice-page">
   <header class="invoice-toolbar">
-    <div>
-      <p class="eyebrow">Pagamenti e fatture</p>
-      <h1>{{ viewTitle }}</h1>
+    <div class="invoice-title-group">
+      <button type="button" class="back-btn" (click)="back()">
+        <i class="fas fa-arrow-left"></i>
+        Indietro
+      </button>
+      <div>
+        <p class="eyebrow">Pagamenti e fatture</p>
+        <h1>{{ viewTitle }}</h1>
+      </div>
     </div>
     <ng-container *ngIf="activeView === 'invoices'">
       <button type="button" class="primary-btn" (click)="newInvoice()">

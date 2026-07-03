@@ -19,8 +19,11 @@ import {
 })
 export class AddCustomerComponent {
   employeeCategories: any[] = [];
+  equipmentTargets: any[] = [];
   requirementCounts: { [categoryId: number]: number } = {};
+  equipmentRequirementCounts: { [targetKey: string]: number } = {};
   employeeCategoriesLoaded = false;
+  equipmentTargetsLoaded = false;
   visibleCustomerFields: TenantFieldMappingFieldConfig[] = [];
   accessWorkFields: TenantFieldMappingFieldConfig[] = [];
   validationErrors: Record<string, string> = {};
@@ -51,8 +54,9 @@ export class AddCustomerComponent {
         this.globalService.applyFieldDefaults('customer', target);
         this.globalService.applyCalculatedFields('customer', target);
         this.refreshVisibleCustomerFields();
-      });
+    });
     this.loadEmployeeCategories();
+    this.loadEquipmentTargets();
   }
 
   loadEmployeeCategories(): void {
@@ -72,6 +76,23 @@ export class AddCustomerComponent {
       });
   }
 
+  loadEquipmentTargets(): void {
+    this.http
+      .get<any[]>(this.globalService.url + 'equipment/getAll', {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (targets) => {
+          this.equipmentTargets = Array.isArray(targets) ? targets : [];
+          this.equipmentTargetsLoaded = true;
+        },
+        error: () => {
+          this.equipmentTargets = [];
+          this.equipmentTargetsLoaded = true;
+        },
+      });
+  }
+
   private buildStaffRequirements(): any[] {
     return this.employeeCategories
       .map((category) => ({
@@ -79,6 +100,15 @@ export class AddCustomerComponent {
         requiredCount: Number(this.requirementCounts[Number(category.id)] || 0),
       }))
       .filter((item) => item.categoryId && item.requiredCount > 0);
+  }
+
+  private buildEquipmentRequirements(): any[] {
+    return this.equipmentTargets
+      .map((target) => ({
+        targetKey: String(target.targetKey || '').trim(),
+        requiredCount: Number(this.equipmentRequirementCounts[String(target.targetKey || '').trim()] || 0),
+      }))
+      .filter((item) => item.targetKey && item.requiredCount > 0);
   }
 
   updateField(field: TenantFieldMappingFieldConfig, value: any): void {
@@ -317,7 +347,7 @@ export class AddCustomerComponent {
               const customerEventCategory =
                 this.globalService.getCustomerLinkedAppointmentCategory(sourceCustomerType);
               if (!customerEventCategory) {
-                this.router.navigateByUrl('/listCustomer', { replaceUrl: true });
+                this.router.navigateByUrl('/homeAdmin/listCustomer', { replaceUrl: true });
                 return;
               }
               this.autoInspectionService.pendingCustomerEvent = true;
@@ -335,13 +365,32 @@ export class AddCustomerComponent {
               return;
             }
 
-            this.router.navigateByUrl('/listCustomer', { replaceUrl: true });
+            this.router.navigateByUrl('/homeAdmin/listCustomer', { replaceUrl: true });
+          };
+
+          const saveEquipmentRequirementsAndFinalize = () => {
+            const equipmentRequirements = this.buildEquipmentRequirements();
+            if (!numeroCliente || !equipmentRequirements.length) {
+              finalizeCustomerCreation();
+              return;
+            }
+
+            this.http
+              .post(
+                this.globalService.url + `equipment/customer/${numeroCliente}`,
+                { requirements: equipmentRequirements },
+                { headers: this.globalService.headers },
+              )
+              .subscribe({
+                next: () => finalizeCustomerCreation(),
+                error: () => finalizeCustomerCreation(),
+              });
           };
 
           const saveRequirementsAndFinalize = () => {
             const requirements = this.buildStaffRequirements();
             if (!numeroCliente || !requirements.length) {
-              finalizeCustomerCreation();
+              saveEquipmentRequirementsAndFinalize();
               return;
             }
 
@@ -352,8 +401,8 @@ export class AddCustomerComponent {
                 { headers: this.globalService.headers },
               )
               .subscribe({
-                next: () => finalizeCustomerCreation(),
-                error: () => finalizeCustomerCreation(),
+                next: () => saveEquipmentRequirementsAndFinalize(),
+                error: () => saveEquipmentRequirementsAndFinalize(),
               });
           };
 
@@ -382,7 +431,7 @@ export class AddCustomerComponent {
 
   back() {
     this.customerModelService.reset();
-    this.router.navigateByUrl('/listCustomer');
+    this.router.navigateByUrl('/homeAdmin/listCustomer');
   }
 
   private parseServerError(err: any): string {

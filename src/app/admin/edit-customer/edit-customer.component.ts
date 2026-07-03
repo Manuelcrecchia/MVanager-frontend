@@ -19,8 +19,11 @@ import {
 })
 export class EditCustomerComponent {
   employeeCategories: any[] = [];
+  equipmentTargets: any[] = [];
   requirementCounts: { [categoryId: number]: number } = {};
+  equipmentRequirementCounts: { [targetKey: string]: number } = {};
   employeeCategoriesLoaded = false;
+  equipmentTargetsLoaded = false;
   visibleCustomerFields: TenantFieldMappingFieldConfig[] = [];
   accessWorkFields: TenantFieldMappingFieldConfig[] = [];
   validationErrors: Record<string, string> = {};
@@ -46,6 +49,7 @@ export class EditCustomerComponent {
 
   ngOnInit(): void {
     this.loadEmployeeCategories();
+    this.loadEquipmentTargets();
     const numeroCliente =
       this.route.snapshot.paramMap.get('numeroCliente') ||
       this.route.snapshot.queryParamMap.get('numeroCliente') ||
@@ -75,6 +79,23 @@ export class EditCustomerComponent {
       });
   }
 
+  loadEquipmentTargets(): void {
+    this.http
+      .get<any[]>(this.globalService.url + 'equipment/getAll', {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (targets) => {
+          this.equipmentTargets = Array.isArray(targets) ? targets : [];
+          this.equipmentTargetsLoaded = true;
+        },
+        error: () => {
+          this.equipmentTargets = [];
+          this.equipmentTargetsLoaded = true;
+        },
+      });
+  }
+
   loadStaffRequirements(numeroCliente: string): void {
     this.http
       .get<any[]>(this.globalService.url + `admin/employee-categories/customer/${numeroCliente}`, {
@@ -94,6 +115,26 @@ export class EditCustomerComponent {
       });
   }
 
+  loadEquipmentRequirements(numeroCliente: string): void {
+    this.http
+      .get<any[]>(this.globalService.url + `equipment/customer/${numeroCliente}`, {
+        headers: this.globalService.headers,
+      })
+      .subscribe({
+        next: (rows) => {
+          const counts: { [targetKey: string]: number } = {};
+          for (const row of rows || []) {
+            const targetKey = String(row.targetKey || '').trim();
+            if (targetKey) counts[targetKey] = Number(row.requiredCount) || 0;
+          }
+          this.equipmentRequirementCounts = counts;
+        },
+        error: () => {
+          this.equipmentRequirementCounts = {};
+        },
+      });
+  }
+
   private buildStaffRequirements(): any[] {
     return this.employeeCategories
       .map((category) => ({
@@ -103,11 +144,34 @@ export class EditCustomerComponent {
       .filter((item) => item.categoryId && item.requiredCount > 0);
   }
 
+  private buildEquipmentRequirements(): any[] {
+    return this.equipmentTargets
+      .map((target) => ({
+        targetKey: String(target.targetKey || '').trim(),
+        requiredCount: Number(this.equipmentRequirementCounts[String(target.targetKey || '').trim()] || 0),
+      }))
+      .filter((item) => item.targetKey && item.requiredCount > 0);
+  }
+
   private saveStaffRequirements(numeroCliente: string, done: () => void): void {
     const requirements = this.buildStaffRequirements();
     this.http
       .post(
         this.globalService.url + `admin/employee-categories/customer/${numeroCliente}`,
+        { requirements },
+        { headers: this.globalService.headers },
+      )
+      .subscribe({
+        next: () => done(),
+        error: () => done(),
+      });
+  }
+
+  private saveEquipmentRequirements(numeroCliente: string, done: () => void): void {
+    const requirements = this.buildEquipmentRequirements();
+    this.http
+      .post(
+        this.globalService.url + `equipment/customer/${numeroCliente}`,
         { requirements },
         { headers: this.globalService.headers },
       )
@@ -129,6 +193,7 @@ export class EditCustomerComponent {
             Object.assign(this.customerModelService as any, res[0]);
             this.syncCustomerFieldRules();
             this.loadStaffRequirements(String(res[0].numeroCliente || numeroCliente));
+            this.loadEquipmentRequirements(String(res[0].numeroCliente || numeroCliente));
           }
         },
         error: (err) => {
@@ -335,8 +400,10 @@ export class EditCustomerComponent {
         next: () => {
           const numeroCliente = String(body.numeroCliente || '').trim();
           this.saveStaffRequirements(numeroCliente, () => {
-            this.customerModelService.reset();
-            this.router.navigateByUrl('/listCustomer');
+            this.saveEquipmentRequirements(numeroCliente, () => {
+              this.customerModelService.reset();
+              this.router.navigateByUrl('/homeAdmin/listCustomer');
+            });
           });
         },
         error: (err) => {
@@ -347,7 +414,7 @@ export class EditCustomerComponent {
 
   back(): void {
     this.customerModelService.reset();
-    this.router.navigateByUrl('/listCustomer');
+    this.router.navigateByUrl('/homeAdmin/listCustomer');
   }
 
   private parseServerError(err: any): string {
@@ -471,7 +538,7 @@ export class EditCustomerComponent {
   onBrowserBackBtnClose(event: Event): void {
     event.preventDefault();
     this.customerModelService.reset();
-    this.location.replaceState('/listCustomer');
-    this.router.navigateByUrl('/listCustomer');
+    this.location.replaceState('/homeAdmin/listCustomer');
+    this.router.navigateByUrl('/homeAdmin/listCustomer');
   }
 }

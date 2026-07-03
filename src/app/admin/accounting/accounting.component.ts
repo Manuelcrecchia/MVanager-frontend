@@ -145,6 +145,10 @@ export class AccountingComponent implements OnInit, OnDestroy {
     });
   }
 
+  back(): void {
+    this.router.navigateByUrl('/homeAdmin');
+  }
+
   loadCurrentTab(): void {
     this.clearMessages();
     if (this.activeTab === 'dashboard') this.loadDashboard();

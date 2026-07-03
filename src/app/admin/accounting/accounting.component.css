@@ -12,6 +12,32 @@
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.toolbar-title-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.back-btn {
+  border: 0;
+  border-radius: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #edf3fb;
+  color: #182238;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.back-btn:hover {
+  background: #dfe9f6;
 }
 
 .eyebrow {

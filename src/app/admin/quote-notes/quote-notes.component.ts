@@ -342,13 +342,13 @@ export class QuoteNotesComponent implements OnInit {
   }
 
   back() {
-    this.router.navigateByUrl('/quotesHome');
+    this.router.navigateByUrl('/homeAdmin/quotesHome');
   }
 
   @HostListener('window:popstate', ['$event'])
   onBrowserBackBtnClose(event: Event): void {
     event.preventDefault();
-    this.location.replaceState('/quotesHome');
-    this.router.navigateByUrl('/quotesHome');
+    this.location.replaceState('/homeAdmin/quotesHome');
+    this.router.navigateByUrl('/homeAdmin/quotesHome');
   }
 }

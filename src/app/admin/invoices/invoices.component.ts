@@ -507,6 +507,10 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.querySubscription?.unsubscribe();
   }
 
+  back(): void {
+    this.router.navigateByUrl('/homeAdmin');
+  }
+
   get viewTitle(): string {
     if (this.activeView === 'economics') return 'Cruscotto economico';
     if (this.activeView === 'payments') return 'Pagamenti e scadenziario';

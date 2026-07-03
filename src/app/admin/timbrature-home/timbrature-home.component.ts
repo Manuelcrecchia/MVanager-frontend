@@ -2,7 +2,6 @@ import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
-import { Location } from '@angular/common';
 
 interface WarehouseStampingLocation {
   tagId: string;
@@ -39,7 +38,6 @@ export class TimbratureHomeComponent implements OnInit {
     private http: HttpClient,
     private router: Router,
     public global: GlobalService,
-    private location: Location
   ) {}
 
   ngOnInit(): void {
@@ -89,7 +87,7 @@ export class TimbratureHomeComponent implements OnInit {
 
   // 🔹 Naviga nel dettaglio giornaliero
   openDetail(emp: any): void {
-    this.router.navigate(['/timbratureDettaglio', emp.id, this.selectedDate]);
+    this.router.navigate(['/homeAdmin/timbratureDettaglio', emp.id, this.selectedDate]);
   }
 
   // 🔹 Cambia giorno
@@ -101,7 +99,7 @@ export class TimbratureHomeComponent implements OnInit {
   }
 
   back(): void {
-    this.location.back();
+    this.router.navigateByUrl('/homeAdmin');
   }
 
   isWarehouseMode(): boolean {

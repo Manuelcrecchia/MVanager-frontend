@@ -235,7 +235,7 @@ export class GestioneEmployeesComponent implements OnInit {
     }
 
     const name = `${emp?.nome || ''} ${emp?.cognome || ''}`.trim();
-    this.router.navigate(['/email'], {
+    this.router.navigate(['/homeAdmin/email'], {
       queryParams: {
         composeTo: email,
         composeSubject: name ? `Dipendente ${name}` : '',
@@ -260,7 +260,7 @@ export class GestioneEmployeesComponent implements OnInit {
 
   // ---- NAV ----
   goToDocument(id: string): void {
-    this.router.navigate(['/documenti/employee', id]);
+    this.router.navigate(['/homeAdmin/documenti/employee', id]);
   }
 
   goToPermessiAssenze(empId: number) {

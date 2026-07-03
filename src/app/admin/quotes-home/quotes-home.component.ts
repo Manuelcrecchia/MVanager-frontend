@@ -104,11 +104,11 @@ export class QuotesHomeComponent implements OnDestroy {
   }
 
   navigateToAddQuote() {
-    this.router.navigateByUrl('/addQuote');
+    this.router.navigateByUrl('/homeAdmin/addQuote');
   }
 
   navigateToNotes(numeroPreventivo: string, displayName: string) {
-    this.router.navigate(['/quoteNotes'], {
+    this.router.navigate(['/homeAdmin/quoteNotes'], {
       queryParams: { numeroPreventivo, displayName },
     });
   }
@@ -332,7 +332,7 @@ export class QuotesHomeComponent implements OnDestroy {
           this.quoteModel.resetQuoteModel();
           Object.assign(this.quoteModel as any, quoteJson);
 
-          this.router.navigateByUrl('/editQuote');
+          this.router.navigateByUrl('/homeAdmin/editQuote');
         },
         error: (err) => {
           console.error('Errore navigateToEditQuote:', err);
@@ -461,7 +461,7 @@ export class QuotesHomeComponent implements OnDestroy {
             .subscribe({
               next: () => {
                 if (canCreateCustomer) {
-                  this.router.navigateByUrl('/addCustomer');
+                  this.router.navigateByUrl('/homeAdmin/addCustomer');
                   return;
                 }
 
@@ -660,7 +660,7 @@ export class QuotesHomeComponent implements OnDestroy {
       return;
     }
 
-    this.router.navigate(['/email'], {
+    this.router.navigate(['/homeAdmin/email'], {
       queryParams: { composeTo: email, composeSubject: subject },
     });
   }

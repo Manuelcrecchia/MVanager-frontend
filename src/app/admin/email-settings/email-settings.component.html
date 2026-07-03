@@ -95,6 +95,13 @@
           <strong>{{ account.label || account.email }}</strong>
           <span>{{ account.email }}</span>
           <small>{{ account.active ? 'Attivo' : 'Disattivato' }} · {{ account.adminIds.length }} utenti</small>
+          <small [class]="accountHealthClass(account)">
+            <i class="fas" [class.fa-check-circle]="account.connectionStatus === 'ok'" [class.fa-exclamation-triangle]="accountHasConnectionIssue(account)" [class.fa-clock]="account.connectionStatus !== 'ok' && !accountHasConnectionIssue(account)"></i>
+            {{ accountHealthSummary(account) }} · {{ lastHealthCheck(account) }}
+          </small>
+          <small class="health-error-detail" *ngIf="accountHasConnectionIssue(account)">
+            {{ account.connectionError }}
+          </small>
         </div>
         <div class="row-actions">
           <button class="btn btn-glass btn-sm" type="button" (click)="test(account)" [disabled]="testingId === account.id">

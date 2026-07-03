@@ -304,7 +304,7 @@ export class ListCustomerComponent {
   }
 
   navigateToAddCustomer() {
-    this.router.navigateByUrl('/addCustomer');
+    this.router.navigateByUrl('/homeAdmin/addCustomer');
   }
 
   canGenerateSalesInvoice(customer: any): boolean {
@@ -327,13 +327,13 @@ export class ListCustomerComponent {
   }
 
   navigateToNotes(numeroCliente: string, displayName: string) {
-    this.router.navigate(['/customerNotes'], {
+    this.router.navigate(['/homeAdmin/customerNotes'], {
       queryParams: { numeroCliente, displayName },
     });
   }
   viewDocuments(numeroCliente: string) {
     // Naviga o apri modale, a seconda di come gestisci i documenti
-    this.router.navigate(['/documenti/client', numeroCliente]);
+    this.router.navigate(['/homeAdmin/documenti/client', numeroCliente]);
   }
 
   openStaffRequirements(customer: any): void {
@@ -449,7 +449,7 @@ export class ListCustomerComponent {
       return;
     }
 
-    this.router.navigate(['/email'], {
+    this.router.navigate(['/homeAdmin/email'], {
       queryParams: {
         composeTo: email,
         composeSubject: this.getCustomerDisplayName(customer)

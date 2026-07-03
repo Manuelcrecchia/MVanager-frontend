@@ -144,6 +144,29 @@
   gap: 4px;
 }
 
+.quantity-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255,138,0,0.24);
+  background: rgba(255,138,0,0.12);
+  color: #8a4a00;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 3px 9px;
+}
+
+.equipment-edit-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 120px;
+  gap: 8px;
+  align-items: center;
+}
+
+.equipment-edit-row .quantity-input {
+  min-width: 110px;
+}
+
 .category-check-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -185,6 +208,10 @@
 
   .category-item {
     flex-direction: column;
+  }
+
+  .equipment-edit-row {
+    grid-template-columns: 1fr;
   }
 
   .desktop-table {

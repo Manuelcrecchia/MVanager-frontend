@@ -17,6 +17,16 @@ interface EmailAccount {
   password?: string;
   active: boolean;
   adminIds: number[];
+  smtpStatus?: string;
+  smtpLastError?: string | null;
+  smtpLastCheckAt?: string | null;
+  smtpLastOkAt?: string | null;
+  imapStatus?: string;
+  imapLastError?: string | null;
+  imapLastCheckAt?: string | null;
+  imapLastOkAt?: string | null;
+  connectionStatus?: string;
+  connectionError?: string | null;
 }
 
 interface AdminOption {
@@ -143,13 +153,47 @@ export class EmailSettingsComponent implements OnInit {
       next: () => {
         alert('Connessione SMTP e IMAP riuscita');
         this.testingId = null;
+        this.loadAll();
       },
       error: (err) => {
         console.error('Test account email fallito:', err);
         alert(err?.error?.error || 'Test account email non riuscito');
         this.testingId = null;
+        this.loadAll();
       },
     });
+  }
+
+  accountHasConnectionIssue(account: EmailAccount): boolean {
+    return account.connectionStatus === 'error' || account.smtpStatus === 'error' || account.imapStatus === 'error';
+  }
+
+  accountHealthSummary(account: EmailAccount): string {
+    if (this.accountHasConnectionIssue(account)) {
+      if (account.smtpStatus === 'error' && account.imapStatus === 'error') return 'SMTP e IMAP in errore';
+      if (account.smtpStatus === 'error') return 'SMTP in errore';
+      if (account.imapStatus === 'error') return 'IMAP in errore';
+      return 'Connessione in errore';
+    }
+    if (account.connectionStatus === 'ok') return 'Connessione verificata';
+    return 'In attesa di controllo automatico';
+  }
+
+  accountHealthClass(account: EmailAccount): string {
+    if (this.accountHasConnectionIssue(account)) return 'health-badge health-badge-error';
+    if (account.connectionStatus === 'ok') return 'health-badge health-badge-ok';
+    return 'health-badge';
+  }
+
+  lastHealthCheck(account: EmailAccount): string {
+    const dates = [
+      account.smtpLastCheckAt,
+      account.imapLastCheckAt,
+    ].filter(Boolean).map((value) => new Date(String(value)));
+    const validDates = dates.filter((date) => Number.isFinite(date.getTime()));
+    if (!validDates.length) return 'Mai controllato';
+    const latest = validDates.sort((a, b) => b.getTime() - a.getTime())[0];
+    return latest.toLocaleString('it-IT');
   }
 
   delete(account: EmailAccount) {

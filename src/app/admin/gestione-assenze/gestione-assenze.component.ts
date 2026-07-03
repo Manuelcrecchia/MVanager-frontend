@@ -40,7 +40,7 @@ export class GestioneAssenzeComponent implements OnInit {
   }
 
   goBack() {
-    this.router.navigateByUrl('/gestioneemployees');
+    this.router.navigateByUrl('/homeAdmin/gestioneemployees');
   }
 
   loadAssenze() {

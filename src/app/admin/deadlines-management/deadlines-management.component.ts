@@ -33,6 +33,7 @@ interface GenericTarget {
   targetKey: string;
   targetLabel: string;
   numeroCliente?: string;
+  quantity?: number;
 }
 
 interface DeadlineSummary {
@@ -250,7 +251,7 @@ export class DeadlinesManagementComponent implements OnInit {
       return 'Crea prima un mezzo, poi potrai aggiungere revisione, assicurazione e altre scadenze.';
     }
     if (this.kind === 'equipment') {
-      return 'Inserisci la prima scadenza indicando il nome dell attrezzatura: dopo il salvataggio comparira la riga con dettaglio e nuove scadenze.';
+      return 'Crea prima un\'attrezzatura in Gestione attrezzature, poi potrai collegare revisioni, certificazioni e documenti.';
     }
     if (this.kind === 'customer') {
       return 'Crea prima un cliente, poi potrai collegare le sue scadenze.';
@@ -259,7 +260,7 @@ export class DeadlinesManagementComponent implements OnInit {
   }
 
   get emptyStateActionLabel(): string {
-    if (this.kind === 'equipment') return '+ Crea prima scadenza attrezzatura';
+    if (this.kind === 'equipment') return 'Vai a gestione attrezzature';
     if (this.kind === 'internal') return '+ Crea prima scadenza interna';
     return '+ Aggiungi scadenza';
   }
@@ -350,6 +351,14 @@ export class DeadlinesManagementComponent implements OnInit {
   }
 
   back(): void {
+    if (this.showForm) {
+      this.cancelForm();
+      return;
+    }
+    if (this.selectedGroup) {
+      this.closeGroup();
+      return;
+    }
     this.router.navigateByUrl('/homeAdmin');
   }
 
@@ -403,6 +412,10 @@ export class DeadlinesManagementComponent implements OnInit {
 
   openAddForm(entityId?: string | number): void {
     if (!this.canCreate) return;
+    if (this.kind === 'equipment' && !entityId && !this.preselectedEntityId && this.entities.length === 0) {
+      this.router.navigateByUrl('/homeAdmin/equipmentSettings');
+      return;
+    }
 
     this.resetForm();
     this.showForm = true;
@@ -795,7 +808,11 @@ export class DeadlinesManagementComponent implements OnInit {
       return entity?.numeroCliente ? `Cliente ${entity.numeroCliente}` : '';
     }
 
-    return this.kind === 'equipment' ? 'Attrezzatura aziendale' : 'Scadenza aziendale interna';
+    if (this.kind === 'equipment') {
+      return entity?.quantity ? `Quantità: ${entity.quantity}` : 'Attrezzatura aziendale';
+    }
+
+    return 'Scadenza aziendale interna';
   }
 
   formatDueDate(value: string): string {

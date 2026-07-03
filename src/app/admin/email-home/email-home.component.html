@@ -21,13 +21,25 @@
       >
         <span class="mailbox-label">
           <span>{{ accountName(account) }}</span>
-          <span
-            class="mailbox-unread-dot"
-            *ngIf="accountHasUnread(account)"
-            [title]="(account.unreadCount || 0) + ' messaggi non letti'"
-          ></span>
+          <span class="mailbox-indicators">
+            <span
+              class="mailbox-health-dot"
+              *ngIf="accountHasConnectionIssue(account)"
+              [title]="accountHealthTitle(account)"
+            >
+              <i class="fas fa-exclamation-triangle"></i>
+            </span>
+            <span
+              class="mailbox-unread-dot"
+              *ngIf="accountHasUnread(account)"
+              [title]="(account.unreadCount || 0) + ' messaggi non letti'"
+            ></span>
+          </span>
         </span>
         <small>{{ account.email }}</small>
+        <small class="mailbox-health-text" *ngIf="accountHasConnectionIssue(account)">
+          {{ accountHealthSummary(account) }}
+        </small>
       </button>
     </div>
 

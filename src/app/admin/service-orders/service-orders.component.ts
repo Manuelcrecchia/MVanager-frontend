@@ -43,11 +43,11 @@ export class ServiceOrdersComponent implements OnInit {
   }
 
   addOrder(): void {
-    this.router.navigateByUrl('/service-orders/add');
+    this.router.navigateByUrl('/homeAdmin/service-orders/add');
   }
 
   editOrder(orderId: number): void {
-    this.router.navigate(['/service-orders/edit', orderId]);
+    this.router.navigate(['/homeAdmin', 'service-orders', 'edit', orderId]);
   }
 
   deleteOrder(orderId: number): void {

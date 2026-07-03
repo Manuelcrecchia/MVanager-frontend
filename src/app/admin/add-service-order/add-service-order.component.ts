@@ -163,7 +163,7 @@ export class AddServiceOrderComponent implements OnInit, OnDestroy {
     this.http.post(url, payload).subscribe({
       next: () => {
         this.saving = false;
-        this.router.navigateByUrl('/service-orders');
+        this.router.navigateByUrl('/homeAdmin/service-orders');
       },
       error: (err) => {
         console.error(
@@ -184,7 +184,7 @@ export class AddServiceOrderComponent implements OnInit, OnDestroy {
   }
 
   goBack(): void {
-    this.router.navigateByUrl('/service-orders');
+    this.router.navigateByUrl('/homeAdmin/service-orders');
   }
 
   customerName(customer: any): string {

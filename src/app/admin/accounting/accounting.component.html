@@ -1,8 +1,14 @@
 <section class="accounting-page">
   <header class="accounting-toolbar">
-    <div>
-      <p class="eyebrow">Contabilita'</p>
-      <h1>Contabilita' aziendale</h1>
+    <div class="toolbar-title-group">
+      <button type="button" class="back-btn" (click)="back()">
+        <i class="fas fa-arrow-left"></i>
+        Indietro
+      </button>
+      <div>
+        <p class="eyebrow">Contabilita'</p>
+        <h1>Contabilita' aziendale</h1>
+      </div>
     </div>
     <div class="toolbar-actions">
       <button type="button" class="ghost-btn" (click)="loadCurrentTab()" [disabled]="loading">

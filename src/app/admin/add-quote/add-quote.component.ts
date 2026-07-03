@@ -111,7 +111,7 @@ export class AddQuoteComponent {
       .subscribe({
         next: () => {
           this.quoteModelService.resetQuoteModel();
-          this.router.navigateByUrl('/quotesHome', { replaceUrl: true });
+          this.router.navigateByUrl('/homeAdmin/quotesHome', { replaceUrl: true });
         },
         error: (err) => {
           this.popup.text = this.parseError(err).toUpperCase();
@@ -545,15 +545,15 @@ export class AddQuoteComponent {
 
   back() {
     this.quoteModelService.resetQuoteModel();
-    this.router.navigateByUrl('/quotesHome');
+    this.router.navigateByUrl('/homeAdmin/quotesHome');
   }
 
   @HostListener('window:popstate', ['$event'])
   onBrowserBackBtnClose(event: Event): void {
     event.preventDefault();
     this.quoteModelService.resetQuoteModel();
-    this.location.replaceState('/quotesHome');
-    this.router.navigateByUrl('/quotesHome');
+    this.location.replaceState('/homeAdmin/quotesHome');
+    this.router.navigateByUrl('/homeAdmin/quotesHome');
   }
 
   private parseError(err: any): string {

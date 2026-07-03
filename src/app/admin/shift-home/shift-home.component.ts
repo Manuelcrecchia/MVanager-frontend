@@ -1150,7 +1150,7 @@ export class ShiftHomeComponent implements OnInit {
   }
 
   createShifts(): void {
-    this.router.navigate(['/admin/shifts/create'], {
+    this.router.navigate(['/homeAdmin/shifts/create'], {
       queryParams: { date: this.formatDate(this.selectedDate) },
     });
   }

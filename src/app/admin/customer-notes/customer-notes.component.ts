@@ -340,13 +340,13 @@ export class CustomerNotesComponent implements OnInit {
   }
 
   back() {
-    this.router.navigateByUrl('/listCustomer');
+    this.router.navigateByUrl('/homeAdmin/listCustomer');
   }
 
   @HostListener('window:popstate', ['$event'])
   onBrowserBackBtnClose(event: Event): void {
     event.preventDefault();
-    this.location.replaceState('/listCustomer');
-    this.router.navigateByUrl('/listCustomer');
+    this.location.replaceState('/homeAdmin/listCustomer');
+    this.router.navigateByUrl('/homeAdmin/listCustomer');
   }
 }

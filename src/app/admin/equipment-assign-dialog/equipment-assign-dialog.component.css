@@ -27,6 +27,11 @@
   margin-bottom: 8px;
 }
 
+.row-item .meta {
+  min-width: 0;
+  flex: 1;
+}
+
 .row-item .meta .name,
 .row-item .meta .plate,
 .dialog-title,
@@ -42,6 +47,24 @@
 .plate {
   color: #555 !important;
   font-size: 12px;
+}
+
+.quantity-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #111;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.quantity-field input {
+  width: 72px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 10px;
+  padding: 6px 8px;
+  color: #111;
+  font-weight: 800;
 }
 
 .selected-count {
@@ -66,4 +89,16 @@
 
 .btn-deselect:hover {
   background: rgba(200, 0, 0, 0.08);
+}
+
+@media (max-width: 520px) {
+  .row-item {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .quantity-field {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }

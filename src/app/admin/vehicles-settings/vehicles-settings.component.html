@@ -37,6 +37,38 @@
     </div>
   </section>
 
+  <section class="admin-card mb-4" *ngIf="isEquipmentMode">
+    <div class="card-header py-3 px-4">
+      <h3 class="mb-0 fs-5">Aggiungi attrezzatura</h3>
+      <p class="mb-0 text-muted small">Inserisci nome e quantità disponibile</p>
+    </div>
+    <div class="card-body p-4">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-7">
+          <label class="form-label fw-bold">Nome attrezzatura *</label>
+          <input
+            class="form-control form-control-glass"
+            [(ngModel)]="equipmentAddForm.name"
+            placeholder="Es. Scope, mop, carrello elevatore"
+          />
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label fw-bold">Quantità *</label>
+          <input
+            class="form-control form-control-glass"
+            type="number"
+            min="1"
+            step="1"
+            [(ngModel)]="equipmentAddForm.quantity"
+          />
+        </div>
+        <div class="col-12 col-md-2 d-grid">
+          <button class="btn btn-primary btn-round" (click)="addEquipment()">➕ Aggiungi</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="admin-card mb-4" *ngIf="isVehicleMode">
     <div class="card-header py-3 px-4">
       <h3 class="mb-0 fs-5">Categorie e scadenze mezzi</h3>
@@ -225,7 +257,7 @@
     <div class="card-header py-3 px-4 d-flex justify-content-between align-items-center">
       <div>
         <h3 class="mb-0 fs-5">Elenco attrezzature</h3>
-        <p class="mb-0 text-muted small">Le attrezzature vengono lette da Scadenze attrezzature</p>
+        <p class="mb-0 text-muted small">Gestisci attrezzature disponibili, quantità e categorie</p>
       </div>
       <button class="btn btn-glass btn-round btn-sm" (click)="loadEquipmentTargets()">
         ↻ Aggiorna
@@ -245,21 +277,59 @@
       <div class="category-list" *ngIf="equipmentTargets.length; else noEquipmentTargets">
         <article class="category-item" *ngFor="let target of filteredEquipmentTargets">
           <div>
-            <strong>{{ target.targetLabel || target.targetKey }}</strong>
-            <span class="text-muted small ms-2">{{ target.targetKey }}</span>
+            <ng-container *ngIf="editingEquipmentId !== target.equipmentId; else editEquipmentFields">
+              <strong>{{ target.targetLabel || target.targetKey }}</strong>
+              <span class="quantity-badge ms-2">Quantità: {{ target.quantity }}</span>
+              <span class="text-muted small ms-2">{{ target.targetKey }}</span>
+            </ng-container>
+            <ng-template #editEquipmentFields>
+              <div class="equipment-edit-row">
+                <input
+                  class="form-control form-control-sm"
+                  [(ngModel)]="equipmentEditForm.name"
+                  placeholder="Nome attrezzatura"
+                />
+                <input
+                  class="form-control form-control-sm quantity-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  [(ngModel)]="equipmentEditForm.quantity"
+                  placeholder="Quantità"
+                />
+              </div>
+            </ng-template>
             <div class="resource-category-badges justify-content-start mt-2" *ngIf="getEquipmentCategoryNames(target).length; else noEquipmentCategories">
               <span class="resource-category-badge" *ngFor="let name of getEquipmentCategoryNames(target)">{{ name }}</span>
             </div>
             <ng-template #noEquipmentCategories><p class="text-muted small mb-0 mt-2">Nessuna categoria assegnata</p></ng-template>
           </div>
-          <button type="button" class="btn btn-primary btn-round btn-sm" (click)="openEquipmentCategories(target)">
-            Categorie
-          </button>
+          <div class="d-flex gap-2 flex-wrap justify-content-end">
+            <ng-container *ngIf="editingEquipmentId !== target.equipmentId; else editEquipmentActions">
+              <button type="button" class="btn btn-glass btn-round btn-sm" (click)="startEquipmentEdit(target)">
+                ✏️ Modifica
+              </button>
+              <button type="button" class="btn btn-primary btn-round btn-sm" (click)="openEquipmentCategories(target)">
+                Categorie
+              </button>
+              <button type="button" class="btn btn-glass-dark btn-round btn-sm" (click)="deleteEquipment(target)">
+                🗑️ Elimina
+              </button>
+            </ng-container>
+            <ng-template #editEquipmentActions>
+              <button type="button" class="btn btn-primary btn-round btn-sm" (click)="saveEquipmentEdit()">
+                ✅ Salva
+              </button>
+              <button type="button" class="btn btn-glass btn-round btn-sm" (click)="cancelEquipmentEdit()">
+                ✖ Annulla
+              </button>
+            </ng-template>
+          </div>
         </article>
       </div>
       <ng-template #noEquipmentTargets>
         <div class="text-center text-muted py-4">
-          Nessuna attrezzatura creata. Aggiungi una prima scadenza in Scadenze attrezzature.
+          Nessuna attrezzatura inserita
         </div>
       </ng-template>
     </div>

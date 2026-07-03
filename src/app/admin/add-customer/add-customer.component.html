@@ -222,6 +222,28 @@
       </div>
     </section>
 
+    <section class="staff-requirements mt-4">
+      <h3>Attrezzature richieste</h3>
+      <p class="staff-requirements__hint">
+        Imposta quante unità servono per ogni attrezzatura del cliente.
+      </p>
+      <div class="staff-requirements__empty" *ngIf="equipmentTargetsLoaded && !equipmentTargets.length">
+        Nessuna attrezzatura configurata. Aggiungila da Gestione attrezzature.
+      </div>
+      <div class="staff-requirements__grid" *ngIf="equipmentTargets.length">
+        <label class="staff-requirements__row" *ngFor="let target of equipmentTargets">
+          <span>{{ target.targetLabel || target.name || target.targetKey }}</span>
+          <input
+            type="number"
+            min="0"
+            [max]="target.quantity || 1"
+            [(ngModel)]="equipmentRequirementCounts[target.targetKey]"
+            name="equipment_req_{{ target.targetKey }}"
+          />
+        </label>
+      </div>
+    </section>
+
     <div class="col-12 text-center mt-4">
       <button mat-raised-button color="primary" type="button" (click)="addCustomer()">
         Salva

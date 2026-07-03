@@ -200,7 +200,7 @@ export class ViewPdfComponent implements OnInit {
             )
             .subscribe({
               next: () => {
-                this.router.navigateByUrl('/addCustomer');
+                this.router.navigateByUrl('/homeAdmin/addCustomer');
               },
               error: (err) => {
                 console.error('Errore setComplete:', err);

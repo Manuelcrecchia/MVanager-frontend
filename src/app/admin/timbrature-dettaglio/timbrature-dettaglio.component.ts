@@ -2,7 +2,6 @@ import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
-import { Location } from '@angular/common';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 declare var bootstrap: any;
 
@@ -44,7 +43,6 @@ export class TimbratureDettaglioComponent implements OnInit {
     private route: ActivatedRoute,
     private http: HttpClient,
     public global: GlobalService,
-    private location: Location,
     private router: Router,
     private popup: PopupServiceService,
   ) {}
@@ -112,7 +110,7 @@ export class TimbratureDettaglioComponent implements OnInit {
     const current = new Date(this.date);
     current.setDate(current.getDate() + delta);
     this.date = current.toISOString().split('T')[0];
-    this.router.navigate(['/timbratureDettaglio', this.employeeId, this.date]);
+    this.router.navigate(['/homeAdmin/timbratureDettaglio', this.employeeId, this.date]);
     this.loadTimbrature();
   }
 
@@ -342,7 +340,9 @@ export class TimbratureDettaglioComponent implements OnInit {
 
   // 🔙 Torna indietro
   back(): void {
-    this.location.back();
+    this.router.navigate(['/homeAdmin/timbratureHome'], {
+      queryParams: { date: this.date },
+    });
   }
 
   isWarehouseMode(): boolean {

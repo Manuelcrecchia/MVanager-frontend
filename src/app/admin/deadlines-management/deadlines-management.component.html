@@ -95,7 +95,7 @@
         />
         <ng-template #entitySelect>
           <select
-            *ngIf="kind === 'employee' || kind === 'vehicle' || kind === 'customer'; else freeTarget"
+            *ngIf="kind === 'employee' || kind === 'vehicle' || kind === 'customer' || kind === 'equipment'; else freeTarget"
             class="form-select"
             [(ngModel)]="form.entityId"
           >
@@ -111,7 +111,7 @@
               [(ngModel)]="form.targetLabel"
               (ngModelChange)="form.entityId = $event"
               maxlength="120"
-              [placeholder]="kind === 'equipment' ? 'Nome attrezzatura' : 'Azienda'"
+              placeholder="Azienda"
             />
           </ng-template>
         </ng-template>

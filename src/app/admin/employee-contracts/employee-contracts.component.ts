@@ -285,7 +285,7 @@ export class EmployeeContractsComponent implements OnInit {
     }
 
     const displayName = `${contract.nome || ''} ${contract.cognome || ''}`.trim();
-    this.router.navigate(['/email'], {
+    this.router.navigate(['/homeAdmin/email'], {
       queryParams: {
         composeTo: email,
         composeSubject: displayName

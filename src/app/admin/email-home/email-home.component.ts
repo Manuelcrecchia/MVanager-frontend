@@ -11,6 +11,14 @@ interface EmailAccount {
   email: string;
   lastSyncAt?: string | null;
   unreadCount?: number;
+  smtpStatus?: string;
+  smtpLastError?: string | null;
+  smtpLastCheckAt?: string | null;
+  imapStatus?: string;
+  imapLastError?: string | null;
+  imapLastCheckAt?: string | null;
+  connectionStatus?: string;
+  connectionError?: string | null;
 }
 
 interface EmailMessage {
@@ -527,6 +535,25 @@ export class EmailHomeComponent implements OnInit {
 
   accountHasUnread(account: EmailAccount): boolean {
     return (account.unreadCount || 0) > 0;
+  }
+
+  accountHasConnectionIssue(account: EmailAccount): boolean {
+    return account.connectionStatus === 'error' || account.smtpStatus === 'error' || account.imapStatus === 'error';
+  }
+
+  accountHealthSummary(account: EmailAccount): string {
+    if (this.accountHasConnectionIssue(account)) {
+      if (account.smtpStatus === 'error' && account.imapStatus === 'error') return 'SMTP e IMAP in errore';
+      if (account.smtpStatus === 'error') return 'SMTP in errore';
+      if (account.imapStatus === 'error') return 'IMAP in errore';
+      return 'Connessione in errore';
+    }
+    if (account.connectionStatus === 'ok') return 'Connessione ok';
+    return 'Connessione non ancora verificata';
+  }
+
+  accountHealthTitle(account: EmailAccount): string {
+    return account.connectionError || this.accountHealthSummary(account);
   }
 
   sender(message: EmailMessage): string {

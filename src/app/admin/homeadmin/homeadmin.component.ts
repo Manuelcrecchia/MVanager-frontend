@@ -55,6 +55,20 @@ interface PermissionOption {
   label: string;
 }
 
+interface EmailHealthIssue {
+  id: number;
+  label: string;
+  email: string;
+  smtpStatus?: string;
+  smtpLastError?: string | null;
+  smtpLastCheckAt?: string | null;
+  imapStatus?: string;
+  imapLastError?: string | null;
+  imapLastCheckAt?: string | null;
+  connectionStatus?: string;
+  connectionError?: string | null;
+}
+
 @Component({
   selector: 'app-homeadmin',
   templateUrl: './homeadmin.component.html',
@@ -135,6 +149,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   pendingQuoteReviews: number = 0;
   pendingEmployeeContractReviews: number = 0;
   emailUnreadCount: number = 0;
+  emailAccountIssueCount: number = 0;
   internalWarehouseLowStockCount: number = 0;
   internalWarehousePendingRequestCount: number = 0;
   employeeDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
@@ -150,6 +165,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   todoSaving = false;
   todoError = '';
   unassignedPermissionLabels: string[] = [];
+  emailHealthIssues: EmailHealthIssue[] = [];
+  emailHealthNoticeVisible = false;
+  private dismissedEmailHealthIssueKey = '';
+  private emailHealthRefreshRunning = false;
 
   ngOnInit(): void {
     this.global.loadTenantConfig().finally(() => {
@@ -158,12 +177,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       this.loadPendingQuoteReviews();
       this.loadPendingEmployeeContractReviews();
       this.loadEmailUnreadSummary();
+      this.loadEmailHealthNotice(false, true);
       this.loadInternalWarehouseSummary();
       this.loadUnassignedPermissionNotice();
       if (this.canUseTodoView()) {
         this.loadAdminTodos();
       }
       setTimeout(() => this.loadEmailUnreadSummary(), 1500);
+      setTimeout(() => this.loadEmailHealthNotice(true, true), 600);
     }).catch((err) => {
       console.error('Errore caricamento config tenant:', err);
     });
@@ -320,21 +341,102 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   loadEmailUnreadSummary(): void {
-    if (!this.canUsePermission('EMAIL_VIEW')) {
+    if (!this.canUsePermission('EMAIL_VIEW') && !this.canUsePermission('EMAIL_SETTINGS', 'email')) {
       this.emailUnreadCount = 0;
+      this.emailAccountIssueCount = 0;
       return;
     }
 
     this.http
-      .get<{ count: number }>(this.global.url + 'admin/email/unread-summary')
+      .get<{ count: number; accountErrorCount?: number }>(this.global.url + 'admin/email/unread-summary')
       .subscribe({
         next: (res) => {
           this.emailUnreadCount = Number(res?.count) || 0;
+          this.emailAccountIssueCount = Number(res?.accountErrorCount) || 0;
+          if (this.emailAccountIssueCount > 0) {
+            this.loadEmailHealthNotice(false, true);
+          } else if (!this.emailHealthRefreshRunning) {
+            this.emailHealthIssues = [];
+            this.emailHealthNoticeVisible = false;
+          }
         },
         error: (err) => {
           console.error('Errore caricamento email non lette:', err);
         },
       });
+  }
+
+  loadEmailHealthNotice(refresh = false, allowOpen = true): void {
+    if (!this.canUsePermission('EMAIL_VIEW') && !this.canUsePermission('EMAIL_SETTINGS', 'email')) {
+      this.emailHealthIssues = [];
+      this.emailHealthNoticeVisible = false;
+      this.emailAccountIssueCount = 0;
+      return;
+    }
+    if (refresh && this.emailHealthRefreshRunning) return;
+
+    if (refresh) this.emailHealthRefreshRunning = true;
+    const suffix = refresh ? '?refresh=true' : '';
+    this.http
+      .get<{ accountErrorCount: number; issues: EmailHealthIssue[] }>(
+        this.global.url + `admin/email/health-summary${suffix}`,
+      )
+      .subscribe({
+        next: (res) => {
+          if (refresh) this.emailHealthRefreshRunning = false;
+          this.emailHealthIssues = Array.isArray(res?.issues) ? res.issues : [];
+          this.emailAccountIssueCount = Number(res?.accountErrorCount) || this.emailHealthIssues.length;
+          this.applyEmailHealthNoticeVisibility(allowOpen);
+        },
+        error: (err) => {
+          if (refresh) this.emailHealthRefreshRunning = false;
+          console.error('Errore controllo stato email:', err);
+        },
+      });
+  }
+
+  private applyEmailHealthNoticeVisibility(allowOpen: boolean): void {
+    if (!this.emailHealthIssues.length) {
+      this.emailHealthNoticeVisible = false;
+      return;
+    }
+
+    const key = this.emailHealthIssueKey();
+    if (allowOpen && key !== this.dismissedEmailHealthIssueKey) {
+      this.emailHealthNoticeVisible = true;
+    }
+  }
+
+  private emailHealthIssueKey(): string {
+    return this.emailHealthIssues
+      .map((issue) => `${issue.id}:${issue.smtpStatus || ''}:${issue.imapStatus || ''}:${issue.connectionError || ''}`)
+      .sort()
+      .join('|');
+  }
+
+  closeEmailHealthNotice(): void {
+    this.dismissedEmailHealthIssueKey = this.emailHealthIssueKey();
+    this.emailHealthNoticeVisible = false;
+  }
+
+  goToEmailSettingsFromNotice(): void {
+    this.closeEmailHealthNotice();
+    this.navigateToEmailSettings();
+  }
+
+  emailHealthIssueTitle(issue: EmailHealthIssue): string {
+    return issue.label || issue.email || 'Account email';
+  }
+
+  emailHealthIssueSummary(issue: EmailHealthIssue): string {
+    if (issue.smtpStatus === 'error' && issue.imapStatus === 'error') return 'SMTP e IMAP non funzionano';
+    if (issue.smtpStatus === 'error') return 'Invio email non funzionante';
+    if (issue.imapStatus === 'error') return 'Ricezione email non funzionante';
+    return 'Connessione email non funzionante';
+  }
+
+  emailHealthIssueDetail(issue: EmailHealthIssue): string {
+    return issue.connectionError || 'Controlla host, porte, sicurezza, username e password.';
   }
 
   loadInternalWarehouseSummary(): void {
@@ -365,7 +467,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     }
 
     this.emailUnreadIntervalId = setInterval(() => {
-      if (this.canUsePermission('EMAIL_VIEW')) {
+      if (this.canUsePermission('EMAIL_VIEW') || this.canUsePermission('EMAIL_SETTINGS', 'email')) {
         this.loadEmailUnreadSummary();
       }
     }, 30000);
@@ -481,7 +583,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.router.navigate(['/admin/shifts']);
+    this.router.navigate(['/homeAdmin/shifts']);
   }
   navigateToTimbrature() {
     this.navigateInHome('timbratureHome');
@@ -595,8 +697,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
           this.navigateToEmailSettings();
         },
         desktopPath: this.canUsePermission('EMAIL_VIEW') ? 'email' : undefined,
-        badgeCount: () => this.emailUnreadCount,
-        badgeClass: () => 'badge bg-danger ms-1',
+        badgeCount: () => this.emailUnreadCount + this.emailAccountIssueCount,
+        badgeClass: () => this.emailAccountIssueCount > 0 ? 'alert-badge alert-badge-expired' : 'badge bg-danger ms-1',
       },
       {
         label: 'Invio notifiche dipendenti',

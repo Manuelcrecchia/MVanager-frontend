@@ -4,7 +4,7 @@
   <div *ngIf="loading" class="muted">Caricamento...</div>
 
   <div class="list" *ngIf="!loading">
-    <label class="row-item" *ngFor="let item of equipment">
+    <div class="row-item" *ngFor="let item of equipment">
       <input
         type="checkbox"
         [checked]="isSelected(item.targetKey)"
@@ -12,12 +12,22 @@
       />
       <div class="meta">
         <div class="name">{{ item.targetLabel || item.targetKey }}</div>
-        <div class="plate">{{ item.targetKey }}</div>
+        <div class="plate">{{ item.targetKey }} · quantità {{ item.quantity || 1 }}</div>
       </div>
-    </label>
+      <div class="quantity-field" *ngIf="isSelected(item.targetKey)">
+        <span>Assegna</span>
+        <input
+          type="number"
+          min="1"
+          [max]="getMaxQuantity(item)"
+          [ngModel]="getAssignedQuantity(item.targetKey)"
+          (ngModelChange)="setAssignedQuantity(item, $event)"
+        />
+      </div>
+    </div>
 
     <div class="text-center py-3" *ngIf="equipment.length === 0">
-      Nessuna attrezzatura disponibile. Creala inserendo una prima scadenza in Scadenze attrezzature.
+      Nessuna attrezzatura disponibile. Aggiungila da Gestione attrezzature.
     </div>
   </div>
 

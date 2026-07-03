@@ -145,6 +145,38 @@ label {
   color: #6b7280;
 }
 
+.health-badge {
+  width: fit-content;
+  margin-top: 8px;
+  border-radius: 8px;
+  padding: 6px 8px;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  background: #eef2f7;
+  color: #475569 !important;
+  font-weight: 850;
+}
+
+.health-badge-ok {
+  background: #dcfce7;
+  color: #166534 !important;
+}
+
+.health-badge-error {
+  background: #fee2e2;
+  color: #b91c1c !important;
+}
+
+.health-error-detail {
+  max-width: 540px;
+  margin-top: 6px;
+  color: #b91c1c !important;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: normal;
+}
+
 .row-actions {
   display: flex;
   flex-wrap: wrap;

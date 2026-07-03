@@ -17,6 +17,32 @@
 .invoice-toolbar {
   justify-content: space-between;
   margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.invoice-title-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.back-btn {
+  border: 1px solid rgba(23, 32, 51, 0.1);
+  border-radius: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #172033;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.back-btn:hover {
+  background: #eef3fa;
 }
 
 .invoice-section-tabs {
