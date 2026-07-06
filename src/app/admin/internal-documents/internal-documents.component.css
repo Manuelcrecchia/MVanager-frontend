@@ -303,6 +303,64 @@ body {
   color: var(--text-dark);
 }
 
+.file-drop-zone {
+  width: 100%;
+  min-height: 104px;
+  margin-bottom: 14px;
+  border: 1.5px dashed rgba(47, 183, 255, 0.58);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.file-drop-zone mat-icon {
+  width: 38px;
+  height: 38px;
+  font-size: 38px;
+  color: var(--brand-sky);
+}
+
+.file-drop-zone strong,
+.file-drop-zone span {
+  display: block;
+}
+
+.file-drop-zone strong {
+  font-weight: 950;
+}
+
+.file-drop-zone span {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-weight: 750;
+}
+
+.file-drop-zone:hover,
+.file-drop-zone:focus,
+.file-drop-zone--active {
+  outline: none;
+  transform: translateY(-1px);
+  border-color: var(--brand-orange);
+  background: rgba(255, 138, 0, 0.12);
+  box-shadow: 0 18px 44px rgba(47, 183, 255, 0.18);
+}
+
+.file-drop-zone--disabled {
+  cursor: wait;
+  opacity: 0.78;
+}
+
 .empty-hint {
   padding: 14px;
   border-radius: var(--radius-lg);

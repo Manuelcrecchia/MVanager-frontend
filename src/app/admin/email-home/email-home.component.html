@@ -87,6 +87,7 @@
       *ngFor="let message of messages"
       [class.unread]="!message.read"
       [class.active]="selectedMessage?.id === message.id"
+      [class.failed]="isFailedMessage(message)"
       type="button"
       (click)="openMessage(message)"
     >
@@ -94,8 +95,15 @@
       <span class="message-account">{{ message.accountLabel || message.accountEmail }}</span>
       <span class="message-main">
         <strong>{{ sender(message) }}</strong>
-        <span>
-          {{ message.subject || '(Senza oggetto)' }}
+        <span class="message-subject-line">
+          <span class="message-subject-text">{{ message.subject || '(Senza oggetto)' }}</span>
+          <em
+            class="message-status-badge"
+            [class.message-status-badge--failed]="isFailedMessage(message)"
+            *ngIf="messageStatusLabel(message)"
+          >
+            {{ messageStatusLabel(message) }}
+          </em>
           <i class="fas fa-paperclip attachment-inline" *ngIf="message.attachments && message.attachments.length > 0"></i>
         </span>
         <small>{{ message.preview }}</small>
@@ -129,7 +137,7 @@
 
     <form class="compose-panel compose-panel-inline" *ngIf="composeOpen" (ngSubmit)="send()">
       <header>
-        <h3>Nuova email</h3>
+        <h3>{{ composeTitle }}</h3>
         <button class="icon-btn" type="button" (click)="closeCompose()" title="Chiudi">
           <i class="fas fa-times"></i>
         </button>
@@ -169,7 +177,19 @@
           </label>
         </div>
 
-        <div class="selected-attachments" *ngIf="selectedFiles.length || selectedInternalAttachments.length">
+        <div class="selected-attachments" *ngIf="selectedExistingAttachments.length || selectedFiles.length || selectedInternalAttachments.length">
+          <button
+            class="selected-attachment"
+            type="button"
+            *ngFor="let attachment of selectedExistingAttachments; let i = index"
+            (click)="removeExistingAttachment(i)"
+            title="Rimuovi allegato"
+          >
+            <i class="fas fa-paperclip"></i>
+            <span>{{ attachmentLabel(attachment) }}</span>
+            <i class="fas fa-times"></i>
+          </button>
+
           <button
             class="selected-attachment"
             type="button"
@@ -228,9 +248,14 @@
 
       <footer>
         <span>La grafica applicata sarà quella dell'azienda corrente.</span>
-        <button class="btn btn-primary btn-round" type="submit" [disabled]="sending">
-          {{ sending ? 'Invio...' : 'Invia' }}
-        </button>
+        <div class="compose-footer-actions">
+          <button class="btn btn-outline-secondary btn-round" type="button" (click)="saveDraft()" [disabled]="sending">
+            Salva bozza
+          </button>
+          <button class="btn btn-primary btn-round" type="submit" [disabled]="sending">
+            {{ sendButtonLabel }}
+          </button>
+        </div>
       </footer>
     </form>
 
@@ -246,18 +271,29 @@
           <p>
             Da {{ selectedMessage.fromName || selectedMessage.fromEmail }}
             <span *ngIf="selectedMessage.folder === 'sent'">a {{ firstRecipient(selectedMessage) }}</span>
+            <span *ngIf="selectedMessage.folder === 'drafts' || selectedMessage.folder === 'outbox'">a {{ firstRecipient(selectedMessage) || 'nessun destinatario' }}</span>
           </p>
         </div>
         <div class="detail-actions">
-          <button class="detail-action-btn" type="button" (click)="reply(selectedMessage)" title="Rispondi">
+          <button
+            class="detail-action-btn detail-action-btn--primary"
+            type="button"
+            (click)="editDraft(selectedMessage)"
+            title="Modifica e reinvia"
+            *ngIf="isDraftMessage(selectedMessage)"
+          >
+            <i class="fas fa-pen"></i>
+            <span>{{ editActionLabel(selectedMessage) }}</span>
+          </button>
+          <button class="detail-action-btn" type="button" (click)="reply(selectedMessage)" title="Rispondi" *ngIf="!isDraftMessage(selectedMessage)">
             <i class="fas fa-reply"></i>
             <span>Rispondi</span>
           </button>
-          <button class="detail-action-btn" type="button" (click)="forward(selectedMessage)" title="Inoltra">
+          <button class="detail-action-btn" type="button" (click)="forward(selectedMessage)" title="Inoltra" *ngIf="!isDraftMessage(selectedMessage)">
             <i class="fas fa-share"></i>
             <span>Inoltra</span>
           </button>
-          <button class="detail-action-btn" type="button" (click)="markUnread(selectedMessage)" title="Segna come non letto">
+          <button class="detail-action-btn" type="button" (click)="markUnread(selectedMessage)" title="Segna come non letto" *ngIf="!isDraftMessage(selectedMessage)">
             <i class="fas fa-envelope"></i>
             <span>Non letto</span>
           </button>
@@ -266,6 +302,10 @@
           </button>
         </div>
       </header>
+      <section class="send-error-box" *ngIf="isFailedMessage(selectedMessage) && selectedMessage.sendError">
+        <strong>Errore invio</strong>
+        <span>{{ selectedMessage.sendError }}</span>
+      </section>
       <section class="attachments-box" *ngIf="selectedMessage.attachments && selectedMessage.attachments.length > 0">
         <h3>Allegati</h3>
         <div

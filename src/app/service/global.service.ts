@@ -221,7 +221,7 @@ export interface TenantMapsConfig {
   providedIn: 'root',
 })
 export class GlobalService {
-  version = '5.1';
+  version = '5.2';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -266,7 +266,9 @@ export class GlobalService {
 
           if (!supported) {
             this.popup.showError(
-              this.buildUnsupportedVersionMessage(data.allowedVersions || data.version),
+              this.buildUnsupportedVersionMessage(
+                data.allowedVersions || data.version,
+              ),
               'Versione app non supportata',
             );
             resolve(false);
@@ -288,7 +290,7 @@ export class GlobalService {
 
   private buildUnsupportedVersionMessage(allowedVersions: unknown): string {
     return [
-      'AGGIORNA O CONTATTA L\'ASSISTENZA',
+      "AGGIORNA O CONTATTA L'ASSISTENZA",
       `Versione app in uso: ${this.version}`,
       `Versioni disponibili: ${this.formatAllowedVersions(allowedVersions)}`,
     ].join('\n');
@@ -296,16 +298,18 @@ export class GlobalService {
 
   private buildVersionCheckFailedMessage(): string {
     return [
-      'IMPOSSIBILE VERIFICARE LA VERSIONE DELL\'APP',
+      "IMPOSSIBILE VERIFICARE LA VERSIONE DELL'APP",
       `Versione app in uso: ${this.version}`,
       'Versioni disponibili: non verificabili',
-      'Controlla la connessione o contatta l\'assistenza.',
+      "Controlla la connessione o contatta l'assistenza.",
     ].join('\n');
   }
 
   private formatAllowedVersions(allowedVersions: unknown): string {
     if (Array.isArray(allowedVersions)) {
-      return allowedVersions.length ? allowedVersions.join(', ') : 'non indicate';
+      return allowedVersions.length
+        ? allowedVersions.join(', ')
+        : 'non indicate';
     }
 
     const value = String(allowedVersions || '').trim();
@@ -429,17 +433,28 @@ export class GlobalService {
       if (purchasedFeatures.includes(feature)) return true;
       if (feature === 'documents') {
         return purchasedFeatures.some((item) =>
-          ['documents', 'internalDocuments', 'employeeDocuments', 'customerDocuments'].includes(item)
+          [
+            'documents',
+            'internalDocuments',
+            'employeeDocuments',
+            'customerDocuments',
+          ].includes(item),
         );
       }
       if (feature === 'internalDocuments') {
         return purchasedFeatures.includes('documents');
       }
       if (feature === 'employeeDocuments') {
-        return purchasedFeatures.includes('documents') && purchasedFeatures.includes('employees');
+        return (
+          purchasedFeatures.includes('documents') &&
+          purchasedFeatures.includes('employees')
+        );
       }
       if (feature === 'customerDocuments') {
-        return purchasedFeatures.includes('documents') && purchasedFeatures.includes('customers');
+        return (
+          purchasedFeatures.includes('documents') &&
+          purchasedFeatures.includes('customers')
+        );
       }
       return false;
     }
@@ -486,18 +501,26 @@ export class GlobalService {
   }
 
   getEmployeeSelfTransportField(): string {
-    return String(
-      this.getTenantRoutePlanningConfig()?.employeeSelfTransportField || 'automunito',
-    ).trim() || 'automunito';
+    return (
+      String(
+        this.getTenantRoutePlanningConfig()?.employeeSelfTransportField ||
+          'automunito',
+      ).trim() || 'automunito'
+    );
   }
 
-  isEmployeeSelfTransported(employee: Record<string, any> | null | undefined): boolean {
+  isEmployeeSelfTransported(
+    employee: Record<string, any> | null | undefined,
+  ): boolean {
     if (!employee) return false;
-    const value = employee[this.getEmployeeSelfTransportField()] ?? employee['automunito'];
+    const value =
+      employee[this.getEmployeeSelfTransportField()] ?? employee['automunito'];
     if (typeof value === 'boolean') return value;
     if (typeof value === 'number') return value === 1;
     return ['1', 'true', 'yes', 'si', 'sì', 'on'].includes(
-      String(value || '').trim().toLowerCase(),
+      String(value || '')
+        .trim()
+        .toLowerCase(),
     );
   }
 
@@ -799,11 +822,14 @@ export class GlobalService {
       return String(field?.dbColumn || field?.key || '').trim();
     };
     return {
-      address: fieldKey('customerBillingAddress') || fieldKey('customerAddress'),
+      address:
+        fieldKey('customerBillingAddress') || fieldKey('customerAddress'),
       city: fieldKey('customerBillingCity') || fieldKey('customerCity'),
-      province: fieldKey('customerBillingProvince') || fieldKey('customerProvince'),
+      province:
+        fieldKey('customerBillingProvince') || fieldKey('customerProvince'),
       zip: fieldKey('customerBillingZip') || fieldKey('customerZip'),
-      country: fieldKey('customerBillingCountry') || fieldKey('customerCountry'),
+      country:
+        fieldKey('customerBillingCountry') || fieldKey('customerCountry'),
       latitude: fieldKey('customerLatitude'),
       longitude: fieldKey('customerLongitude'),
     };
@@ -862,9 +888,7 @@ export class GlobalService {
     record: Record<string, any>,
   ): string {
     const keys = Object.keys(record || {}).filter((key) => {
-      const normalized = key
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '');
+      const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
       return (
         normalized.includes('indirizzo') ||
         normalized.includes('address') ||
@@ -881,11 +905,15 @@ export class GlobalService {
       key.toLowerCase().includes('partenza'),
     );
     const sourceKeys = departureKeys.length ? departureKeys : keys;
-    return [...new Set(
-      sourceKeys
-        .map((key) => String(record[key] || '').trim())
-        .filter((value) => value && value.length > 2),
-    )].slice(0, 5).join(', ');
+    return [
+      ...new Set(
+        sourceKeys
+          .map((key) => String(record[key] || '').trim())
+          .filter((value) => value && value.length > 2),
+      ),
+    ]
+      .slice(0, 5)
+      .join(', ');
   }
 
   getQuoteTypes(): TenantQuoteTypeConfig[] {

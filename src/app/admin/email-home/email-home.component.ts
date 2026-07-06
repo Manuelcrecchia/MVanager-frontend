@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 
-type MailFolder = 'unread' | 'inbox' | 'sent' | 'trash';
+type MailFolder = 'unread' | 'inbox' | 'outbox' | 'drafts' | 'sent' | 'trash';
 
 interface EmailAccount {
   id: number;
@@ -37,7 +37,11 @@ interface EmailMessage {
   htmlBody: string;
   sentAt?: string | null;
   receivedAt?: string | null;
+  failedAt?: string | null;
+  updatedAt?: string | null;
   read: boolean;
+  sendStatus?: 'synced' | 'sent' | 'draft' | 'failed' | string;
+  sendError?: string | null;
   attachments: EmailAttachment[];
 }
 
@@ -87,8 +91,11 @@ export class EmailHomeComponent implements OnInit {
   private messageLoadToken = 0;
   sending = false;
   composeOpen = false;
+  composeDraftId: number | null = null;
+  composeFromFolder: MailFolder | null = null;
   safeHtml = '';
   selectedFiles: File[] = [];
+  selectedExistingAttachments: EmailAttachment[] = [];
   internalFolder = '';
   internalFolders: string[] = [];
   internalFiles: InternalEmailDocument[] = [];
@@ -109,6 +116,8 @@ export class EmailHomeComponent implements OnInit {
   folders: Array<{ id: MailFolder; label: string; icon: string }> = [
     { id: 'unread', label: 'Non lette', icon: 'fas fa-circle' },
     { id: 'inbox', label: 'In arrivo', icon: 'fas fa-inbox' },
+    { id: 'outbox', label: 'In uscita', icon: 'fas fa-clock' },
+    { id: 'drafts', label: 'Bozze', icon: 'fas fa-file-alt' },
     { id: 'sent', label: 'Inviate', icon: 'fas fa-paper-plane' },
     { id: 'trash', label: 'Cestino', icon: 'fas fa-trash' },
   ];
@@ -122,6 +131,16 @@ export class EmailHomeComponent implements OnInit {
 
   get detailOpen(): boolean {
     return !!this.selectedMessage || this.composeOpen;
+  }
+
+  get composeTitle(): string {
+    if (this.composeFromFolder === 'outbox') return 'Modifica email in uscita';
+    return this.composeDraftId ? 'Modifica bozza' : 'Nuova email';
+  }
+
+  get sendButtonLabel(): string {
+    if (this.sending) return 'Invio...';
+    return this.composeDraftId ? 'Reinvia' : 'Invia';
   }
 
   constructor(
@@ -271,6 +290,8 @@ export class EmailHomeComponent implements OnInit {
 
   newEmail(to = '', subject = '') {
     this.composeOpen = true;
+    this.composeDraftId = null;
+    this.composeFromFolder = null;
     this.selectedMessage = null;
     this.safeHtml = '';
     this.compose = {
@@ -282,6 +303,7 @@ export class EmailHomeComponent implements OnInit {
       body: '',
     };
     this.selectedFiles = [];
+    this.selectedExistingAttachments = [];
     this.selectedInternalAttachments = [];
     this.attachmentSearchQuery = '';
     this.attachmentSearchResults = [];
@@ -293,6 +315,8 @@ export class EmailHomeComponent implements OnInit {
   reply(message: EmailMessage) {
     const sender = message.fromEmail || '';
     this.composeOpen = true;
+    this.composeDraftId = null;
+    this.composeFromFolder = null;
     this.compose = {
       accountId: message.accountId || this.accounts[0]?.id || 0,
       to: sender,
@@ -306,6 +330,8 @@ export class EmailHomeComponent implements OnInit {
 
   forward(message: EmailMessage) {
     this.composeOpen = true;
+    this.composeDraftId = null;
+    this.composeFromFolder = null;
     this.compose = {
       accountId: message.accountId || this.accounts[0]?.id || 0,
       to: '',
@@ -342,6 +368,8 @@ export class EmailHomeComponent implements OnInit {
   closeDetail() {
     this.selectedMessage = null;
     this.composeOpen = false;
+    this.composeDraftId = null;
+    this.composeFromFolder = null;
     this.safeHtml = '';
   }
 
@@ -351,42 +379,91 @@ export class EmailHomeComponent implements OnInit {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('accountId', String(this.compose.accountId));
-    formData.append('to', this.compose.to);
-    formData.append('cc', this.compose.cc);
-    formData.append('bcc', this.compose.bcc);
-    formData.append('subject', this.compose.subject);
-    formData.append('body', this.compose.body);
-    formData.append(
-      'internalAttachments',
-      JSON.stringify(
-        this.selectedInternalAttachments.map((item) => ({
-          source: item.source || 'internal',
-          ownerId: item.ownerId || '',
-          folder: item.folder,
-          filename: item.filename,
-        })),
-      ),
-    );
-    this.selectedFiles.forEach((file) => {
-      formData.append('attachments', file, file.name);
-    });
-
     this.sending = true;
-    this.http.post(this.globalService.url + 'admin/email/messages/send', formData).subscribe({
+    this.http.post(this.globalService.url + 'admin/email/messages/send', this.buildComposeFormData()).subscribe({
       next: () => {
         this.sending = false;
         this.composeOpen = false;
+        this.composeDraftId = null;
+        this.composeFromFolder = null;
         this.selectedFolder = 'sent';
         this.loadMessages();
       },
       error: (err) => {
         console.error('Errore invio email:', err);
-        alert(err?.error?.error || 'Errore invio email');
+        const failedDraft = err?.error?.draft as EmailMessage | undefined;
+        if (failedDraft?.id) {
+          this.composeDraftId = failedDraft.id;
+          this.composeFromFolder = failedDraft.folder || 'outbox';
+          this.selectedExistingAttachments = failedDraft.attachments || [];
+          this.composeOpen = false;
+          this.selectedMessage = null;
+          this.safeHtml = '';
+          this.selectedFolder = 'outbox';
+          this.loadMessages();
+          alert(`Invio non riuscito. La mail è stata salvata in Bozze.\n\nErrore: ${err?.error?.error || failedDraft.sendError || 'Errore invio email'}`);
+        } else {
+          alert(err?.error?.error || 'Errore invio email');
+        }
         this.sending = false;
       },
     });
+  }
+
+  saveDraft() {
+    if (!this.compose.accountId) {
+      alert('Mittente obbligatorio');
+      return;
+    }
+
+    this.sending = true;
+    this.http.post<{ ok: boolean; message: EmailMessage }>(
+      this.globalService.url + 'admin/email/messages/draft',
+      this.buildComposeFormData(),
+    ).subscribe({
+      next: (res) => {
+        this.sending = false;
+        this.composeDraftId = null;
+        this.composeFromFolder = null;
+        this.composeOpen = false;
+        this.selectedMessage = null;
+        this.safeHtml = '';
+        this.selectedFolder = 'drafts';
+        this.loadMessages();
+        if (res?.message) {
+          this.selectedExistingAttachments = res.message.attachments || [];
+        }
+      },
+      error: (err) => {
+        console.error('Errore salvataggio bozza:', err);
+        alert(err?.error?.error || 'Errore salvataggio bozza');
+        this.sending = false;
+      },
+    });
+  }
+
+  editDraft(message: EmailMessage) {
+    this.composeOpen = true;
+    this.composeDraftId = message.id;
+    this.composeFromFolder = message.folder;
+    this.selectedMessage = null;
+    this.safeHtml = '';
+    this.compose = {
+      accountId: message.accountId || this.accounts[0]?.id || 0,
+      to: (message.to || []).map((item) => item.email).join('; '),
+      cc: (message.cc || []).map((item) => item.email).join('; '),
+      bcc: '',
+      subject: message.subject || '',
+      body: message.textBody || this.stripHtml(message.htmlBody),
+    };
+    this.selectedFiles = [];
+    this.selectedExistingAttachments = [...(message.attachments || [])];
+    this.selectedInternalAttachments = [];
+    this.attachmentSearchQuery = '';
+    this.attachmentSearchResults = [];
+    if (this.canUseInternalDocuments) {
+      this.searchAppAttachments();
+    }
   }
 
   get canUseInternalDocuments(): boolean {
@@ -406,6 +483,42 @@ export class EmailHomeComponent implements OnInit {
 
   removeSelectedFile(index: number) {
     this.selectedFiles = this.selectedFiles.filter((_, i) => i !== index);
+  }
+
+  removeExistingAttachment(index: number) {
+    this.selectedExistingAttachments = this.selectedExistingAttachments.filter((_, i) => i !== index);
+  }
+
+  private buildComposeFormData(): FormData {
+    const formData = new FormData();
+    formData.append('accountId', String(this.compose.accountId));
+    formData.append('to', this.compose.to);
+    formData.append('cc', this.compose.cc);
+    formData.append('bcc', this.compose.bcc);
+    formData.append('subject', this.compose.subject);
+    formData.append('body', this.compose.body);
+    if (this.composeDraftId) {
+      formData.append('draftId', String(this.composeDraftId));
+    }
+    formData.append(
+      'existingAttachmentIds',
+      JSON.stringify(this.selectedExistingAttachments.map((item) => item.id)),
+    );
+    formData.append(
+      'internalAttachments',
+      JSON.stringify(
+        this.selectedInternalAttachments.map((item) => ({
+          source: item.source || 'internal',
+          ownerId: item.ownerId || '',
+          folder: item.folder,
+          filename: item.filename,
+        })),
+      ),
+    );
+    this.selectedFiles.forEach((file) => {
+      formData.append('attachments', file, file.name);
+    });
+    return formData;
   }
 
   loadInternalDocuments(folder: string) {
@@ -557,8 +670,10 @@ export class EmailHomeComponent implements OnInit {
   }
 
   sender(message: EmailMessage): string {
-    if (message.folder === 'sent') {
-      return 'A: ' + (message.to || []).map((item) => item.email).join(', ');
+    if (message.folder === 'sent' || message.folder === 'drafts' || message.folder === 'outbox') {
+      const recipients = (message.to || []).map((item) => item.email).filter(Boolean).join(', ');
+      if (recipients) return 'A: ' + recipients;
+      return message.folder === 'drafts' ? 'Bozza senza destinatario' : 'Nessun destinatario';
     }
     return message.fromName || message.fromEmail || 'Mittente sconosciuto';
   }
@@ -568,7 +683,28 @@ export class EmailHomeComponent implements OnInit {
   }
 
   messageDate(message: EmailMessage): string | null {
-    return message.receivedAt || message.sentAt || null;
+    return message.failedAt || message.receivedAt || message.sentAt || message.updatedAt || null;
+  }
+
+  isDraftMessage(message: EmailMessage): boolean {
+    return message.folder === 'drafts' || message.folder === 'outbox' || message.sendStatus === 'draft' || message.sendStatus === 'failed';
+  }
+
+  isFailedMessage(message: EmailMessage): boolean {
+    return message.sendStatus === 'failed';
+  }
+
+  messageStatusLabel(message: EmailMessage): string {
+    if (this.isFailedMessage(message)) return 'Errore invio';
+    if (message.folder === 'outbox') return 'In uscita';
+    if (this.isDraftMessage(message)) return 'Bozza';
+    return '';
+  }
+
+  editActionLabel(message: EmailMessage): string {
+    return message.folder === 'drafts' && !this.isFailedMessage(message)
+      ? 'Modifica bozza'
+      : 'Modifica e reinvia';
   }
 
   attachmentLabel(attachment: EmailAttachment): string {
@@ -578,6 +714,7 @@ export class EmailHomeComponent implements OnInit {
 
   private resetComposeAttachments() {
     this.selectedFiles = [];
+    this.selectedExistingAttachments = [];
     this.selectedInternalAttachments = [];
     this.attachmentSearchQuery = '';
     this.attachmentSearchResults = [];

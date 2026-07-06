@@ -178,6 +178,63 @@
   color: rgba(18, 48, 77, 0.78);
 }
 
+.attachment-drop-zone {
+  width: 100%;
+  min-height: 104px;
+  border: 1.5px dashed rgba(17, 53, 93, 0.28);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #12304d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.attachment-drop-zone:hover,
+.attachment-drop-zone:focus,
+.attachment-drop-zone--active {
+  outline: none;
+  transform: translateY(-1px);
+  border-color: #d66200;
+  background: rgba(255, 242, 217, 0.84);
+  box-shadow: 0 16px 36px rgba(17, 53, 93, 0.12);
+}
+
+.attachment-drop-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e8f2ff;
+  color: #11355d;
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.attachment-drop-zone strong,
+.attachment-drop-zone small {
+  display: block;
+}
+
+.attachment-drop-zone strong {
+  font-weight: 900;
+}
+
+.attachment-drop-zone small {
+  margin-top: 2px;
+  color: rgba(18, 48, 77, 0.68);
+  font-weight: 700;
+}
+
 .selected-files {
   margin-top: 16px;
   display: flex;

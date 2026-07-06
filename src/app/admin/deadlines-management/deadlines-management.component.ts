@@ -10,8 +10,12 @@ type DeadlineStatus = 'ok' | 'warning' | 'expired';
 interface DeadlineAttachment {
   id: string;
   originalName: string;
+  storedName?: string;
   size: number;
   uploadedAt: string;
+  documentFolder?: string;
+  documentFilename?: string;
+  documentManagedBy?: string;
 }
 
 interface EmployeeTarget {
@@ -110,6 +114,7 @@ export class DeadlinesManagementComponent implements OnInit {
   success = '';
   preselectedEntityId: string | number | null = null;
   pendingFiles: File[] = [];
+  isAttachmentDragActive = false;
   editingDeadline: DeadlineRecord | null = null;
   formAttachments: DeadlineAttachment[] = [];
   historyByDeadlineId: Record<number, DeadlineHistoryEntry[]> = {};
@@ -493,11 +498,59 @@ export class DeadlinesManagementComponent implements OnInit {
   onFilesSelected(event: Event): void {
     const target = event.target as HTMLInputElement | null;
     const files = target?.files ? Array.from(target.files) : [];
-    this.pendingFiles = files;
+    this.addPendingFiles(files);
+    if (target) target.value = '';
+  }
+
+  onAttachmentDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isAttachmentDragActive = true;
+  }
+
+  onAttachmentDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const currentTarget = event.currentTarget as HTMLElement | null;
+    const relatedTarget = event.relatedTarget as Node | null;
+    if (currentTarget && relatedTarget && currentTarget.contains(relatedTarget)) {
+      return;
+    }
+    this.isAttachmentDragActive = false;
+  }
+
+  onAttachmentDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isAttachmentDragActive = false;
+
+    const files = event.dataTransfer?.files
+      ? Array.from(event.dataTransfer.files)
+      : [];
+    this.addPendingFiles(files);
+  }
+
+  private addPendingFiles(files: File[]): void {
+    if (!files.length) return;
+
+    const seen = new Set(
+      this.pendingFiles.map((file) => this.fileIdentity(file)),
+    );
+    const nextFiles = files.filter((file) => {
+      const identity = this.fileIdentity(file);
+      if (seen.has(identity)) return false;
+      seen.add(identity);
+      return true;
+    });
+    this.pendingFiles = [...this.pendingFiles, ...nextFiles];
   }
 
   removePendingFile(index: number): void {
     this.pendingFiles.splice(index, 1);
+  }
+
+  private fileIdentity(file: File): string {
+    return `${file.name}:${file.size}:${file.lastModified}`;
   }
 
   submit(): void {
@@ -637,6 +690,53 @@ export class DeadlinesManagementComponent implements OnInit {
       });
   }
 
+  renameExistingAttachment(attachment: DeadlineAttachment): void {
+    if (!this.editingDeadline || !this.canEdit) return;
+
+    const requestedName = prompt('Nuovo nome allegato', attachment.originalName);
+    if (requestedName === null) return;
+
+    const newName = requestedName.trim();
+    if (!newName) {
+      this.popup.showError('Inserisci un nome valido');
+      return;
+    }
+    if (newName === attachment.originalName) return;
+
+    this.http
+      .post<{ ok: boolean; attachments: DeadlineAttachment[] }>(
+        this.globalService.url + 'admin/deadlines/rename-attachment',
+        {
+          deadlineId: this.editingDeadline.id,
+          attachmentId: attachment.id,
+          newName,
+        },
+      )
+      .subscribe({
+        next: (response) => {
+          const attachments = Array.isArray(response?.attachments)
+            ? response.attachments
+            : this.formAttachments.map((item) =>
+                item.id === attachment.id ? { ...item, originalName: newName } : item,
+              );
+
+          this.formAttachments = attachments;
+          this.syncLocalDeadlineAttachments(this.editingDeadline!.id, attachments);
+          this.editingDeadline = {
+            ...this.editingDeadline!,
+            attachments,
+          };
+          delete this.historyByDeadlineId[this.editingDeadline!.id];
+          this.success = 'Allegato rinominato.';
+        },
+        error: (err) => {
+          console.error('Errore rinomina allegato:', err);
+          this.error = this.parseServerError(err);
+          this.popup.showError(this.error);
+        },
+      });
+  }
+
   toggleHistory(deadline: DeadlineRecord): void {
     const isOpen = !!this.historyOpenByDeadlineId[deadline.id];
     this.historyOpenByDeadlineId[deadline.id] = !isOpen;
@@ -676,6 +776,7 @@ export class DeadlinesManagementComponent implements OnInit {
       updated: 'Aggiornamento',
       deleted: 'Eliminazione',
       attachment_deleted: 'Allegato eliminato',
+      attachment_renamed: 'Allegato rinominato',
       current_state: 'Stato attuale',
     };
     return labels[action] || action;
@@ -715,6 +816,11 @@ export class DeadlinesManagementComponent implements OnInit {
         continue;
       }
 
+      if (key === 'attachmentRenamed' && value) {
+        lines.push(`Allegato rinominato: ${value.before || '—'} → ${value.after || '—'}`);
+        continue;
+      }
+
       if (value && typeof value === 'object' && 'before' in value && 'after' in value) {
         lines.push(`${labels[key] || key}: ${value.before || '—'} → ${value.after || '—'}`);
       }
@@ -750,10 +856,20 @@ export class DeadlinesManagementComponent implements OnInit {
     return lines;
   }
 
-  downloadAttachment(
+  openAttachment(
     deadline: DeadlineRecord,
     attachment: DeadlineAttachment,
   ): void {
+    const attachmentWindow = window.open('', '_blank');
+    if (!attachmentWindow) {
+      this.popup.showError('Popup bloccato dal browser. Consenti i popup per aprire il documento.');
+      return;
+    }
+
+    attachmentWindow.document.write(
+      '<!doctype html><title>Caricamento documento...</title><body style="font-family:Arial,sans-serif;padding:24px">Caricamento documento...</body>',
+    );
+
     this.http
       .post(
         this.globalService.url + 'admin/deadlines/download-attachment',
@@ -766,14 +882,12 @@ export class DeadlinesManagementComponent implements OnInit {
       .subscribe({
         next: (blob) => {
           const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = attachment.originalName;
-          a.click();
-          window.URL.revokeObjectURL(url);
+          attachmentWindow.location.href = url;
+          window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
         },
         error: (err) => {
-          console.error('Errore download allegato:', err);
+          attachmentWindow.close();
+          console.error('Errore apertura allegato:', err);
           this.error = this.parseServerError(err);
           this.popup.showError(this.error);
         },

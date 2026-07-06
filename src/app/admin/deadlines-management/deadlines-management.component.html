@@ -172,11 +172,29 @@
         <label class="form-label">{{ isEditing ? 'Aggiungi nuovi allegati' : 'Allegati' }}</label>
         <input
           #fileInput
-          class="form-control"
           type="file"
           multiple
           (change)="onFilesSelected($event)"
+          hidden
         />
+        <div
+          class="attachment-drop-zone"
+          [class.attachment-drop-zone--active]="isAttachmentDragActive"
+          role="button"
+          tabindex="0"
+          (click)="fileInput.click()"
+          (keydown.enter)="fileInput.click()"
+          (keydown.space)="fileInput.click(); $event.preventDefault()"
+          (dragover)="onAttachmentDragOver($event)"
+          (dragleave)="onAttachmentDragLeave($event)"
+          (drop)="onAttachmentDrop($event)"
+        >
+          <span class="attachment-drop-icon">⇧</span>
+          <div>
+            <strong>Allega file alla scadenza</strong>
+            <small>Trascina o seleziona uno o piu file</small>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -196,10 +214,16 @@
         <div class="deadline-actions">
           <button
             class="btn btn-outline-light btn-sm"
-            *ngIf="editingDeadline"
-            (click)="downloadAttachment(editingDeadline, attachment)"
+            (click)="renameExistingAttachment(attachment)"
           >
-            Scarica
+            Rinomina
+          </button>
+          <button
+            class="btn btn-outline-light btn-sm"
+            *ngIf="editingDeadline"
+            (click)="openAttachment(editingDeadline, attachment)"
+          >
+            Apri
           </button>
           <button
             class="btn btn-outline-danger btn-sm"
@@ -409,7 +433,7 @@
             <button
               class="attachment-chip"
               *ngFor="let attachment of deadline.attachments"
-              (click)="downloadAttachment(deadline, attachment)"
+              (click)="openAttachment(deadline, attachment)"
             >
               <span>{{ attachment.originalName }}</span>
               <small>{{ formatFileSize(attachment.size) }}</small>

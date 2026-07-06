@@ -98,7 +98,7 @@
         <h3 class="main-title">File in "{{ currentPathLabel }}"</h3>
 
         <div class="file-upload">
-          <input type="file" #fileInput (change)="uploadFile($event)" hidden />
+          <input type="file" #fileInput multiple (change)="uploadFile($event)" hidden />
           <button
             mat-raised-button
             color="primary"
@@ -110,6 +110,26 @@
         </div>
       </div>
 
+      <div
+        class="file-drop-zone"
+        [class.file-drop-zone--active]="isFileDragActive"
+        [class.file-drop-zone--disabled]="isUploading"
+        role="button"
+        tabindex="0"
+        (click)="fileInput.click()"
+        (keydown.enter)="fileInput.click()"
+        (keydown.space)="fileInput.click(); $event.preventDefault()"
+        (dragover)="onFileDragOver($event)"
+        (dragleave)="onFileDragLeave($event)"
+        (drop)="onFileDrop($event)"
+      >
+        <mat-icon>cloud_upload</mat-icon>
+        <div>
+          <strong>{{ isUploading ? 'Caricamento in corso...' : 'Allega documenti' }}</strong>
+          <span>Trascina o seleziona uno o piu file</span>
+        </div>
+      </div>
+
       <div class="file-list">
         <div class="file-row" *ngFor="let file of filteredFiles">
           <button
@@ -117,7 +137,7 @@
             class="file-main"
             (click)="selectFile(file.filename)"
           >
-            <span class="file-name">{{ file.filename }}</span>
+            <span class="file-name">{{ displayFileName(file) }}</span>
 
             <span class="doc-status" *ngIf="file.viewed">
               ✅ Visualizzato {{ file.viewedAt | date: "dd/MM/yyyy HH:mm" }}
@@ -218,7 +238,7 @@
 
       <div *ngIf="currentFilename && fileType === 'image' && imageUrl" class="image-viewer">
         <div class="image-toolbar">
-          <strong>{{ currentFilename }}</strong>
+          <strong>{{ displayFileName(currentFilename) }}</strong>
           <button
             mat-raised-button
             color="accent"
@@ -234,7 +254,7 @@
       <div *ngIf="currentFilename && fileType === 'signed'" class="signed-viewer">
         <div class="signed-icon">🔐</div>
         <h3>File firmato digitalmente</h3>
-        <strong>{{ currentFilename }}</strong>
+        <strong>{{ displayFileName(currentFilename) }}</strong>
         <p>
           I file .p7m non possono essere visualizzati come PDF direttamente nel
           browser. Scaricali e aprili con un verificatore di firma digitale.
@@ -252,7 +272,7 @@
       <div *ngIf="currentFilename && fileType === 'other'" class="signed-viewer">
         <div class="signed-icon">📄</div>
         <h3>Anteprima non disponibile</h3>
-        <strong>{{ currentFilename }}</strong>
+        <strong>{{ displayFileName(currentFilename) }}</strong>
         <p>Scarica il file per aprirlo con un’applicazione compatibile.</p>
         <button
           mat-raised-button

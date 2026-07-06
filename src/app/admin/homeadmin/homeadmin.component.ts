@@ -1112,8 +1112,13 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     return (
       !this.isDesktopHome &&
       this.mainMenuItemsCount > 1 &&
+      !this.isMobileHomeChildRouteActive &&
       !this.selectedHomeCategoryId
     );
+  }
+
+  get isMobileHomeChildRouteActive(): boolean {
+    return !this.isDesktopHome && !!this.activeDesktopChildPath();
   }
 
   get mainMenuItemsCount(): number {

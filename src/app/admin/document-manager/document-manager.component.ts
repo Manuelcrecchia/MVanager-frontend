@@ -1,4 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import {
+  AfterViewChecked,
+  Component,
+  ElementRef,
+  HostListener,
+  OnInit,
+  QueryList,
+  ViewChildren,
+} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
@@ -8,7 +16,9 @@ import { GlobalService } from '../../service/global.service';
   templateUrl: './document-manager.component.html',
   styleUrls: ['./document-manager.component.css'],
 })
-export class DocumentManagerComponent implements OnInit {
+export class DocumentManagerComponent implements OnInit, AfterViewChecked {
+  @ViewChildren('fileNameBox') fileNameBoxes?: QueryList<ElementRef<HTMLElement>>;
+
   userId: string = '';
   isCustomer: boolean = false;
   prefix: 'employee' | 'customer' = 'employee';
@@ -20,11 +30,14 @@ export class DocumentManagerComponent implements OnInit {
   newFolderName: string = '';
   email: string = '';
   documentSearch: string = '';
+  isFileDragActive = false;
+  isUploading = false;
 
   currentFilename: string = ''; // 👈 NECESSARIO PER STAMPA E DOWNLOAD CORRETTI
   fileType: 'pdf' | 'image' | 'signed' | 'other' = 'other';
   imageBase64: string = '';
   fileBlob: Blob | null = null;
+  private fileNameMeasureQueued = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -40,6 +53,44 @@ export class DocumentManagerComponent implements OnInit {
 
     this.refreshDirectory();
     this.loadEmailIfNeeded();
+  }
+
+  ngAfterViewChecked(): void {
+    this.queueFileNameMeasure();
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.queueFileNameMeasure();
+  }
+
+  private queueFileNameMeasure(): void {
+    if (this.fileNameMeasureQueued) return;
+    this.fileNameMeasureQueued = true;
+
+    requestAnimationFrame(() => {
+      this.fileNameMeasureQueued = false;
+      this.measureFileNames();
+    });
+  }
+
+  private measureFileNames(): void {
+    const boxes = this.fileNameBoxes?.toArray() || [];
+    for (const boxRef of boxes) {
+      const box = boxRef.nativeElement;
+      const text = box.querySelector<HTMLElement>('.mv-file-name__text');
+      if (!text) continue;
+
+      box.classList.remove('mv-file-name--scroll');
+      box.style.removeProperty('--mv-title-scroll');
+
+      const overflow = text.scrollWidth > box.clientWidth + 8;
+      if (!overflow) continue;
+
+      const distance = text.scrollWidth - box.clientWidth + 28;
+      box.style.setProperty('--mv-title-scroll', `-${distance}px`);
+      box.classList.add('mv-file-name--scroll');
+    }
   }
 
   private getPayload(extra: any = {}) {
@@ -69,6 +120,7 @@ export class DocumentManagerComponent implements OnInit {
     return this.files.filter((file) =>
       this.normalizeSearch([
         file?.filename,
+        file?.displayName,
         file?.viewed ? 'visualizzato' : 'non visualizzato',
         file?.viewedAt,
       ].join(' ')).includes(query),
@@ -163,6 +215,9 @@ export class DocumentManagerComponent implements OnInit {
 
   createFolder(): void {
     if (!this.newFolderName.trim()) return alert('Inserisci un nome');
+    if (this.isDeadlineManagedFolder(this.newFolderName.trim())) {
+      return alert('La cartella Scadenze è gestita automaticamente dalle scadenze.');
+    }
 
     const body = this.getPayload({
       folder: this.joinPath(this.selectedFolder, this.newFolderName.trim()),
@@ -186,6 +241,10 @@ export class DocumentManagerComponent implements OnInit {
   }
 
   deleteFolder(folder: string): void {
+    if (this.isDeadlineManagedFolder(folder)) {
+      return alert('La cartella Scadenze è gestita automaticamente dalle scadenze.');
+    }
+
     if (!confirm(`Eliminare la cartella "${folder}"?`)) return;
 
     const body = this.getPayload({ folder: this.joinPath(this.selectedFolder, folder) });
@@ -250,34 +309,102 @@ export class DocumentManagerComponent implements OnInit {
       });
   }
 
-  uploadFile(event: any): void {
-    const file = event.target.files[0];
-    if (!file) return alert('Seleziona un file');
+  uploadFile(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const files = input?.files ? Array.from(input.files) : [];
+    this.uploadFiles(files, () => {
+      if (input) input.value = '';
+    });
+  }
 
-    const formData = new FormData();
-    formData.append('document', file);
-    formData.append('folder', this.selectedFolder);
-    formData.append(
-      this.isCustomer ? 'numeroCliente' : 'employeeId',
-      this.userId,
-    );
-    formData.append('prefix', this.prefix);
+  onFileDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.isUploading) {
+      this.isFileDragActive = true;
+    }
+  }
 
-    this.http
-      .post(this.globalService.url + 'documents/upload', formData)
-      .subscribe({
-        next: () => {
-          alert('Documento caricato!');
-          this.loadFiles();
-          try {
-            event.target.value = '';
-          } catch {}
-        },
-        error: (err) => {
-          console.error('Errore upload documento:', err);
-          alert(this.parseServerError(err));
-        },
-      });
+  onFileDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const currentTarget = event.currentTarget as HTMLElement | null;
+    const relatedTarget = event.relatedTarget as Node | null;
+    if (currentTarget && relatedTarget && currentTarget.contains(relatedTarget)) {
+      return;
+    }
+    this.isFileDragActive = false;
+  }
+
+  onFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isFileDragActive = false;
+
+    const files = event.dataTransfer?.files
+      ? Array.from(event.dataTransfer.files)
+      : [];
+    this.uploadFiles(files);
+  }
+
+  private uploadFiles(files: File[], resetInput?: () => void): void {
+    if (this.isUploading) return;
+    if (this.isDeadlineManagedFolder()) {
+      resetInput?.();
+      return alert('La cartella Scadenze è gestita automaticamente dalle scadenze.');
+    }
+    if (!files.length) {
+      resetInput?.();
+      return alert('Seleziona un file');
+    }
+
+    this.isUploading = true;
+    let completed = 0;
+    const failed: string[] = [];
+    let firstError: any = null;
+
+    const finishOne = () => {
+      completed += 1;
+      if (completed < files.length) return;
+
+      this.isUploading = false;
+      resetInput?.();
+      this.loadFiles();
+
+      if (failed.length) {
+        const uploadedCount = files.length - failed.length;
+        const message = uploadedCount > 0
+          ? `${uploadedCount} documento/i caricati, ${failed.length} non caricati.`
+          : this.parseServerError(firstError);
+        alert(message);
+        return;
+      }
+
+      alert(files.length === 1 ? 'Documento caricato!' : `${files.length} documenti caricati!`);
+    };
+
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('folder', this.selectedFolder);
+      formData.append(
+        this.isCustomer ? 'numeroCliente' : 'employeeId',
+        this.userId,
+      );
+      formData.append('prefix', this.prefix);
+
+      this.http
+        .post(this.globalService.url + 'documents/upload', formData)
+        .subscribe({
+          next: () => finishOne(),
+          error: (err) => {
+            console.error('Errore upload documento:', err);
+            if (!firstError) firstError = err;
+            failed.push(file.name);
+            finishOne();
+          },
+        });
+    }
   }
 
   private getFileType(filename: string): 'pdf' | 'image' | 'signed' | 'other' {
@@ -288,6 +415,23 @@ export class DocumentManagerComponent implements OnInit {
     if (ext === 'pdf') return 'pdf';
     if (imageExts.includes(ext)) return 'image';
     return 'other';
+  }
+
+  displayFileName(fileOrName: any): string {
+    const value =
+      typeof fileOrName === 'string'
+        ? fileOrName
+        : fileOrName?.displayName || fileOrName?.filename;
+    return String(value || '').replace(/^\d{13,}-/, '');
+  }
+
+  isDeadlineManagedFolder(folder = ''): boolean {
+    const fullPath = this.joinPath(this.selectedFolder, folder);
+    const firstSegment = fullPath
+      .split('/')
+      .map((part) => part.trim())
+      .filter(Boolean)[0];
+    return firstSegment?.toLowerCase() === 'scadenze';
   }
 
   selectFile(filename: string): void {
@@ -343,7 +487,7 @@ export class DocumentManagerComponent implements OnInit {
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = filename;
+          a.download = this.displayFileName(filename);
           a.click();
           window.URL.revokeObjectURL(url);
         },
@@ -411,8 +555,61 @@ export class DocumentManagerComponent implements OnInit {
       });
   }
 
+  renameFile(file: any): void {
+    const currentName = this.displayFileName(file);
+    const requestedName = prompt('Nuovo nome file', currentName);
+    if (requestedName === null) return;
+
+    const newName = requestedName.trim();
+    if (!newName) return alert('Inserisci un nome valido');
+    if (newName === currentName) return;
+
+    const oldFilename = file.filename;
+    const body = this.getPayload({
+      folder: this.selectedFolder,
+      filename: oldFilename,
+      newName,
+    });
+
+    this.http
+      .post<{ filename: string; displayName: string }>(
+        this.globalService.url + 'documents/rename',
+        body,
+        { headers: this.globalService.headers },
+      )
+      .subscribe({
+        next: (response) => {
+          const renamedFile = {
+            ...file,
+            filename: response?.filename || oldFilename,
+            displayName: response?.displayName || newName,
+          };
+
+          this.files = this.files.map((item) =>
+            item.filename === oldFilename ? renamedFile : item,
+          );
+
+          if (this.currentFilename === oldFilename) {
+            this.currentFilename = renamedFile.filename;
+            this.fileType = this.getFileType(renamedFile.filename);
+          }
+        },
+        error: (err) => {
+          console.error('Errore rinomina file:', err);
+          alert(this.parseServerError(err));
+        },
+      });
+  }
+
   deleteFile(filename: string): void {
-    if (!confirm(`Eliminare il file "${filename}"?`)) return;
+    const file = this.files.find((item) => item?.filename === filename);
+    const displayName = this.displayFileName(file || filename);
+    const confirmMessage =
+      file?.managedBy === 'deadline'
+        ? `Eliminare la copia in Documenti di "${displayName}"? L'allegato restera nella scadenza.`
+        : `Eliminare il file "${displayName}"?`;
+
+    if (!confirm(confirmMessage)) return;
 
     const body = this.getPayload({ folder: this.selectedFolder, filename });
 

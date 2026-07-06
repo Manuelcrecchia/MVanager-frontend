@@ -76,6 +76,7 @@
                 </button>
 
                 <button
+                  *ngIf="!isDeadlineManagedFolder(folder)"
                   mat-icon-button
                   color="warn"
                   (click)="deleteFolder(folder)"
@@ -93,7 +94,7 @@
         <div class="mv-divider"></div>
 
         <!-- NEW FOLDER -->
-        <div class="mv-card__footer">
+        <div class="mv-card__footer" *ngIf="!isDeadlineManagedFolder()">
           <div class="mv-inline">
             <mat-form-field appearance="fill" class="mv-field">
               <mat-label>Nuova cartella</mat-label>
@@ -128,14 +129,15 @@
             </div>
 
             <!-- UPLOAD (stesso funzionamento) -->
-            <div class="mv-actions">
-              <input
-                type="file"
-                #fileInput
-                (change)="uploadFile($event)"
-                hidden
-              />
+            <input
+              type="file"
+              #fileInput
+              multiple
+              (change)="uploadFile($event)"
+              hidden
+            />
 
+            <div class="mv-actions" *ngIf="!isDeadlineManagedFolder()">
               <button
                 mat-raised-button
                 class="mv-cta mv-cta--primary"
@@ -149,6 +151,27 @@
           </div>
 
           <div class="mv-card__body">
+            <div
+              *ngIf="!isDeadlineManagedFolder()"
+              class="mv-drop-zone"
+              [class.mv-drop-zone--active]="isFileDragActive"
+              [class.mv-drop-zone--disabled]="isUploading"
+              role="button"
+              tabindex="0"
+              (click)="fileInput.click()"
+              (keydown.enter)="fileInput.click()"
+              (keydown.space)="fileInput.click(); $event.preventDefault()"
+              (dragover)="onFileDragOver($event)"
+              (dragleave)="onFileDragLeave($event)"
+              (drop)="onFileDrop($event)"
+            >
+              <mat-icon>cloud_upload</mat-icon>
+              <div>
+                <strong>{{ isUploading ? 'Caricamento in corso...' : 'Allega documenti' }}</strong>
+                <span>Trascina o seleziona uno o piu file</span>
+              </div>
+            </div>
+
             <!-- LISTA FILE -->
             <mat-list class="mv-files">
               <div class="mv-file-row" *ngFor="let file of filteredFiles">
@@ -163,22 +186,32 @@
                     <div class="mv-file-ico">📄</div>
 
                     <div class="mv-file-meta">
-                      <div class="mv-file-name">{{ file.filename }}</div>
+                      <div class="mv-file-name-row">
+                        <div
+                          class="mv-file-name"
+                          #fileNameBox
+                          [attr.title]="displayFileName(file)"
+                        >
+                          <span class="mv-file-name__text">{{ displayFileName(file) }}</span>
+                        </div>
+                        <span class="mv-badge mv-badge--locked" *ngIf="file.managedBy === 'deadline'">
+                          Da scadenza
+                        </span>
+                      </div>
+
+                      <div class="mv-file-status-right">
+                        <span class="mv-badge mv-badge--ok" *ngIf="file.viewed">
+                          ✅ Visualizzato
+                          {{ file.viewedAt | date: "dd/MM/yyyy HH:mm" }}
+                        </span>
+
+                        <span class="mv-badge mv-badge--pending" *ngIf="!file.viewed">
+                          ⏳ Non visualizzato
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </button>
-
-                <!-- STATO: ATTACCATO AI BOTTONI A DESTRA -->
-                <div class="mv-file-status-right">
-                  <span class="mv-badge mv-badge--ok" *ngIf="file.viewed">
-                    ✅ Visualizzato
-                    {{ file.viewedAt | date: "dd/MM/yyyy HH:mm" }}
-                  </span>
-
-                  <span class="mv-badge mv-badge--pending" *ngIf="!file.viewed">
-                    ⏳ Non visualizzato
-                  </span>
-                </div>
 
                 <!-- AZIONI -->
                 <div class="mv-file-actions">
@@ -220,6 +253,16 @@
                     type="button"
                   >
                     <mat-icon>mail</mat-icon>
+                  </button>
+
+                  <button
+                    mat-icon-button
+                    class="mv-icon-btn mv-icon-btn--rename"
+                    (click)="renameFile(file); $event.stopPropagation()"
+                    matTooltip="Rinomina"
+                    type="button"
+                  >
+                    <mat-icon>edit</mat-icon>
                   </button>
 
                   <button

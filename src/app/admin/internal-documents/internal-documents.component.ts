@@ -16,6 +16,8 @@ export class InternalDocumentsComponent implements OnInit {
   imageUrl: string = '';
   newFolderName: string = '';
   documentSearch: string = '';
+  isFileDragActive = false;
+  isUploading = false;
 
   currentFilename: string = '';
   fileType: 'pdf' | 'image' | 'signed' | 'other' = 'other';
@@ -53,6 +55,7 @@ export class InternalDocumentsComponent implements OnInit {
     return this.files.filter((file) =>
       this.normalizeSearch([
         file?.filename,
+        file?.displayName,
         file?.viewed ? 'visualizzato' : 'non visualizzato',
         file?.viewedAt,
       ].join(' ')).includes(query),
@@ -198,36 +201,95 @@ export class InternalDocumentsComponent implements OnInit {
       });
   }
 
-  uploadFile(event: any): void {
-    const file = event?.target?.files?.[0];
-    if (!file) {
+  uploadFile(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const files = input?.files ? Array.from(input.files) : [];
+    this.uploadFiles(files, () => {
+      if (input) input.value = '';
+    });
+  }
+
+  onFileDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.isUploading) {
+      this.isFileDragActive = true;
+    }
+  }
+
+  onFileDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const currentTarget = event.currentTarget as HTMLElement | null;
+    const relatedTarget = event.relatedTarget as Node | null;
+    if (currentTarget && relatedTarget && currentTarget.contains(relatedTarget)) {
+      return;
+    }
+    this.isFileDragActive = false;
+  }
+
+  onFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isFileDragActive = false;
+
+    const files = event.dataTransfer?.files
+      ? Array.from(event.dataTransfer.files)
+      : [];
+    this.uploadFiles(files);
+  }
+
+  private uploadFiles(files: File[], resetInput?: () => void): void {
+    if (this.isUploading) return;
+    if (!files.length) {
+      resetInput?.();
       return alert('Seleziona un file');
     }
 
-    const formData = new FormData();
-    formData.append('document', file);
-    formData.append('folder', this.selectedFolder);
+    this.isUploading = true;
+    let completed = 0;
+    const failed: string[] = [];
 
-    // IDENTICO employees: niente headers custom e niente responseType
-    this.http
-      .post(
-        this.globalService.url + 'admin/internal-documents/upload',
-        formData,
-      )
-      .subscribe({
-        next: () => {
-          alert('Documento caricato!');
-          this.loadFiles();
-          // reset input
-          try {
-            event.target.value = '';
-          } catch {}
-        },
-        error: (err) => {
-          console.error('UPLOAD ERROR:', err);
-          alert('Errore upload');
-        },
-      });
+    const finishOne = () => {
+      completed += 1;
+      if (completed < files.length) return;
+
+      this.isUploading = false;
+      resetInput?.();
+      this.loadFiles();
+
+      if (failed.length) {
+        const uploadedCount = files.length - failed.length;
+        alert(
+          uploadedCount > 0
+            ? `${uploadedCount} documento/i caricati, ${failed.length} non caricati.`
+            : 'Errore upload',
+        );
+        return;
+      }
+
+      alert(files.length === 1 ? 'Documento caricato!' : `${files.length} documenti caricati!`);
+    };
+
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('folder', this.selectedFolder);
+
+      this.http
+        .post(
+          this.globalService.url + 'admin/internal-documents/upload',
+          formData,
+        )
+        .subscribe({
+          next: () => finishOne(),
+          error: (err) => {
+            console.error('UPLOAD ERROR:', err);
+            failed.push(file.name);
+            finishOne();
+          },
+        });
+    }
   }
 
   selectFile(filename: string): void {
@@ -297,7 +359,7 @@ export class InternalDocumentsComponent implements OnInit {
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = filename;
+          a.download = this.displayFileName(filename);
           a.click();
           window.URL.revokeObjectURL(url);
         },
@@ -375,7 +437,7 @@ export class InternalDocumentsComponent implements OnInit {
   }
 
   deleteFile(filename: string): void {
-    if (!confirm(`Eliminare il file "${filename}"?`)) return;
+    if (!confirm(`Eliminare il file "${this.displayFileName(filename)}"?`)) return;
 
     const body = { folder: this.selectedFolder, filename };
 
@@ -421,6 +483,14 @@ export class InternalDocumentsComponent implements OnInit {
     if (lower.endsWith('.pdf')) return 'pdf';
     if (lower.endsWith('.p7m')) return 'signed';
     return 'other';
+  }
+
+  displayFileName(fileOrName: any): string {
+    const value =
+      typeof fileOrName === 'string'
+        ? fileOrName
+        : fileOrName?.displayName || fileOrName?.filename;
+    return String(value || '').replace(/^\d{13,}-/, '');
   }
 
   private clearImageUrl(): void {

@@ -1864,136 +1864,142 @@
           <a class="menu-logout" (click)="back()">Logout</a>
         </div>
 
-        <div class="logo-container text-center">
-          <img
-            src="../../../assets/logo.png"
-            alt="Logo azienda"
-            class="img-fluid logo"
-          />
-        </div>
+        <ng-container *ngIf="isMobileHomeChildRouteActive; else mobileHomeMenu">
+          <router-outlet></router-outlet>
+        </ng-container>
 
-        <div class="home-mobile-body">
-          <div class="home-section-title" *ngIf="selectedHomeCategory">
-            <button
-              class="home-category-back"
-              type="button"
-              (click)="clearHomeCategory()"
-              *ngIf="!isDesktopHome && visibleHomeCategories.length > 1 && selectedHomeCategoryId"
-            >
-              &larr;
-            </button>
-            <div>
-              <span class="home-section-kicker">Sottomenu</span>
-              <h2>{{ selectedHomeCategory.label }}</h2>
-            </div>
+        <ng-template #mobileHomeMenu>
+          <div class="logo-container text-center">
+            <img
+              src="../../../assets/logo.png"
+              alt="Logo azienda"
+              class="img-fluid logo"
+            />
           </div>
 
-          <section class="todo-panel mobile-todo-panel" *ngIf="shouldShowHomeCategories && canUseTodoView()" aria-label="Todo list universale">
-            <div class="todo-panel-header">
-              <h3>Todo list universale</h3>
-              <button class="todo-refresh-btn" type="button" (click)="loadAdminTodos()" title="Aggiorna">
-                <i class="fas fa-sync-alt"></i>
+          <div class="home-mobile-body">
+            <div class="home-section-title" *ngIf="selectedHomeCategory">
+              <button
+                class="home-category-back"
+                type="button"
+                (click)="clearHomeCategory()"
+                *ngIf="!isDesktopHome && visibleHomeCategories.length > 1 && selectedHomeCategoryId"
+              >
+                &larr;
+              </button>
+              <div>
+                <span class="home-section-kicker">Sottomenu</span>
+                <h2>{{ selectedHomeCategory.label }}</h2>
+              </div>
+            </div>
+
+            <section class="todo-panel mobile-todo-panel" *ngIf="shouldShowHomeCategories && canUseTodoView()" aria-label="Todo list universale">
+              <div class="todo-panel-header">
+                <h3>Todo list universale</h3>
+                <button class="todo-refresh-btn" type="button" (click)="loadAdminTodos()" title="Aggiorna">
+                  <i class="fas fa-sync-alt"></i>
+                </button>
+              </div>
+
+              <div class="todo-form" *ngIf="canUseTodoManage()">
+                <input
+                  class="todo-input"
+                  type="text"
+                  maxlength="255"
+                  placeholder="Nuova attività"
+                  [value]="newTodoTitle"
+                  (input)="newTodoTitle = $any($event.target).value"
+                  (keydown.enter)="addAdminTodo()"
+                />
+                <button class="todo-add-btn" type="button" (click)="addAdminTodo()" [disabled]="todoSaving || !newTodoTitle.trim()" title="Aggiungi">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+
+              <p class="todo-error" *ngIf="todoError">{{ todoError }}</p>
+              <p class="todo-empty" *ngIf="todoLoading">Caricamento attività...</p>
+              <p class="todo-empty" *ngIf="!todoLoading && adminTodos.length === 0">Nessuna attività presente.</p>
+
+              <ul class="todo-list" *ngIf="!todoLoading && adminTodos.length > 0">
+                <li class="todo-item" *ngFor="let todo of adminTodos" [class.is-completed]="todo.completed">
+                  <button class="todo-check" type="button" (click)="toggleAdminTodo(todo)" [disabled]="!canUseTodoManage()" [attr.title]="todo.completed ? 'Segna da fare' : 'Completa'">
+                    <i class="fas fa-check"></i>
+                  </button>
+                  <span class="todo-title">{{ todo.title }}</span>
+                  <button class="todo-delete-btn" *ngIf="canUseTodoManage()" type="button" (click)="deleteAdminTodo(todo)" title="Elimina">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </li>
+              </ul>
+            </section>
+
+            <section class="deadline-permission-notice" *ngIf="shouldShowHomeCategories && showPermissionSetupNotice">
+              <div>
+                <h3>Permessi da assegnare</h3>
+                <p>{{ unassignedPermissionsPreview }}: assegna i permessi agli utenti che devono usarli.</p>
+              </div>
+              <button type="button" (click)="navigateToUserSettings()">Gestisci permessi</button>
+            </section>
+
+            <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">
+              <button
+                class="dash-btn"
+                *ngFor="let button of standaloneHomeButtons"
+                (click)="activateHomeButton(button)"
+              >
+                <span class="icon"><i [class]="button.icon"></i></span>
+                <span class="label">
+                  {{ button.label }}
+                  <span
+                    *ngIf="buttonBadgeCount(button) > 0"
+                    [ngClass]="buttonBadgeClass(button)"
+                  >
+                    {{ buttonBadgeCount(button) }}
+                  </span>
+                </span>
+              </button>
+
+              <button
+                class="dash-btn"
+                *ngFor="let category of visibleHomeCategories"
+                (click)="selectHomeCategory(category.id)"
+              >
+                <span class="icon"><i [class]="category.icon"></i></span>
+                <span class="label">
+                  {{ category.label }}
+                  <span
+                    *ngIf="categoryBadgeCount(category) > 0"
+                    class="badge bg-danger ms-1"
+                  >
+                    {{ categoryBadgeCount(category) }}
+                  </span>
+                </span>
+                <span class="category-count">
+                  {{ visibleHomeButtons(category).length }} sezioni
+                </span>
               </button>
             </div>
 
-            <div class="todo-form" *ngIf="canUseTodoManage()">
-              <input
-                class="todo-input"
-                type="text"
-                maxlength="255"
-                placeholder="Nuova attività"
-                [value]="newTodoTitle"
-                (input)="newTodoTitle = $any($event.target).value"
-                (keydown.enter)="addAdminTodo()"
-              />
-              <button class="todo-add-btn" type="button" (click)="addAdminTodo()" [disabled]="todoSaving || !newTodoTitle.trim()" title="Aggiungi">
-                <i class="fas fa-plus"></i>
+            <div class="home-submenu-grid" *ngIf="!shouldShowHomeCategories">
+              <button
+                class="dash-btn home-submenu-button"
+                *ngFor="let button of currentHomeButtons"
+                (click)="activateHomeButton(button)"
+              >
+                <span class="icon"><i [class]="button.icon"></i></span>
+                <span class="label">
+                  {{ button.label }}
+                  <span
+                    *ngIf="buttonBadgeCount(button) > 0"
+                    [ngClass]="buttonBadgeClass(button)"
+                  >
+                    {{ buttonBadgeCount(button) }}
+                  </span>
+                </span>
               </button>
             </div>
-
-            <p class="todo-error" *ngIf="todoError">{{ todoError }}</p>
-            <p class="todo-empty" *ngIf="todoLoading">Caricamento attività...</p>
-            <p class="todo-empty" *ngIf="!todoLoading && adminTodos.length === 0">Nessuna attività presente.</p>
-
-            <ul class="todo-list" *ngIf="!todoLoading && adminTodos.length > 0">
-              <li class="todo-item" *ngFor="let todo of adminTodos" [class.is-completed]="todo.completed">
-                <button class="todo-check" type="button" (click)="toggleAdminTodo(todo)" [disabled]="!canUseTodoManage()" [attr.title]="todo.completed ? 'Segna da fare' : 'Completa'">
-                  <i class="fas fa-check"></i>
-                </button>
-                <span class="todo-title">{{ todo.title }}</span>
-                <button class="todo-delete-btn" *ngIf="canUseTodoManage()" type="button" (click)="deleteAdminTodo(todo)" title="Elimina">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </li>
-            </ul>
-          </section>
-
-          <section class="deadline-permission-notice" *ngIf="shouldShowHomeCategories && showPermissionSetupNotice">
-            <div>
-              <h3>Permessi da assegnare</h3>
-              <p>{{ unassignedPermissionsPreview }}: assegna i permessi agli utenti che devono usarli.</p>
-            </div>
-            <button type="button" (click)="navigateToUserSettings()">Gestisci permessi</button>
-          </section>
-
-          <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">
-            <button
-              class="dash-btn"
-              *ngFor="let button of standaloneHomeButtons"
-              (click)="activateHomeButton(button)"
-            >
-              <span class="icon"><i [class]="button.icon"></i></span>
-              <span class="label">
-                {{ button.label }}
-                <span
-                  *ngIf="buttonBadgeCount(button) > 0"
-                  [ngClass]="buttonBadgeClass(button)"
-                >
-                  {{ buttonBadgeCount(button) }}
-                </span>
-              </span>
-            </button>
-
-            <button
-              class="dash-btn"
-              *ngFor="let category of visibleHomeCategories"
-              (click)="selectHomeCategory(category.id)"
-            >
-              <span class="icon"><i [class]="category.icon"></i></span>
-              <span class="label">
-                {{ category.label }}
-                <span
-                  *ngIf="categoryBadgeCount(category) > 0"
-                  class="badge bg-danger ms-1"
-                >
-                  {{ categoryBadgeCount(category) }}
-                </span>
-              </span>
-              <span class="category-count">
-                {{ visibleHomeButtons(category).length }} sezioni
-              </span>
-            </button>
           </div>
-
-          <div class="home-submenu-grid" *ngIf="!shouldShowHomeCategories">
-            <button
-              class="dash-btn home-submenu-button"
-              *ngFor="let button of currentHomeButtons"
-              (click)="activateHomeButton(button)"
-            >
-              <span class="icon"><i [class]="button.icon"></i></span>
-              <span class="label">
-                {{ button.label }}
-                <span
-                  *ngIf="buttonBadgeCount(button) > 0"
-                  [ngClass]="buttonBadgeClass(button)"
-                >
-                  {{ buttonBadgeCount(button) }}
-                </span>
-              </span>
-            </button>
-          </div>
-        </div>
+        </ng-template>
       </div>
     </div>
 
