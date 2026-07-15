@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { GlobalService } from '../../service/global.service';
+import { GlobalService, TenantEmployeeFieldConfig } from '../../service/global.service';
 import { Router } from '@angular/router';
 import { saveAs } from 'file-saver';
 
@@ -13,6 +13,17 @@ interface Employee {
   oreGiornaliereDefault?: string | number | null;
   automunito?: boolean | number | string | null;
   active: boolean;
+  [key: string]: any;
+}
+
+interface EmployeeForm {
+  nome: string;
+  cognome: string;
+  email: string;
+  cellulare: string;
+  oreGiornaliereDefault?: string | number | null;
+  automunito?: boolean | number | string | null;
+  [key: string]: any;
 }
 
 interface EmployeeCertification {
@@ -36,17 +47,11 @@ interface EmployeeCategory {
   styleUrls: ['./settings-employees.component.css'],
 })
 export class SettingsEmployeesComponent implements OnInit {
-  employeesAdd: Omit<Employee, 'id' | 'active'> = {
-    nome: '',
-    cognome: '',
-    email: '',
-    cellulare: '',
-    oreGiornaliereDefault: null,
-    automunito: false,
-  };
+  employeesAdd: EmployeeForm = this.emptyEmployeeAdd();
   employeess: Employee[] = [];
   showArchived = false;
   isLoading = false;
+  employeeExtraFields: TenantEmployeeFieldConfig[] = [];
   categories: EmployeeCategory[] = [];
   employeeCategoryMap: { [employeeId: number]: number[] } = {};
   categoryDraft: EmployeeCategory = this.emptyCategoryDraft();
@@ -59,6 +64,14 @@ export class SettingsEmployeesComponent implements OnInit {
   editingIndex: number | null = null;
   employeeEdit: any = {};
   private employeeEditOriginal: any = {};
+  private readonly baseEmployeeFieldKeys = new Set([
+    'nome',
+    'cognome',
+    'email',
+    'cellulare',
+    'oreGiornaliereDefault',
+    'automunito',
+  ].map((key) => key.toLowerCase()));
 
   constructor(
     private http: HttpClient,
@@ -67,8 +80,101 @@ export class SettingsEmployeesComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.loadEmployeeConfig();
     this.fetchEmployees();
     this.fetchCategories();
+  }
+
+  private emptyEmployeeAdd(): EmployeeForm {
+    return {
+      nome: '',
+      cognome: '',
+      email: '',
+      cellulare: '',
+      oreGiornaliereDefault: null,
+      automunito: false,
+    };
+  }
+
+  private loadEmployeeConfig(): void {
+    this.globalService.loadTenantConfig(false, { showError: false }).then(() => {
+      const fields = this.globalService.getTenantEmployeeConfig()?.fields || [];
+      this.employeeExtraFields = fields.filter((field) => this.isEditableEmployeeExtraField(field));
+      this.hydrateEmployeeExtraDefaults(this.employeesAdd);
+    });
+  }
+
+  private isEditableEmployeeExtraField(field: TenantEmployeeFieldConfig): boolean {
+    const key = String(field.key || '').trim().toLowerCase();
+    const dbColumn = String(field.dbColumn || field.key || '').trim().toLowerCase();
+    return !!(field.key || field.dbColumn) &&
+      field.visible !== false &&
+      field.locked !== true &&
+      field.system !== true &&
+      !this.baseEmployeeFieldKeys.has(key) &&
+      !this.baseEmployeeFieldKeys.has(dbColumn);
+  }
+
+  getEmployeeFieldKey(field: TenantEmployeeFieldConfig): string {
+    return String(field.dbColumn || field.key || '').trim();
+  }
+
+  getEmployeeFieldType(field: TenantEmployeeFieldConfig): string {
+    const type = String(field.type || 'text').trim().toLowerCase();
+    if (type === 'email') return 'email';
+    if (type === 'phone') return 'tel';
+    if (type === 'number' || type === 'money') return 'number';
+    if (type === 'date') return 'date';
+    if (type === 'time') return 'time';
+    return 'text';
+  }
+
+  getEmployeeFieldOptions(field: TenantEmployeeFieldConfig): string[] {
+    return String(field.enumValues || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  getEmployeeFieldValue(emp: any, field: TenantEmployeeFieldConfig): any {
+    const key = this.getEmployeeFieldKey(field);
+    return key ? emp?.[key] : '';
+  }
+
+  getEmployeeExtraSummary(emp: Employee): Array<{ label: string; value: string }> {
+    return this.employeeExtraFields
+      .map((field) => {
+        const value = this.getEmployeeFieldValue(emp, field);
+        if (value === null || value === undefined || value === '') return null;
+        const text = String(value);
+        return {
+          label: String(field.label || field.key || '').trim(),
+          value: text,
+        };
+      })
+      .filter((item): item is { label: string; value: string } => !!item);
+  }
+
+  private hydrateEmployeeExtraDefaults(target: any): void {
+    for (const field of this.employeeExtraFields) {
+      const key = this.getEmployeeFieldKey(field);
+      if (!key || Object.prototype.hasOwnProperty.call(target, key)) continue;
+      if (Object.prototype.hasOwnProperty.call(field, 'defaultValue') && field.defaultValue !== undefined) {
+        target[key] = field.defaultValue;
+      } else if (String(field.type || '').toLowerCase() === 'boolean') {
+        target[key] = false;
+      } else {
+        target[key] = '';
+      }
+    }
+  }
+
+  private appendEmployeeExtraPayload(body: Record<string, any>, source: any): void {
+    for (const field of this.employeeExtraFields) {
+      const key = this.getEmployeeFieldKey(field);
+      if (!key) continue;
+      body[key] = source?.[key];
+    }
   }
 
   private emptyCategoryDraft(): EmployeeCategory {
@@ -92,6 +198,7 @@ export class SettingsEmployeesComponent implements OnInit {
         emp.email,
         emp.cellulare,
         emp.oreGiornaliereDefault,
+        ...this.employeeExtraFields.map((field) => this.getEmployeeFieldValue(emp, field)),
         this.isEmployeeSelfTransported(emp) ? 'automunito auto patente guida' : 'non automunito senza auto',
         emp.active ? 'attivo' : 'archiviato',
         ...this.getEmployeeCategoryNames(emp),
@@ -341,6 +448,7 @@ export class SettingsEmployeesComponent implements OnInit {
     this.editingIndex = i;
     this.employeeEditOriginal = { ...this.employeess[i] };
     this.employeeEdit = { ...this.employeess[i] };
+    this.hydrateEmployeeExtraDefaults(this.employeeEdit);
   }
 
   startEditEmployee(emp: Employee) {
@@ -365,7 +473,7 @@ export class SettingsEmployeesComponent implements OnInit {
   saveEdit() {
     if (this.editingIndex === null) return;
 
-    const body = {
+    const body: Record<string, any> = {
       id: this.employeeEdit.id,
       nome: this.employeeEdit.nome,
       cognome: this.employeeEdit.cognome,
@@ -374,6 +482,7 @@ export class SettingsEmployeesComponent implements OnInit {
       oreGiornaliereDefault: this.employeeEdit.oreGiornaliereDefault,
       automunito: this.isEmployeeSelfTransported(this.employeeEdit),
     };
+    this.appendEmployeeExtraPayload(body, this.employeeEdit);
 
     this.http
       .post(this.globalService.url + 'employees/edit', body, {
@@ -393,7 +502,7 @@ export class SettingsEmployeesComponent implements OnInit {
   }
 
   addEmployees() {
-    const body = {
+    const body: Record<string, any> = {
       nome: this.employeesAdd.nome,
       cognome: this.employeesAdd.cognome,
       email: this.employeesAdd.email,
@@ -401,6 +510,7 @@ export class SettingsEmployeesComponent implements OnInit {
       oreGiornaliereDefault: this.employeesAdd.oreGiornaliereDefault,
       automunito: this.isEmployeeSelfTransported(this.employeesAdd),
     };
+    this.appendEmployeeExtraPayload(body, this.employeesAdd);
 
     this.isLoading = true;
     this.http
@@ -411,14 +521,8 @@ export class SettingsEmployeesComponent implements OnInit {
       .subscribe({
         next: () => {
           this.isLoading = false;
-          this.employeesAdd = {
-            nome: '',
-            cognome: '',
-            email: '',
-            cellulare: '',
-            oreGiornaliereDefault: null,
-            automunito: false,
-          };
+          this.employeesAdd = this.emptyEmployeeAdd();
+          this.hydrateEmployeeExtraDefaults(this.employeesAdd);
           this.fetchEmployees();
         },
         error: (error) => {

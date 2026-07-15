@@ -1,0 +1,15 @@
+.missing-contact-dialog {
+  min-width: min(420px, calc(100vw - 48px));
+}
+
+.missing-contact-dialog p {
+  color: #1f2937;
+  font-size: 15px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.missing-contact-dialog [mat-dialog-actions] {
+  gap: 8px;
+  padding-top: 16px;
+}

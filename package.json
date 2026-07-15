@@ -4,6 +4,9 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "cert:local": "node scripts/create-local-https-cert.js",
+    "start:https": "npm run cert:local && ng serve --host 0.0.0.0 --ssl true --ssl-cert certs/mvanager-local.pem --ssl-key certs/mvanager-local-key.pem",
+    "start:https:mobile": "npm run cert:local && ng serve --host 0.0.0.0 --configuration mobileLocalHttps --ssl true --ssl-cert certs/mvanager-local.pem --ssl-key certs/mvanager-local-key.pem",
     "build": "ng build",
     "build:mobile": "ng build --configuration production && npx cap sync",
     "build:mobile:local": "ng build --configuration mobileLocal && npx cap sync",

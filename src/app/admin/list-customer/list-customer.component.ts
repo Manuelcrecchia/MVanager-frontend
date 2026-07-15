@@ -328,7 +328,11 @@ export class ListCustomerComponent {
 
   navigateToNotes(numeroCliente: string, displayName: string) {
     this.router.navigate(['/homeAdmin/customerNotes'], {
-      queryParams: { numeroCliente, displayName },
+      queryParams: {
+        numeroCliente,
+        displayName,
+        returnTo: '/homeAdmin/listCustomer',
+      },
     });
   }
   viewDocuments(numeroCliente: string) {

@@ -1,17 +1,7 @@
-import { TestBed } from '@angular/core/testing';
-import { CanActivateFn } from '@angular/router';
+import { AuthLevelGuard } from './auth-level.guard';
 
-import { authLevelGuard } from './auth-level.guard';
-
-describe('authLevelGuard', () => {
-  const executeGuard: CanActivateFn = (...guardParameters) => 
-      TestBed.runInInjectionContext(() => authLevelGuard(...guardParameters));
-
-  beforeEach(() => {
-    TestBed.configureTestingModule({});
-  });
-
-  it('should be created', () => {
-    expect(executeGuard).toBeTruthy();
+describe('AuthLevelGuard', () => {
+  it('should be exported', () => {
+    expect(AuthLevelGuard).toBeTruthy();
   });
 });

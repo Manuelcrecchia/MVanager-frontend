@@ -1,0 +1,92 @@
+<div
+  class="ai-widget"
+  *ngIf="isVisible"
+  [class.ai-widget--open]="open"
+  [style.left.px]="position.x"
+  [style.top.px]="position.y"
+>
+  <section class="ai-panel" *ngIf="open" aria-label="Assistente MVanager">
+    <header class="ai-panel__header">
+      <div>
+        <strong>Assistente MVanager</strong>
+        <span>{{ statusLabel }}</span>
+      </div>
+      <button type="button" class="ai-icon-btn" title="Chiudi" (click)="toggleOpen()">
+        <span class="material-icons">close</span>
+      </button>
+    </header>
+
+    <div class="ai-messages" #messagesContainer>
+      <article
+        class="ai-message"
+        *ngFor="let message of messages"
+        [class.ai-message--user]="message.role === 'user'"
+        [class.ai-message--assistant]="message.role === 'assistant'"
+        [class.ai-message--system]="message.role === 'system'"
+      >
+        <p>{{ message.text }}</p>
+        <small *ngIf="message.meta">{{ message.meta }}</small>
+      </article>
+
+      <article class="ai-action-card" *ngIf="pendingResponse">
+        <div class="ai-action-card__title">{{ pendingResponse.ui.title || actionTitle(pendingResponse) }}</div>
+        <ul *ngIf="pendingResponse.ui.summary?.length">
+          <li *ngFor="let item of pendingResponse.ui.summary">{{ item }}</li>
+        </ul>
+        <div class="ai-action-card__actions">
+          <button
+            type="button"
+            class="ai-secondary-btn"
+            [disabled]="loading"
+            (click)="cancelPending()"
+          >
+            Annulla
+          </button>
+          <button
+            type="button"
+            class="ai-primary-btn"
+            [disabled]="loading"
+            (click)="confirmPending()"
+          >
+            Conferma
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <form class="ai-input" (ngSubmit)="send()">
+      <button
+        type="button"
+        class="ai-icon-btn"
+        [class.ai-icon-btn--active]="listening || recording"
+        [disabled]="loading || transcribing"
+        [title]="speechButtonTitle"
+        [attr.aria-label]="speechButtonTitle"
+        (click)="toggleSpeech()"
+      >
+        <span class="material-icons">{{ recording ? 'stop' : transcribing ? 'hourglass_empty' : listening ? 'mic' : 'mic_none' }}</span>
+      </button>
+      <input
+        type="text"
+        name="aiMessage"
+        autocomplete="off"
+        [(ngModel)]="draft"
+        [disabled]="loading"
+        placeholder="Scrivi un comando"
+      />
+      <button type="submit" class="ai-send-btn" [disabled]="loading || !draft.trim()" title="Invia">
+        <span class="material-icons">send</span>
+      </button>
+    </form>
+  </section>
+
+  <button
+    type="button"
+    class="ai-fab"
+    title="Assistente MVanager"
+    (pointerdown)="startDrag($event)"
+    (click)="onFabClick($event)"
+  >
+    <span class="material-icons">auto_awesome</span>
+  </button>
+</div>

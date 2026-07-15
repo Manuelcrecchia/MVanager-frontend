@@ -13,7 +13,7 @@ import { Subscription } from 'rxjs';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
-type WarehouseTab = 'list' | 'requests' | 'in' | 'out' | 'movements' | 'products' | 'tools';
+type WarehouseTab = 'list' | 'requests' | 'orders' | 'in' | 'out' | 'movements' | 'products' | 'tools';
 type MovementType = 'in' | 'out';
 type SummaryFilter = 'all' | 'low' | 'out' | 'quantity';
 
@@ -25,8 +25,10 @@ interface WarehouseProduct {
   categoryId: number | null;
   category: string;
   unit: string;
+  supplierId: number | null;
   supplier: string;
   supplierCode: string;
+  supplierDetails?: WarehouseSupplier | null;
   reorderUrl: string;
   reorderNote: string;
   indicativePrice: number | null;
@@ -77,9 +79,29 @@ interface WarehouseSummary {
   totalProducts: number;
   lowStockCount: number;
   outOfStockCount: number;
+  pendingRequestCount?: number;
   totalQuantity: number;
   lowStockProducts: WarehouseProduct[];
   latestMovements: WarehouseMovement[];
+}
+
+interface WarehouseSupplier {
+  id: number;
+  name: string;
+  vatNumber?: string;
+  fiscalCode?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  zip?: string;
+  country?: string;
+  email?: string;
+  pec?: string;
+  notes?: string;
+  productCount?: number;
+  lowStockCount?: number;
+  inboundInvoiceCount?: number;
+  lastInboundInvoiceDate?: string | null;
 }
 
 interface MovementReason {
@@ -159,12 +181,14 @@ interface WarehouseRequest {
 })
 export class InternalWarehouseComponent implements OnInit, OnDestroy {
   @ViewChildren('scannerVideo') scannerVideos?: QueryList<ElementRef<HTMLVideoElement>>;
-  private readonly validTabs: WarehouseTab[] = ['list', 'requests', 'in', 'out', 'movements', 'products', 'tools'];
+  private readonly validTabs: WarehouseTab[] = ['list', 'requests', 'orders', 'in', 'out', 'movements', 'products', 'tools'];
   private readonly fractionalUnits = new Set(['litri', 'ml', 'kg', 'g', 'metri']);
 
   activeTab: WarehouseTab = 'list';
   products: WarehouseProduct[] = [];
+  orderProducts: WarehouseProduct[] = [];
   categories: WarehouseCategory[] = [];
+  suppliers: WarehouseSupplier[] = [];
   selectedProduct: WarehouseProduct | null = null;
   selectedMovements: WarehouseMovement[] = [];
   summary: WarehouseSummary = {
@@ -205,6 +229,8 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
   loading = false;
   saving = false;
+  sendingOrder = false;
+  loadingOrderProducts = false;
   message = '';
   error = '';
   categoryError = '';
@@ -216,8 +242,21 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     barcode: '',
     stock: '',
     favorite: '',
+    supplierId: 0,
     sort: 'name',
   };
+
+  supplierSearch = '';
+  orderFilters = {
+    supplierId: 0,
+    q: '',
+    onlyLow: true,
+  };
+  orderSelectedIds = new Set<number>();
+  orderQuantities: Record<number, number> = {};
+  orderNotes: Record<number, string> = {};
+  orderMessage = '';
+  supplierForm = this.emptySupplierForm();
 
   productForm = this.emptyProductForm();
   categoryForm = this.emptyCategoryForm();
@@ -288,6 +327,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     this.loadMeta();
     this.loadReferences();
     this.loadCategories();
+    this.loadSuppliers();
     this.loadSummary();
     this.loadProducts();
     this.loadProductRequests();
@@ -369,6 +409,10 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     }
     if (tab === 'movements') this.loadMovementReport();
     if (tab === 'requests') this.loadProductRequests();
+    if (tab === 'orders') {
+      this.loadSuppliers();
+      this.loadOrderProducts();
+    }
   }
 
   applySummaryFilter(filter: SummaryFilter): void {
@@ -379,6 +423,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     this.filters.barcode = '';
     this.filters.categoryId = 0;
     this.filters.favorite = '';
+    this.filters.supplierId = 0;
     if (filter === 'low') {
       this.filters.stock = 'low';
       this.filters.sort = 'quantity_asc';
@@ -490,6 +535,22 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadSuppliers(): void {
+    if (!this.canView) return;
+    let params = new HttpParams();
+    if (this.supplierSearch.trim()) params = params.set('search', this.supplierSearch.trim());
+    this.http.get<WarehouseSupplier[]>(this.api('/suppliers'), { params }).subscribe({
+      next: (suppliers) => {
+        this.suppliers = suppliers || [];
+        if (!this.orderFilters.supplierId && this.suppliers.length === 1) {
+          this.orderFilters.supplierId = this.suppliers[0].id;
+          this.loadOrderProducts();
+        }
+      },
+      error: () => this.suppliers = [],
+    });
+  }
+
   loadSummary(): void {
     if (!this.canView) return;
     this.http.get<WarehouseSummary>(this.api('/summary')).subscribe({
@@ -497,6 +558,258 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         this.summary = summary || this.summary;
       },
       error: (err) => this.handleError(err, 'Impossibile caricare il riepilogo magazzino.'),
+    });
+  }
+
+  loadOrderProducts(): void {
+    if (!this.canView || !this.orderFilters.supplierId) {
+      this.orderProducts = [];
+      return;
+    }
+    this.loadingOrderProducts = true;
+    let params = new HttpParams()
+      .set('supplierId', String(this.orderFilters.supplierId))
+      .set('sort', 'quantity_asc');
+    if (this.orderFilters.onlyLow) params = params.set('stock', 'low');
+    if (this.orderFilters.q.trim()) params = params.set('q', this.orderFilters.q.trim());
+    this.http.get<WarehouseProduct[]>(this.api('/products'), { params }).subscribe({
+      next: (products) => {
+        this.orderProducts = products || [];
+        this.loadingOrderProducts = false;
+        this.seedOrderQuantities();
+      },
+      error: (err) => {
+        this.loadingOrderProducts = false;
+        this.handleError(err, 'Impossibile caricare i prodotti da ordinare.');
+      },
+    });
+  }
+
+  onProductSupplierChange(): void {
+    const supplier = this.suppliers.find((item) => Number(item.id) === Number(this.productForm.supplierId));
+    if (supplier) {
+      this.productForm.supplier = supplier.name;
+    } else if (!this.productForm.id) {
+      this.productForm.supplier = '';
+    }
+  }
+
+  onOrderSupplierChange(): void {
+    this.orderSelectedIds = new Set();
+    this.orderQuantities = {};
+    this.orderNotes = {};
+    this.loadOrderProducts();
+  }
+
+  selectedOrderSupplier(): WarehouseSupplier | null {
+    return this.suppliers.find((supplier) => Number(supplier.id) === Number(this.orderFilters.supplierId)) || null;
+  }
+
+  supplierForProduct(product: WarehouseProduct): WarehouseSupplier | null {
+    if (product.supplierDetails) return product.supplierDetails;
+    if (product.supplierId) {
+      const byId = this.suppliers.find((supplier) => Number(supplier.id) === Number(product.supplierId));
+      if (byId) return byId;
+    }
+    const legacyName = String(product.supplier || '').trim().toLocaleLowerCase('it-IT');
+    if (!legacyName) return null;
+    return this.suppliers.find((supplier) => supplier.name.trim().toLocaleLowerCase('it-IT') === legacyName) || null;
+  }
+
+  supplierDisplayName(product: WarehouseProduct): string {
+    return this.supplierForProduct(product)?.name || product.supplier || '';
+  }
+
+  supplierContactLabel(supplier: WarehouseSupplier | null | undefined): string {
+    if (!supplier) return '';
+    return supplier.email || supplier.pec || 'Nessuna email';
+  }
+
+  supplierStatsLabel(supplier: WarehouseSupplier): string {
+    const parts = [
+      `${supplier.productCount || 0} prodotti`,
+      `${supplier.lowStockCount || 0} sotto scorta`,
+    ];
+    if (supplier.inboundInvoiceCount) parts.push(`${supplier.inboundInvoiceCount} fatture acquisto`);
+    return parts.join(' · ');
+  }
+
+  selectOrderSupplier(supplier: WarehouseSupplier): void {
+    this.orderFilters.supplierId = supplier.id;
+    this.orderSelectedIds = new Set();
+    this.orderQuantities = {};
+    this.orderNotes = {};
+    this.loadOrderProducts();
+  }
+
+  openOrderForProduct(product: WarehouseProduct): void {
+    const supplier = this.supplierForProduct(product);
+    if (!supplier) {
+      this.error = 'Collega prima il prodotto a un fornitore.';
+      this.popup.showError(this.error);
+      return;
+    }
+    this.orderFilters.supplierId = supplier.id;
+    this.orderFilters.onlyLow = false;
+    this.orderFilters.q = '';
+    this.orderSelectedIds = new Set([product.id]);
+    this.orderQuantities = {
+      ...this.orderQuantities,
+      [product.id]: this.defaultOrderQuantity(product),
+    };
+    this.setTab('orders');
+    this.loadOrderProducts();
+  }
+
+  defaultOrderQuantity(product: WarehouseProduct): number {
+    const missingToMinimum = Number(product.minimumQuantity || 0) - Number(product.quantity || 0);
+    const suggested = missingToMinimum > 0 ? missingToMinimum : 1;
+    const step = this.quantityStep(product.unit) === '1' ? Math.ceil(suggested) : suggested;
+    return this.parseQuantityInput(step, 1, 0.001);
+  }
+
+  private seedOrderQuantities(): void {
+    const nextQuantities = { ...this.orderQuantities };
+    for (const product of this.orderProducts) {
+      if (!nextQuantities[product.id]) {
+        nextQuantities[product.id] = this.defaultOrderQuantity(product);
+      }
+    }
+    this.orderQuantities = nextQuantities;
+  }
+
+  toggleOrderProduct(product: WarehouseProduct, checked: boolean): void {
+    const next = new Set(this.orderSelectedIds);
+    if (checked) {
+      next.add(product.id);
+      if (!this.orderQuantities[product.id]) {
+        this.orderQuantities = {
+          ...this.orderQuantities,
+          [product.id]: this.defaultOrderQuantity(product),
+        };
+      }
+    } else {
+      next.delete(product.id);
+    }
+    this.orderSelectedIds = next;
+  }
+
+  isOrderProductSelected(product: WarehouseProduct): boolean {
+    return this.orderSelectedIds.has(product.id);
+  }
+
+  selectLowStockForOrder(): void {
+    const lowStockProducts = this.orderProducts.filter((product) => product.isLowStock || product.isOutOfStock);
+    this.orderSelectedIds = new Set(lowStockProducts.map((product) => product.id));
+    this.seedOrderQuantities();
+  }
+
+  clearOrderSelection(): void {
+    this.orderSelectedIds = new Set();
+    this.orderNotes = {};
+  }
+
+  selectedOrderProducts(): WarehouseProduct[] {
+    return this.orderProducts.filter((product) => this.orderSelectedIds.has(product.id));
+  }
+
+  get selectedOrderCount(): number {
+    return this.orderSelectedIds.size;
+  }
+
+  get selectedOrderTotal(): number {
+    return this.selectedOrderProducts().reduce((total, product) => {
+      const quantity = this.parseQuantityInput(this.orderQuantities[product.id], 0, 0);
+      return total + quantity * Number(product.indicativePrice || 0);
+    }, 0);
+  }
+
+  sendSupplierOrderEmail(): void {
+    if (this.sendingOrder) return;
+    const supplier = this.selectedOrderSupplier();
+    if (!supplier) {
+      this.error = 'Seleziona un fornitore.';
+      return;
+    }
+    if (!supplier.email && !supplier.pec) {
+      this.error = 'Aggiungi una email o PEC al fornitore prima di inviare.';
+      this.popup.showError(this.error);
+      return;
+    }
+    const items = this.selectedOrderProducts().map((product) => ({
+      productId: product.id,
+      quantity: this.parseQuantityInput(this.orderQuantities[product.id], this.defaultOrderQuantity(product), 0.001),
+      note: this.orderNotes[product.id] || '',
+    }));
+    if (!items.length) {
+      this.error = 'Seleziona almeno un prodotto da ordinare.';
+      return;
+    }
+    this.clearFeedback();
+    this.sendingOrder = true;
+    this.http.post<{ ok: boolean; to: string; itemCount: number }>(this.api('/orders/send-email'), {
+      supplierId: supplier.id,
+      message: this.orderMessage,
+      items,
+    }).subscribe({
+      next: (res) => {
+        this.sendingOrder = false;
+        this.message = `Ordine inviato a ${res.to}: ${res.itemCount} prodotti.`;
+        this.clearOrderSelection();
+      },
+      error: (err) => {
+        this.sendingOrder = false;
+        this.handleError(err, 'Impossibile inviare l’ordine al fornitore.');
+      },
+    });
+  }
+
+  emptySupplierForm(): WarehouseSupplier {
+    return {
+      id: 0,
+      name: '',
+      vatNumber: '',
+      fiscalCode: '',
+      address: '',
+      city: '',
+      province: '',
+      zip: '',
+      country: 'IT',
+      email: '',
+      pec: '',
+      notes: '',
+    };
+  }
+
+  editSupplier(supplier: WarehouseSupplier): void {
+    this.supplierForm = { ...this.emptySupplierForm(), ...supplier };
+  }
+
+  resetSupplierForm(): void {
+    this.supplierForm = this.emptySupplierForm();
+  }
+
+  saveSupplier(): void {
+    if (!this.canManageProducts || this.saving) return;
+    if (!this.supplierForm.name.trim()) {
+      this.error = 'Nome fornitore obbligatorio.';
+      return;
+    }
+    this.clearFeedback();
+    this.saving = true;
+    this.http.post<WarehouseSupplier>(this.api('/suppliers'), this.supplierForm).subscribe({
+      next: (supplier) => {
+        this.saving = false;
+        this.message = 'Fornitore salvato.';
+        this.supplierForm = this.emptySupplierForm();
+        this.loadSuppliers();
+        this.orderFilters.supplierId = supplier.id;
+        this.loadOrderProducts();
+      },
+      error: (err) => {
+        this.saving = false;
+        this.handleError(err, 'Impossibile salvare il fornitore.');
+      },
     });
   }
 
@@ -573,6 +886,8 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         this.productForm = this.emptyProductForm();
         this.loadProducts();
         this.loadCategories();
+        this.loadSuppliers();
+        if (this.activeTab === 'orders') this.loadOrderProducts();
         this.loadSummary();
         this.selectedProduct = product;
         if (!payload.id) {
@@ -597,6 +912,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       barcode: product.barcode,
       categoryId: product.categoryId || this.defaultCategoryId,
       unit: product.unit || 'pz',
+      supplierId: product.supplierId || 0,
       supplier: product.supplier || '',
       supplierCode: product.supplierCode || '',
       reorderUrl: product.reorderUrl || '',
@@ -632,6 +948,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         this.loadProducts();
         this.loadCategories();
         this.loadSummary();
+        if (this.activeTab === 'orders') this.loadOrderProducts();
       },
       error: (err) => this.handleError(err, 'Impossibile aggiornare il preferito.'),
     });
@@ -664,7 +981,9 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         this.message = 'Prodotto archiviato.';
         this.loadProducts();
         this.loadCategories();
+        this.loadSuppliers();
         this.loadSummary();
+        if (this.activeTab === 'orders') this.loadOrderProducts();
       },
       error: (err) => this.handleError(err, 'Impossibile archiviare il prodotto.'),
     });
@@ -998,6 +1317,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         }
         this.loadProducts();
         this.loadSummary();
+        if (this.activeTab === 'orders') this.loadOrderProducts();
         if (this.activeTab === 'movements') this.loadMovementReport();
       },
       error: (err) => {
@@ -1161,6 +1481,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       barcode: '',
       categoryId: this.defaultCategoryId,
       unit: 'pz',
+      supplierId: 0,
       supplier: '',
       supplierCode: '',
       reorderUrl: '',

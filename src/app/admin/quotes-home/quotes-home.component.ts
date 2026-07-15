@@ -109,7 +109,11 @@ export class QuotesHomeComponent implements OnDestroy {
 
   navigateToNotes(numeroPreventivo: string, displayName: string) {
     this.router.navigate(['/homeAdmin/quoteNotes'], {
-      queryParams: { numeroPreventivo, displayName },
+      queryParams: {
+        numeroPreventivo,
+        displayName,
+        returnTo: '/homeAdmin/quotesHome',
+      },
     });
   }
 

@@ -1,8 +1,10 @@
 import {
-  AfterViewChecked,
+  AfterViewInit,
   Component,
   ElementRef,
   HostListener,
+  NgZone,
+  OnDestroy,
   OnInit,
   QueryList,
   ViewChildren,
@@ -10,13 +12,15 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
+import { Subscription } from 'rxjs';
+import { ContactRequirementPromptService } from '../../service/contact-requirement-prompt.service';
 
 @Component({
   selector: 'app-document-manager',
   templateUrl: './document-manager.component.html',
   styleUrls: ['./document-manager.component.css'],
 })
-export class DocumentManagerComponent implements OnInit, AfterViewChecked {
+export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChildren('fileNameBox') fileNameBoxes?: QueryList<ElementRef<HTMLElement>>;
 
   userId: string = '';
@@ -37,13 +41,16 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
   fileType: 'pdf' | 'image' | 'signed' | 'other' = 'other';
   imageBase64: string = '';
   fileBlob: Blob | null = null;
-  private fileNameMeasureQueued = false;
+  private fileNameChangesSubscription?: Subscription;
+  private fileNameMeasureFrame = 0;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private http: HttpClient,
     public globalService: GlobalService,
+    private ngZone: NgZone,
+    private contactPrompt: ContactRequirementPromptService,
   ) {}
 
   ngOnInit(): void {
@@ -55,8 +62,19 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
     this.loadEmailIfNeeded();
   }
 
-  ngAfterViewChecked(): void {
+  ngAfterViewInit(): void {
+    this.fileNameChangesSubscription = this.fileNameBoxes?.changes.subscribe(() => {
+      this.queueFileNameMeasure();
+    });
     this.queueFileNameMeasure();
+  }
+
+  ngOnDestroy(): void {
+    this.fileNameChangesSubscription?.unsubscribe();
+    if (this.fileNameMeasureFrame) {
+      cancelAnimationFrame(this.fileNameMeasureFrame);
+      this.fileNameMeasureFrame = 0;
+    }
   }
 
   @HostListener('window:resize')
@@ -65,12 +83,13 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
   }
 
   private queueFileNameMeasure(): void {
-    if (this.fileNameMeasureQueued) return;
-    this.fileNameMeasureQueued = true;
+    if (this.fileNameMeasureFrame) return;
 
-    requestAnimationFrame(() => {
-      this.fileNameMeasureQueued = false;
-      this.measureFileNames();
+    this.ngZone.runOutsideAngular(() => {
+      this.fileNameMeasureFrame = requestAnimationFrame(() => {
+        this.fileNameMeasureFrame = 0;
+        this.measureFileNames();
+      });
     });
   }
 
@@ -176,8 +195,18 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
       });
   }
 
-  sendFileMail(filename: string): void {
-    if (!this.email) return alert('Email utente non disponibile');
+  sendFileMail(fileOrName: any): void {
+    if (!this.email) {
+      if (this.isCustomer) {
+        alert('Email utente non disponibile');
+      } else {
+        this.contactPrompt.promptEmployeeEmailMissing();
+      }
+      return;
+    }
+
+    const filename = this.storedFileName(fileOrName);
+    if (!filename) return;
 
     const body = this.getPayload({ folder: this.selectedFolder, filename });
 
@@ -188,7 +217,15 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
       })
       .subscribe({
         next: () => alert('Email inviata con successo!'),
-        error: () => alert('Errore durante invio email'),
+        error: (err) => {
+          const errorBody = this.parseServerErrorBody(err);
+          if (errorBody?.code === 'EMPLOYEE_EMAIL_MISSING') {
+            this.email = '';
+            this.contactPrompt.promptEmployeeEmailMissing();
+            return;
+          }
+          alert('Errore durante invio email');
+        },
       });
   }
 
@@ -417,12 +454,31 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
     return 'other';
   }
 
-  displayFileName(fileOrName: any): string {
-    const value =
+  private fileRecord(fileOrName: any): any {
+    if (fileOrName && typeof fileOrName === 'object') return fileOrName;
+    return this.files.find((file) => file?.filename === fileOrName) || null;
+  }
+
+  private storedFileName(fileOrName: any): string {
+    return String(
       typeof fileOrName === 'string'
         ? fileOrName
-        : fileOrName?.displayName || fileOrName?.filename;
-    return String(value || '').replace(/^\d{13,}-/, '');
+        : fileOrName?.filename || '',
+    );
+  }
+
+  private stripInternalFilePrefix(value: string): string {
+    return String(value || '')
+      .replace(/^\d{13,}-[a-f0-9]{16}-/i, '')
+      .replace(/^\d{13,}-/, '');
+  }
+
+  displayFileName(fileOrName: any): string {
+    const record = this.fileRecord(fileOrName);
+    if (record?.displayName) return String(record.displayName);
+
+    const value = typeof fileOrName === 'string' ? fileOrName : fileOrName?.filename;
+    return this.stripInternalFilePrefix(String(value || ''));
   }
 
   isDeadlineManagedFolder(folder = ''): boolean {
@@ -434,10 +490,13 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
     return firstSegment?.toLowerCase() === 'scadenze';
   }
 
-  selectFile(filename: string): void {
+  selectFile(fileOrName: any): void {
+    const filename = this.storedFileName(fileOrName);
+    if (!filename) return;
+
     this.clearFilePreview();
     this.currentFilename = filename; // 👈 IMPORTANTE
-    this.fileType = this.getFileType(filename);
+    this.fileType = this.getFileType(this.displayFileName(fileOrName) || filename);
 
     const body = this.getPayload({ folder: this.selectedFolder, filename });
 
@@ -474,7 +533,10 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
       });
   }
 
-  downloadCurrentFile(filename: string): void {
+  downloadCurrentFile(fileOrName: any): void {
+    const filename = this.storedFileName(fileOrName);
+    if (!filename) return;
+
     const body = this.getPayload({ folder: this.selectedFolder, filename });
 
     this.http
@@ -487,7 +549,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = this.displayFileName(filename);
+          a.download = this.displayFileName(fileOrName);
           a.click();
           window.URL.revokeObjectURL(url);
         },
@@ -498,8 +560,11 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
       });
   }
 
-  printFile(filename: string): void {
-    const type = this.getFileType(filename);
+  printFile(fileOrName: any): void {
+    const filename = this.storedFileName(fileOrName);
+    if (!filename) return;
+
+    const type = this.getFileType(this.displayFileName(fileOrName) || filename);
 
     if (filename.toLowerCase().endsWith('.p7m')) {
       alert('I file .p7m non possono essere stampati direttamente. Scaricali e aprili con un verificatore di firma digitale.');
@@ -601,9 +666,12 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
       });
   }
 
-  deleteFile(filename: string): void {
+  deleteFile(fileOrName: any): void {
+    const filename = this.storedFileName(fileOrName);
+    if (!filename) return;
+
     const file = this.files.find((item) => item?.filename === filename);
-    const displayName = this.displayFileName(file || filename);
+    const displayName = this.displayFileName(file || fileOrName);
     const confirmMessage =
       file?.managedBy === 'deadline'
         ? `Eliminare la copia in Documenti di "${displayName}"? L'allegato restera nella scadenza.`
@@ -635,12 +703,18 @@ export class DocumentManagerComponent implements OnInit, AfterViewChecked {
   }
 
   private parseServerError(err: any): string {
-    try {
-      const body = typeof err.error === 'string' ? JSON.parse(err.error) : err.error;
-      if (body?.error) return body.error;
-    } catch {}
+    const body = this.parseServerErrorBody(err);
+    if (body?.error) return body.error;
     if (err.status === 0) return 'Impossibile connettersi al server';
     return 'Errore imprevisto. Riprova.';
+  }
+
+  private parseServerErrorBody(err: any): any {
+    try {
+      return typeof err?.error === 'string' ? JSON.parse(err.error) : err?.error;
+    } catch {
+      return null;
+    }
   }
 
   private normalizeSearch(value: unknown): string {

@@ -47,4 +47,7 @@ Thumbs.db
 /ios/**/build/
 /ios/App/Pods/
 
+# Local HTTPS certificates
+/certs/
+
 .codegpt

@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
 import { Router } from '@angular/router';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { ContactRequirementPromptService } from '../../service/contact-requirement-prompt.service';
 
 @Component({
   selector: 'app-gestione-employees',
@@ -30,7 +31,8 @@ export class GestioneEmployeesComponent implements OnInit {
     private http: HttpClient,
     public globalService: GlobalService,
     private router: Router,
-    private modalService: NgbModal
+    private modalService: NgbModal,
+    private contactPrompt: ContactRequirementPromptService,
   ) {}
 
   ngOnInit(): void {
@@ -215,7 +217,7 @@ export class GestioneEmployeesComponent implements OnInit {
   openEmployeeWhatsApp(emp: any): void {
     const normalizedPhone = this.normalizePhoneForWhatsApp(emp?.cellulare || emp?.telefono || '');
     if (!normalizedPhone) {
-      alert('Numero di telefono non disponibile.');
+      this.contactPrompt.promptEmployeePhoneMissing();
       return;
     }
 
@@ -225,7 +227,7 @@ export class GestioneEmployeesComponent implements OnInit {
   composeEmployeeEmail(emp: any): void {
     const email = String(emp?.email || '').trim();
     if (!email) {
-      alert('Indirizzo email non disponibile per questo dipendente.');
+      this.contactPrompt.promptEmployeeEmailMissing();
       return;
     }
 

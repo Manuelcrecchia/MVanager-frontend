@@ -1596,10 +1596,10 @@
             <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">
               <i class="fas fa-clipboard-check"></i> <span class="sidebar-btn-text">Permessi e assenze</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'deadlines')" (click)="navigateToVehiclesSettings()">
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines')" (click)="navigateToVehiclesSettings()">
               <i class="fas fa-truck"></i> <span class="sidebar-btn-text">Gestione mezzi</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'deadlines')" (click)="navigateToEquipmentSettings()">
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToEquipmentSettings()">
               <i class="fas fa-tools"></i> <span class="sidebar-btn-text">Gestione attrezzature</span>
             </button>
             <button class="sidebar-bottom-btn" *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">
@@ -1624,7 +1624,7 @@
 
           <button
             class="home-category-item home-sidebar-button"
-            *ngFor="let button of standaloneHomeButtons"
+            *ngFor="let button of standaloneHomeButtons; trackBy: trackByHomeButton"
             [class.home-category-item--active]="isStandaloneButtonActive(button)"
             type="button"
             (click)="activateHomeButton(button)"
@@ -1645,7 +1645,7 @@
             </span>
           </button>
 
-          <ng-container *ngFor="let category of visibleHomeCategories">
+          <ng-container *ngFor="let category of visibleHomeCategories; trackBy: trackByHomeCategory">
             <button
               class="home-category-item"
               [class.home-category-item--active]="isCategoryExpanded(category)"
@@ -1677,7 +1677,7 @@
             <div class="home-sidebar-dropdown" *ngIf="isCategoryExpanded(category) && !sidebarCollapsed">
               <button
                 class="home-sidebar-subitem"
-                *ngFor="let button of visibleHomeButtons(category)"
+                *ngFor="let button of visibleHomeButtons(category); trackBy: trackByHomeButton"
                 [class.home-sidebar-subitem--active]="isHomeButtonActive(button)"
                 type="button"
                 (click)="activateHomeButton(button)"
@@ -1855,8 +1855,8 @@
           <a *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</a>
           <a (click)="navigateToCambiapassword()">Cambia password</a>
           <a *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</a>
-          <a *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'deadlines')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
-          <a *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'deadlines')" (click)="navigateToEquipmentSettings()">Gestione attrezzature</a>
+          <a *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
+          <a *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToEquipmentSettings()">Gestione attrezzature</a>
           <a *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>
           <a *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSettings()">Impostazioni email</a>
           <a *ngIf="global.forMobile && canUsePermission('NOTIFICATIONS_VIEW', 'notifications')" (click)="navigateToNotificationSettings()">Notifiche mobile</a>
@@ -1944,7 +1944,7 @@
             <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">
               <button
                 class="dash-btn"
-                *ngFor="let button of standaloneHomeButtons"
+                *ngFor="let button of standaloneHomeButtons; trackBy: trackByHomeButton"
                 (click)="activateHomeButton(button)"
               >
                 <span class="icon"><i [class]="button.icon"></i></span>
@@ -1961,7 +1961,7 @@
 
               <button
                 class="dash-btn"
-                *ngFor="let category of visibleHomeCategories"
+                *ngFor="let category of visibleHomeCategories; trackBy: trackByHomeCategory"
                 (click)="selectHomeCategory(category.id)"
               >
                 <span class="icon"><i [class]="category.icon"></i></span>
@@ -1983,7 +1983,7 @@
             <div class="home-submenu-grid" *ngIf="!shouldShowHomeCategories">
               <button
                 class="dash-btn home-submenu-button"
-                *ngFor="let button of currentHomeButtons"
+                *ngFor="let button of currentHomeButtons; trackBy: trackByHomeButton"
                 (click)="activateHomeButton(button)"
               >
                 <span class="icon"><i [class]="button.icon"></i></span>

@@ -108,6 +108,9 @@ import { InternalWarehouseComponent } from './admin/internal-warehouse/internal-
 import { InvoicesComponent } from './admin/invoices/invoices.component';
 import { AccountingComponent } from './admin/accounting/accounting.component';
 import { EmployeeContractsComponent } from './admin/employee-contracts/employee-contracts.component';
+import { CandidatesComponent } from './admin/candidates/candidates.component';
+import { AiAssistantWidgetComponent } from './ai-assistant/ai-assistant-widget.component';
+import { MissingContactDialogComponent } from './shared/missing-contact-dialog/missing-contact-dialog.component';
 
 registerLocaleData(localeIt);
 
@@ -167,6 +170,9 @@ registerLocaleData(localeIt);
     InvoicesComponent,
     AccountingComponent,
     EmployeeContractsComponent,
+    CandidatesComponent,
+    AiAssistantWidgetComponent,
+    MissingContactDialogComponent,
   ],
   imports: [
     BrowserModule,

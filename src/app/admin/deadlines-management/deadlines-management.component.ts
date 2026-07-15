@@ -88,6 +88,7 @@ interface DeadlineHistoryEntry {
   summary: string;
   changes: Record<string, any>;
   snapshot: Record<string, any>;
+  attachments?: DeadlineAttachment[];
   actorEmail?: string | null;
   createdAt: string;
 }
@@ -99,6 +100,7 @@ interface DeadlineHistoryEntry {
 })
 export class DeadlinesManagementComponent implements OnInit {
   @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('deadlineForm') deadlineForm?: ElementRef<HTMLElement>;
 
   kind: DeadlineKind = 'employee';
   entities: Array<EmployeeTarget | VehicleTarget | GenericTarget> = [];
@@ -121,6 +123,7 @@ export class DeadlinesManagementComponent implements OnInit {
   historyOpenByDeadlineId: Record<number, boolean> = {};
   historyLoadingByDeadlineId: Record<number, boolean> = {};
   searchText = '';
+  private deadlinePointerActionPending = false;
 
   form: {
     entityId: string | number | null;
@@ -144,6 +147,7 @@ export class DeadlinesManagementComponent implements OnInit {
     private http: HttpClient,
     private route: ActivatedRoute,
     private router: Router,
+    private host: ElementRef<HTMLElement>,
     public globalService: GlobalService,
     private popup: PopupServiceService,
   ) {}
@@ -468,6 +472,18 @@ export class DeadlinesManagementComponent implements OnInit {
           ? ''
           : String(deadline.remindDays),
     };
+    this.scrollToDeadlineForm();
+  }
+
+  onEditDeadlineClick(event: Event, deadline: DeadlineRecord): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.consumePointerActionClick()) return;
+    this.openEditForm(deadline);
+  }
+
+  onEditDeadlinePointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
+    this.runDeadlinePointerAction(event, () => this.openEditForm(deadline));
   }
 
   cancelForm(): void {
@@ -651,6 +667,17 @@ export class DeadlinesManagementComponent implements OnInit {
       });
   }
 
+  onDeleteDeadlineClick(event: Event, deadline: DeadlineRecord): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.consumePointerActionClick()) return;
+    this.deleteDeadline(deadline);
+  }
+
+  onDeleteDeadlinePointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
+    this.runDeadlinePointerAction(event, () => this.deleteDeadline(deadline));
+  }
+
   deleteExistingAttachment(attachment: DeadlineAttachment): void {
     if (!this.editingDeadline || !this.canEdit) return;
 
@@ -744,6 +771,38 @@ export class DeadlinesManagementComponent implements OnInit {
     if (!isOpen && !this.historyByDeadlineId[deadline.id]) {
       this.loadHistory(deadline);
     }
+
+    if (!isOpen) {
+      this.scrollDeadlineHistoryIntoView(deadline.id);
+    }
+  }
+
+  onToggleHistoryClick(event: Event, deadline: DeadlineRecord): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.consumePointerActionClick()) return;
+    this.toggleHistory(deadline);
+  }
+
+  onToggleHistoryPointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
+    this.runDeadlinePointerAction(event, () => this.toggleHistory(deadline));
+  }
+
+  private runDeadlinePointerAction(event: PointerEvent, action: () => void): void {
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.deadlinePointerActionPending = true;
+    window.setTimeout(() => {
+      this.deadlinePointerActionPending = false;
+    }, 500);
+    action();
+  }
+
+  private consumePointerActionClick(): boolean {
+    if (!this.deadlinePointerActionPending) return false;
+    return true;
   }
 
   loadHistory(deadline: DeadlineRecord): void {
@@ -807,12 +866,32 @@ export class DeadlinesManagementComponent implements OnInit {
     const lines: string[] = [];
     for (const [key, value] of Object.entries(changes)) {
       if (key === 'attachmentsAdded' && Array.isArray(value) && value.length) {
-        lines.push(`Allegati aggiunti: ${value.join(', ')}`);
+        const names = value
+          .map((item: any) =>
+            typeof item === 'string' ? item : item?.originalName || item?.storedName,
+          )
+          .filter(Boolean);
+        if (names.length) {
+          lines.push(`Allegati aggiunti: ${names.join(', ')}`);
+        }
         continue;
       }
 
       if (key === 'attachment' && value) {
-        lines.push(`Allegato: ${value}`);
+        if (changes['attachmentDeleted']) continue;
+        const attachmentName =
+          typeof value === 'string' ? value : value?.originalName || value?.storedName;
+        if (attachmentName) {
+          lines.push(`Allegato: ${attachmentName}`);
+        }
+        continue;
+      }
+
+      if (key === 'attachmentDeleted' && value) {
+        const attachmentName = value?.originalName || value?.storedName;
+        if (attachmentName) {
+          lines.push(`Allegato archiviato nello storico: ${attachmentName}`);
+        }
         continue;
       }
 
@@ -842,21 +921,75 @@ export class DeadlinesManagementComponent implements OnInit {
       lines.push(`Descrizione: ${snapshot['description']}`);
     }
 
-    const attachments = Array.isArray(snapshot['attachments'])
-      ? snapshot['attachments']
-      : [];
-    if (attachments.length > 0) {
-      lines.push(
-        `Allegati: ${attachments.map((item: any) => item.originalName || item.storedName).filter(Boolean).join(', ')}`,
-      );
-    } else {
-      lines.push('Allegati: nessuno');
-    }
-
     return lines;
   }
 
+  historyAttachments(entry: DeadlineHistoryEntry): DeadlineAttachment[] {
+    const attachments: DeadlineAttachment[] = [];
+    const seen = new Set<string>();
+    const changes = entry.changes || {};
+    const snapshot = entry.snapshot || {};
+
+    const addAttachment = (item: any) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return;
+      const id = String(item.id || '').trim();
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      attachments.push({
+        id,
+        originalName: item.originalName || item.storedName || 'documento',
+        storedName: item.storedName || '',
+        size: Number(item.size) || 0,
+        uploadedAt: item.uploadedAt || entry.createdAt,
+        documentFolder: item.documentFolder || '',
+        documentFilename: item.documentFilename || '',
+        documentManagedBy: item.documentManagedBy || '',
+      });
+    };
+
+    if (Array.isArray(entry.attachments)) {
+      entry.attachments.forEach(addAttachment);
+    }
+
+    if (Array.isArray(snapshot['attachments'])) {
+      snapshot['attachments'].forEach(addAttachment);
+    }
+
+    [
+      changes['attachmentDeleted'],
+      changes['attachment'],
+      changes['deletedAttachment'],
+      changes['renamedAttachment'],
+    ].forEach(addAttachment);
+
+    ['attachmentsDeleted', 'attachmentsAddedDetails', 'attachmentsAdded'].forEach((key) => {
+      if (Array.isArray(changes[key])) {
+        changes[key].forEach(addAttachment);
+      }
+    });
+
+    return attachments;
+  }
+
   openAttachment(
+    deadline: DeadlineRecord,
+    attachment: DeadlineAttachment,
+  ): void {
+    if (this.consumePointerActionClick()) return;
+    this.downloadAttachment(deadline, attachment);
+  }
+
+  onOpenAttachmentPointerDown(
+    event: PointerEvent,
+    deadline: DeadlineRecord,
+    attachment: DeadlineAttachment,
+  ): void {
+    this.runDeadlinePointerAction(event, () =>
+      this.downloadAttachment(deadline, attachment),
+    );
+  }
+
+  private downloadAttachment(
     deadline: DeadlineRecord,
     attachment: DeadlineAttachment,
   ): void {
@@ -881,17 +1014,104 @@ export class DeadlinesManagementComponent implements OnInit {
       )
       .subscribe({
         next: (blob) => {
-          const url = window.URL.createObjectURL(blob);
+          const namedBlob = this.namedAttachmentBlob(blob, attachment);
+          const url = window.URL.createObjectURL(namedBlob);
           attachmentWindow.location.href = url;
           window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
         },
         error: (err) => {
           attachmentWindow.close();
           console.error('Errore apertura allegato:', err);
-          this.error = this.parseServerError(err);
-          this.popup.showError(this.error);
+          this.showDownloadError(err);
         },
       });
+  }
+
+  openHistoryAttachment(
+    deadline: DeadlineRecord,
+    entry: DeadlineHistoryEntry,
+    attachment: DeadlineAttachment,
+  ): void {
+    if (this.consumePointerActionClick()) return;
+    this.downloadHistoryAttachment(deadline, entry, attachment);
+  }
+
+  onOpenHistoryAttachmentPointerDown(
+    event: PointerEvent,
+    deadline: DeadlineRecord,
+    entry: DeadlineHistoryEntry,
+    attachment: DeadlineAttachment,
+  ): void {
+    this.runDeadlinePointerAction(event, () =>
+      this.downloadHistoryAttachment(deadline, entry, attachment),
+    );
+  }
+
+  private downloadHistoryAttachment(
+    deadline: DeadlineRecord,
+    entry: DeadlineHistoryEntry,
+    attachment: DeadlineAttachment,
+  ): void {
+    const attachmentWindow = window.open('', '_blank');
+    if (!attachmentWindow) {
+      this.popup.showError('Popup bloccato dal browser. Consenti i popup per aprire il documento.');
+      return;
+    }
+
+    attachmentWindow.document.write(
+      '<!doctype html><title>Caricamento documento storico...</title><body style="font-family:Arial,sans-serif;padding:24px">Caricamento documento storico...</body>',
+    );
+
+    this.http
+      .post(
+        this.globalService.url + 'admin/deadlines/download-history-attachment',
+        {
+          deadlineId: deadline.id,
+          historyId: entry.id,
+          attachmentId: attachment.id,
+        },
+        { responseType: 'blob' },
+      )
+      .subscribe({
+        next: (blob) => {
+          const namedBlob = this.namedAttachmentBlob(blob, attachment);
+          const url = window.URL.createObjectURL(namedBlob);
+          attachmentWindow.location.href = url;
+          window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+        },
+        error: (err) => {
+          attachmentWindow.close();
+          console.error('Errore apertura allegato storico:', err);
+          this.showDownloadError(err);
+        },
+      });
+  }
+
+  private showDownloadError(err: any): void {
+    this.parseDownloadError(err).then((message) => {
+      this.error = message;
+      this.popup.showError(message);
+    });
+  }
+
+  private async parseDownloadError(err: any): Promise<string> {
+    const errorBody = err?.error;
+    if (errorBody instanceof Blob) {
+      try {
+        const text = await errorBody.text();
+        const parsed = text ? JSON.parse(text) : null;
+        if (parsed?.error) return parsed.error;
+      } catch {}
+    }
+
+    return this.parseServerError(err);
+  }
+
+  private namedAttachmentBlob(blob: Blob, attachment: DeadlineAttachment): Blob {
+    const filename = (attachment.originalName || attachment.storedName || 'documento').trim();
+    return new File([blob], filename, {
+      type: blob.type || 'application/octet-stream',
+    });
   }
 
   getEntityLabel(entity: any): string {
@@ -1163,6 +1383,27 @@ export class DeadlinesManagementComponent implements OnInit {
         : deadline,
     );
     this.rebuildGroups();
+  }
+
+  private scrollToDeadlineForm(): void {
+    window.requestAnimationFrame(() => {
+      this.deadlineForm?.nativeElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }
+
+  private scrollDeadlineHistoryIntoView(deadlineId: number): void {
+    window.setTimeout(() => {
+      const panel = this.host.nativeElement.querySelector<HTMLElement>(
+        `[data-deadline-id="${deadlineId}"] .history-panel`,
+      );
+      panel?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    });
   }
 
   private getEntityFromDeadline(deadline: DeadlineRecord): any {

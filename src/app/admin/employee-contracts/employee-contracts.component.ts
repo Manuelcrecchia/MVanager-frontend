@@ -5,6 +5,7 @@ import {
   GlobalService,
   TenantFieldMappingFieldConfig,
 } from '../../service/global.service';
+import { ContactRequirementPromptService } from '../../service/contact-requirement-prompt.service';
 
 interface EmployeeContract {
   id: number;
@@ -118,6 +119,7 @@ export class EmployeeContractsComponent implements OnInit {
     public globalService: GlobalService,
     private router: Router,
     private route: ActivatedRoute,
+    private contactPrompt: ContactRequirementPromptService,
   ) {}
 
   ngOnInit(): void {
@@ -238,6 +240,11 @@ export class EmployeeContractsComponent implements OnInit {
     this.errorMessage = '';
     this.successMessage = '';
 
+    if (!String(contract.email || '').trim()) {
+      this.promptMissingContractEmail(contract);
+      return;
+    }
+
     this.http
       .post<{ message?: string }>(
         this.globalService.url + 'employee-contracts/sendPdf',
@@ -251,6 +258,10 @@ export class EmployeeContractsComponent implements OnInit {
         },
         error: (err) => {
           console.error('Errore invio PDF contratto:', err);
+          if (this.isMissingContractEmailError(err)) {
+            this.promptMissingContractEmail(contract);
+            return;
+          }
           this.errorMessage = this.parseServerError(err);
         },
       });
@@ -260,7 +271,13 @@ export class EmployeeContractsComponent implements OnInit {
     this.errorMessage = '';
     this.successMessage = '';
 
-    const normalizedPhone = this.normalizePhoneForWhatsApp(contract.cellulare || '');
+    const rawPhone = String(contract.cellulare || '').trim();
+    if (!rawPhone) {
+      this.promptMissingContractPhone(contract);
+      return;
+    }
+
+    const normalizedPhone = this.normalizePhoneForWhatsApp(rawPhone);
     if (!normalizedPhone) {
       this.errorMessage = 'Numero di telefono non disponibile per questo contratto.';
       return;
@@ -275,7 +292,7 @@ export class EmployeeContractsComponent implements OnInit {
 
     const email = String(contract.email || '').trim();
     if (!email) {
-      this.errorMessage = 'Indirizzo email non disponibile per questo contratto.';
+      this.promptMissingContractEmail(contract);
       return;
     }
 
@@ -299,6 +316,11 @@ export class EmployeeContractsComponent implements OnInit {
     this.errorMessage = '';
     this.successMessage = '';
 
+    if (!String(contract.cellulare || '').trim()) {
+      this.promptMissingContractPhone(contract);
+      return;
+    }
+
     this.http
       .post<{ approvalUrl?: string; whatsappUrl?: string }>(
         this.globalService.url + 'employee-contracts/sendAcceptanceRequest',
@@ -319,6 +341,10 @@ export class EmployeeContractsComponent implements OnInit {
         },
         error: (err) => {
           console.error('Errore generazione link firma:', err);
+          if (this.isMissingContractPhoneError(err)) {
+            this.promptMissingContractPhone(contract);
+            return;
+          }
           this.errorMessage = this.parseServerError(err);
         },
       });
@@ -969,11 +995,53 @@ export class EmployeeContractsComponent implements OnInit {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
+  private promptMissingContractEmail(contract: EmployeeContract): void {
+    this.contactPrompt
+      .openCandidateEmailMissing('Modifica contratto')
+      .subscribe((edit) => {
+        if (!edit) return;
+        if (this.canEdit(contract)) {
+          this.openEditForm(contract);
+          return;
+        }
+        this.errorMessage = 'Il contratto non e modificabile: crea una nuova bozza per aggiornare i contatti.';
+      });
+  }
+
+  private promptMissingContractPhone(contract: EmployeeContract): void {
+    this.contactPrompt
+      .openCandidatePhoneMissing('Modifica contratto')
+      .subscribe((edit) => {
+        if (!edit) return;
+        if (this.canEdit(contract)) {
+          this.openEditForm(contract);
+          return;
+        }
+        this.errorMessage = 'Il contratto non e modificabile: crea una nuova bozza per aggiornare i contatti.';
+      });
+  }
+
+  private isMissingContractEmailError(err: any): boolean {
+    return this.parseServerErrorBody(err)?.code === 'CANDIDATE_EMAIL_MISSING';
+  }
+
+  private isMissingContractPhoneError(err: any): boolean {
+    return this.parseServerErrorBody(err)?.code === 'CANDIDATE_PHONE_MISSING';
+  }
+
   private parseServerError(err: any): string {
-    const responseError = err?.error;
+    const responseError = this.parseServerErrorBody(err);
     if (responseError?.error) return responseError.error;
-    if (typeof responseError === 'string' && responseError.trim()) return responseError;
+    if (typeof err?.error === 'string' && err.error.trim()) return err.error;
     if (err?.status === 0) return 'Impossibile contattare il server.';
     return 'Operazione non riuscita.';
+  }
+
+  private parseServerErrorBody(err: any): any {
+    try {
+      return typeof err?.error === 'string' ? JSON.parse(err.error) : err?.error;
+    } catch {
+      return err?.error || null;
+    }
   }
 }

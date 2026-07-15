@@ -292,9 +292,12 @@ export class InternalDocumentsComponent implements OnInit {
     }
   }
 
-  selectFile(filename: string): void {
+  selectFile(fileOrName: any): void {
+    const filename = this.storedFileName(fileOrName);
+    if (!filename) return;
+
     this.currentFilename = filename;
-    this.fileType = this.getFileType(filename);
+    this.fileType = this.getFileType(this.displayFileName(fileOrName) || filename);
     this.pdfBase64 = '';
     this.clearImageUrl();
 
@@ -342,7 +345,10 @@ export class InternalDocumentsComponent implements OnInit {
       });
   }
 
-  downloadCurrentFile(filename: string): void {
+  downloadCurrentFile(fileOrName: any): void {
+    const filename = this.storedFileName(fileOrName);
+    if (!filename) return;
+
     const body = { folder: this.selectedFolder, filename };
 
     this.http
@@ -359,7 +365,7 @@ export class InternalDocumentsComponent implements OnInit {
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = this.displayFileName(filename);
+          a.download = this.displayFileName(fileOrName);
           a.click();
           window.URL.revokeObjectURL(url);
         },
@@ -370,7 +376,10 @@ export class InternalDocumentsComponent implements OnInit {
       });
   }
 
-  printFile(filename: string): void {
+  printFile(fileOrName: any): void {
+    const filename = this.storedFileName(fileOrName);
+    if (!filename) return;
+
     if (filename.toLowerCase().endsWith('.p7m')) {
       alert('I file .p7m non possono essere stampati direttamente. Scaricali e aprili con un verificatore di firma digitale.');
       return;
@@ -436,8 +445,11 @@ export class InternalDocumentsComponent implements OnInit {
       });
   }
 
-  deleteFile(filename: string): void {
-    if (!confirm(`Eliminare il file "${this.displayFileName(filename)}"?`)) return;
+  deleteFile(fileOrName: any): void {
+    const filename = this.storedFileName(fileOrName);
+    if (!filename) return;
+
+    if (!confirm(`Eliminare il file "${this.displayFileName(fileOrName)}"?`)) return;
 
     const body = { folder: this.selectedFolder, filename };
 
@@ -485,12 +497,31 @@ export class InternalDocumentsComponent implements OnInit {
     return 'other';
   }
 
-  displayFileName(fileOrName: any): string {
-    const value =
+  private fileRecord(fileOrName: any): any {
+    if (fileOrName && typeof fileOrName === 'object') return fileOrName;
+    return this.files.find((file) => file?.filename === fileOrName) || null;
+  }
+
+  private storedFileName(fileOrName: any): string {
+    return String(
       typeof fileOrName === 'string'
         ? fileOrName
-        : fileOrName?.displayName || fileOrName?.filename;
-    return String(value || '').replace(/^\d{13,}-/, '');
+        : fileOrName?.filename || '',
+    );
+  }
+
+  private stripInternalFilePrefix(value: string): string {
+    return String(value || '')
+      .replace(/^\d{13,}-[a-f0-9]{16}-/i, '')
+      .replace(/^\d{13,}-/, '');
+  }
+
+  displayFileName(fileOrName: any): string {
+    const record = this.fileRecord(fileOrName);
+    if (record?.displayName) return String(record.displayName);
+
+    const value = typeof fileOrName === 'string' ? fileOrName : fileOrName?.filename;
+    return this.stripInternalFilePrefix(String(value || ''));
   }
 
   private clearImageUrl(): void {

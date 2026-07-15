@@ -29,11 +29,11 @@
           </div>
           <div class="col-md-6">
             <label for="email" class="form-label fw-bold">Email</label>
-            <input type="email" id="email" name="email" [(ngModel)]="employeesAdd.email" class="form-control form-control-glass" required />
+            <input type="email" id="email" name="email" [(ngModel)]="employeesAdd.email" class="form-control form-control-glass" />
           </div>
           <div class="col-md-6">
             <label for="cellulare" class="form-label fw-bold">Cellulare</label>
-            <input type="text" id="cellulare" name="cellulare" [(ngModel)]="employeesAdd.cellulare" class="form-control form-control-glass" required />
+            <input type="text" id="cellulare" name="cellulare" [(ngModel)]="employeesAdd.cellulare" class="form-control form-control-glass" />
           </div>
           <div class="col-md-6">
             <label for="oreGiornaliereDefault" class="form-label fw-bold">Ore giornaliere standard</label>
@@ -47,6 +47,45 @@
                 <small>Può effettuare tratte o rientri senza dipendere dalla squadra</small>
               </span>
             </label>
+          </div>
+          <div class="col-md-6" *ngFor="let field of employeeExtraFields">
+            <label class="form-label fw-bold">{{ field.label || field.key }}</label>
+            <ng-container [ngSwitch]="field.type">
+              <textarea
+                *ngSwitchCase="'textarea'"
+                class="form-control form-control-glass"
+                rows="2"
+                [name]="'extra_add_' + getEmployeeFieldKey(field)"
+                [(ngModel)]="employeesAdd[getEmployeeFieldKey(field)]"
+                [required]="field.required === true"
+              ></textarea>
+              <select
+                *ngSwitchCase="'enum'"
+                class="form-control form-control-glass"
+                [name]="'extra_add_' + getEmployeeFieldKey(field)"
+                [(ngModel)]="employeesAdd[getEmployeeFieldKey(field)]"
+                [required]="field.required === true"
+              >
+                <option value=""></option>
+                <option *ngFor="let option of getEmployeeFieldOptions(field)" [value]="option">{{ option }}</option>
+              </select>
+              <label *ngSwitchCase="'boolean'" class="mobility-check">
+                <input
+                  type="checkbox"
+                  [name]="'extra_add_' + getEmployeeFieldKey(field)"
+                  [(ngModel)]="employeesAdd[getEmployeeFieldKey(field)]"
+                />
+                <span><strong>{{ field.label || field.key }}</strong></span>
+              </label>
+              <input
+                *ngSwitchDefault
+                class="form-control form-control-glass"
+                [type]="getEmployeeFieldType(field)"
+                [name]="'extra_add_' + getEmployeeFieldKey(field)"
+                [(ngModel)]="employeesAdd[getEmployeeFieldKey(field)]"
+                [required]="field.required === true"
+              />
+            </ng-container>
           </div>
         </div>
         <div class="d-flex justify-content-center mt-4">
@@ -212,6 +251,11 @@
               <ng-template #noEmployeeCategories>
                 <span class="text-muted small">Nessuna</span>
               </ng-template>
+              <div class="employee-extra-badges" *ngIf="getEmployeeExtraSummary(emp).length">
+                <span class="employee-extra-badge" *ngFor="let item of getEmployeeExtraSummary(emp)">
+                  {{ item.label }}: {{ item.value }}
+                </span>
+              </div>
             </td>
             <td class="actions-cell">
               <ng-container *ngIf="emp.active">
@@ -243,7 +287,47 @@
               </label>
             </td>
             <td>
-              <span class="text-muted small">Salva o annulla modifica dati</span>
+              <div class="employee-extra-edit-grid" *ngIf="employeeExtraFields.length; else noEmployeeExtraEdit">
+                <label *ngFor="let field of employeeExtraFields">
+                  <span>{{ field.label || field.key }}</span>
+                  <ng-container [ngSwitch]="field.type">
+                    <textarea
+                      *ngSwitchCase="'textarea'"
+                      class="form-control form-control-sm"
+                      rows="2"
+                      [name]="'e_extra_' + getEmployeeFieldKey(field) + '_' + emp.id"
+                      [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]"
+                    ></textarea>
+                    <select
+                      *ngSwitchCase="'enum'"
+                      class="form-control form-control-sm"
+                      [name]="'e_extra_' + getEmployeeFieldKey(field) + '_' + emp.id"
+                      [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]"
+                    >
+                      <option value=""></option>
+                      <option *ngFor="let option of getEmployeeFieldOptions(field)" [value]="option">{{ option }}</option>
+                    </select>
+                    <label *ngSwitchCase="'boolean'" class="mobility-check mobility-check--compact">
+                      <input
+                        type="checkbox"
+                        [name]="'e_extra_' + getEmployeeFieldKey(field) + '_' + emp.id"
+                        [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]"
+                      />
+                      <span>{{ field.label || field.key }}</span>
+                    </label>
+                    <input
+                      *ngSwitchDefault
+                      class="form-control form-control-sm"
+                      [type]="getEmployeeFieldType(field)"
+                      [name]="'e_extra_' + getEmployeeFieldKey(field) + '_' + emp.id"
+                      [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]"
+                    />
+                  </ng-container>
+                </label>
+              </div>
+              <ng-template #noEmployeeExtraEdit>
+                <span class="text-muted small">Salva o annulla modifica dati</span>
+              </ng-template>
             </td>
             <td class="actions-cell">
               <button type="button" class="btn btn-primary btn-round btn-sm" (click)="saveEdit()">✅ Salva</button>
@@ -276,6 +360,11 @@
         <div class="employee-category-badges" *ngIf="getEmployeeCategoryNames(emp).length">
           <span class="employee-category-badge" *ngFor="let name of getEmployeeCategoryNames(emp)">{{ name }}</span>
         </div>
+        <div class="employee-extra-badges" *ngIf="getEmployeeExtraSummary(emp).length">
+          <span class="employee-extra-badge" *ngFor="let item of getEmployeeExtraSummary(emp)">
+            {{ item.label }}: {{ item.value }}
+          </span>
+        </div>
       </div>
       <div class="employee-card__actions">
         <ng-container *ngIf="!isEditingEmployee(emp); else editMobile">
@@ -302,6 +391,44 @@
             <input type="checkbox" [(ngModel)]="employeeEdit.automunito" name="m_automunito_{{ emp.id }}" />
             <span>Automunito</span>
           </label>
+          <div class="employee-extra-edit-grid employee-extra-edit-grid--mobile" *ngIf="employeeExtraFields.length">
+            <label *ngFor="let field of employeeExtraFields">
+              <span>{{ field.label || field.key }}</span>
+              <ng-container [ngSwitch]="field.type">
+                <textarea
+                  *ngSwitchCase="'textarea'"
+                  class="form-control form-control-sm"
+                  rows="2"
+                  [name]="'m_extra_' + getEmployeeFieldKey(field) + '_' + emp.id"
+                  [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]"
+                ></textarea>
+                <select
+                  *ngSwitchCase="'enum'"
+                  class="form-control form-control-sm"
+                  [name]="'m_extra_' + getEmployeeFieldKey(field) + '_' + emp.id"
+                  [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]"
+                >
+                  <option value=""></option>
+                  <option *ngFor="let option of getEmployeeFieldOptions(field)" [value]="option">{{ option }}</option>
+                </select>
+                <label *ngSwitchCase="'boolean'" class="mobility-check mobility-check--compact">
+                  <input
+                    type="checkbox"
+                    [name]="'m_extra_' + getEmployeeFieldKey(field) + '_' + emp.id"
+                    [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]"
+                  />
+                  <span>{{ field.label || field.key }}</span>
+                </label>
+                <input
+                  *ngSwitchDefault
+                  class="form-control form-control-sm"
+                  [type]="getEmployeeFieldType(field)"
+                  [name]="'m_extra_' + getEmployeeFieldKey(field) + '_' + emp.id"
+                  [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]"
+                />
+              </ng-container>
+            </label>
+          </div>
           <button type="button" class="btn btn-primary btn-round btn-sm w-100 mb-1" (click)="saveEdit()">✅ Salva</button>
           <button type="button" class="btn btn-glass btn-round btn-sm w-100" (click)="cancelEdit()">✖ Annulla</button>
         </ng-template>

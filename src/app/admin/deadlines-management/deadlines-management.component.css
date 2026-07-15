@@ -424,6 +424,20 @@
   font-weight: 800;
 }
 
+.detail-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.detail-return-button {
+  background: rgba(17, 53, 93, 0.12) !important;
+  border-color: rgba(17, 53, 93, 0.22) !important;
+  color: #11355d !important;
+  font-weight: 800;
+}
+
 .folder-list {
   margin-top: 18px;
   display: flex;
@@ -543,6 +557,7 @@
 }
 
 .deadline-item {
+  position: relative;
   padding: 16px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.78);
@@ -550,17 +565,32 @@
 }
 
 .deadline-top {
+  position: relative;
+  z-index: 2;
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
 }
 
+.deadline-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .deadline-actions {
   display: flex;
+  flex: 0 0 auto;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
+}
+
+.deadline-actions .btn {
+  pointer-events: auto;
 }
 
 .btn-deadline-secondary {
@@ -691,6 +721,31 @@
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.history-attachments {
+  margin-top: 10px;
+}
+
+.history-attachments > span {
+  display: block;
+  color: rgba(18, 48, 77, 0.72);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.history-attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history-attachment-chip {
+  background: #fff7e8;
+  border: 1px solid rgba(214, 98, 0, 0.2);
 }
 
 @media (max-width: 768px) {

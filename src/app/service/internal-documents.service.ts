@@ -29,7 +29,23 @@ export class InternalDocumentsService {
   }
 
   download(name: string) {
-    window.open(`${this.base}/download/${encodeURIComponent(name)}`, '_blank');
+    this.http.post(`${this.base}/downloadSecure`, { folder: '', filename: name }, {
+      headers: this.globalService.headers,
+      responseType: 'blob',
+    }).subscribe((blob) => {
+      const file = new File([blob], name || 'documento', {
+        type: blob.type || 'application/octet-stream',
+      });
+      const url = URL.createObjectURL(file);
+      const opened = window.open(url, '_blank');
+      if (!opened) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name || 'documento';
+        link.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    });
   }
 
   delete(name: string) {

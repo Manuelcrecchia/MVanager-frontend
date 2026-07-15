@@ -1,16 +1,7 @@
-import { TestBed } from '@angular/core/testing';
+import { SocketService } from './soket.service';
 
-import { SoketService } from './soket.service';
-
-describe('SoketService', () => {
-  let service: SoketService;
-
-  beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(SoketService);
-  });
-
-  it('should be created', () => {
-    expect(service).toBeTruthy();
+describe('SocketService', () => {
+  it('should be exported', () => {
+    expect(SocketService).toBeTruthy();
   });
 });

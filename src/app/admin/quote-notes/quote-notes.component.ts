@@ -27,8 +27,10 @@ export interface NotaPreventivo {
   styleUrl: './quote-notes.component.css',
 })
 export class QuoteNotesComponent implements OnInit {
+  private readonly fallbackReturnUrl = '/homeAdmin/quotesHome';
   numeroPreventivo = '';
   displayName = '';
+  returnTo = this.fallbackReturnUrl;
   note: NotaPreventivo[] = [];
   nuovaNota = '';
   nuoviAllegati: AllegatoNota[] = [];
@@ -111,6 +113,9 @@ export class QuoteNotesComponent implements OnInit {
       this.route.snapshot.queryParamMap.get('numeroPreventivo') || '';
     this.displayName =
       this.route.snapshot.queryParamMap.get('displayName') || '';
+    this.returnTo = this.resolveReturnUrl(
+      this.route.snapshot.queryParamMap.get('returnTo'),
+    );
     this.loadNote();
   }
 
@@ -342,13 +347,27 @@ export class QuoteNotesComponent implements OnInit {
   }
 
   back() {
-    this.router.navigateByUrl('/homeAdmin/quotesHome');
+    this.router.navigateByUrl(this.returnTo);
   }
 
   @HostListener('window:popstate', ['$event'])
   onBrowserBackBtnClose(event: Event): void {
     event.preventDefault();
-    this.location.replaceState('/homeAdmin/quotesHome');
-    this.router.navigateByUrl('/homeAdmin/quotesHome');
+    this.location.replaceState(this.returnTo);
+    this.router.navigateByUrl(this.returnTo);
+  }
+
+  private resolveReturnUrl(value: string | null): string {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return this.fallbackReturnUrl;
+
+    try {
+      const decoded = decodeURIComponent(trimmed);
+      if (decoded.startsWith('/homeAdmin')) return decoded;
+    } catch {
+      if (trimmed.startsWith('/homeAdmin')) return trimmed;
+    }
+
+    return this.fallbackReturnUrl;
   }
 }

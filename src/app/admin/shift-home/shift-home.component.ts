@@ -1,8 +1,10 @@
-import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router, ActivatedRoute } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { TenantService } from '../../service/tenant.service';
+import { Subscription } from 'rxjs';
+import { ContactRequirementPromptService } from '../../service/contact-requirement-prompt.service';
 
 interface ShiftRow {
   empId: number;
@@ -69,7 +71,7 @@ interface RoutePlannerTeam {
   templateUrl: './shift-home.component.html',
   styleUrl: './shift-home.component.css',
 })
-export class ShiftHomeComponent implements OnInit {
+export class ShiftHomeComponent implements OnInit, OnDestroy {
   @ViewChild('routePlannerMap') routePlannerMap?: ElementRef<HTMLDivElement>;
 
   selectedDate: Date = new Date();
@@ -111,9 +113,8 @@ export class ShiftHomeComponent implements OnInit {
   miniNext() { const d = new Date(this.miniCalDate); d.setMonth(d.getMonth()+1); this.miniCalDate = d; }
 
   miniSelectDay(date: Date) {
-    this.selectedDate = new Date(date);
     this.showMiniCal = false;
-    this.loadShifts();
+    this.setSelectedDate(date);
   }
 
   @HostListener('document:click', ['$event'])
@@ -195,6 +196,8 @@ export class ShiftHomeComponent implements OnInit {
   private googleMap: any = null;
   private googleDirectionsRenderers: any[] = [];
   private googleMarkers: any[] = [];
+  private queryParamSubscription?: Subscription;
+  private tenantConfigLoaded = false;
 
   tooltipVisible: boolean = false;
   tooltipText: string = '';
@@ -207,12 +210,30 @@ export class ShiftHomeComponent implements OnInit {
     private route: ActivatedRoute,
     private globalService: GlobalService,
     public tenantService: TenantService,
+    private contactPrompt: ContactRequirementPromptService,
   ) {}
 
   ngOnInit(): void {
-    const dateParam = this.route.snapshot.queryParamMap.get('date');
-    if (dateParam) this.selectedDate = this.parseLocalDate(dateParam);
-    this.globalService.loadTenantConfig().finally(() => this.loadShifts());
+    this.queryParamSubscription = this.route.queryParamMap.subscribe((params) => {
+      const dateParam = params.get('date');
+      if (!dateParam) return;
+
+      const nextDate = this.parseLocalDate(dateParam);
+      if (Number.isNaN(nextDate.getTime()) || this.isSameDay(nextDate, this.selectedDate)) return;
+
+      this.selectedDate = nextDate;
+      this.miniCalDate = new Date(nextDate);
+      if (this.tenantConfigLoaded) this.loadShifts();
+    });
+
+    this.globalService.loadTenantConfig().finally(() => {
+      this.tenantConfigLoaded = true;
+      this.loadShifts();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.queryParamSubscription?.unsubscribe();
   }
 
   groupedKeys(): string[] {
@@ -1138,15 +1159,35 @@ export class ShiftHomeComponent implements OnInit {
   prevDay(): void {
     const d = new Date(this.selectedDate);
     d.setDate(d.getDate() - 1);
-    this.selectedDate = d;
-    this.loadShifts();
+    this.setSelectedDate(d);
   }
 
   nextDay(): void {
     const d = new Date(this.selectedDate);
     d.setDate(d.getDate() + 1);
-    this.selectedDate = d;
+    this.setSelectedDate(d);
+  }
+
+  private setSelectedDate(date: Date): void {
+    const nextDate = new Date(date);
+    if (Number.isNaN(nextDate.getTime())) return;
+
+    this.selectedDate = nextDate;
+    this.miniCalDate = new Date(nextDate);
     this.loadShifts();
+    this.syncDateQueryParam();
+  }
+
+  private syncDateQueryParam(): void {
+    const date = this.formatDate(this.selectedDate);
+    if (this.route.snapshot.queryParamMap.get('date') === date) return;
+
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { date },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   createShifts(): void {
@@ -1276,7 +1317,7 @@ export class ShiftHomeComponent implements OnInit {
     const employeeTurns = this.groupedByEmployee[empName] || [];
 
     if (!phoneRaw) {
-      alert('Nessun numero di telefono trovato per questo dipendente');
+      this.contactPrompt.promptEmployeePhoneMissing();
       return;
     }
 

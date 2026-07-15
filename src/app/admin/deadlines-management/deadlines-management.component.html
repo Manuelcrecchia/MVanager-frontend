@@ -69,7 +69,7 @@
     {{ error }}
   </div>
 
-  <div class="card glass mt-3" *ngIf="showForm">
+  <div #deadlineForm class="card glass mt-3 deadline-form-card" *ngIf="showForm">
     <div class="form-head">
       <div>
         <h3 class="section-title mb-1">{{ formTitle }}</h3>
@@ -339,18 +339,24 @@
   <section class="card glass mt-3 detail-card" *ngIf="!loading && !entitiesLoading && selectedGroupView as currentGroup">
     <div class="entity-head">
       <div>
-        <button class="detail-back" (click)="closeGroup()">← Elenco {{ entityLabel }}</button>
+        <button type="button" class="detail-back" (click)="closeGroup()">← Elenco {{ entityLabel }}</button>
         <h3 class="entity-title mt-2">{{ currentGroup.label }}</h3>
         <p class="entity-subtitle mb-0">{{ currentGroup.subtitle || ' ' }}</p>
       </div>
 
-      <button
-        *ngIf="canCreate"
-        class="btn btn-outline-light btn-sm"
-        (click)="openAddForm(currentGroup.id)"
-      >
-        Aggiungi scadenza
-      </button>
+      <div class="detail-head-actions">
+        <button type="button" class="btn btn-outline-light btn-sm detail-return-button" (click)="closeGroup()">
+          Torna all'elenco
+        </button>
+        <button
+          *ngIf="canCreate"
+          type="button"
+          class="btn btn-outline-light btn-sm"
+          (click)="openAddForm(currentGroup.id)"
+        >
+          Aggiungi scadenza
+        </button>
+      </div>
     </div>
 
     <div class="empty-state" *ngIf="hasActiveSearch && selectedFolderGroups.length === 0">
@@ -382,9 +388,13 @@
         </div>
 
         <div class="deadline-list" *ngIf="folder.deadlines.length > 0">
-          <article class="deadline-item" *ngFor="let deadline of folder.deadlines">
+          <article
+            class="deadline-item"
+            *ngFor="let deadline of folder.deadlines"
+            [attr.data-deadline-id]="deadline.id"
+          >
           <div class="deadline-top">
-            <div>
+            <div class="deadline-copy">
               <div class="deadline-title-row">
                 <h4 class="deadline-title">{{ deadline.title }}</h4>
                 <span class="status-pill" [ngClass]="statusClass(deadline.status)">
@@ -402,21 +412,27 @@
             <div class="deadline-actions">
               <button
                 *ngIf="canEdit"
+                type="button"
                 class="btn btn-dark btn-sm"
-                (click)="openEditForm(deadline)"
+                (pointerdown)="onEditDeadlinePointerDown($event, deadline)"
+                (click)="onEditDeadlineClick($event, deadline)"
               >
                 Aggiorna
               </button>
               <button
                 *ngIf="canDelete"
+                type="button"
                 class="btn btn-outline-danger btn-sm"
-                (click)="deleteDeadline(deadline)"
+                (pointerdown)="onDeleteDeadlinePointerDown($event, deadline)"
+                (click)="onDeleteDeadlineClick($event, deadline)"
               >
                 Elimina
               </button>
               <button
+                type="button"
                 class="btn btn-deadline-secondary btn-sm"
-                (click)="toggleHistory(deadline)"
+                (pointerdown)="onToggleHistoryPointerDown($event, deadline)"
+                (click)="onToggleHistoryClick($event, deadline)"
               >
                 Storico
               </button>
@@ -433,6 +449,7 @@
             <button
               class="attachment-chip"
               *ngFor="let attachment of deadline.attachments"
+              (pointerdown)="onOpenAttachmentPointerDown($event, deadline, attachment)"
               (click)="openAttachment(deadline, attachment)"
             >
               <span>{{ attachment.originalName }}</span>
@@ -470,6 +487,20 @@
                 <ul>
                   <li *ngFor="let line of historySnapshotLines(entry)">{{ line }}</li>
                 </ul>
+              </div>
+              <div class="history-attachments" *ngIf="historyAttachments(entry).length > 0">
+                <span>Documenti storico</span>
+                <div class="history-attachment-list">
+                  <button
+                    class="attachment-chip history-attachment-chip"
+                    *ngFor="let attachment of historyAttachments(entry)"
+                    (pointerdown)="onOpenHistoryAttachmentPointerDown($event, deadline, entry, attachment)"
+                    (click)="openHistoryAttachment(deadline, entry, attachment)"
+                  >
+                    <span>{{ attachment.originalName }}</span>
+                    <small>{{ formatFileSize(attachment.size) }}</small>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

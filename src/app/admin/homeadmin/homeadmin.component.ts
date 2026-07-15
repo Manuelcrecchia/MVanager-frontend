@@ -84,6 +84,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     'addCustomer',
     'addQuote',
     'calendarHome',
+    'candidates',
     'cambiapassword',
     'customer-deadlines',
     'customerNotes',
@@ -115,6 +116,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     'schedaCliente',
     'service-orders',
     'settingsemployees',
+    'shifts',
     'timbratureDettaglio',
     'timbratureHome',
     'userSettings',
@@ -146,6 +148,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   selectedHomeCategoryId = '';
   expandedHomeCategoryId = '';
   permessiInAttesa: number = 0;
+  candidatiNonCompletati: number = 0;
   pendingQuoteReviews: number = 0;
   pendingEmployeeContractReviews: number = 0;
   emailUnreadCount: number = 0;
@@ -173,6 +176,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.global.loadTenantConfig().finally(() => {
       this.checkPermessiInAttesa();
+      this.loadActiveCandidatesCount();
       this.loadDeadlineSummary();
       this.loadPendingQuoteReviews();
       this.loadPendingEmployeeContractReviews();
@@ -224,6 +228,27 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Errore controllo permessi in attesa:', err);
+        },
+      });
+  }
+
+  loadActiveCandidatesCount(): void {
+    if (!this.canUsePermission('CANDIDATES_VIEW', 'candidates')) {
+      this.candidatiNonCompletati = 0;
+      return;
+    }
+
+    this.http
+      .get<unknown[]>(this.global.url + 'candidates/getAll?scope=active', {
+        headers: this.global.headers,
+      })
+      .subscribe({
+        next: (rows) => {
+          this.candidatiNonCompletati = Array.isArray(rows) ? rows.length : 0;
+        },
+        error: (err) => {
+          console.error('Errore caricamento candidati non completati:', err);
+          this.candidatiNonCompletati = 0;
         },
       });
   }
@@ -617,6 +642,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.navigateInHome('employee-contracts');
   }
 
+  navigateToCandidates() {
+    this.navigateInHome('candidates');
+  }
+
   navigateToEmployeeDeadlines() {
     this.navigateInHome('employee-deadlines');
   }
@@ -782,6 +811,16 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             action: () => this.navigateToEmployeeContracts(),
             desktopPath: 'employee-contracts',
             badgeCount: () => this.pendingEmployeeContractReviews,
+            badgeClass: () => 'badge bg-danger ms-1',
+          },
+          {
+            label: 'Candidati',
+            icon: 'fas fa-user-plus',
+            permission: 'CANDIDATES_VIEW',
+            feature: 'candidates',
+            action: () => this.navigateToCandidates(),
+            desktopPath: 'candidates',
+            badgeCount: () => this.candidatiNonCompletati,
             badgeClass: () => 'badge bg-danger ms-1',
           },
           {
@@ -1051,7 +1090,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Scadenze dipendenti',
             icon: 'fas fa-id-card',
             permission: 'EMPLOYEE_DEADLINES_VIEW',
-            feature: 'deadlines',
+            feature: 'employeeDeadlines',
             action: () => this.navigateToEmployeeDeadlines(),
             desktopPath: 'employee-deadlines',
             badgeCount: () => this.employeeDeadlineSummary.alertCount,
@@ -1061,7 +1100,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Scadenze mezzi',
             icon: 'fas fa-car',
             permission: 'VEHICLE_DEADLINES_VIEW',
-            feature: 'deadlines',
+            feature: 'vehicleDeadlines',
             action: () => this.navigateToVehicleDeadlines(),
             desktopPath: 'vehicle-deadlines',
             badgeCount: () => this.vehicleDeadlineSummary.alertCount,
@@ -1071,7 +1110,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Scadenze attrezzature',
             icon: 'fas fa-toolbox',
             permission: 'EQUIPMENT_DEADLINES_VIEW',
-            feature: 'deadlines',
+            feature: 'equipmentDeadlines',
             action: () => this.navigateToEquipmentDeadlines(),
             desktopPath: 'equipment-deadlines',
             badgeCount: () => this.equipmentDeadlineSummary.alertCount,
@@ -1081,7 +1120,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Scadenze clienti',
             icon: 'fas fa-user-shield',
             permission: 'CUSTOMER_DEADLINES_VIEW',
-            feature: 'deadlines',
+            feature: 'customerDeadlines',
             action: () => this.navigateToCustomerDeadlines(),
             desktopPath: 'customer-deadlines',
             badgeCount: () => this.customerDeadlineSummary.alertCount,
@@ -1091,7 +1130,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Scadenze interne',
             icon: 'fas fa-building-shield',
             permission: 'INTERNAL_DEADLINES_VIEW',
-            feature: 'deadlines',
+            feature: 'internalDeadlines',
             action: () => this.navigateToInternalDeadlines(),
             desktopPath: 'internal-deadlines',
             badgeCount: () => this.internalDeadlineSummary.alertCount,
@@ -1146,6 +1185,13 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   selectHomeCategory(categoryId: string): void {
     if (this.isDesktopHome) {
+      if (this.sidebarCollapsed) {
+        this.sidebarCollapsed = false;
+        this.settingsMenuOpen = false;
+        this.expandedHomeCategoryId = categoryId;
+        this.selectedHomeCategoryId = categoryId;
+        return;
+      }
       this.expandedHomeCategoryId =
         this.expandedHomeCategoryId === categoryId ? '' : categoryId;
       this.selectedHomeCategoryId = this.expandedHomeCategoryId;
@@ -1163,9 +1209,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     if (this.isDesktopHome && button.desktopPath) {
       this.isDesktopContentActive = true;
       this.setExpandedCategoryForButton(button);
-      this.router.navigate(['/homeAdmin', button.desktopPath], {
-        queryParams: button.queryParams,
-      });
+      this.navigateToHomeChild(button.desktopPath, button.queryParams);
       return;
     }
 
@@ -1462,8 +1506,31 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.loadEmailUnreadSummary();
   }
 
+  @HostListener('window:candidatesChanged')
+  onCandidatesChanged(): void {
+    this.loadActiveCandidatesCount();
+  }
+
   visibleHomeButtons(category: HomeCategory): HomeButton[] {
     return category.buttons.filter((button) => this.canUseHomeButton(button));
+  }
+
+  trackByHomeCategory(_index: number, category: HomeCategory): string {
+    return category.id;
+  }
+
+  trackByHomeButton(_index: number, button: HomeButton): string {
+    const query = button.queryParams
+      ? Object.entries(button.queryParams)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, value]) => `${key}=${value}`)
+        .join('&')
+      : '';
+    return [
+      button.desktopPath || button.label,
+      button.permission,
+      query,
+    ].join('|');
   }
 
   isCategoryExpanded(category: HomeCategory): boolean {
@@ -1488,7 +1555,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   private buttonQueryParamsMatch(button: HomeButton): boolean {
     if (!button.queryParams) return true;
-    const query = this.router.url.split('?')[1] || '';
+    const query = this.router.url.split('#')[0].split('?')[1] || '';
     const params = new URLSearchParams(query);
     return Object.entries(button.queryParams).every(
       ([key, value]) => params.get(key) === value,
@@ -1590,6 +1657,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     const activePath = this.activeDesktopChildPath();
     if (!activePath) {
       this.isDesktopContentActive = false;
+      this.selectedHomeCategoryId = '';
+      this.expandedHomeCategoryId = '';
       return;
     }
 
@@ -1641,11 +1710,29 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   private navigateInHome(path: string, queryParams?: Record<string, string>): void {
     if (this.isDesktopHome) {
       this.isDesktopContentActive = true;
-      this.router.navigate(['/homeAdmin', path], { queryParams });
+      this.navigateToHomeChild(path, queryParams);
       return;
     }
 
     this.router.navigate([`/${path}`], { queryParams });
+  }
+
+  private navigateToHomeChild(path: string, queryParams?: Record<string, string>): void {
+    const tree = this.router.createUrlTree(['/homeAdmin', path], {
+      queryParams: queryParams || null,
+    });
+    const targetUrl = this.router.serializeUrl(tree);
+    const currentUrl = this.router.url.split('#')[0];
+
+    if (currentUrl === targetUrl) {
+      this.router.navigateByUrl('/homeAdmin', { skipLocationChange: true }).then(() => {
+        this.isDesktopContentActive = true;
+        this.router.navigateByUrl(targetUrl);
+      });
+      return;
+    }
+
+    this.router.navigateByUrl(targetUrl);
   }
 
   private redirectStandaloneRouteIntoDesktopHome(): boolean {

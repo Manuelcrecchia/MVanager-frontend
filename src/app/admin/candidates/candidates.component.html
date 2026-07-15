@@ -1,0 +1,361 @@
+<div class="container-fluid py-4 candidates-page">
+  <div class="candidate-toolbar">
+    <div class="candidate-toolbar__left">
+      <button class="btn btn-back-glass" type="button" (click)="back()">
+        &larr; Torna Indietro
+      </button>
+      <button class="btn btn-pink" type="button" (click)="openNewForm()" [disabled]="!canManage">
+        <i class="fas fa-plus me-1"></i> Nuovo
+      </button>
+    </div>
+
+    <div class="candidate-toolbar__right">
+      <div class="btn-group candidate-tabs" role="group">
+        <button
+          type="button"
+          class="btn"
+          [class.active]="scope === 'active'"
+          (click)="loadCandidates('active')"
+        >
+          Attivi
+        </button>
+        <button
+          type="button"
+          class="btn"
+          [class.active]="scope === 'discarded'"
+          (click)="loadCandidates('discarded')"
+        >
+          Completati
+        </button>
+      </div>
+      <select
+        class="form-select form-control-glass candidate-status-filter"
+        [(ngModel)]="statusFilter"
+      >
+        <option value="">Tutti gli stati</option>
+        <option *ngFor="let status of statusFilterOptions" [value]="status.key">
+          {{ status.label }}
+        </option>
+      </select>
+      <input
+        class="form-control form-control-glass"
+        placeholder="Cerca"
+        [(ngModel)]="search"
+      />
+    </div>
+  </div>
+
+  <h2 class="page-title text-center text-dark mb-4">Candidati e colloqui</h2>
+
+  <div class="notice error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <div class="notice success" *ngIf="successMessage">{{ successMessage }}</div>
+
+  <div class="duplicate-banner" *ngIf="duplicateMatches.length">
+    <div>
+      <strong>Possibile duplicato</strong>
+      <span *ngFor="let match of duplicateMatches; let last = last">
+        {{ match.label }} ({{ match.entityType === 'candidate' ? 'candidato' : 'dipendente' }}){{ last ? '' : ', ' }}
+      </span>
+    </div>
+    <div class="duplicate-actions">
+      <button
+        class="btn btn-sm btn-outline-dark"
+        type="button"
+        *ngFor="let match of duplicateMatches"
+        (click)="openDuplicate(match)"
+      >
+        Apri {{ match.entityType === 'candidate' ? 'scheda' : 'dipendenti' }}
+      </button>
+      <button
+        class="btn btn-sm btn-pink"
+        type="button"
+        *ngIf="showForm && canManage"
+        (click)="saveCandidate(true)"
+      >
+        Salva comunque
+      </button>
+    </div>
+  </div>
+
+  <div class="candidate-layout">
+    <aside class="candidate-list-panel">
+      <div class="candidate-list-head">
+        <span>{{ loading ? 'Caricamento' : filteredCandidates.length + ' candidati' }}</span>
+      </div>
+
+      <button
+        class="candidate-row"
+        type="button"
+        *ngFor="let candidate of filteredCandidates; trackBy: trackByCandidate"
+        [class.active]="selectedCandidate?.id === candidate.id"
+        (click)="selectCandidate(candidate)"
+      >
+        <span class="candidate-row__name">{{ candidateName(candidate) }}</span>
+        <span class="candidate-row__meta">
+          {{ statusLabel(candidate.statusKey) }}
+          <span *ngIf="candidate.roleCategory?.name"> · {{ candidate.roleCategory?.name }}</span>
+        </span>
+        <span class="candidate-row__contact">
+          {{ candidate.email || candidate.phone || candidate.fiscalCode || '-' }}
+        </span>
+      </button>
+
+      <div class="empty-state" *ngIf="!loading && !filteredCandidates.length">
+        Nessun candidato
+      </div>
+    </aside>
+
+    <main class="candidate-main">
+      <section class="candidate-form-panel" *ngIf="showForm">
+        <div class="panel-head">
+          <h3>{{ form.id ? 'Modifica candidato' : 'Nuovo candidato' }}</h3>
+          <button class="icon-btn" type="button" (click)="closeForm()" aria-label="Chiudi">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <form class="candidate-form" (ngSubmit)="saveCandidate()">
+          <section
+            class="field-section"
+            *ngFor="let section of fieldSections; trackBy: trackBySection"
+          >
+            <div class="field-section__head">
+              <h4>{{ section.label }}</h4>
+            </div>
+
+            <div class="field-grid">
+              <label
+                *ngFor="let field of section.fields; trackBy: trackByField"
+                [class.wide]="isWide(field)"
+              >
+                {{ field.label || field.key }}
+
+                <textarea
+                  *ngIf="isTextarea(field)"
+                  rows="3"
+                  [name]="'candidate_' + field.key"
+                  [ngModel]="getFieldValue(field)"
+                  (ngModelChange)="setFieldValue(field, $event)"
+                  [required]="field.required === true"
+                ></textarea>
+
+                <select
+                  *ngIf="!isTextarea(field) && isSelect(field)"
+                  [name]="'candidate_' + field.key"
+                  [ngModel]="getFieldValue(field)"
+                  (ngModelChange)="setFieldValue(field, $event)"
+                  [required]="field.required === true"
+                >
+                  <option value=""></option>
+                  <option *ngFor="let option of getEnumOptions(field)" [value]="option">
+                    {{ option }}
+                  </option>
+                </select>
+
+                <span class="checkbox-field" *ngIf="!isTextarea(field) && !isSelect(field) && isBoolean(field)">
+                  <input
+                    type="checkbox"
+                    [name]="'candidate_' + field.key"
+                    [ngModel]="getFieldValue(field)"
+                    (ngModelChange)="setFieldValue(field, $event)"
+                  />
+                </span>
+
+                <input
+                  *ngIf="!isTextarea(field) && !isSelect(field) && !isBoolean(field)"
+                  [type]="inputType(field)"
+                  [name]="'candidate_' + field.key"
+                  [ngModel]="getFieldValue(field)"
+                  (ngModelChange)="setFieldValue(field, $event)"
+                  [required]="field.required === true"
+                />
+              </label>
+            </div>
+          </section>
+
+          <div class="field-grid field-grid--fixed">
+            <label>
+              Posizione
+              <select name="roleCategoryId" [(ngModel)]="form.roleCategoryId" (ngModelChange)="scheduleDuplicateCheck()">
+                <option [ngValue]="null"></option>
+                <option *ngFor="let category of employeeCategories" [ngValue]="category.id">
+                  {{ category.name }}
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Stato
+              <select name="statusKey" [(ngModel)]="form.statusKey">
+                <option *ngFor="let status of activeStatuses" [value]="status.key">
+                  {{ status.label }}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-pink" type="submit" [disabled]="saving || !canManage">
+              <i class="fas fa-save me-1"></i> Salva
+            </button>
+            <button class="btn btn-outline-secondary" type="button" (click)="closeForm()">
+              Annulla
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="candidate-detail-panel" *ngIf="!showForm && selectedCandidate">
+        <div class="detail-head">
+          <div>
+            <h3>{{ candidateName(selectedCandidate) }}</h3>
+            <div class="detail-status-row">
+              <label class="detail-status-control" *ngIf="canQuickChangeStatus; else readonlyStatus">
+                <span>Stato</span>
+                <select
+                  class="form-select form-select-sm"
+                  [ngModel]="selectedCandidate.statusKey"
+                  (ngModelChange)="updateCandidateStatus($event)"
+                  [disabled]="!canManage || statusUpdating"
+                >
+                  <option *ngFor="let status of activeStatuses" [value]="status.key">
+                    {{ status.label }}
+                  </option>
+                </select>
+              </label>
+              <ng-template #readonlyStatus>
+                <span class="status-chip">{{ statusLabel(selectedCandidate.statusKey) }}</span>
+              </ng-template>
+              <span class="detail-role" *ngIf="selectedCandidate.roleCategory?.name">
+                {{ selectedCandidate.roleCategory?.name }}
+              </span>
+            </div>
+          </div>
+          <div class="detail-actions">
+            <button class="btn btn-outline-dark btn-sm" type="button" (click)="editSelected()" [disabled]="!canManage">
+              <i class="fas fa-pen me-1"></i> Modifica
+            </button>
+            <button
+              class="btn btn-success btn-sm"
+              type="button"
+              (click)="convertToEmployee()"
+              [disabled]="!canConvert || !!selectedCandidate.employeeId || !!selectedCandidate.discardedAt"
+            >
+              <i class="fas fa-user-check me-1"></i> Aggiungi come dipendente
+            </button>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div><span>Email</span><strong>{{ selectedCandidate.email || '-' }}</strong></div>
+          <div><span>Telefono</span><strong>{{ selectedCandidate.phone || '-' }}</strong></div>
+          <div><span>Codice fiscale</span><strong>{{ selectedCandidate.fiscalCode || '-' }}</strong></div>
+          <div><span>Colloquio</span><strong>{{ selectedCandidate.interviewStartAt ? (selectedCandidate.interviewStartAt | date:'dd/MM/yyyy HH:mm') : '-' }}</strong></div>
+        </div>
+
+        <div class="action-strip" *ngIf="!selectedCandidate.employeeId">
+          <ng-container *ngIf="!selectedCandidate.discardedAt; else reopenBlock">
+            <select class="form-select" [(ngModel)]="discardReasonKey">
+              <option value=""></option>
+              <option *ngFor="let reason of config.discardReasons" [value]="reason.key">
+                {{ reason.label }}
+              </option>
+            </select>
+            <button class="btn btn-outline-danger" type="button" (click)="discardCandidate()" [disabled]="!canManage">
+              Scarta
+            </button>
+          </ng-container>
+          <ng-template #reopenBlock>
+            <span class="discarded-reason">
+              {{ discardReasonLabel(selectedCandidate.discardReasonKey) }}
+            </span>
+            <button class="btn btn-outline-dark" type="button" (click)="reopenCandidate()" [disabled]="!canManage">
+              Riapri
+            </button>
+          </ng-template>
+        </div>
+
+        <div class="interview-box">
+          <label>
+            Inizio colloquio
+            <input class="form-control" type="datetime-local" [(ngModel)]="interviewStart" (ngModelChange)="syncInterviewEnd()" />
+          </label>
+          <label>
+            Fine colloquio (automatica)
+            <input class="form-control" type="datetime-local" [(ngModel)]="interviewEnd" readonly />
+          </label>
+          <button class="btn btn-outline-dark" type="button" (click)="scheduleInterview()" [disabled]="!canManage || !interviewStart">
+            <i class="fas fa-calendar-plus me-1"></i> Calendario
+          </button>
+        </div>
+      </section>
+
+      <section class="candidate-detail-panel empty-detail" *ngIf="!showForm && !selectedCandidate">
+        Seleziona o crea un candidato
+      </section>
+    </main>
+
+    <aside class="candidate-side-panel" *ngIf="selectedCandidate">
+      <section class="side-section">
+        <div class="side-head">
+          <h4>Note</h4>
+        </div>
+        <div class="note-list">
+          <div class="note-item" *ngFor="let note of notes; trackBy: trackById">
+            <strong>{{ note.data }} {{ note.ora }}</strong>
+            <p>{{ note.testo }}</p>
+          </div>
+          <div class="empty-state" *ngIf="!notes.length">Nessuna nota</div>
+        </div>
+        <div class="note-form">
+          <textarea rows="3" [(ngModel)]="noteText" [disabled]="!canManageNotes"></textarea>
+          <button class="btn btn-pink btn-sm" type="button" (click)="addNote()" [disabled]="!canManageNotes || !noteText.trim()">
+            Aggiungi
+          </button>
+        </div>
+      </section>
+
+      <section class="side-section">
+        <div class="side-head">
+          <h4>Allegati</h4>
+        </div>
+        <div class="attachment-form">
+          <select class="form-select" *ngIf="config.attachmentTypes.length" [(ngModel)]="selectedAttachmentType" [disabled]="!canManageFiles">
+            <option *ngFor="let type of config.attachmentTypes" [value]="type.key">
+              {{ type.label }}
+            </option>
+          </select>
+          <input class="form-control" type="file" (change)="onFileSelected($event)" [disabled]="!canManageFiles" />
+          <button class="btn btn-outline-dark btn-sm" type="button" (click)="uploadAttachment()" [disabled]="!canManageFiles || !selectedFile">
+            Carica
+          </button>
+        </div>
+        <div class="attachment-list">
+          <div class="attachment-item" *ngFor="let attachment of attachments; trackBy: trackById">
+            <button type="button" class="link-button" (click)="downloadAttachment(attachment)">
+              {{ attachment.originalName }}
+            </button>
+            <span>{{ attachmentTypeLabel(attachment.typeKey) }}</span>
+            <button class="icon-btn danger" type="button" (click)="deleteAttachment(attachment)" [disabled]="!canManageFiles" aria-label="Elimina">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+          <div class="empty-state" *ngIf="!attachments.length">Nessun allegato</div>
+        </div>
+      </section>
+
+      <section class="side-section">
+        <div class="side-head">
+          <h4>Storico</h4>
+        </div>
+        <div class="event-list">
+          <div class="event-item" *ngFor="let event of events; trackBy: trackById">
+            <span>{{ event.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+            <strong>{{ event.label }}</strong>
+          </div>
+          <div class="empty-state" *ngIf="!events.length">Nessun evento</div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>

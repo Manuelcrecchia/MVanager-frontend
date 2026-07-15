@@ -179,7 +179,7 @@
                 <button
                   mat-button
                   class="mv-file-btn"
-                  (click)="selectFile(file.filename)"
+                  (click)="selectFile(file)"
                   type="button"
                 >
                   <div class="mv-file-left">
@@ -218,7 +218,7 @@
                   <button
                     mat-icon-button
                     class="mv-icon-btn mv-icon-btn--view"
-                    (click)="selectFile(file.filename); $event.stopPropagation()"
+                    (click)="selectFile(file); $event.stopPropagation()"
                     matTooltip="Visualizza"
                     type="button"
                   >
@@ -228,7 +228,7 @@
                   <button
                     mat-icon-button
                     class="mv-icon-btn mv-icon-btn--download"
-                    (click)="downloadCurrentFile(file.filename); $event.stopPropagation()"
+                    (click)="downloadCurrentFile(file); $event.stopPropagation()"
                     matTooltip="Scarica"
                     type="button"
                   >
@@ -238,7 +238,7 @@
                   <button
                     mat-icon-button
                     class="mv-icon-btn mv-icon-btn--print"
-                    (click)="printFile(file.filename); $event.stopPropagation()"
+                    (click)="printFile(file); $event.stopPropagation()"
                     matTooltip="Stampa"
                     type="button"
                   >
@@ -248,7 +248,7 @@
                   <button
                     mat-icon-button
                     class="mv-icon-btn mv-icon-btn--accent"
-                    (click)="sendFileMail(file.filename); $event.stopPropagation()"
+                    (click)="sendFileMail(file); $event.stopPropagation()"
                     matTooltip="Invia via mail"
                     type="button"
                   >
@@ -256,6 +256,7 @@
                   </button>
 
                   <button
+                    *ngIf="file.managedBy !== 'deadline'"
                     mat-icon-button
                     class="mv-icon-btn mv-icon-btn--rename"
                     (click)="renameFile(file); $event.stopPropagation()"
@@ -266,9 +267,10 @@
                   </button>
 
                   <button
+                    *ngIf="file.managedBy !== 'deadline'"
                     mat-icon-button
                     class="mv-icon-btn mv-icon-btn--danger"
-                    (click)="deleteFile(file.filename); $event.stopPropagation()"
+                    (click)="deleteFile(file); $event.stopPropagation()"
                     matTooltip="Elimina"
                     type="button"
                   >

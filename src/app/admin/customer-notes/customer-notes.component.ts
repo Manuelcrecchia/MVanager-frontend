@@ -27,8 +27,10 @@ export interface NotaCliente {
   styleUrl: './customer-notes.component.css',
 })
 export class CustomerNotesComponent implements OnInit {
+  private readonly fallbackReturnUrl = '/homeAdmin/listCustomer';
   numeroCliente = '';
   displayName = '';
+  returnTo = this.fallbackReturnUrl;
   note: NotaCliente[] = [];
   nuovaNota = '';
   nuoviAllegati: AllegatoNota[] = [];
@@ -111,6 +113,9 @@ export class CustomerNotesComponent implements OnInit {
       this.route.snapshot.queryParamMap.get('numeroCliente') || '';
     this.displayName =
       this.route.snapshot.queryParamMap.get('displayName') || '';
+    this.returnTo = this.resolveReturnUrl(
+      this.route.snapshot.queryParamMap.get('returnTo'),
+    );
     this.loadNote();
   }
 
@@ -340,13 +345,27 @@ export class CustomerNotesComponent implements OnInit {
   }
 
   back() {
-    this.router.navigateByUrl('/homeAdmin/listCustomer');
+    this.router.navigateByUrl(this.returnTo);
   }
 
   @HostListener('window:popstate', ['$event'])
   onBrowserBackBtnClose(event: Event): void {
     event.preventDefault();
-    this.location.replaceState('/homeAdmin/listCustomer');
-    this.router.navigateByUrl('/homeAdmin/listCustomer');
+    this.location.replaceState(this.returnTo);
+    this.router.navigateByUrl(this.returnTo);
+  }
+
+  private resolveReturnUrl(value: string | null): string {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return this.fallbackReturnUrl;
+
+    try {
+      const decoded = decodeURIComponent(trimmed);
+      if (decoded.startsWith('/homeAdmin')) return decoded;
+    } catch {
+      if (trimmed.startsWith('/homeAdmin')) return trimmed;
+    }
+
+    return this.fallbackReturnUrl;
   }
 }

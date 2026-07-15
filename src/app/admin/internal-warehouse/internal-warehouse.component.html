@@ -19,6 +19,11 @@
       <span>Richieste</span>
       <strong *ngIf="productRequests.length">{{ productRequests.length }}</strong>
     </button>
+    <button type="button" (click)="setTab('orders')" [class.active]="activeTab === 'orders'" *ngIf="canRegisterIn || canManageProducts">
+      <i class="fas fa-paper-plane"></i>
+      <span>Ordini</span>
+      <strong *ngIf="selectedOrderCount">{{ selectedOrderCount }}</strong>
+    </button>
     <button type="button" (click)="setTab('out')" [class.active]="activeTab === 'out'" *ngIf="canRegisterOut">
       <i class="fas fa-arrow-up"></i>
       <span>Uscite</span>
@@ -83,6 +88,10 @@
     <button class="mobile-quick-action" type="button" (click)="setTab('requests')" *ngIf="productRequests.length">
       <i class="fas fa-inbox"></i>
       <span>Richieste</span>
+    </button>
+    <button class="mobile-quick-action" type="button" (click)="setTab('orders')" *ngIf="canRegisterIn || canManageProducts">
+      <i class="fas fa-paper-plane"></i>
+      <span>Ordine</span>
     </button>
   </section>
 
@@ -207,6 +216,198 @@
     </div>
   </section>
 
+  <section class="panel supplier-order-panel" *ngIf="activeTab === 'orders' && canView && (canRegisterIn || canManageProducts)">
+    <div class="section-head order-head">
+      <div>
+        <span class="section-kicker">Riordino</span>
+        <h4>Ordini fornitori</h4>
+        <p>Seleziona un fornitore, scegli i prodotti e invia la richiesta via email.</p>
+      </div>
+      <div class="product-directory-actions">
+        <button class="btn btn-outline-dark" type="button" (click)="loadSuppliers()">
+          <i class="fas fa-refresh me-1"></i> Fornitori
+        </button>
+        <button class="btn btn-dark" type="button" (click)="loadOrderProducts()" [disabled]="!orderFilters.supplierId">
+          <i class="fas fa-filter me-1"></i> Prodotti
+        </button>
+      </div>
+    </div>
+
+    <div class="supplier-order-layout">
+      <aside class="supplier-directory">
+        <label class="field">
+          <span>Cerca fornitore</span>
+          <input class="form-control" [(ngModel)]="supplierSearch" (keyup.enter)="loadSuppliers()" placeholder="Nome, email, P.IVA" />
+        </label>
+        <div class="supplier-list">
+          <button
+            class="supplier-pick-row"
+            type="button"
+            *ngFor="let supplier of suppliers"
+            (click)="selectOrderSupplier(supplier)"
+            [class.active]="supplier.id === orderFilters.supplierId"
+          >
+            <span>
+              <strong>{{ supplier.name }}</strong>
+              <small>{{ supplierContactLabel(supplier) }}</small>
+              <small>{{ supplierStatsLabel(supplier) }}</small>
+            </span>
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+        <div class="empty-products compact" *ngIf="!suppliers.length">
+          <strong>Nessun fornitore</strong>
+          <span>Crea il primo fornitore dal pannello sotto.</span>
+        </div>
+      </aside>
+
+      <main class="order-workspace">
+        <div class="order-empty" *ngIf="!selectedOrderSupplier()">
+          <i class="fas fa-truck-loading"></i>
+          <strong>Seleziona un fornitore</strong>
+          <span>Vedrai solo i prodotti collegati a quel fornitore.</span>
+        </div>
+
+        <ng-container *ngIf="selectedOrderSupplier() as supplier">
+          <div class="order-supplier-card">
+            <div>
+              <span class="section-kicker">Fornitore selezionato</span>
+              <h5>{{ supplier.name }}</h5>
+              <p>{{ supplierContactLabel(supplier) }} · {{ supplierStatsLabel(supplier) }}</p>
+              <p *ngIf="supplier.lastInboundInvoiceDate">Ultima fattura acquisto: {{ supplier.lastInboundInvoiceDate | date : "dd/MM/yyyy" }}</p>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" type="button" (click)="editSupplier(supplier)" *ngIf="canManageProducts">
+              Modifica contatto
+            </button>
+          </div>
+
+          <div class="order-filters">
+            <label class="field">
+              <span>Fornitore</span>
+              <select class="form-select" [(ngModel)]="orderFilters.supplierId" (ngModelChange)="onOrderSupplierChange()">
+                <option [ngValue]="0">Seleziona fornitore</option>
+                <option *ngFor="let item of suppliers" [ngValue]="item.id">{{ item.name }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Cerca prodotto</span>
+              <input class="form-control" [(ngModel)]="orderFilters.q" (keyup.enter)="loadOrderProducts()" placeholder="Nome, codice, categoria" />
+            </label>
+            <label class="check-line order-check">
+              <input type="checkbox" [(ngModel)]="orderFilters.onlyLow" (change)="loadOrderProducts()" />
+              Solo sotto scorta
+            </label>
+            <button class="btn btn-outline-dark" type="button" (click)="selectLowStockForOrder()" [disabled]="!orderProducts.length">
+              Seleziona sotto scorta
+            </button>
+            <button class="btn btn-outline-secondary" type="button" (click)="clearOrderSelection()" [disabled]="!selectedOrderCount">
+              Pulisci
+            </button>
+          </div>
+
+          <div class="warehouse-loading" *ngIf="loadingOrderProducts">
+            <i class="fas fa-circle-notch fa-spin"></i>
+            <span>Caricamento prodotti...</span>
+          </div>
+
+          <div class="order-product-list" *ngIf="!loadingOrderProducts && orderProducts.length">
+            <article class="order-product-row" *ngFor="let product of orderProducts" [class.selected]="isOrderProductSelected(product)">
+              <label class="order-product-check">
+                <input type="checkbox" [checked]="isOrderProductSelected(product)" (change)="toggleOrderProduct(product, $any($event.target).checked)" />
+                <span>
+                  <strong>{{ product.name }}</strong>
+                  <small>{{ product.category }} · {{ product.quantity }} / {{ product.minimumQuantity }} {{ product.unit }}</small>
+                  <small *ngIf="product.supplierCode">Cod. fornitore {{ product.supplierCode }}</small>
+                </span>
+              </label>
+              <label class="field order-quantity">
+                <span>Quantità</span>
+                <input class="form-control" type="number" min="0.001" [attr.step]="quantityStep(product.unit)" [(ngModel)]="orderQuantities[product.id]" />
+              </label>
+              <label class="field order-note">
+                <span>Nota riga</span>
+                <input class="form-control" [(ngModel)]="orderNotes[product.id]" [placeholder]="product.reorderNote || 'Opzionale'" />
+              </label>
+            </article>
+          </div>
+
+          <div class="empty-products compact" *ngIf="!loadingOrderProducts && !orderProducts.length">
+            <strong>Nessun prodotto collegato</strong>
+            <span>Collega i prodotti a {{ supplier.name }} dalla scheda prodotto.</span>
+          </div>
+
+          <aside class="order-summary-card" *ngIf="selectedOrderCount">
+            <div>
+              <span class="section-kicker">Email ordine</span>
+              <h5>{{ selectedOrderCount }} prodotti selezionati</h5>
+              <p *ngIf="selectedOrderTotal">Totale indicativo {{ selectedOrderTotal | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</p>
+            </div>
+            <label class="field full">
+              <span>Messaggio</span>
+              <textarea class="form-control" rows="3" [(ngModel)]="orderMessage" placeholder="Buongiorno, vorremmo ordinare i seguenti materiali..."></textarea>
+            </label>
+            <div class="selected-order-list">
+              <span *ngFor="let product of selectedOrderProducts()">
+                {{ product.name }} · {{ orderQuantities[product.id] || defaultOrderQuantity(product) }} {{ product.unit }}
+              </span>
+            </div>
+            <button class="btn btn-success" type="button" (click)="sendSupplierOrderEmail()" [disabled]="sendingOrder">
+              <i class="fas fa-paper-plane me-1"></i> Invia email al fornitore
+            </button>
+          </aside>
+        </ng-container>
+      </main>
+    </div>
+
+    <details class="settings-card supplier-editor-panel" *ngIf="canManageProducts">
+      <summary class="settings-summary">
+        <span>
+          <strong>{{ supplierForm.id ? 'Modifica fornitore' : 'Nuovo fornitore' }}</strong>
+          <small>La stessa anagrafica viene usata anche dalle fatture acquisto.</small>
+        </span>
+        <i class="fas fa-chevron-down"></i>
+      </summary>
+      <form class="supplier-form" (ngSubmit)="saveSupplier()">
+        <label class="field">
+          <span>Nome</span>
+          <input class="form-control" [(ngModel)]="supplierForm.name" name="supplierName" placeholder="Ragione sociale" />
+        </label>
+        <label class="field">
+          <span>Email</span>
+          <input class="form-control" [(ngModel)]="supplierForm.email" name="supplierEmail" placeholder="ordini@fornitore.it" />
+        </label>
+        <label class="field">
+          <span>PEC</span>
+          <input class="form-control" [(ngModel)]="supplierForm.pec" name="supplierPec" placeholder="fornitore@pec.it" />
+        </label>
+        <label class="field">
+          <span>P.IVA</span>
+          <input class="form-control" [(ngModel)]="supplierForm.vatNumber" name="supplierVat" />
+        </label>
+        <label class="field">
+          <span>Codice fiscale</span>
+          <input class="form-control" [(ngModel)]="supplierForm.fiscalCode" name="supplierFiscalCode" />
+        </label>
+        <label class="field">
+          <span>Città</span>
+          <input class="form-control" [(ngModel)]="supplierForm.city" name="supplierCity" />
+        </label>
+        <label class="field full">
+          <span>Indirizzo</span>
+          <input class="form-control" [(ngModel)]="supplierForm.address" name="supplierAddress" />
+        </label>
+        <label class="field full">
+          <span>Note</span>
+          <textarea class="form-control" rows="2" [(ngModel)]="supplierForm.notes" name="supplierNotes"></textarea>
+        </label>
+        <div class="form-actions">
+          <button class="btn btn-dark" type="submit" [disabled]="saving">Salva fornitore</button>
+          <button class="btn btn-outline-secondary" type="button" (click)="resetSupplierForm()">Pulisci</button>
+        </div>
+      </form>
+    </details>
+  </section>
+
   <section class="panel product-directory" *ngIf="activeTab === 'list' && canView">
     <div class="section-head product-directory-head">
       <div>
@@ -238,6 +439,13 @@
         <select class="form-select" [(ngModel)]="filters.categoryId">
           <option [ngValue]="0">Tutte le categorie</option>
           <option *ngFor="let category of categories" [ngValue]="category.id">{{ category.name }}</option>
+        </select>
+      </label>
+      <label class="filter-field">
+        <span>Fornitore</span>
+        <select class="form-select" [(ngModel)]="filters.supplierId">
+          <option [ngValue]="0">Tutti i fornitori</option>
+          <option *ngFor="let supplier of suppliers" [ngValue]="supplier.id">{{ supplier.name }}</option>
         </select>
       </label>
       <label class="filter-field">
@@ -320,20 +528,23 @@
           <span class="stock-badge ok" *ngIf="!product.isOutOfStock && !product.isLowStock">Disponibile</span>
         </div>
 
-        <div class="supplier-line" *ngIf="product.supplier || product.supplierCode || product.indicativePrice !== null">
-          <span *ngIf="product.supplier"><i class="fas fa-truck"></i> {{ product.supplier }}</span>
+        <div class="supplier-line" *ngIf="supplierDisplayName(product) || product.supplierCode || product.indicativePrice !== null">
+          <span *ngIf="supplierDisplayName(product)"><i class="fas fa-truck"></i> {{ supplierDisplayName(product) }}</span>
           <span *ngIf="product.supplierCode">Cod. {{ product.supplierCode }}</span>
           <span *ngIf="product.indicativePrice !== null">€ {{ product.indicativePrice }}</span>
         </div>
 
-        <div class="product-card-actions" *ngIf="canManageProducts">
-          <button class="icon-action favorite" type="button" (click)="toggleFavorite(product)" [class.is-active]="product.favorite" [title]="product.favorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'">
+        <div class="product-card-actions" *ngIf="canManageProducts || canRegisterIn">
+          <button class="icon-action order" type="button" (click)="openOrderForProduct(product)" title="Prepara ordine fornitore" *ngIf="canRegisterIn || canManageProducts">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+          <button class="icon-action favorite" type="button" (click)="toggleFavorite(product)" [class.is-active]="product.favorite" [title]="product.favorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'" *ngIf="canManageProducts">
             <i class="fas fa-star"></i>
           </button>
-          <button class="icon-action" type="button" (click)="editProduct(product)" title="Modifica">
+          <button class="icon-action" type="button" (click)="editProduct(product)" title="Modifica" *ngIf="canManageProducts">
             <i class="fas fa-pen"></i>
           </button>
-          <button class="icon-action danger" type="button" (click)="deleteProduct(product)" title="Archivia">
+          <button class="icon-action danger" type="button" (click)="deleteProduct(product)" title="Archivia" *ngIf="canManageProducts">
             <i class="fas fa-archive"></i>
           </button>
         </div>
@@ -715,6 +926,13 @@
         </label>
         <label class="field">
           <span>Fornitore abituale</span>
+          <select class="form-select" [(ngModel)]="productForm.supplierId" name="supplierId" (ngModelChange)="onProductSupplierChange()">
+            <option [ngValue]="0">Nessun fornitore collegato</option>
+            <option *ngFor="let supplier of suppliers" [ngValue]="supplier.id">{{ supplier.name }}</option>
+          </select>
+        </label>
+        <label class="field" *ngIf="!productForm.supplierId">
+          <span>Nome fornitore libero</span>
           <input class="form-control" [(ngModel)]="productForm.supplier" name="supplier" placeholder="Nome fornitore" />
         </label>
         <label class="field">

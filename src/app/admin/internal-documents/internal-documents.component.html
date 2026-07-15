@@ -135,7 +135,7 @@
           <button
             type="button"
             class="file-main"
-            (click)="selectFile(file.filename)"
+            (click)="selectFile(file)"
           >
             <span class="file-name">{{ displayFileName(file) }}</span>
 
@@ -154,7 +154,7 @@
               class="icon-btn icon-view"
               title="Visualizza"
               type="button"
-              (click)="selectFile(file.filename); $event.stopPropagation()"
+              (click)="selectFile(file); $event.stopPropagation()"
             >
               <mat-icon>visibility</mat-icon>
             </button>
@@ -165,7 +165,7 @@
               title="Scarica"
               type="button"
               (click)="
-                downloadCurrentFile(file.filename); $event.stopPropagation()
+                downloadCurrentFile(file); $event.stopPropagation()
               "
             >
               <mat-icon>download</mat-icon>
@@ -176,7 +176,7 @@
               class="icon-btn icon-print"
               title="Stampa"
               type="button"
-              (click)="printFile(file.filename); $event.stopPropagation()"
+              (click)="printFile(file); $event.stopPropagation()"
             >
               <mat-icon>print</mat-icon>
             </button>
@@ -186,7 +186,7 @@
               class="icon-btn icon-danger"
               title="Elimina"
               type="button"
-              (click)="deleteFile(file.filename); $event.stopPropagation()"
+              (click)="deleteFile(file); $event.stopPropagation()"
             >
               <mat-icon>delete</mat-icon>
             </button>

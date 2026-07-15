@@ -29,6 +29,7 @@ interface TenantBackendConfig {
   quoteConfig?: TenantQuoteConfig;
   addressConfig?: TenantCustomerAddressConfig;
   contractConfig?: TenantContractConfig;
+  employeeConfig?: TenantEmployeeConfig;
   routePlanningConfig?: TenantRoutePlanningConfig;
   invoiceConfig?: TenantInvoiceConfig;
   mapsConfig?: TenantMapsConfig;
@@ -185,6 +186,30 @@ export interface TenantContractConfig {
   }>;
 }
 
+export interface TenantEmployeeFieldConfig {
+  key: string;
+  label: string;
+  dbColumn?: string;
+  type?: string;
+  section?: string;
+  enumValues?: string;
+  validationRule?: string;
+  defaultValue?: string;
+  displayRole?: string;
+  visibleWhen?: {
+    field?: string;
+    value?: string;
+  };
+  required?: boolean;
+  visible?: boolean;
+  locked?: boolean;
+  system?: boolean;
+}
+
+export interface TenantEmployeeConfig {
+  fields?: TenantEmployeeFieldConfig[];
+}
+
 export interface TenantRoutePlanningConfig {
   employeeSelfTransportField?: string;
   minimizeSplitRejoins?: boolean;
@@ -221,7 +246,7 @@ export interface TenantMapsConfig {
   providedIn: 'root',
 })
 export class GlobalService {
-  version = '5.2';
+  version = '5.3';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -431,6 +456,29 @@ export class GlobalService {
     const purchasedFeatures = this.tenantConfig?.features;
     if (Array.isArray(purchasedFeatures)) {
       if (purchasedFeatures.includes(feature)) return true;
+      if (
+        [
+          'employeeDeadlines',
+          'vehicleDeadlines',
+          'equipmentDeadlines',
+          'customerDeadlines',
+          'internalDeadlines',
+        ].includes(feature)
+      ) {
+        return purchasedFeatures.includes('deadlines');
+      }
+      if (feature === 'deadlines') {
+        return purchasedFeatures.some((item) =>
+          [
+            'deadlines',
+            'employeeDeadlines',
+            'vehicleDeadlines',
+            'equipmentDeadlines',
+            'customerDeadlines',
+            'internalDeadlines',
+          ].includes(item),
+        );
+      }
       if (feature === 'documents') {
         return purchasedFeatures.some((item) =>
           [
@@ -494,6 +542,10 @@ export class GlobalService {
 
   getTenantContractConfig(): TenantContractConfig | null {
     return this.tenantConfig?.contractConfig || null;
+  }
+
+  getTenantEmployeeConfig(): TenantEmployeeConfig | null {
+    return this.tenantConfig?.employeeConfig || null;
   }
 
   getTenantRoutePlanningConfig(): TenantRoutePlanningConfig | null {

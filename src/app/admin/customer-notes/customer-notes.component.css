@@ -484,6 +484,33 @@ mat-toolbar[color="primary"] {
   gap: 10px;
 }
 
+.btn-return-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 9px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, .16);
+  background: rgba(255,255,255,.82);
+  color: #0f172a;
+  font-weight: 900;
+  cursor: pointer;
+  transition: .18s ease;
+  flex-shrink: 0;
+}
+.btn-return-inline:hover {
+  background: #fff;
+  transform: translateY(-1px);
+}
+.btn-return-inline mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #0f172a !important;
+}
+
 .btn-allegato {
   display: inline-flex;
   align-items: center;
@@ -541,7 +568,7 @@ mat-toolbar[color="primary"] {
 /* ── TOOLBAR BUTTONS ── */
 .toolbar-left {
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .btn-toolbar {
@@ -718,6 +745,18 @@ mat-toolbar[color="primary"] {
 
 /* RESPONSIVE */
 @media (max-width: 600px) {
+  mat-toolbar[color="primary"] {
+    height: auto;
+    min-height: 64px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .toolbar-left {
+    flex: 1 1 100%;
+  }
+  .btn-back {
+    padding: 9px 12px;
+  }
   .prev-nom {
     display: none;
   }
@@ -729,6 +768,12 @@ mat-toolbar[color="primary"] {
   }
   .input-area {
     padding: 10px 10px 14px;
+  }
+  .input-actions {
+    flex-wrap: wrap;
+  }
+  .btn-return-inline {
+    flex: 1 1 100%;
   }
   .filter-dates {
     flex-direction: column;
