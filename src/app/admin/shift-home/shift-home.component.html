@@ -1,7 +1,7 @@
 <div class="container py-4 turni-page">
   <section class="turni-hero">
     <div class="turni-hero__top">
-      <button class="btn btn-back-glass" (click)="back()">
+      <button class="btn btn-back-glass" type="button" (click)="back()">
         Indietro
       </button>
 
@@ -11,40 +11,46 @@
       </div>
 
       <div class="turni-date-nav">
-        <button class="btn btn-nav-glass" (click)="prevDay()" aria-label="Giorno precedente">
-          ←
-        </button>
-
-        <div class="shift-mini-cal-wrapper">
-          <button class="shift-date-btn" (click)="toggleMiniCal()">
-            {{ selectedDate | date: "dd/MM/yyyy" }} ▾
+        <div class="shift-date-control" aria-label="Navigazione giorno">
+          <button class="shift-date-step" type="button" (click)="prevDay()" aria-label="Giorno precedente">
+            ‹
           </button>
-          <div class="shift-mini-cal" *ngIf="showMiniCal" (click)="$event.stopPropagation()">
-            <div class="smc-header">
-              <button (click)="miniPrev()">‹</button>
-              <span>{{ miniCalTitle }}</span>
-              <button (click)="miniNext()">›</button>
-            </div>
-            <div class="smc-grid">
-              <div class="smc-dow" *ngFor="let d of DAYS_SHORT">{{ d }}</div>
-              <ng-container *ngFor="let week of miniCalGrid">
-                <div
-                  class="smc-day"
-                  *ngFor="let day of week"
-                  [class.smc-today]="isSameDay(day, selectedDate)"
-                  [class.smc-other]="day.getMonth() !== miniCalDate.getMonth()"
-                  (click)="miniSelectDay(day)"
-                >
-                  {{ day.getDate() }}
-                </div>
-              </ng-container>
+
+          <div class="shift-mini-cal-wrapper">
+            <button class="shift-date-btn" type="button" (click)="toggleMiniCal($event)">
+              {{ selectedDate | date: "dd/MM/yyyy" }} ▾
+            </button>
+            <div class="shift-mini-cal" *ngIf="showMiniCal" (click)="$event.stopPropagation()">
+              <div class="smc-header">
+                <button type="button" (click)="miniPrev()">‹</button>
+                <span>{{ miniCalTitle }}</span>
+                <button type="button" (click)="miniNext()">›</button>
+              </div>
+              <div class="smc-grid">
+                <div class="smc-dow" *ngFor="let d of DAYS_SHORT">{{ d }}</div>
+                <ng-container *ngFor="let week of miniCalGrid">
+                  <button
+                    type="button"
+                    class="smc-day"
+                    *ngFor="let day of week"
+                    [class.smc-today]="isSameDay(day, selectedDate)"
+                    [class.smc-other]="day.getMonth() !== miniCalDate.getMonth()"
+                    [attr.aria-label]="'Seleziona ' + (day | date: 'dd/MM/yyyy')"
+                    [attr.data-date]="formatCalendarDate(day)"
+                    (pointerdown)="miniSelectDay(day, $event)"
+                    (click)="miniSelectDay(day, $event)"
+                  >
+                    {{ day.getDate() }}
+                  </button>
+                </ng-container>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button class="btn btn-nav-glass" (click)="nextDay()" aria-label="Giorno successivo">
-          →
-        </button>
+          <button class="shift-date-step" type="button" (click)="nextDay()" aria-label="Giorno successivo">
+            ›
+          </button>
+        </div>
       </div>
     </div>
 
@@ -77,13 +83,13 @@
       </div>
 
       <div class="turni-primary-actions">
-        <button class="btn btn-view-glass" (click)="toggleViewMode()">
+        <button class="btn btn-view-glass" type="button" (click)="toggleViewMode()">
           {{ viewMode === "employee" ? "Vista cliente" : "Vista dipendente" }}
         </button>
-        <button class="btn btn-create-glass" (click)="createShifts()">
+        <button class="btn btn-create-glass" type="button" (click)="createShifts()">
           Crea turni
         </button>
-        <button class="btn btn-save-glass" (click)="savePublication()" [disabled]="isSaving">
+        <button class="btn btn-save-glass" type="button" (click)="savePublication()" [disabled]="isSaving">
           {{ isSaving ? "Pubblicazione..." : "Pubblica" }}
         </button>
       </div>

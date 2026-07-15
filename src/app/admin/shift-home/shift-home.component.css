@@ -1,6 +1,53 @@
 /* ── Mini Calendar ── */
 .shift-mini-cal-wrapper {
   position: relative;
+  z-index: 20;
+  min-width: 0;
+}
+
+.shift-date-control {
+  display: inline-grid;
+  grid-template-columns: 42px minmax(128px, auto) 42px;
+  align-items: stretch;
+  overflow: visible;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.shift-date-step {
+  appearance: none;
+  border: 0;
+  background: rgba(15, 23, 42, 0.04);
+  color: #111;
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  min-height: 40px;
+  padding: 0;
+  cursor: pointer;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.shift-date-step:first-child {
+  border-radius: 11px 0 0 11px;
+  border-right: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+.shift-date-step:last-child {
+  border-radius: 0 11px 11px 0;
+  border-left: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+.shift-date-step:hover {
+  background: #e8f0fe;
+  color: #1a73e8;
 }
 
 .shift-date-btn {
@@ -10,8 +57,10 @@
   font-weight: 700;
   color: #111;
   cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 14px;
+  border-radius: 0;
   transition: background 0.15s;
 }
 .shift-date-btn:hover {
@@ -21,15 +70,14 @@
 .shift-mini-cal {
   position: absolute;
   top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+  right: 0;
   width: 260px;
   background: #fff;
   border: 1px solid #e0e3e8;
   border-radius: 14px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
   padding: 12px;
-  z-index: 300;
+  z-index: 2500;
 }
 .smc-header {
   display: flex;
@@ -67,13 +115,21 @@
   padding: 4px 0;
 }
 .smc-day {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
   text-align: center;
   font-size: 12px;
-  padding: 5px 2px;
+  padding: 0;
   border-radius: 50%;
   cursor: pointer;
   transition: background 0.12s;
   color: #333;
+  line-height: 1;
 }
 .smc-day:hover {
   background: #e8f0fe;
@@ -158,6 +214,7 @@ body::before {
 .turni-hero {
   padding: 18px;
   margin-bottom: 18px;
+  overflow: visible;
 }
 
 .turni-hero__top,
@@ -826,23 +883,24 @@ body::before {
   }
 
   .turni-date-nav {
-    display: grid !important;
-    grid-template-columns: 52px minmax(0, 1fr) 52px;
-    align-items: center;
-    gap: 10px !important;
+    display: block !important;
+  }
+
+  .shift-date-control {
+    width: 100%;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
   }
 
   .shift-date-btn {
     width: 100%;
     text-align: center;
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: 0;
     background: rgba(255, 255, 255, 0.92);
   }
 
-  .turni-date-nav .btn {
-    width: 52px;
-    min-width: 52px;
+  .shift-date-step {
+    min-width: 44px;
     padding-inline: 0;
   }
 

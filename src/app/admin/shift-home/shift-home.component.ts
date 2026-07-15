@@ -108,18 +108,27 @@ export class ShiftHomeComponent implements OnInit, OnDestroy {
     return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
   }
 
-  toggleMiniCal() { this.showMiniCal = !this.showMiniCal; this.miniCalDate = new Date(this.selectedDate); }
+  toggleMiniCal(event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.showMiniCal = !this.showMiniCal;
+    this.miniCalDate = new Date(this.selectedDate);
+  }
+
   miniPrev() { const d = new Date(this.miniCalDate); d.setMonth(d.getMonth()-1); this.miniCalDate = d; }
   miniNext() { const d = new Date(this.miniCalDate); d.setMonth(d.getMonth()+1); this.miniCalDate = d; }
 
-  miniSelectDay(date: Date) {
+  miniSelectDay(date: Date, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
     this.showMiniCal = false;
     this.setSelectedDate(date);
   }
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
-    const t = event.target as HTMLElement;
+    const t = event.target;
+    if (!(t instanceof Element)) return;
+
     if (!t.closest('.shift-mini-cal-wrapper') && !t.closest('.shift-date-btn')) {
       this.showMiniCal = false;
     }
@@ -198,6 +207,7 @@ export class ShiftHomeComponent implements OnInit, OnDestroy {
   private googleMarkers: any[] = [];
   private queryParamSubscription?: Subscription;
   private tenantConfigLoaded = false;
+  private activeDateParam = '';
 
   tooltipVisible: boolean = false;
   tooltipText: string = '';
@@ -216,13 +226,20 @@ export class ShiftHomeComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.queryParamSubscription = this.route.queryParamMap.subscribe((params) => {
       const dateParam = params.get('date');
-      if (!dateParam) return;
+      if (!dateParam) {
+        this.activeDateParam = '';
+        return;
+      }
 
       const nextDate = this.parseLocalDate(dateParam);
-      if (Number.isNaN(nextDate.getTime()) || this.isSameDay(nextDate, this.selectedDate)) return;
+      if (Number.isNaN(nextDate.getTime())) return;
 
-      this.selectedDate = nextDate;
-      this.miniCalDate = new Date(nextDate);
+      this.activeDateParam = this.formatDate(nextDate);
+      if (this.isSameDay(nextDate, this.selectedDate)) return;
+
+      const normalizedDate = this.normalizeDate(nextDate);
+      this.selectedDate = normalizedDate;
+      this.miniCalDate = new Date(normalizedDate);
       if (this.tenantConfigLoaded) this.loadShifts();
     });
 
@@ -263,12 +280,20 @@ export class ShiftHomeComponent implements OnInit, OnDestroy {
     return `${year}-${month}-${day}`;
   }
 
+  formatCalendarDate(date: Date): string {
+    return this.formatDate(date);
+  }
+
   private parseLocalDate(value: string): Date {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
     if (!match) return new Date(value);
 
     const [, year, month, day] = match;
     return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  private normalizeDate(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
 
   private getShiftEmployeeLink(emp: any): any {
@@ -1169,18 +1194,21 @@ export class ShiftHomeComponent implements OnInit, OnDestroy {
   }
 
   private setSelectedDate(date: Date): void {
-    const nextDate = new Date(date);
+    const nextDate = this.normalizeDate(new Date(date));
     if (Number.isNaN(nextDate.getTime())) return;
 
+    const dateChanged = !this.isSameDay(nextDate, this.selectedDate);
     this.selectedDate = nextDate;
     this.miniCalDate = new Date(nextDate);
-    this.loadShifts();
+    if (dateChanged) this.loadShifts();
     this.syncDateQueryParam();
   }
 
   private syncDateQueryParam(): void {
     const date = this.formatDate(this.selectedDate);
-    if (this.route.snapshot.queryParamMap.get('date') === date) return;
+    if (this.activeDateParam === date) return;
+
+    this.activeDateParam = date;
 
     this.router.navigate([], {
       relativeTo: this.route,

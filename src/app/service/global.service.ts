@@ -246,7 +246,7 @@ export interface TenantMapsConfig {
   providedIn: 'root',
 })
 export class GlobalService {
-  version = '5.3';
+  version = '5.4';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
