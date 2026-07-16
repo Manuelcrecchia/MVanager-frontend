@@ -993,15 +993,7 @@ export class DeadlinesManagementComponent implements OnInit {
     deadline: DeadlineRecord,
     attachment: DeadlineAttachment,
   ): void {
-    const attachmentWindow = window.open('', '_blank');
-    if (!attachmentWindow) {
-      this.popup.showError('Popup bloccato dal browser. Consenti i popup per aprire il documento.');
-      return;
-    }
-
-    attachmentWindow.document.write(
-      '<!doctype html><title>Caricamento documento...</title><body style="font-family:Arial,sans-serif;padding:24px">Caricamento documento...</body>',
-    );
+    const attachmentWindow = this.openAttachmentWindow('Caricamento documento...');
 
     this.http
       .post(
@@ -1015,12 +1007,10 @@ export class DeadlinesManagementComponent implements OnInit {
       .subscribe({
         next: (blob) => {
           const namedBlob = this.namedAttachmentBlob(blob, attachment);
-          const url = window.URL.createObjectURL(namedBlob);
-          attachmentWindow.location.href = url;
-          window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+          this.openDownloadedBlob(namedBlob, attachmentWindow);
         },
         error: (err) => {
-          attachmentWindow.close();
+          attachmentWindow?.close();
           console.error('Errore apertura allegato:', err);
           this.showDownloadError(err);
         },
@@ -1052,15 +1042,7 @@ export class DeadlinesManagementComponent implements OnInit {
     entry: DeadlineHistoryEntry,
     attachment: DeadlineAttachment,
   ): void {
-    const attachmentWindow = window.open('', '_blank');
-    if (!attachmentWindow) {
-      this.popup.showError('Popup bloccato dal browser. Consenti i popup per aprire il documento.');
-      return;
-    }
-
-    attachmentWindow.document.write(
-      '<!doctype html><title>Caricamento documento storico...</title><body style="font-family:Arial,sans-serif;padding:24px">Caricamento documento storico...</body>',
-    );
+    const attachmentWindow = this.openAttachmentWindow('Caricamento documento storico...');
 
     this.http
       .post(
@@ -1075,16 +1057,35 @@ export class DeadlinesManagementComponent implements OnInit {
       .subscribe({
         next: (blob) => {
           const namedBlob = this.namedAttachmentBlob(blob, attachment);
-          const url = window.URL.createObjectURL(namedBlob);
-          attachmentWindow.location.href = url;
-          window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+          this.openDownloadedBlob(namedBlob, attachmentWindow);
         },
         error: (err) => {
-          attachmentWindow.close();
+          attachmentWindow?.close();
           console.error('Errore apertura allegato storico:', err);
           this.showDownloadError(err);
         },
       });
+  }
+
+  private openAttachmentWindow(title: string): Window | null {
+    const attachmentWindow = window.open('', '_blank');
+    if (!attachmentWindow) return null;
+
+    attachmentWindow.document.write(
+      `<!doctype html><title>${title}</title><body style="font-family:Arial,sans-serif;padding:24px">${title}</body>`,
+    );
+    return attachmentWindow;
+  }
+
+  private openDownloadedBlob(blob: Blob, attachmentWindow: Window | null): void {
+    const url = window.URL.createObjectURL(blob);
+    if (attachmentWindow) {
+      attachmentWindow.location.href = url;
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+      return;
+    }
+
+    window.location.href = url;
   }
 
   private showDownloadError(err: any): void {
