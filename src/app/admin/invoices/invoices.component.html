@@ -98,7 +98,9 @@
           [class.active]="invoice.id === selected.id"
           [class.invoice-row--note]="isCreditOrDebitNote(invoice)"
           [class.invoice-row--supplier]="isInbound(invoice)"
-          (click)="selectInvoice(invoice)"
+          (pointerdown)="selectInvoice(invoice)"
+          (keydown.enter)="selectInvoice(invoice)"
+          (keydown.space)="selectInvoice(invoice)"
         >
           <span>
             <strong>{{ invoice.series ? invoice.series + '/' : '' }}{{ invoice.number }}</strong>
@@ -116,7 +118,7 @@
       <p class="empty" *ngIf="!loading && invoiceListGroups().length === 0">Nessuna fattura trovata</p>
     </aside>
 
-    <main class="invoice-editor">
+    <main #invoiceEditor class="invoice-editor" tabindex="-1">
       <div class="status-strip">
         <span class="status-pill">{{ statusLabel(selected.status) }}</span>
         <span *ngIf="selected.providerStatus">Provider: {{ selected.providerStatus }}</span>

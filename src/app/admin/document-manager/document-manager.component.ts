@@ -9,7 +9,7 @@ import {
   QueryList,
   ViewChildren,
 } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
 import { Subscription } from 'rxjs';
@@ -42,7 +42,14 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
   imageBase64: string = '';
   fileBlob: Blob | null = null;
   private fileNameChangesSubscription?: Subscription;
+  private routeParamsSubscription?: Subscription;
+  private routeQuerySubscription?: Subscription;
   private fileNameMeasureFrame = 0;
+  private pendingFolderTarget = '';
+  private pendingDocumentTarget = '';
+  private shouldOpenPendingDocument = false;
+  private foldersLoaded = false;
+  private filesLoaded = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -54,12 +61,21 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
   ) {}
 
   ngOnInit(): void {
-    this.userId = this.route.snapshot.paramMap.get('id') || '';
-    this.isCustomer = this.route.snapshot.url[1].path === 'client';
-    this.prefix = this.isCustomer ? 'customer' : 'employee';
+    this.routeParamsSubscription = this.route.paramMap.subscribe((params) => {
+      this.userId = params.get('id') || '';
+      this.isCustomer = this.route.snapshot.url.some((segment) => segment.path === 'client');
+      this.prefix = this.isCustomer ? 'customer' : 'employee';
+      this.selectedFolder = '';
+      this.documentSearch = '';
+      this.applyDocumentRouteQuery(this.route.snapshot.queryParamMap);
+      this.refreshDirectory();
+      this.loadEmailIfNeeded();
+    });
 
-    this.refreshDirectory();
-    this.loadEmailIfNeeded();
+    this.routeQuerySubscription = this.route.queryParamMap.subscribe((params) => {
+      this.applyDocumentRouteQuery(params);
+      this.tryApplyDocumentRouteTarget();
+    });
   }
 
   ngAfterViewInit(): void {
@@ -71,6 +87,8 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
 
   ngOnDestroy(): void {
     this.fileNameChangesSubscription?.unsubscribe();
+    this.routeParamsSubscription?.unsubscribe();
+    this.routeQuerySubscription?.unsubscribe();
     if (this.fileNameMeasureFrame) {
       cancelAnimationFrame(this.fileNameMeasureFrame);
       this.fileNameMeasureFrame = 0;
@@ -162,7 +180,145 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
     return parts.join('/');
   }
 
+  private applyDocumentRouteQuery(params: ParamMap): void {
+    const folderTarget = this.firstQueryParam(params, ['folder', 'cartella', 'path']);
+    const explicitDocumentTarget = this.firstQueryParam(params, [
+      'documentName',
+      'document',
+      'filename',
+      'file',
+      'allegato',
+    ]);
+    const searchTarget = this.firstQueryParam(params, ['search', 'q']);
+    const openDocument = this.queryFlag(params, ['openDocument', 'open', 'preview']);
+
+    this.pendingFolderTarget = folderTarget;
+    this.pendingDocumentTarget = explicitDocumentTarget || (openDocument ? searchTarget : '');
+    this.shouldOpenPendingDocument = Boolean(this.pendingDocumentTarget) || openDocument;
+
+    const visibleSearch = searchTarget || explicitDocumentTarget || folderTarget;
+    if (visibleSearch) {
+      this.documentSearch = visibleSearch;
+    }
+  }
+
+  private firstQueryParam(params: ParamMap, keys: string[]): string {
+    for (const key of keys) {
+      const value = String(params.get(key) || '').trim();
+      if (value) return value;
+    }
+    return '';
+  }
+
+  private queryFlag(params: ParamMap, keys: string[]): boolean {
+    const value = this.normalizeSearch(this.firstQueryParam(params, keys));
+    return ['1', 'true', 'yes', 'y', 'si', 'sì', 'open', 'apri', 'preview'].includes(value);
+  }
+
+  private tryApplyDocumentRouteTarget(): void {
+    if (this.tryOpenPendingFolder()) return;
+    this.tryOpenPendingDocument();
+  }
+
+  private tryOpenPendingFolder(): boolean {
+    const targetParts = this.pathParts(this.pendingFolderTarget);
+    if (!targetParts.length) return false;
+    if (!this.foldersLoaded) return false;
+
+    const currentParts = this.pathParts(this.selectedFolder);
+    if (!this.pathStartsWith(targetParts, currentParts)) {
+      this.selectedFolder = '';
+      this.refreshDirectory();
+      return true;
+    }
+
+    if (currentParts.length >= targetParts.length) {
+      this.pendingFolderTarget = '';
+      if (!this.pendingDocumentTarget) {
+        this.documentSearch = '';
+      }
+      return false;
+    }
+
+    const nextTarget = targetParts[currentParts.length];
+    const matchedFolder = this.folders.find((folder) =>
+      this.lookupMatches(folder, nextTarget),
+    );
+
+    if (!matchedFolder) {
+      this.documentSearch = this.pendingDocumentTarget || nextTarget;
+      this.pendingFolderTarget = '';
+      return false;
+    }
+
+    this.selectedFolder = this.joinPath(this.selectedFolder, matchedFolder);
+    this.refreshDirectory();
+    return true;
+  }
+
+  private tryOpenPendingDocument(): void {
+    const target = String(this.pendingDocumentTarget || '').trim();
+    if (!target || !this.filesLoaded) return;
+
+    const matchedFile = this.files.find((file) => this.fileMatchesTarget(file, target));
+    if (!matchedFile) {
+      this.documentSearch = target;
+      return;
+    }
+
+    this.documentSearch = target;
+    this.pendingDocumentTarget = '';
+    const shouldOpen = this.shouldOpenPendingDocument;
+    this.shouldOpenPendingDocument = false;
+    if (shouldOpen) {
+      this.selectFile(matchedFile);
+    }
+  }
+
+  private pathParts(pathValue: string): string[] {
+    return String(pathValue || '')
+      .split('/')
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+
+  private pathStartsWith(targetParts: string[], currentParts: string[]): boolean {
+    return currentParts.every((part, index) =>
+      this.lookupMatches(part, targetParts[index] || ''),
+    );
+  }
+
+  private fileMatchesTarget(file: any, target: string): boolean {
+    const targetLookup = this.normalizeDocumentLookup(target);
+    if (!targetLookup) return false;
+
+    return [
+      file?.filename,
+      file?.displayName,
+      this.displayFileName(file),
+    ].some((name) => this.lookupMatches(name, targetLookup));
+  }
+
+  private lookupMatches(value: unknown, target: unknown): boolean {
+    const valueLookup = this.normalizeDocumentLookup(value);
+    const targetLookup = this.normalizeDocumentLookup(target);
+    return !!valueLookup &&
+      !!targetLookup &&
+      (valueLookup === targetLookup ||
+        valueLookup.includes(targetLookup) ||
+        targetLookup.includes(valueLookup));
+  }
+
+  private normalizeDocumentLookup(value: unknown): string {
+    return this.normalizeSearch(value)
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   private refreshDirectory(): void {
+    this.foldersLoaded = false;
+    this.filesLoaded = false;
     this.loadFolders();
     this.loadFiles();
     this.clearFilePreview();
@@ -230,6 +386,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   loadFolders(): void {
+    const requestedFolder = this.selectedFolder;
     const body = this.getPayload({ path: this.selectedFolder });
 
     this.http
@@ -239,8 +396,11 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
       })
       .subscribe({
         next: (res) => {
+          if (requestedFolder !== this.selectedFolder) return;
           try {
             this.folders = JSON.parse(res);
+            this.foldersLoaded = true;
+            this.tryApplyDocumentRouteTarget();
           } catch {}
         },
         error: (err) => {
@@ -326,6 +486,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   loadFiles(): void {
+    const requestedFolder = this.selectedFolder;
     const body = this.getPayload({ folder: this.selectedFolder });
 
     this.http
@@ -335,8 +496,12 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
       })
       .subscribe({
         next: (res) => {
+          if (requestedFolder !== this.selectedFolder) return;
           try {
             this.files = JSON.parse(res);
+            this.filesLoaded = true;
+            this.tryApplyDocumentRouteTarget();
+            this.queueFileNameMeasure();
           } catch {}
         },
         error: (err) => {

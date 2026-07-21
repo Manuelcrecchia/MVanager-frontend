@@ -35,6 +35,11 @@ interface WidgetPosition {
   y: number;
 }
 
+interface DocumentNavigationTarget {
+  commands: any[];
+  queryParams: Record<string, any>;
+}
+
 @Component({
   selector: 'app-ai-assistant-widget',
   templateUrl: './ai-assistant-widget.component.html',
@@ -352,6 +357,17 @@ export class AiAssistantWidgetComponent implements OnInit, AfterViewChecked, OnD
     const route = this.normalizeAiRoute(String(args?.['route'] || '').trim());
     const queryParams = args?.['queryParams'] || {};
     if (!route) return;
+    const documentNavigation = this.documentRouteNavigation(route, queryParams);
+    if (documentNavigation) {
+      this.router.navigate(documentNavigation.commands, {
+        queryParams: documentNavigation.queryParams,
+      }).catch((err) => {
+        console.error('[AI Assistant] Navigazione documenti fallita:', err);
+        this.messages.push({ role: 'assistant', text: 'Non sono riuscito ad aprire la pagina richiesta.' });
+        this.markScroll();
+      });
+      return;
+    }
     this.router.navigate([route], { queryParams }).catch((err) => {
       console.error('[AI Assistant] Navigazione fallita:', err);
       this.messages.push({ role: 'assistant', text: 'Non sono riuscito ad aprire la pagina richiesta.' });
@@ -363,6 +379,69 @@ export class AiAssistantWidgetComponent implements OnInit, AfterViewChecked, OnD
     if (route === '/shifts') return '/homeAdmin/shifts';
     if (route === '/shifts/create') return '/homeAdmin/shifts/create';
     return route;
+  }
+
+  private documentRouteNavigation(route: string, queryParams: Record<string, any>): DocumentNavigationTarget | null {
+    if (route === '/documenti/client') {
+      const targetKey = String(
+        queryParams?.['targetKey'] ||
+        queryParams?.['numeroCliente'] ||
+        queryParams?.['customerId'] ||
+        '',
+      ).trim();
+      return targetKey
+        ? {
+          commands: ['/homeAdmin/documenti/client', targetKey],
+          queryParams: this.documentRouteQueryParams(queryParams),
+        }
+        : null;
+    }
+    if (route === '/documenti/employee') {
+      const employeeId = String(
+        queryParams?.['employeeId'] ||
+        queryParams?.['id'] ||
+        '',
+      ).trim();
+      return employeeId
+        ? {
+          commands: ['/homeAdmin/documenti/employee', employeeId],
+          queryParams: this.documentRouteQueryParams(queryParams),
+        }
+        : null;
+    }
+    return null;
+  }
+
+  private documentRouteQueryParams(queryParams: Record<string, any>): Record<string, any> {
+    const allowedKeys = [
+      'folder',
+      'cartella',
+      'path',
+      'documentName',
+      'document',
+      'filename',
+      'file',
+      'allegato',
+      'search',
+      'q',
+      'openDocument',
+      'open',
+      'preview',
+    ];
+    const result: Record<string, any> = {};
+
+    for (const key of allowedKeys) {
+      const rawValue = queryParams?.[key];
+      if (rawValue === undefined || rawValue === null) continue;
+      if (typeof rawValue === 'boolean' || typeof rawValue === 'number') {
+        result[key] = rawValue;
+        continue;
+      }
+      const value = String(rawValue).trim();
+      if (value) result[key] = value;
+    }
+
+    return result;
   }
 
   private navigateDeadlineResult(deadline: any): void {

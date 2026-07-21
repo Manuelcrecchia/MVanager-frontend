@@ -48,6 +48,7 @@ export class AuthServiceService {
       this.clearBiometricAutoLoginSuppression();
       this.persistValue(this.TOKEN_KEY, value);
       this.syncTenantFromToken(value);
+      this.syncPermissionsFromToken(value);
       const remainingTime = this.getTokenRemainingTime(value);
       if (remainingTime > 0) {
         this.setLogoutTimer(remainingTime);
@@ -218,6 +219,7 @@ export class AuthServiceService {
       if (!this._token) return;
 
       this.syncTenantFromToken(this._token);
+      this.syncPermissionsFromToken(this._token);
       const remainingTime = this.getTokenRemainingTime(this._token);
       if (remainingTime > 0) {
         this.persistValue(this.TOKEN_KEY, this._token);
@@ -239,6 +241,17 @@ export class AuthServiceService {
       this.tenantService.setTenantFromToken(decoded?.tenantId);
     } catch (error) {
       console.error('[AuthService] Errore lettura tenant dal token:', error);
+    }
+  }
+
+  private syncPermissionsFromToken(token: string): void {
+    try {
+      const decoded: any = jwtDecode(token);
+      if (Array.isArray(decoded?.permissions)) {
+        this.permissions = decoded.permissions;
+      }
+    } catch (error) {
+      console.error('[AuthService] Errore lettura permessi dal token:', error);
     }
   }
 }

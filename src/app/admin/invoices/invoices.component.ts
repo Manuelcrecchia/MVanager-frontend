@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -343,6 +343,7 @@ type InvoiceListGroup = { key: string; label: string; items: Invoice[] };
   styleUrl: './invoices.component.css',
 })
 export class InvoicesComponent implements OnInit, OnDestroy {
+  @ViewChild('invoiceEditor') private invoiceEditor?: ElementRef<HTMLElement>;
   private querySubscription?: Subscription;
   private pendingCustomerInvoiceId = '';
   private invoiceSettingsLoaded = false;
@@ -473,6 +474,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private route: ActivatedRoute,
     private router: Router,
+    private changeDetector: ChangeDetectorRef,
     public global: GlobalService,
   ) {}
 
@@ -1177,18 +1179,45 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     if (!invoice.id) return;
     this.error = '';
     this.success = '';
+
+    // La lista contiene già i dati principali. Li mostriamo subito: in questo modo
+    // la selezione rimane leggibile anche mentre arrivano righe e pagamenti dal server.
+    this.selected = this.withInvoiceDefaults(invoice);
+    this.selectedCustomerCode = this.findSelectedCustomerCode(this.selected);
+    this.syncCustomerQueryFromSelection();
+    this.changeDetector.detectChanges();
+
     this.http.post<Invoice>(this.global.url + 'invoices/get', { id: invoice.id }).subscribe({
       next: (res) => {
-        this.selected = this.withInvoiceDefaults(res);
+        // Non sostituire la fattura selezionata con una risposta vuota o incompleta:
+        // altrimenti il pannello appare come una nuova bozza, pur avendo selezionato
+        // correttamente la fattura nell'elenco.
+        const detail = res && Number(res.id) === Number(invoice.id) ? res : {};
+        this.selected = this.withInvoiceDefaults({ ...invoice, ...detail });
         this.selectedCustomerCode = this.findSelectedCustomerCode(this.selected);
         this.syncCustomerQueryFromSelection();
         this.xmlPreview = '';
+        this.changeDetector.detectChanges();
         this.loadEvents();
         this.loadStatusReport();
+        this.showSelectedInvoiceEditor();
       },
       error: (err) => {
         this.error = err?.error?.error || 'Errore apertura fattura';
       },
+    });
+  }
+
+  private showSelectedInvoiceEditor(): void {
+    // Forza l'aggiornamento del dettaglio anche a desktop: in alcune sessioni il
+    // layout a due colonne manteneva visibili i valori della bozza precedente.
+    this.changeDetector.detectChanges();
+    if (typeof window === 'undefined' || !window.matchMedia('(max-width: 980px)').matches) return;
+
+    window.setTimeout(() => {
+      this.changeDetector.detectChanges();
+      this.invoiceEditor?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      this.invoiceEditor?.nativeElement.focus({ preventScroll: true });
     });
   }
 

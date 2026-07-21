@@ -141,8 +141,6 @@ h2 {
 
 .invoice-list {
   padding: 12px;
-  position: sticky;
-  top: 18px;
 }
 
 .filters {
