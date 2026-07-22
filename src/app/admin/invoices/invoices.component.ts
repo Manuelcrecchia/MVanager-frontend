@@ -379,6 +379,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   selectedCustomerCode = '';
   customerQuery = '';
   customerPickerOpen = false;
+  sendEmailRecipient = '';
   selectedDdtCustomerCode = '';
   ddtCustomerQuery = '';
   ddtCustomerPickerOpen = false;
@@ -1092,6 +1093,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   newInvoice(): void {
     this.selected = this.emptyInvoice();
+    this.syncInvoiceEmailRecipient();
     this.selectedCustomerCode = '';
     this.customerQuery = '';
     this.customerPickerOpen = false;
@@ -1130,6 +1132,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   newProforma(): void {
     this.selected = this.emptyInvoice();
+    this.syncInvoiceEmailRecipient();
     this.selected.type = 'PF';
     this.selected.series = 'PF';
     this.selected.customerSdiCode = '';
@@ -1183,6 +1186,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     // La lista contiene già i dati principali. Li mostriamo subito: in questo modo
     // la selezione rimane leggibile anche mentre arrivano righe e pagamenti dal server.
     this.selected = this.withInvoiceDefaults(invoice);
+    this.syncInvoiceEmailRecipient();
     this.selectedCustomerCode = this.findSelectedCustomerCode(this.selected);
     this.syncCustomerQueryFromSelection();
     this.changeDetector.detectChanges();
@@ -1194,6 +1198,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         // correttamente la fattura nell'elenco.
         const detail = res && Number(res.id) === Number(invoice.id) ? res : {};
         this.selected = this.withInvoiceDefaults({ ...invoice, ...detail });
+        this.syncInvoiceEmailRecipient();
         this.selectedCustomerCode = this.findSelectedCustomerCode(this.selected);
         this.syncCustomerQueryFromSelection();
         this.xmlPreview = '';
@@ -1510,6 +1515,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.http.post<Invoice>(this.global.url + 'invoices/' + endpoint, this.selected).subscribe({
       next: (res) => {
         this.selected = this.withInvoiceDefaults(res);
+        this.syncInvoiceEmailRecipient();
         this.saving = false;
         this.success = 'Fattura salvata';
         this.loadInvoices();
@@ -2023,60 +2029,59 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.saving = true;
     this.error = '';
     this.success = '';
+    const recipient = this.stringValue(this.sendEmailRecipient);
+    if (this.selected.id && !this.canEdit()) {
+      this.validateAndSendInvoice(this.selected, recipient);
+      return;
+    }
+
     const endpoint = this.selected.id ? 'edit' : 'add';
     this.http.post<Invoice>(this.global.url + 'invoices/' + endpoint, this.selected).subscribe({
       next: (saved) => {
         this.selected = this.withInvoiceDefaults(saved);
-        this.http.post<any>(this.global.url + 'invoices/validate', { id: this.selected.id }).subscribe({
-          next: () => {
-            this.http.post<Invoice>(this.global.url + 'invoices/send', { id: this.selected.id }).subscribe({
-              next: (sent) => {
-                this.selected = this.withInvoiceDefaults(sent);
-                const email = this.stringValue(this.selected.customerEmail);
-                if (!email) {
-                  this.saving = false;
-                  this.success = 'Fattura salvata, validata e inviata al provider';
-                  this.loadInvoices();
-                  this.loadPaymentSchedule();
-                  this.loadEvents();
-                  return;
-                }
-                this.http.post<any>(this.global.url + 'invoices/send-email', { id: this.selected.id, email }).subscribe({
-                  next: () => {
-                    this.saving = false;
-                    this.success = 'Fattura salvata, validata, inviata al provider e spedita via email';
-                    this.loadInvoices();
-                    this.loadPaymentSchedule();
-                    this.loadEvents();
-                  },
-                  error: (emailErr) => {
-                    this.saving = false;
-                    this.success = 'Fattura inviata al provider, ma email non spedita';
-                    this.error = this.errorText(emailErr);
-                    this.loadInvoices();
-                    this.loadPaymentSchedule();
-                    this.loadEvents();
-                  },
-                });
-              },
-              error: (err) => {
-                this.saving = false;
-                this.error = this.errorText(err);
-              },
-            });
-          },
-          error: (err) => {
-            this.saving = false;
-            this.error = this.errorText(err);
-            this.loadInvoices();
-          },
-        });
+        this.syncInvoiceEmailRecipient();
+        this.validateAndSendInvoice(this.selected, recipient);
       },
       error: (err) => {
         this.saving = false;
         this.error = this.errorText(err);
       },
     });
+  }
+
+  private validateAndSendInvoice(invoice: Invoice, recipient = this.stringValue(this.sendEmailRecipient)): void {
+    this.http.post<any>(this.global.url + 'invoices/validate', { id: invoice.id }).subscribe({
+      next: () => {
+        this.http.post<Invoice>(this.global.url + 'invoices/send', { id: invoice.id }).subscribe({
+          next: (sent) => {
+            const email = this.stringValue(recipient);
+            this.selected = this.withInvoiceDefaults(sent);
+            this.syncInvoiceEmailRecipient();
+            if (email) this.sendEmailRecipient = email;
+            if (!email) {
+              this.finishInvoiceDelivery('Fattura salvata, validata e inviata al provider');
+              return;
+            }
+            this.http.post<any>(this.global.url + 'invoices/send-email', { id: this.selected.id, email }).subscribe({
+              next: () => this.finishInvoiceDelivery('Fattura salvata, validata, inviata al provider e spedita via email'),
+              error: (emailErr) => this.finishInvoiceDelivery('Fattura inviata al provider, ma email non spedita', emailErr),
+            });
+          },
+          error: (err) => this.finishInvoiceDelivery('', err),
+        });
+      },
+      error: (err) => this.finishInvoiceDelivery('', err),
+    });
+  }
+
+  private finishInvoiceDelivery(message: string, error?: any): void {
+    this.saving = false;
+    this.success = message;
+    this.error = error ? this.errorText(error) : '';
+    this.loadInvoices();
+    this.loadPaymentSchedule();
+    this.loadEvents();
+    this.loadStatusReport();
   }
 
   createCreditNote(): void {
@@ -2235,8 +2240,11 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       this.error = 'Salva il documento prima di inviarlo via email';
       return;
     }
-    const email = prompt('Email destinatario', this.selected.customerEmail || this.selected.customerPec || '');
-    if (!email) return;
+    const email = this.stringValue(this.sendEmailRecipient);
+    if (!email) {
+      this.error = 'Inserisci un indirizzo email nella sezione Principali';
+      return;
+    }
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2888,6 +2896,11 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.selected.customerCountry = this.stringValue(this.customerAddressPart(customer, 'billing', 'country', 'customerCountry') || 'IT').toUpperCase();
     const sdiCode = this.stringValue(this.customerValue(customer, 'customerSdiCode')).toUpperCase();
     this.selected.customerSdiCode = sdiCode || this.defaultSdiForCountry(this.selected.customerCountry);
+    this.syncInvoiceEmailRecipient();
+  }
+
+  private syncInvoiceEmailRecipient(): void {
+    this.sendEmailRecipient = this.stringValue(this.selected.customerEmail) || this.stringValue(this.selected.customerPec);
   }
 
   private applyCustomerToDdt(customer: Record<string, any>): void {

@@ -412,9 +412,13 @@
           <div class="invoice-actions-panel">
             <section class="action-group action-group--main">
               <span class="action-group__label">Principali</span>
+              <label class="action-email-field">
+                Email di invio
+                <input type="email" [(ngModel)]="sendEmailRecipient" name="sendEmailRecipient" placeholder="cliente@azienda.it" [disabled]="saving" />
+              </label>
               <div class="action-group__buttons">
                 <button type="submit" class="primary-btn" [disabled]="saving || !canEdit()">Salva bozza</button>
-                <button type="button" class="primary-btn action-primary-wide" (click)="saveValidateSend()" [disabled]="saving || !canEdit() || isProforma(selected)">Invia SDI + email</button>
+                <button type="button" class="primary-btn action-primary-wide" (click)="saveValidateSend()" [disabled]="saving || isProforma(selected) || (selected.id && !canSendElectronic())">Invia SDI + email</button>
                 <button type="button" class="ghost-btn" (click)="downloadPdf()" [disabled]="saving || !selected.id">PDF</button>
               </div>
             </section>
@@ -425,7 +429,7 @@
                 <button type="button" class="ghost-btn" (click)="createCreditNote()" [disabled]="saving || !selected.id || selected.type === 'TD04' || isProforma(selected)">Nota credito</button>
                 <button type="button" class="ghost-btn" (click)="createDebitNote()" [disabled]="saving || !selected.id || selected.type === 'TD05' || isProforma(selected)">Nota debito</button>
                 <button type="button" class="ghost-btn" (click)="convertProforma()" [disabled]="saving || !selected.id || !isProforma(selected)">Converti proforma</button>
-                <button type="button" class="ghost-btn" (click)="emailInvoice()" [disabled]="saving || !selected.id">Email</button>
+                <button type="button" class="ghost-btn" (click)="emailInvoice()" [disabled]="saving || !selected.id || !sendEmailRecipient">Invia email</button>
               </div>
             </section>
 

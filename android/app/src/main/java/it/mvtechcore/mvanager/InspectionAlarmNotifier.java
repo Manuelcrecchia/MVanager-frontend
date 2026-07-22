@@ -4,8 +4,10 @@ import android.app.AlarmManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
 import android.media.AudioAttributes;
 import android.media.RingtoneManager;
@@ -35,6 +37,11 @@ final class InspectionAlarmNotifier {
     }
 
     static void show(Context context, Bundle extras) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
         createChannel(context);
 
         String title = getString(extras, "notificationTitle", "Promemoria appuntamento");

@@ -489,6 +489,10 @@ button:disabled {
   gap: 8px;
 }
 
+.action-email-field {
+  max-width: 360px;
+}
+
 .action-group__buttons .primary-btn,
 .action-group__buttons .ghost-btn {
   min-height: 34px;
@@ -1135,7 +1139,14 @@ pre {
   .settings-layout,
   .invoice-ops-grid,
   .technical-panels {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .invoice-layout > *,
+  .invoice-editor,
+  .invoice-form,
+  .line-table {
+    min-width: 0;
   }
 
   .invoice-list {
@@ -1158,5 +1169,118 @@ pre {
 
   .invoice-actions-panel {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .invoice-page {
+    padding: 12px;
+    overflow-x: hidden;
+  }
+
+  .invoice-toolbar {
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .invoice-title-group {
+    width: 100%;
+    align-items: center;
+  }
+
+  .invoice-title-group > div {
+    min-width: 0;
+  }
+
+  h1 {
+    font-size: 1.35rem;
+  }
+
+  .invoice-section-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: -12px;
+    padding: 0 12px 4px;
+    scrollbar-width: none;
+  }
+
+  .invoice-section-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .invoice-section-tabs button {
+    flex: 0 0 auto;
+    min-height: 44px;
+  }
+
+  .invoice-list,
+  .invoice-editor {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .invoice-list .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-row {
+    min-height: 82px;
+    align-items: flex-start;
+  }
+
+  .row-meta {
+    font-size: 0.76rem;
+  }
+
+  .status-strip {
+    font-size: 0.8rem;
+  }
+
+  .totals {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  .totals span {
+    padding: 8px;
+    border-radius: 8px;
+    background: #f3f6fb;
+    font-size: 0.78rem;
+  }
+
+  .action-group {
+    padding: 12px;
+  }
+
+  .action-email-field {
+    max-width: none;
+  }
+
+  .action-group__buttons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .action-group__buttons .primary-btn,
+  .action-group__buttons .ghost-btn,
+  .action-group--main .action-group__buttons .primary-btn {
+    width: 100%;
+    min-height: 46px;
+    padding-inline: 8px;
+    font-size: 0.84rem;
+  }
+
+  .action-primary-wide {
+    grid-column: 1 / -1;
+    min-width: 0;
+    order: -1;
+  }
+
+  .invoice-feedback {
+    right: 12px;
+    bottom: 12px;
+    max-width: calc(100vw - 24px);
   }
 }
