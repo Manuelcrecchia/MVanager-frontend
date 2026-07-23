@@ -1,0 +1,48 @@
+.subscription-notice {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(calc(100% - 48px), 1180px);
+  margin: 14px auto 0;
+  padding: 11px 18px;
+  color: #5f4300;
+  background: #fff5d6;
+  border: 1px solid #f0c757;
+  border-radius: 10px;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+.subscription-notice.urgent { color: #8b1e18; background: #fff0ee; border-color: #ef9b94; }
+.subscription-notice strong { white-space: nowrap; }
+.subscription-notice-close {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  margin: -4px -8px -4px auto;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 26px;
+  line-height: 1;
+}
+.subscription-notice-close:hover, .subscription-notice-close:focus-visible { background: rgba(0, 0, 0, .09); outline: none; }
+@media (min-width: 992px) {
+  /* The desktop dashboard owns a 260px sidebar. Keep the global notice in
+     its content column rather than allowing the sidebar to cover it. */
+  .subscription-notice--home {
+    width: auto;
+    max-width: none;
+    margin-right: 22px;
+    margin-left: calc(var(--sidebar-width, 260px) + 30px);
+  }
+}
+@media (max-width: 640px) {
+  .subscription-notice { align-items: flex-start; flex-direction: column; width: calc(100% - 28px); gap: 3px; padding: 10px 14px; }
+  .subscription-notice-close { position: absolute; top: 10px; right: 14px; margin: 0; }
+  .subscription-notice strong, .subscription-notice span { padding-right: 26px; }
+}

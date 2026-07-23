@@ -20,6 +20,60 @@ export class AppComponent {
   private biometricUnlockAttempted = false;
   private biometricUnlockInProgress = false;
   private sessionUnlocked = false;
+  private tenantConfigRefreshInProgress = false;
+  subscriptionNoticeDismissed = false;
+
+  get subscriptionNotice(): { tone: 'warning' | 'urgent'; message: string } | null {
+    if (this.subscriptionNoticeDismissed) return null;
+    // A remembered token can still exist while the login screen is shown.
+    // Never render a billing verdict from that previous session there: the
+    // current tenant configuration is loaded only after a successful login.
+    if (!this.globalService.token || this.isLoginRoute()) return null;
+    const billing = this.globalService.billingAccess;
+    // A due date is retained for audit/history even after a payment or a full
+    // discount has settled the instalment.  Only a non-active billing state
+    // may render a customer-facing warning.
+    if (!billing?.dueDate || billing.reason === 'active' || billing.reason === 'billing_unconfigured') return null;
+    const suspensionDate = billing.suspensionDate
+      ? new Date(`${billing.suspensionDate}T12:00:00`)
+      : null;
+    const formatDate = (date: Date) => new Intl.DateTimeFormat('it-IT', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    }).format(date);
+    if (billing.blocked) return {
+      tone: 'urgent',
+      message: suspensionDate
+        ? `L’accesso a MVanager è sospeso dal ${formatDate(suspensionDate)} per mancato pagamento. Contatta MVTechCore.`
+        : 'L’accesso a MVanager è sospeso per mancato pagamento. Contatta MVTechCore.',
+    };
+    const due = new Date(`${billing.dueDate}T12:00:00`);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const days = Math.ceil((due.getTime() - today.getTime()) / 86400000);
+    const reminders = Array.isArray(billing.reminderDays) ? billing.reminderDays : [7, 3, 1];
+    if (days < 0) {
+      const overdue = `${Math.abs(days)} ${Math.abs(days) === 1 ? 'giorno' : 'giorni'}`;
+      if (suspensionDate) {
+        const daysToBlock = Math.ceil((suspensionDate.getTime() - today.getTime()) / 86400000);
+        if (daysToBlock > 0) return {
+          tone: 'urgent',
+          message: `Il pagamento dell’abbonamento è scaduto da ${overdue}. MVanager verrà bloccato il ${formatDate(suspensionDate)} (tra ${daysToBlock} ${daysToBlock === 1 ? 'giorno' : 'giorni'}).`,
+        };
+      }
+      return { tone: 'urgent', message: `Il pagamento dell’abbonamento è scaduto da ${overdue}. Regolarizza subito per evitare il blocco.` };
+    }
+    if (reminders.includes(days)) return { tone: days <= 1 ? 'urgent' : 'warning', message: `Il tuo abbonamento MVanager scade tra ${days} ${days === 1 ? 'giorno' : 'giorni'}.` };
+    return null;
+  }
+
+  dismissSubscriptionNotice(): void {
+    // Intentionally kept only in memory: a page reload, app restart, or new
+    // session restores the reminder without storing a permanent preference.
+    this.subscriptionNoticeDismissed = true;
+  }
+
+  isHomeAdminRoute(): boolean {
+    return this.router.url.split('?')[0] === '/homeAdmin';
+  }
 
   constructor(
     private globalService: GlobalService,
@@ -36,6 +90,11 @@ export class AppComponent {
     const platform = Capacitor.getPlatform();
     document.body.classList.toggle('cap-ios', platform === 'ios');
     document.body.classList.toggle('cap-android', platform === 'android');
+
+    // Billing changes are made in MVControl while this app may already be
+    // open.  Always discard the in-memory tenant configuration once on app
+    // startup, then again when the user returns to this tab.
+    this.refreshTenantConfigFromServer();
 
     if (platform === 'web') {
       return;
@@ -72,6 +131,20 @@ export class AppComponent {
         }
       }
     });
+  }
+
+  @HostListener('window:focus')
+  onWindowFocus(): void {
+    this.refreshTenantConfigFromServer();
+  }
+
+  private refreshTenantConfigFromServer(): void {
+    if (!this.globalService.token || this.tenantConfigRefreshInProgress) return;
+    this.tenantConfigRefreshInProgress = true;
+    this.globalService
+      .loadTenantConfig(true, { showError: false })
+      .catch(() => null)
+      .finally(() => { this.tenantConfigRefreshInProgress = false; });
   }
 
   private navigatePendingNotificationIfLoggedIn(): void {

@@ -5110,8 +5110,10 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
                 if (!sortMap || typeof sortMap !== 'object') sortMap = {};
 
                 const title = s.appointment?.title || s.title || '';
+                // La descrizione del turno è una personalizzazione giornaliera:
+                // deve prevalere su quella dell'appuntamento anche se è vuota.
                 const description =
-                  s.appointment?.description || s.description || '';
+                  s.description ?? s.appointment?.description ?? '';
                 const customer =
                   s.appointment?.customer ||
                   s.appointment?.Customer ||

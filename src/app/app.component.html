@@ -1,3 +1,7 @@
-<router-outlet>
-</router-outlet>
+<div class="subscription-notice" *ngIf="subscriptionNotice as notice" [class.urgent]="notice.tone === 'urgent'" [class.subscription-notice--home]="isHomeAdminRoute()" role="alert">
+  <strong>{{ notice.tone === 'urgent' ? '⚠️ Attenzione pagamento' : 'Promemoria abbonamento' }}</strong>
+  <span>{{ notice.message }}</span>
+  <button type="button" class="subscription-notice-close" (click)="dismissSubscriptionNotice()" aria-label="Nascondi avviso pagamento" title="Nascondi per questa sessione">×</button>
+</div>
+<router-outlet></router-outlet>
 <app-ai-assistant-widget></app-ai-assistant-widget>

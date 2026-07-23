@@ -180,6 +180,13 @@ export class PrivateAreaComponent {
         },
         error: (err) => {
           console.error('❌ Errore login:', err);
+          // Il blocco per mancato pagamento include date e istruzioni: passa
+          // sempre dal formatter centralizzato invece di mostrare solo error.
+          if (err?.status === 402 || err?.error?.code === 'PAYMENT_REQUIRED') {
+            this.popup.text = this.popup.parseServerError(err, 'Accesso sospeso per mancato pagamento.');
+            this.popup.openPopup('Pagamento richiesto', 'warning');
+            return;
+          }
           const serverMessage =
             err?.error?.response ||
             err?.error?.error ||

@@ -33,6 +33,15 @@ interface TenantBackendConfig {
   routePlanningConfig?: TenantRoutePlanningConfig;
   invoiceConfig?: TenantInvoiceConfig;
   mapsConfig?: TenantMapsConfig;
+  billingAccess?: TenantBillingAccess;
+}
+
+export interface TenantBillingAccess {
+  blocked?: boolean;
+  reason?: string;
+  dueDate?: string;
+  suspensionDate?: string;
+  reminderDays?: number[];
 }
 
 export interface TenantAppointmentCategoryConfig {
@@ -534,6 +543,10 @@ export class GlobalService {
 
   get tenantCompanyName(): string {
     return this.tenantConfig?.companyName || this.tenantService.tenantLabel;
+  }
+
+  get billingAccess(): TenantBillingAccess | null {
+    return this.tenantConfig?.billingAccess || null;
   }
 
   getTenantQuoteConfig(): TenantQuoteConfig | null {

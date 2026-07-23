@@ -116,6 +116,9 @@ export class PopupServiceService {
       }
 
       const body = typeof err?.error === 'string' ? JSON.parse(err.error) : err?.error;
+      if (body?.code === 'PAYMENT_REQUIRED') {
+        return this.formatPaymentRequiredMessage(body);
+      }
       const detailedMessage = this.extractDetailedServerMessage(body);
       if (detailedMessage) return detailedMessage;
       if (body?.error) return String(body.error);
@@ -143,6 +146,24 @@ export class PopupServiceService {
     }
 
     return fallback;
+  }
+
+  private formatPaymentRequiredMessage(body: any): string {
+    const formatDate = (value: unknown): string => {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      const date = new Date(`${raw.slice(0, 10)}T12:00:00`);
+      return Number.isNaN(date.getTime())
+        ? ''
+        : new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+    };
+    const dueDate = formatDate(body?.dueDate);
+    const suspensionDate = formatDate(body?.suspensionDate);
+    const lines = ['Accesso a MVanager sospeso per mancato pagamento.'];
+    if (dueDate) lines.push(`Pagamento previsto entro il ${dueDate}.`);
+    if (suspensionDate) lines.push(`Servizio sospeso dal ${suspensionDate}.`);
+    lines.push('Per riattivare l’accesso, contatta MVTechCore dopo aver regolarizzato il pagamento.');
+    return lines.join('\n');
   }
 
   private markHttpErrorShown(err: unknown): void {
