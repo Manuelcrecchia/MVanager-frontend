@@ -51,7 +51,7 @@
           <span class="quote-title">
             {{ quote.numeroPreventivo }} - {{ getQuoteDisplayName(quote) }}
             <span
-              *ngIf="quote.isLocked && quote.acceptanceStatus === 'pending' && !showCompletedQuotes"
+              *ngIf="quote.acceptanceStatus === 'pending' && !showCompletedQuotes"
               class="badge bg-warning text-dark ms-2"
             >
               In attesa cliente

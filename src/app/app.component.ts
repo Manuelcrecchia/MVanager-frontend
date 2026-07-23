@@ -28,7 +28,7 @@ export class AppComponent {
     // A remembered token can still exist while the login screen is shown.
     // Never render a billing verdict from that previous session there: the
     // current tenant configuration is loaded only after a successful login.
-    if (!this.globalService.token || this.isLoginRoute()) return null;
+    if (!this.globalService.token || this.isLoginRoute() || this.isPublicRoute()) return null;
     const billing = this.globalService.billingAccess;
     // A due date is retained for audit/history even after a payment or a full
     // discount has settled the instalment.  Only a non-active billing state
@@ -203,6 +203,13 @@ export class AppComponent {
   private isLoginRoute(): boolean {
     const url = this.router.url.split('?')[0];
     return url === '/' || url === '/loginPrivateArea';
+  }
+
+  private isPublicRoute(): boolean {
+    const url = this.router.url.split('?')[0];
+    // These links are opened by external customers. A locally remembered
+    // employee/admin session must never reveal internal billing information.
+    return url.startsWith('/quote-accept/') || url.startsWith('/contract-accept/');
   }
 
   @HostListener('window:unhandledrejection', ['$event'])
