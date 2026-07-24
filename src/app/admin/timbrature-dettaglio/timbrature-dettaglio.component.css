@@ -220,19 +220,65 @@ html, body{
 
 /* Inputs in modal: chiari + testo nero */
 .modal .form-select,
-.modal .form-control{
+.modal .form-control,
+.stamping-modal-dialog .form-select,
+.stamping-modal-dialog .form-control{
   border-radius: 14px;
   border: 1px solid rgba(0,0,0,0.12);
   background: rgba(255,255,255,0.92);
   color:#000;
 }
-.modal .form-select option{ color:#000; }
+.modal .form-select option,
+.stamping-modal-dialog .form-select option{ color:#000; }
 
 /* Footer */
 .modal-footer{
   border-top: 1px solid rgba(255,255,255,0.12) !important;
   gap: 10px;
 }
+
+/* La modale delle timbrature non dipende dal JavaScript globale di Bootstrap:
+   nelle build mobile il backdrop non può quindi restare aperto da solo. */
+.stamping-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, .62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.stamping-modal-dialog {
+  width: min(100%, 500px);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+.stamping-modal-dialog--wide { width: min(100%, 800px); }
+.stamping-modal-dialog .modal-content { display: block; }
+.stamping-modal-dialog .btn { color: #000 !important; font-weight: 900; }
+.stamping-modal-dialog .btn.btn-secondary { background: rgba(255,255,255,.16) !important; }
+.stamping-modal-dialog .btn.btn-primary { background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky)) !important; }
+
+.stamping-toast {
+  position: fixed;
+  z-index: 2100;
+  right: 1rem;
+  bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  max-width: min(420px, calc(100vw - 2rem));
+  padding: .85rem 1rem;
+  border-radius: 14px;
+  background: #e8fff1;
+  color: #124d2a;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .28);
+  font-weight: 700;
+}
+.stamping-toast--error { background: #fff0f0; color: #8a1f28; }
 
 /* Buttons in modal */
 .modal .btn.btn-secondary{

@@ -1,9 +1,8 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
-declare var bootstrap: any;
 
 @Component({
   selector: 'app-timbrature-dettaglio',
@@ -11,8 +10,6 @@ declare var bootstrap: any;
   styleUrls: ['./timbrature-dettaglio.component.css'],
 })
 export class TimbratureDettaglioComponent implements OnInit {
-  @ViewChild('timbraturaModal') modalElement!: ElementRef;
-
   employeeId!: number;
   employee: any;
   date!: string;
@@ -37,7 +34,11 @@ export class TimbratureDettaglioComponent implements OnInit {
   currentWork: any;
   currentStamp: any;
   showNotesModal: boolean = false;
+  showStampingModal: boolean = false;
   notes: any[] = [];
+  toastMessage = '';
+  toastIsError = false;
+  private toastTimeout?: ReturnType<typeof setTimeout>;
 
   constructor(
     private route: ActivatedRoute,
@@ -114,17 +115,20 @@ export class TimbratureDettaglioComponent implements OnInit {
     this.loadTimbrature();
   }
 
-  // 🔹 Toast Bootstrap
+  // 🔹 Messaggio temporaneo, senza dipendere dal JavaScript globale di Bootstrap.
   showToast(message: string, error: boolean = false) {
-    const toastEl = document.getElementById('liveToast');
-    const toastBody = document.getElementById('toastBody');
-    if (!toastEl || !toastBody) return;
-    toastBody.textContent = message;
-    toastEl.className = `toast align-items-center text-bg-${
-      error ? 'danger' : 'success'
-    } border-0`;
-    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
-    toast.show();
+    this.toastMessage = message;
+    this.toastIsError = error;
+    if (this.toastTimeout) clearTimeout(this.toastTimeout);
+    this.toastTimeout = setTimeout(() => (this.toastMessage = ''), 3000);
+  }
+
+  private openStampingModal() {
+    this.showStampingModal = true;
+  }
+
+  closeStampingModal() {
+    this.showStampingModal = false;
   }
 
   // 🔹 Aggiungi timbratura
@@ -133,8 +137,7 @@ export class TimbratureDettaglioComponent implements OnInit {
     this.modalTitle = 'Aggiungi timbratura';
     this.currentWork = work;
     this.modalData = { entrata: '', uscita: '', note: '', tipo: '' };
-    const modal = new bootstrap.Modal(this.modalElement.nativeElement);
-    modal.show();
+    this.openStampingModal();
   }
 
   // 🔹 Modifica timbratura
@@ -156,8 +159,7 @@ export class TimbratureDettaglioComponent implements OnInit {
       note: '',
     };
 
-    const modal = new bootstrap.Modal(this.modalElement.nativeElement);
-    modal.show();
+    this.openStampingModal();
   }
 
   // 🔹 Elimina timbratura
@@ -166,8 +168,7 @@ export class TimbratureDettaglioComponent implements OnInit {
     this.modalTitle = 'Elimina timbratura';
     this.currentStamp = stamp;
     this.modalData = { note: '' };
-    const modal = new bootstrap.Modal(this.modalElement.nativeElement);
-    modal.show();
+    this.openStampingModal();
   }
 
   // 🔹 Risolvi errore
@@ -177,8 +178,7 @@ export class TimbratureDettaglioComponent implements OnInit {
     this.modalTitle = `Risolvi errore: ${work.errorType}`;
     this.currentWork = work;
     this.modalData = { note: '', action: '', solutions: work.solutions || [] };
-    const modal = new bootstrap.Modal(this.modalElement.nativeElement);
-    modal.show();
+    this.openStampingModal();
   }
 
   // 🔹 Conferma azione dal modale
@@ -226,6 +226,7 @@ export class TimbratureDettaglioComponent implements OnInit {
         .subscribe({
           next: () => {
             this.showToast('✅ Timbratura aggiunta con successo');
+            this.closeStampingModal();
             this.loadTimbrature();
           },
           error: (err) => {
@@ -257,6 +258,7 @@ export class TimbratureDettaglioComponent implements OnInit {
         .subscribe({
           next: () => {
             this.showToast('✅ Timbratura modificata con successo');
+            this.closeStampingModal();
             this.loadTimbrature();
           },
           error: (err) => {
@@ -280,6 +282,7 @@ export class TimbratureDettaglioComponent implements OnInit {
         .subscribe({
           next: () => {
             this.showToast('🗑️ Timbratura eliminata');
+            this.closeStampingModal();
             this.loadTimbrature();
           },
           error: (err) => {
@@ -319,6 +322,7 @@ export class TimbratureDettaglioComponent implements OnInit {
         .subscribe({
           next: () => {
             this.showToast('✅ Errore risolto correttamente');
+            this.closeStampingModal();
             this.loadTimbrature();
           },
           error: (err) => {

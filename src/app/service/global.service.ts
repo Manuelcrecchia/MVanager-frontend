@@ -1331,6 +1331,7 @@ export class GlobalService {
       'codiceOperatore',
       'data',
       'complete',
+      'tipoPreventivo',
       'tipoCliente',
       'stato',
     ].forEach((key) => {

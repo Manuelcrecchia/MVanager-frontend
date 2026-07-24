@@ -34,6 +34,26 @@
       Nessun campo preventivo configurato.
     </div>
 
+    <section class="quote-section" *ngIf="hasMultipleQuoteTypes()">
+      <div class="quote-section-heading">
+        <h3>Tipo preventivo</h3>
+      </div>
+      <div class="quote-field-grid">
+        <mat-form-field appearance="fill" class="w-100">
+          <mat-label>Seleziona il tipo</mat-label>
+          <mat-select
+            name="tipoPreventivo"
+            [(ngModel)]="quoteModelService.tipoPreventivo"
+            (ngModelChange)="onQuoteTypeChange($event)"
+          >
+            <mat-option *ngFor="let type of globalService.getQuoteTypes()" [value]="type.key">
+              {{ type.label || type.key }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </section>
+
     <ng-container *ngIf="visibleQuoteSections.length; else noQuoteLayout">
       <section
         class="quote-section"

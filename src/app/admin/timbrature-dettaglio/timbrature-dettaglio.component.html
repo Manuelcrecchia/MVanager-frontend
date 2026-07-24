@@ -201,23 +201,27 @@
      🧩 MODALE TIMBRATURA (IMPORTANTE: id + #timbraturaModal)
 ========================================================= -->
 <div
-  class="modal fade"
-  id="modalTimbratura"
-  tabindex="-1"
-  aria-hidden="true"
-  #timbraturaModal
+  *ngIf="showStampingModal"
+  class="stamping-modal-backdrop"
+  role="presentation"
+  (click)="closeStampingModal()"
 >
-  <div class="modal-dialog modal-dialog-centered">
+  <div
+    class="stamping-modal-dialog"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="modalTitle"
+    (click)="$event.stopPropagation()"
+  >
     <div class="modal-content mv-modal shadow-lg rounded-4">
       <div class="modal-header mv-modal__header">
         <h5 class="modal-title">{{ modalTitle }}</h5>
 
-        <!-- ✅ chiusura bootstrap -->
         <button
           type="button"
           class="btn-close btn-close-white"
-          data-bs-dismiss="modal"
           aria-label="Close"
+          (click)="closeStampingModal()"
         ></button>
       </div>
 
@@ -301,7 +305,7 @@
         <button
           type="button"
           class="btn btn-secondary mv-btn"
-          data-bs-dismiss="modal"
+          (click)="closeStampingModal()"
         >
           Annulla
         </button>
@@ -310,7 +314,6 @@
           type="button"
           class="btn btn-primary mv-btn"
           (click)="confirmModal()"
-          data-bs-dismiss="modal"
         >
           Conferma
         </button>
@@ -322,17 +325,9 @@
 <!-- =========================================================
      ✅ TOAST (come tuo)
 ========================================================= -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3">
-  <div id="liveToast" class="toast align-items-center border-0" role="alert">
-    <div class="d-flex">
-      <div id="toastBody" class="toast-body"></div>
-      <button
-        type="button"
-        class="btn-close me-2 m-auto"
-        data-bs-dismiss="toast"
-      ></button>
-    </div>
-  </div>
+<div *ngIf="toastMessage" class="stamping-toast" [class.stamping-toast--error]="toastIsError" role="status">
+  <span>{{ toastMessage }}</span>
+  <button type="button" class="btn-close" aria-label="Chiudi" (click)="toastMessage = ''"></button>
 </div>
 
 <!-- =========================================================
@@ -340,13 +335,18 @@
      (NON più ngClass/ngStyle)
 ========================================================= -->
 <div
-  class="modal fade"
-  id="notesModal"
-  tabindex="-1"
-  aria-hidden="true"
-  #notesModal
+  *ngIf="showNotesModal"
+  class="stamping-modal-backdrop"
+  role="presentation"
+  (click)="closeNotesModal()"
 >
-  <div class="modal-dialog modal-lg modal-dialog-centered">
+  <div
+    class="stamping-modal-dialog stamping-modal-dialog--wide"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Storico modifiche"
+    (click)="$event.stopPropagation()"
+  >
     <div class="modal-content mv-modal">
       <div class="modal-header mv-modal__header">
         <h5 class="modal-title">Storico modifiche</h5>
@@ -354,7 +354,6 @@
         <button
           type="button"
           class="btn-close btn-close-white"
-          data-bs-dismiss="modal"
           aria-label="Close"
           (click)="closeNotesModal()"
         ></button>
@@ -391,7 +390,6 @@
         <button
           type="button"
           class="btn btn-secondary mv-btn"
-          data-bs-dismiss="modal"
           (click)="closeNotesModal()"
         >
           Chiudi

@@ -165,6 +165,7 @@ export class CalendarHomeComponent implements OnInit {
   }
 
   private quotesMap: Map<string, any> = new Map();
+  private popupNumeroPreventivo = '';
 
   private quoteLabel(quote: any): string {
     const title = this.globalService.getRecordDisplayName('quote', quote || {});
@@ -194,6 +195,7 @@ export class CalendarHomeComponent implements OnInit {
           new Date(), inspectionCategory,
           `${this.autoInspectionService.numeroPreventivo} - ${this.autoInspectionService.displayName}`,
           `Contatto ${this.autoInspectionService.displayName}   Telefono: ${this.autoInspectionService.telefono}`,
+          this.autoInspectionService.numeroPreventivo,
         );
       }
     });
@@ -495,12 +497,13 @@ export class CalendarHomeComponent implements OnInit {
 
   // ── POPUP ──────────────────────────────────────────────────────────────
 
-  openNewPopup(date: Date, category = '', title = '', description = '') {
+  openNewPopup(date: Date, category = '', title = '', description = '', numeroPreventivo = '') {
     const start = new Date(date); start.setSeconds(0,0);
     const end = new Date(start.getTime()+30*60000);
     this.isNewEvent=true; this.editingEventId=null; this.isRecurringInstance=false; this.hasRecurrenceRule=false;
     this.editingSingleOccurrence=false; this.editingOccurrenceStart=null; this.editingSelectedDate=null;
     this.popupTitle=title; this.popupDescription=description;
+    this.popupNumeroPreventivo = numeroPreventivo;
     this.popupStartDate=this.toInputDatetime(start); this.popupEndDate=this.toInputDatetime(end);
     this.popupCategory=category||this.globalService.getDefaultAppointmentCategory(this.categories[0]?.id || '')||'';
     this.popupInspectionAdminIds = [];
@@ -709,6 +712,7 @@ export class CalendarHomeComponent implements OnInit {
     if (this.isQuoteCategory(category)) {
       const preventivoData = this.quotesMap.get(this.normalize(codice));
       if (preventivoData) {
+        this.popupNumeroPreventivo = String(preventivoData.numeroPreventivo || codice || '');
         const name = this.globalService.getRecordDisplayName('quote', preventivoData);
         const phone = this.globalService.getRecordValueByRole('quote', preventivoData, 'quotePhone') || '';
         this.popupDescription = `${category?.text || 'Preventivo'} - Contatto: ${name || 'Cliente'}${phone ? ` Telefono: ${phone}` : ''}`;
@@ -717,6 +721,7 @@ export class CalendarHomeComponent implements OnInit {
     }
 
     if (this.isCustomerCategory(category)) {
+      this.popupNumeroPreventivo = '';
       this.clientiArray.find(c=>this.normalize(this.customerLabel(c))===this.normalize(val));
       return;
     }
@@ -733,7 +738,10 @@ export class CalendarHomeComponent implements OnInit {
     return [];
   }
 
-  onCategoryChange() { this.filteredAutocomplete=this.getAutocompleteSource(this.popupCategory); this.autocompleteOpen=false; }
+  onCategoryChange() {
+    if (!this.isQuoteCategory(this.getCategoryOption(this.popupCategory))) this.popupNumeroPreventivo='';
+    this.filteredAutocomplete=this.getAutocompleteSource(this.popupCategory); this.autocompleteOpen=false;
+  }
 
   toggleInspectionAdmin(adminId: number) {
     const id = Number(adminId);
@@ -808,6 +816,11 @@ export class CalendarHomeComponent implements OnInit {
           ? this.popupInspectionReminderMinutes
           : null,
     };
+    // Negli edit il backend conserva il riferimento esistente quando non si
+    // sta scegliendo esplicitamente un nuovo preventivo.
+    if (this.isNewEvent || this.popupNumeroPreventivo) {
+      body.numeroPreventivo = this.popupNumeroPreventivo || null;
+    }
     if (!this.isNewEvent && this.editingSingleOccurrence) {
       this.saveSingleOccurrence(body, isInspection);
       return;

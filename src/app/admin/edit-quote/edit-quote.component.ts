@@ -93,6 +93,7 @@ export class EditQuoteComponent {
             if (!quote) return;
             this.quoteModelService.resetQuoteModel();
             Object.assign(this.quoteModelService as any, quote);
+            this.ensureQuoteTypeSelection();
             this.globalService.applyCalculatedFields(
               'quote',
               this.quoteModelService as unknown as Record<string, any>,
@@ -186,8 +187,35 @@ export class EditQuoteComponent {
     this.visibleQuoteFields = this.globalService.getVisibleFieldMappingFields(
       'quote',
       this.quoteModelService as unknown as Record<string, any>,
-    );
+    ).filter((field) => !this.hasMultipleQuoteTypes() || !this.isQuoteTypeSelectorField(field));
     this.visibleQuoteSections = this.groupQuoteFieldsBySection(this.visibleQuoteFields);
+  }
+
+  hasMultipleQuoteTypes(): boolean {
+    return this.globalService.getQuoteTypes().length > 1;
+  }
+
+  onQuoteTypeChange(value: string): void {
+    const target = this.quoteModelService as unknown as Record<string, any>;
+    target['tipoPreventivo'] = String(value || '').trim();
+    this.globalService.clearHiddenFieldValues('quote', target);
+    this.globalService.applyFieldDefaults('quote', target);
+    this.globalService.applyCalculatedFields('quote', target);
+    this.refreshVisibleQuoteFields();
+  }
+
+  private ensureQuoteTypeSelection(): void {
+    const target = this.quoteModelService as unknown as Record<string, any>;
+    const types = this.globalService.getQuoteTypes();
+    const current = String(target['tipoPreventivo'] || '').trim();
+    const isConfigured = types.some((type) => type.key === current);
+    if (!isConfigured) target['tipoPreventivo'] = this.globalService.getDefaultQuoteType('');
+  }
+
+  private isQuoteTypeSelectorField(field: TenantFieldMappingFieldConfig): boolean {
+    const key = String(field.key || field.dbColumn || '').trim().toLowerCase();
+    return String(field.displayRole || '').trim() === 'quoteType' ||
+      ['tipopreventivo', 'quotetype', 'tipo_preventivo'].includes(key);
   }
 
   private groupQuoteFieldsBySection(fields: TenantFieldMappingFieldConfig[]): QuoteFieldSection[] {
