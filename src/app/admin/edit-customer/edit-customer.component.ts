@@ -19,8 +19,21 @@ import {
 })
 export class EditCustomerComponent {
   employeeCategories: any[] = [];
+  customerDeadlineCategories: any[] = [];
+  selectedCustomerDeadlineCategoryIds: number[] = [];
+  vehicleCategories: any[] = [];
+  equipmentCategories: any[] = [];
   equipmentTargets: any[] = [];
+  employeeTargets: any[] = [];
+  vehicleTargets: any[] = [];
+  employeeRequirementMode: 'category' | 'specific' = 'category';
+  vehicleRequirementMode: 'category' | 'specific' = 'category';
+  equipmentRequirementMode: 'category' | 'specific' = 'category';
+  selectedEmployeeIds: { [id: number]: boolean } = {};
+  selectedVehicleIds: { [id: number]: boolean } = {};
   requirementCounts: { [categoryId: number]: number } = {};
+  vehicleRequirementCounts: { [categoryId: number]: number } = {};
+  equipmentCategoryRequirementCounts: { [categoryId: number]: number } = {};
   equipmentRequirementCounts: { [targetKey: string]: number } = {};
   employeeCategoriesLoaded = false;
   equipmentTargetsLoaded = false;
@@ -49,7 +62,12 @@ export class EditCustomerComponent {
 
   ngOnInit(): void {
     this.loadEmployeeCategories();
+    this.loadCustomerDeadlineCategories();
+    this.loadResourceCategories('vehicle');
+    this.loadResourceCategories('equipment');
     this.loadEquipmentTargets();
+    this.loadEmployeeTargets();
+    this.loadVehicleTargets();
     const numeroCliente =
       this.route.snapshot.paramMap.get('numeroCliente') ||
       this.route.snapshot.queryParamMap.get('numeroCliente') ||
@@ -59,6 +77,13 @@ export class EditCustomerComponent {
       if (numeroCliente) {
         this.caricaClienteFromDb(numeroCliente);
       }
+    });
+  }
+
+  loadResourceCategories(resourceType: 'vehicle' | 'equipment'): void {
+    this.http.get<any[]>(this.globalService.url + `admin/resource-categories/${resourceType}`, { headers: this.globalService.headers }).subscribe({
+      next: (categories) => { if (resourceType === 'vehicle') this.vehicleCategories = Array.isArray(categories) ? categories : []; else this.equipmentCategories = Array.isArray(categories) ? categories : []; },
+      error: () => { if (resourceType === 'vehicle') this.vehicleCategories = []; else this.equipmentCategories = []; },
     });
   }
 
@@ -79,6 +104,32 @@ export class EditCustomerComponent {
       });
   }
 
+  loadCustomerDeadlineCategories(): void {
+    this.http.get<any[]>(this.globalService.url + 'admin/customer-deadline-categories', { headers: this.globalService.headers }).subscribe({
+      next: (categories) => this.customerDeadlineCategories = Array.isArray(categories) ? categories : [],
+      error: () => this.customerDeadlineCategories = [],
+    });
+  }
+
+  loadCustomerDeadlineCategoryAssignments(numeroCliente: string): void {
+    this.http.get<number[]>(this.globalService.url + `admin/customer-deadline-categories/customer/${encodeURIComponent(numeroCliente)}`, { headers: this.globalService.headers }).subscribe({
+      next: (ids) => this.selectedCustomerDeadlineCategoryIds = Array.isArray(ids) ? ids.map(Number) : [],
+      error: () => this.selectedCustomerDeadlineCategoryIds = [],
+    });
+  }
+
+  private saveCustomerDeadlineCategories(numeroCliente: string): Promise<any> {
+    return this.http.post(this.globalService.url + `admin/customer-deadline-categories/customer/${encodeURIComponent(numeroCliente)}`, {
+      categoryIds: this.selectedCustomerDeadlineCategoryIds,
+    }, { headers: this.globalService.headers }).toPromise();
+  }
+
+  toggleCustomerDeadlineCategory(id: number, checked: boolean): void {
+    this.selectedCustomerDeadlineCategoryIds = checked
+      ? [...new Set([...this.selectedCustomerDeadlineCategoryIds, Number(id)])]
+      : this.selectedCustomerDeadlineCategoryIds.filter((value) => value !== Number(id));
+  }
+
   loadEquipmentTargets(): void {
     this.http
       .get<any[]>(this.globalService.url + 'equipment/getAll', {
@@ -94,6 +145,32 @@ export class EditCustomerComponent {
           this.equipmentTargetsLoaded = true;
         },
       });
+  }
+
+  loadEmployeeTargets(): void {
+    this.http.get<any[]>(this.globalService.url + 'employees/getAll', { headers: this.globalService.headers }).subscribe({ next: (rows) => this.employeeTargets = Array.isArray(rows) ? rows : [], error: () => this.employeeTargets = [] });
+  }
+
+  loadVehicleTargets(): void {
+    this.http.get<any[]>(this.globalService.url + 'vehicles/getAll', { headers: this.globalService.headers }).subscribe({ next: (rows) => this.vehicleTargets = Array.isArray(rows) ? rows : [], error: () => this.vehicleTargets = [] });
+  }
+
+  loadSpecificRequirements(resourceType: 'employee' | 'vehicle', numeroCliente: string): void {
+    this.http.get<any[]>(this.globalService.url + `admin/customer-specific-resources/${resourceType}/customer/${numeroCliente}`, { headers: this.globalService.headers }).subscribe({
+      next: (rows) => {
+        const selection: { [id: number]: boolean } = {};
+        for (const row of rows || []) selection[Number(row.resourceId)] = true;
+        if (resourceType === 'employee') { this.selectedEmployeeIds = selection; if (Object.keys(selection).length) this.employeeRequirementMode = 'specific'; }
+        else { this.selectedVehicleIds = selection; if (Object.keys(selection).length) this.vehicleRequirementMode = 'specific'; }
+      },
+    });
+  }
+
+  private selectedIds(selection: { [id: number]: boolean }): number[] { return Object.keys(selection).map(Number).filter((id) => selection[id]); }
+
+  private saveSpecificRequirements(resourceType: 'employee' | 'vehicle', numeroCliente: string): Promise<any> {
+    const resourceIds = resourceType === 'employee' ? this.selectedIds(this.selectedEmployeeIds) : this.selectedIds(this.selectedVehicleIds);
+    return this.http.post(this.globalService.url + `admin/customer-specific-resources/${resourceType}/customer/${numeroCliente}`, { resourceIds }, { headers: this.globalService.headers }).toPromise();
   }
 
   loadStaffRequirements(numeroCliente: string): void {
@@ -125,14 +202,25 @@ export class EditCustomerComponent {
           const counts: { [targetKey: string]: number } = {};
           for (const row of rows || []) {
             const targetKey = String(row.targetKey || '').trim();
-            if (targetKey) counts[targetKey] = Number(row.requiredCount) || 0;
+          if (targetKey) counts[targetKey] = Number(row.requiredCount) || 0;
           }
           this.equipmentRequirementCounts = counts;
+          if (Object.keys(counts).length) this.equipmentRequirementMode = 'specific';
         },
         error: () => {
           this.equipmentRequirementCounts = {};
         },
       });
+  }
+
+  loadResourceRequirements(resourceType: 'vehicle' | 'equipment', numeroCliente: string): void {
+    this.http.get<any[]>(this.globalService.url + `admin/resource-categories/${resourceType}/customer/${numeroCliente}`, { headers: this.globalService.headers }).subscribe({
+      next: (rows) => {
+        const counts: { [categoryId: number]: number } = {};
+        for (const row of rows || []) counts[Number(row.categoryId)] = Number(row.requiredCount) || 0;
+        if (resourceType === 'vehicle') this.vehicleRequirementCounts = counts; else this.equipmentCategoryRequirementCounts = counts;
+      },
+    });
   }
 
   private buildStaffRequirements(): any[] {
@@ -153,8 +241,12 @@ export class EditCustomerComponent {
       .filter((item) => item.targetKey && item.requiredCount > 0);
   }
 
+  private buildCategoryRequirements(categories: any[], counts: { [categoryId: number]: number }): any[] {
+    return categories.map((category) => ({ categoryId: category.id, requiredCount: Number(counts[Number(category.id)] || 0) })).filter((item) => item.categoryId && item.requiredCount > 0);
+  }
+
   private saveStaffRequirements(numeroCliente: string, done: () => void): void {
-    const requirements = this.buildStaffRequirements();
+    const requirements = this.employeeRequirementMode === 'category' ? this.buildStaffRequirements() : [];
     this.http
       .post(
         this.globalService.url + `admin/employee-categories/customer/${numeroCliente}`,
@@ -162,13 +254,13 @@ export class EditCustomerComponent {
         { headers: this.globalService.headers },
       )
       .subscribe({
-        next: () => done(),
-        error: () => done(),
+        next: () => this.saveSpecificRequirements('employee', numeroCliente).then(done).catch(done),
+        error: () => this.saveSpecificRequirements('employee', numeroCliente).then(done).catch(done),
       });
   }
 
   private saveEquipmentRequirements(numeroCliente: string, done: () => void): void {
-    const requirements = this.buildEquipmentRequirements();
+    const requirements = this.equipmentRequirementMode === 'specific' ? this.buildEquipmentRequirements() : [];
     this.http
       .post(
         this.globalService.url + `equipment/customer/${numeroCliente}`,
@@ -179,6 +271,14 @@ export class EditCustomerComponent {
         next: () => done(),
         error: () => done(),
       });
+  }
+
+  private saveResourceRequirements(numeroCliente: string, done: () => void): void {
+    Promise.all([
+      this.http.post(this.globalService.url + `admin/resource-categories/vehicle/customer/${numeroCliente}`, { requirements: this.vehicleRequirementMode === 'category' ? this.buildCategoryRequirements(this.vehicleCategories, this.vehicleRequirementCounts) : [] }, { headers: this.globalService.headers }).toPromise(),
+      this.http.post(this.globalService.url + `admin/resource-categories/equipment/customer/${numeroCliente}`, { requirements: this.equipmentRequirementMode === 'category' ? this.buildCategoryRequirements(this.equipmentCategories, this.equipmentCategoryRequirementCounts) : [] }, { headers: this.globalService.headers }).toPromise(),
+      this.saveSpecificRequirements('vehicle', numeroCliente),
+    ]).then(done).catch(done);
   }
 
   private caricaClienteFromDb(numeroCliente: string): void {
@@ -194,6 +294,11 @@ export class EditCustomerComponent {
             this.syncCustomerFieldRules();
             this.loadStaffRequirements(String(res[0].numeroCliente || numeroCliente));
             this.loadEquipmentRequirements(String(res[0].numeroCliente || numeroCliente));
+            this.loadResourceRequirements('vehicle', String(res[0].numeroCliente || numeroCliente));
+            this.loadResourceRequirements('equipment', String(res[0].numeroCliente || numeroCliente));
+            this.loadSpecificRequirements('employee', String(res[0].numeroCliente || numeroCliente));
+            this.loadSpecificRequirements('vehicle', String(res[0].numeroCliente || numeroCliente));
+            this.loadCustomerDeadlineCategoryAssignments(String(res[0].numeroCliente || numeroCliente));
           }
         },
         error: (err) => {
@@ -406,10 +511,11 @@ export class EditCustomerComponent {
         next: () => {
           const numeroCliente = String(body.numeroCliente || '').trim();
           this.saveStaffRequirements(numeroCliente, () => {
-            this.saveEquipmentRequirements(numeroCliente, () => {
-              this.customerModelService.reset();
-              this.router.navigateByUrl('/homeAdmin/listCustomer');
-            });
+            this.saveResourceRequirements(numeroCliente, () => this.saveEquipmentRequirements(numeroCliente, () => {
+              this.saveCustomerDeadlineCategories(numeroCliente).finally(() => {
+                this.customerModelService.reset(); this.router.navigateByUrl('/homeAdmin/listCustomer');
+              });
+            }));
           });
         },
         error: (err) => {

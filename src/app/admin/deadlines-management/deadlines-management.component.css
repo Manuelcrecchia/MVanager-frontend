@@ -111,6 +111,12 @@
   background: #ffe0e5;
 }
 
+.summary-box-pending {
+  background: #e8f2ff;
+  border-color: #a9cdfd;
+  color: #174a7a;
+}
+
 .summary-value {
   font-size: 1.8rem;
   font-weight: 900;
@@ -174,6 +180,21 @@
   color: rgba(18, 48, 77, 0.72);
   font-size: 0.92rem;
   font-weight: 800;
+}
+
+.empty-groups-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(18, 48, 77, 0.78);
+  font-size: 0.86rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.empty-groups-toggle input[type="checkbox"] {
+  width: auto;
+  margin: 0;
 }
 
 .form-head,
@@ -388,6 +409,12 @@
 
 .entity-stat-strip .status-inline {
   font-weight: 900;
+}
+
+.status-inline.status-pending {
+  background: #dcecff;
+  border: 1px solid #afd0fa;
+  color: #174a7a;
 }
 
 .entity-actions {
@@ -787,6 +814,10 @@
     justify-self: start;
   }
 
+  .empty-groups-toggle {
+    white-space: normal;
+  }
+
   .deadline-top {
     flex-direction: column;
   }
@@ -811,3 +842,5 @@
     justify-content: center;
   }
 }
+.customer-category-panel{margin:18px 0;padding:16px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:rgba(255,255,255,.06)}.customer-category-panel p{font-size:.85rem;opacity:.76}.customer-category-panel .category-check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:12px}.customer-category-panel .category-check{display:flex;gap:9px;align-items:flex-start;padding:9px;border-radius:8px;background:rgba(0,0,0,.12)}.customer-category-panel .category-check small{display:block;opacity:.75}
+.customer-asset-detail-list{display:grid;gap:18px}.customer-asset-detail-block{padding:18px;border:1px solid rgba(122,157,196,.26);border-radius:16px;background:rgba(238,246,255,.4)}.customer-asset-detail-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}.customer-asset-detail-title{margin:0 0 4px;font-size:1.1rem;color:#173b63}.customer-asset-detail-block .folder-list{margin:0}.customer-asset-detail-block .folder-block:last-child{margin-bottom:0}@media (max-width:640px){.customer-asset-detail-head{align-items:stretch;flex-direction:column}.customer-asset-detail-head .btn{width:100%}}

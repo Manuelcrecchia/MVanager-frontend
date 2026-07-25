@@ -17,6 +17,7 @@ type DeadlineStatus = 'ok' | 'warning' | 'expired';
 interface DeadlineSummary {
   expiredCount: number;
   warningCount: number;
+  pendingCount: number;
   alertCount: number;
   totalCount: number;
   status: DeadlineStatus;
@@ -78,6 +79,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   private quoteAcceptanceSubscription?: Subscription;
   private employeeContractSubscription?: Subscription;
   private routerEventsSubscription?: Subscription;
+  private deadlineSummarySubscription?: Subscription;
   private adminTodoSubscription?: Subscription;
   private emailUnreadIntervalId?: ReturnType<typeof setInterval>;
   private readonly desktopEmbeddedRootPaths = new Set([
@@ -86,6 +88,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     'calendarHome',
     'candidates',
     'cambiapassword',
+    'customer-asset-deadlines',
+    'customer-assets',
     'customer-deadlines',
     'customerNotes',
     'documenti',
@@ -159,6 +163,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   vehicleDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   equipmentDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   customerDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
+  customerAssetDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   internalDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   sidebarCollapsed = false;
   settingsMenuOpen = false;
@@ -192,6 +197,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     }).catch((err) => {
       console.error('Errore caricamento config tenant:', err);
     });
+    this.deadlineSummarySubscription = this.global.deadlineSummaryChanged$.subscribe(() => this.loadDeadlineSummary());
     this.updateDesktopHomeState();
     this.bindRouterState();
     this.bindQuoteAcceptanceUpdates();
@@ -206,6 +212,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.quoteAcceptanceSubscription?.unsubscribe();
     this.employeeContractSubscription?.unsubscribe();
     this.routerEventsSubscription?.unsubscribe();
+    this.deadlineSummarySubscription?.unsubscribe();
     this.adminTodoSubscription?.unsubscribe();
     if (this.emailUnreadIntervalId) {
       clearInterval(this.emailUnreadIntervalId);
@@ -280,6 +287,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       this.vehicleDeadlineSummary = this.emptyDeadlineSummary();
       this.equipmentDeadlineSummary = this.emptyDeadlineSummary();
       this.customerDeadlineSummary = this.emptyDeadlineSummary();
+      this.customerAssetDeadlineSummary = this.emptyDeadlineSummary();
       this.internalDeadlineSummary = this.emptyDeadlineSummary();
       return;
     }
@@ -300,6 +308,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
           this.customerDeadlineSummary = this.normalizeDeadlineSummary(
             res?.customers,
           );
+          this.customerAssetDeadlineSummary = this.normalizeDeadlineSummary(res?.customerAssets);
           this.internalDeadlineSummary = this.normalizeDeadlineSummary(
             res?.internal,
           );
@@ -572,6 +581,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.navigateInHome('settingsemployees');
   }
 
+  navigateToCategorySettings() {
+    this.navigateInHome('category-settings');
+  }
+
   navigateToQuotesHome() {
     this.navigateInHome('quotesHome');
   }
@@ -660,6 +673,18 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   navigateToCustomerDeadlines() {
     this.navigateInHome('customer-deadlines');
+  }
+
+  navigateToCustomerAssetDeadlines() {
+    this.navigateInHome('customer-asset-deadlines');
+  }
+
+  navigateToCustomerAssets() {
+    this.navigateInHome('customer-assets');
+  }
+
+  getCustomerAssetsModuleLabel(): string {
+    return this.global.getTenantCustomerAssetsConfig().moduleLabel || 'Presidi presso clienti';
   }
 
   navigateToInternalDeadlines() {
@@ -1093,7 +1118,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'employeeDeadlines',
             action: () => this.navigateToEmployeeDeadlines(),
             desktopPath: 'employee-deadlines',
-            badgeCount: () => this.employeeDeadlineSummary.alertCount,
+            badgeCount: () => this.deadlineBadgeCount(this.employeeDeadlineSummary),
             badgeClass: () => this.deadlineBadgeClass(this.employeeDeadlineSummary),
           },
           {
@@ -1103,7 +1128,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'vehicleDeadlines',
             action: () => this.navigateToVehicleDeadlines(),
             desktopPath: 'vehicle-deadlines',
-            badgeCount: () => this.vehicleDeadlineSummary.alertCount,
+            badgeCount: () => this.deadlineBadgeCount(this.vehicleDeadlineSummary),
             badgeClass: () => this.deadlineBadgeClass(this.vehicleDeadlineSummary),
           },
           {
@@ -1113,7 +1138,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'equipmentDeadlines',
             action: () => this.navigateToEquipmentDeadlines(),
             desktopPath: 'equipment-deadlines',
-            badgeCount: () => this.equipmentDeadlineSummary.alertCount,
+            badgeCount: () => this.deadlineBadgeCount(this.equipmentDeadlineSummary),
             badgeClass: () => this.deadlineBadgeClass(this.equipmentDeadlineSummary),
           },
           {
@@ -1123,8 +1148,18 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'customerDeadlines',
             action: () => this.navigateToCustomerDeadlines(),
             desktopPath: 'customer-deadlines',
-            badgeCount: () => this.customerDeadlineSummary.alertCount,
+            badgeCount: () => this.deadlineBadgeCount(this.customerDeadlineSummary),
             badgeClass: () => this.deadlineBadgeClass(this.customerDeadlineSummary),
+          },
+          {
+            label: `Scadenze ${this.global.getTenantCustomerAssetsConfig().moduleLabel || 'presidi'}`,
+            icon: 'fas fa-fire-extinguisher',
+            permission: 'CUSTOMER_ASSET_DEADLINES_VIEW',
+            feature: 'customerAssets',
+            action: () => this.navigateToCustomerAssetDeadlines(),
+            desktopPath: 'customer-asset-deadlines',
+            badgeCount: () => this.deadlineBadgeCount(this.customerAssetDeadlineSummary),
+            badgeClass: () => this.deadlineBadgeClass(this.customerAssetDeadlineSummary),
           },
           {
             label: 'Scadenze interne',
@@ -1133,7 +1168,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'internalDeadlines',
             action: () => this.navigateToInternalDeadlines(),
             desktopPath: 'internal-deadlines',
-            badgeCount: () => this.internalDeadlineSummary.alertCount,
+            badgeCount: () => this.deadlineBadgeCount(this.internalDeadlineSummary),
             badgeClass: () => this.deadlineBadgeClass(this.internalDeadlineSummary),
           },
         ],
@@ -1585,6 +1620,22 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
+  categoryBadgeClass(category: HomeCategory): string {
+    if (category.id !== 'operativo') return 'badge bg-danger ms-1';
+    const summaries = [
+      this.employeeDeadlineSummary,
+      this.vehicleDeadlineSummary,
+      this.equipmentDeadlineSummary,
+      this.customerDeadlineSummary,
+      this.internalDeadlineSummary,
+    ];
+    return this.deadlineBadgeClassFromCounts(
+      summaries.reduce((total, summary) => total + summary.expiredCount, 0),
+      summaries.reduce((total, summary) => total + summary.warningCount, 0),
+      summaries.reduce((total, summary) => total + summary.pendingCount, 0),
+    );
+  }
+
   buttonBadgeCount(button: HomeButton): number {
     return button.badgeCount?.() || 0;
   }
@@ -1600,15 +1651,25 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   deadlineBadgeClass(summary: DeadlineSummary): string {
-    if (summary.status === 'expired') return 'alert-badge alert-badge-expired';
-    if (summary.status === 'warning') return 'alert-badge alert-badge-warning';
+    return this.deadlineBadgeClassFromCounts(summary.expiredCount, summary.warningCount, summary.pendingCount);
+  }
+
+  private deadlineBadgeClassFromCounts(expiredCount: number, warningCount: number, pendingCount: number): string {
+    if (expiredCount > 0) return 'alert-badge alert-badge-expired';
+    if (warningCount > 0) return 'alert-badge alert-badge-warning';
+    if (pendingCount > 0) return 'alert-badge alert-badge-pending';
     return 'alert-badge';
+  }
+
+  deadlineBadgeCount(summary: DeadlineSummary): number {
+    return summary.alertCount + summary.pendingCount;
   }
 
   private emptyDeadlineSummary(): DeadlineSummary {
     return {
       expiredCount: 0,
       warningCount: 0,
+      pendingCount: 0,
       alertCount: 0,
       totalCount: 0,
       status: 'ok',
@@ -1621,6 +1682,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     return {
       expiredCount: Number(raw.expiredCount) || 0,
       warningCount: Number(raw.warningCount) || 0,
+      pendingCount: Number(raw.pendingCount) || 0,
       alertCount: Number(raw.alertCount) || 0,
       totalCount: Number(raw.totalCount) || 0,
       status:

@@ -1,0 +1,78 @@
+.assets-page { max-width: 1180px; margin: 0 auto; padding: 28px; color: #17395d; }
+.assets-page header { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-bottom: 24px; }
+.assets-page header > div { flex: 1; }
+.assets-page h1, .assets-page h2 { margin: 0; }
+.assets-page p { color: #536b86; }
+.primary { background: #146ef5; color: #fff; border: 0; }
+.back, button { border: 1px solid #cbd7e5; border-radius: 9px; padding: 10px 15px; background: #fff; font: inherit; cursor: pointer; }
+.customer-detail-link, .detail-back { display: inline-flex; align-items: center; text-decoration: none; }
+.editor, .list { background: #fff; border: 1px solid #dce5ef; border-radius: 16px; padding: 22px; margin: 18px 0; }
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; margin-top: 18px; }
+.grid label { font-weight: 600; display: grid; gap: 6px; }
+.grid input, .grid select { padding: 10px; border: 1px solid #bfcddd; border-radius: 8px; font: inherit; }
+.customer-picker { position: relative; }
+.customer-picker input { width: 100%; box-sizing: border-box; }
+.customer-options { position: absolute; z-index: 10; top: calc(100% + 4px); left: 0; right: 0; max-height: 270px; overflow: auto; background: #fff; border: 1px solid #bfcddd; border-radius: 8px; box-shadow: 0 8px 20px rgba(24, 57, 93, .16); }
+.customer-options button { display: block; width: 100%; text-align: left; border: 0; border-radius: 0; padding: 10px 12px; }
+.customer-options button:hover { background: #edf5ff; }
+.customer-options small { color: #536b86; }
+.customer-options p { margin: 0; padding: 11px 12px; }
+.wide { grid-column: span 3; }
+.attachment-summary { margin: 14px 0 0; }
+.batch { margin-top: 18px; padding: 14px; border: 1px solid #c9dced; border-radius: 10px; background: #f5f9fd; }
+.batch .batch-row { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid #dce7f0; }
+.batch .batch-row:first-of-type { margin-top: 8px; }
+.batch .batch-row-editing { margin-inline: -8px; padding-inline: 8px; border-radius: 8px; background: #fff4d9; }
+.batch-index { display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%; background: #dcecff; font-weight: 700; }
+.batch-copy { display: grid; gap: 3px; min-width: 0; }
+.batch-copy small { color: #536b86; overflow-wrap: anywhere; }
+.batch-actions { display: flex; gap: 7px; margin-left: auto; }
+.batch .batch-actions button { margin-left: 0; padding: 5px 9px; color: #215f9c; }
+.batch .batch-actions .batch-remove { color: #c5263c; }
+.actions, .row-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+.list article { display: flex; justify-content: space-between; gap: 20px; border-bottom: 1px solid #e4ebf2; padding: 18px 0; }
+.list article:last-child { border: 0; }
+.list h2 { font-size: 18px; }
+.customer-row { display: block; }
+.customer-summary { display: block; }
+.customer-detail-button { position: relative; z-index: 500; display: inline-flex; margin-top: 10px; pointer-events: auto; }
+.detail-head { padding-bottom: 14px; border-bottom: 1px solid #e4ebf2; }
+.detail-head h2 { margin-top: 12px; }
+.detail-head p { margin: 5px 0 0; }
+.detail-back { padding: 7px 11px; }
+.customer-assets-detail { margin-top: 16px; border-top: 1px solid #e4ebf2; }
+.asset-row { display: flex; justify-content: space-between; gap: 20px; padding: 16px 0; border-bottom: 1px solid #e4ebf2; }
+.asset-row:last-child { border-bottom: 0; }
+.asset-row h3 { margin: 0; font-size: 17px; }
+.asset-row p { margin: 5px 0; }
+.asset-details { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.asset-details span { padding: 5px 9px; border-radius: 999px; background: #edf5ff; color: #294c70; font-size: 13px; }
+.danger { color: #c5263c; border-color: #eea2ae; }
+.assets-page .error {
+  margin: 0 0 16px;
+  padding: 11px 14px;
+  border: 1px solid #f2a4af;
+  border-radius: 9px;
+  background: #fff1f3;
+  color: #b42336;
+  font-weight: 700;
+}
+@media (max-width: 700px) {
+  .grid { grid-template-columns: 1fr; }
+  .wide { grid-column: auto; }
+  .list article, .asset-row { display: block; }
+  .row-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .batch .batch-row { align-items: flex-start; flex-wrap: wrap; }
+  .batch-actions { width: 100%; margin-left: 38px; }
+}
+.deadline-edit-hint {
+  margin: -0.35rem 0 1.25rem;
+  color: #506884;
+}
+
+.grid label.deadline-source-field {
+  padding: 0.75rem;
+  border: 2px solid #f59e0b;
+  border-radius: 0.75rem;
+  background: #fff8e8;
+}

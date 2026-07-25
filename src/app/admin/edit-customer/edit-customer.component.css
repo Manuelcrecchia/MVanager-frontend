@@ -52,6 +52,14 @@
   padding: 7px 8px;
 }
 
+.requirement-mode, .specific-resource-grid { display: grid; gap: 10px; margin-bottom: 12px; }
+.requirement-mode { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.requirement-mode label, .specific-resource-row { display: flex; align-items: center; gap: 8px; color: #111827; font-weight: 750; }
+.specific-resource-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.specific-resource-row { padding: 10px 12px; border: 1px solid rgba(17,24,39,.1); border-radius: 12px; background: #fff; }
+.specific-resource-row span { min-width: 0; }
+.specific-resource-row small { display: block; color: rgba(17,24,39,.62); font-weight: 600; }
+
 :host ::ng-deep .customer-validation-error {
   color: #dc3545 !important;
   font-weight: 800;

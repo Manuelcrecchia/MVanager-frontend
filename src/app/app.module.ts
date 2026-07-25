@@ -69,7 +69,9 @@ import { QuestionPopupComponent } from './componenti/popup/question-popup/questi
 import { GestioneEmployeesComponent } from './admin/gestione-employees/gestione-employees.component';
 import { GestioneUsersComponent } from './admin/gestione-users/gestione-users.component';
 import { SettingsEmployeesComponent } from './admin/settings-employees/settings-employees.component';
+import { CategorySettingsComponent } from './admin/category-settings/category-settings.component';
 import { DeadlinesManagementComponent } from './admin/deadlines-management/deadlines-management.component';
+import { CustomerAssetsComponent } from './admin/customer-assets/customer-assets.component';
 import { DocumentManagerComponent } from './admin/document-manager/document-manager.component';
 import { ViewPdfComponent } from './admin/view-pdf/view-pdf.component';
 import { DateAdapter, MAT_DATE_LOCALE } from '@angular/material/core';
@@ -135,7 +137,9 @@ registerLocaleData(localeIt);
     GestioneEmployeesComponent,
     GestioneUsersComponent,
     SettingsEmployeesComponent,
+    CategorySettingsComponent,
     DeadlinesManagementComponent,
+    CustomerAssetsComponent,
     ViewPdfComponent,
     DocumentManagerComponent,
     EditCustomerComponent,

@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
-type DeadlineKind = 'employee' | 'vehicle' | 'equipment' | 'customer' | 'internal';
+type DeadlineKind = 'employee' | 'vehicle' | 'equipment' | 'customer' | 'customerAsset' | 'internal';
 type DeadlineStatus = 'ok' | 'warning' | 'expired';
 
 interface DeadlineAttachment {
@@ -43,6 +43,7 @@ interface GenericTarget {
 interface DeadlineSummary {
   expiredCount: number;
   warningCount: number;
+  pendingCount: number;
   alertCount: number;
   totalCount: number;
   status: DeadlineStatus;
@@ -59,6 +60,7 @@ interface DeadlineRecord {
   title: string;
   description: string;
   dueDate: string;
+  isPending?: boolean;
   remindDays: number | null;
   attachments: DeadlineAttachment[];
   status: DeadlineStatus;
@@ -73,6 +75,15 @@ interface DeadlineGroup {
   subtitle: string;
   deadlines: DeadlineRecord[];
   summary: DeadlineSummary;
+  auditHistory?: CustomerAssetAuditEntry[];
+}
+
+interface CustomerAssetAuditEntry {
+  action: string;
+  summary: string;
+  snapshot: Record<string, any>;
+  actorEmail?: string | null;
+  createdAt: string;
 }
 
 interface DeadlineFolderGroup {
@@ -93,6 +104,7 @@ interface DeadlineHistoryEntry {
   createdAt: string;
 }
 
+
 @Component({
   selector: 'app-deadlines-management',
   templateUrl: './deadlines-management.component.html',
@@ -106,7 +118,9 @@ export class DeadlinesManagementComponent implements OnInit {
   entities: Array<EmployeeTarget | VehicleTarget | GenericTarget> = [];
   deadlines: DeadlineRecord[] = [];
   groups: DeadlineGroup[] = [];
+  private customerAssetGroupsByCustomer: Record<string, DeadlineGroup[]> = {};
   selectedGroup: DeadlineGroup | null = null;
+  showArchivedCustomerAssets = false;
 
   loading = false;
   entitiesLoading = false;
@@ -123,6 +137,9 @@ export class DeadlinesManagementComponent implements OnInit {
   historyOpenByDeadlineId: Record<number, boolean> = {};
   historyLoadingByDeadlineId: Record<number, boolean> = {};
   searchText = '';
+  showCustomersWithoutDeadlines = false;
+  internalDeadlineCategories: Array<{ id: number; name: string; certifications: any[] }> = [];
+  selectedInternalCategoryIds: number[] = [];
   private deadlinePointerActionPending = false;
 
   form: {
@@ -160,6 +177,8 @@ export class DeadlinesManagementComponent implements OnInit {
           ? 'equipment'
           : this.route.snapshot.data['kind'] === 'customer'
             ? 'customer'
+            : this.route.snapshot.data['kind'] === 'customerAsset'
+              ? 'customerAsset'
             : this.route.snapshot.data['kind'] === 'internal'
               ? 'internal'
               : 'employee';
@@ -175,6 +194,7 @@ export class DeadlinesManagementComponent implements OnInit {
       this.kind === 'employee' || this.kind === 'vehicle'
         ? this.parseNumericId(rawPreselected)
         : rawPreselected;
+    this.showArchivedCustomerAssets = this.kind === 'customerAsset' && this.route.snapshot.queryParamMap.get('archived') === '1';
 
     this.resetForm();
     this.loadAll();
@@ -185,6 +205,7 @@ export class DeadlinesManagementComponent implements OnInit {
     if (this.kind === 'vehicle') return 'mezzo';
     if (this.kind === 'equipment') return 'attrezzatura';
     if (this.kind === 'customer') return 'cliente';
+    if (this.kind === 'customerAsset') return this.globalService.getTenantCustomerAssetsConfig().singularLabel || 'presidio';
     return 'area aziendale';
   }
 
@@ -193,6 +214,10 @@ export class DeadlinesManagementComponent implements OnInit {
     if (this.kind === 'vehicle') return 'Scadenze mezzi';
     if (this.kind === 'equipment') return 'Scadenze attrezzature';
     if (this.kind === 'customer') return 'Scadenze clienti';
+    if (this.kind === 'customerAsset') {
+      const title = `Scadenze ${this.globalService.getTenantCustomerAssetsConfig().moduleLabel || 'presidi presso clienti'}`;
+      return this.showArchivedCustomerAssets ? `Storico eliminati · ${title}` : title;
+    }
     return 'Scadenze interne';
   }
 
@@ -209,6 +234,7 @@ export class DeadlinesManagementComponent implements OnInit {
     if (this.kind === 'customer') {
       return 'Controlla le scadenze collegate ai clienti, divise per cartelle.';
     }
+    if (this.kind === 'customerAsset') return `Programma manutenzioni e controlli dei ${this.globalService.getTenantCustomerAssetsConfig().moduleLabel || 'presidi installati presso i clienti'}.`;
     return 'Gestisci scadenze aziendali interne, cartelle e allegati.';
   }
 
@@ -218,6 +244,10 @@ export class DeadlinesManagementComponent implements OnInit {
 
   get totalWarning(): number {
     return this.groups.reduce((acc, group) => acc + group.summary.warningCount, 0);
+  }
+
+  get totalPending(): number {
+    return this.groups.reduce((acc, group) => acc + group.summary.pendingCount, 0);
   }
 
   get totalAlerts(): number {
@@ -241,6 +271,7 @@ export class DeadlinesManagementComponent implements OnInit {
     if (this.kind === 'customer') {
       return 'Cerca cliente, codice, cartella, scadenza o allegato';
     }
+    if (this.kind === 'customerAsset') return 'Cerca codice, matricola, cliente, cartella o scadenza';
     return 'Cerca area, cartella, scadenza o allegato';
   }
 
@@ -249,6 +280,7 @@ export class DeadlinesManagementComponent implements OnInit {
     if (this.kind === 'vehicle') return 'Nessun mezzo disponibile.';
     if (this.kind === 'equipment') return 'Nessuna attrezzatura creata.';
     if (this.kind === 'customer') return 'Nessun cliente disponibile.';
+    if (this.kind === 'customerAsset') return `Nessun ${this.entityLabel} disponibile.`;
     return 'Nessuna area interna creata.';
   }
 
@@ -265,22 +297,39 @@ export class DeadlinesManagementComponent implements OnInit {
     if (this.kind === 'customer') {
       return 'Crea prima un cliente, poi potrai collegare le sue scadenze.';
     }
+    if (this.kind === 'customerAsset') return `Registra prima un ${this.entityLabel} nella sezione ${this.globalService.getTenantCustomerAssetsConfig().moduleLabel || 'Presidi presso clienti'}.`;
     return 'Inserisci la prima scadenza interna: dopo il salvataggio comparira la riga con dettaglio e nuove scadenze.';
   }
 
   get emptyStateActionLabel(): string {
     if (this.kind === 'equipment') return 'Vai a gestione attrezzature';
+    if (this.kind === 'customerAsset') return `Vai a gestione ${this.globalService.getTenantCustomerAssetsConfig().moduleLabel || 'presidi'}`;
     if (this.kind === 'internal') return '+ Crea prima scadenza interna';
     return '+ Aggiungi scadenza';
   }
 
+  get primaryCreateLabel(): string {
+    return this.kind === 'customerAsset'
+      ? '+ Aggiungi presidi'
+      : '+ Aggiungi scadenza';
+  }
+
   get filteredGroups(): DeadlineGroup[] {
     const query = this.normalizeSearch(this.searchText);
-    if (!query) return this.groups;
+    const visibleGroups =
+      this.kind === 'customer' && !this.showCustomersWithoutDeadlines && !query
+        ? this.groups.filter((group) => group.summary.totalCount > 0)
+        : this.groups;
+    if (!query) return visibleGroups;
 
-    return this.groups
+    return visibleGroups
       .map((group) => this.filterGroupForSearch(group, query))
       .filter((group): group is DeadlineGroup => !!group);
+  }
+
+  get customersWithoutDeadlinesCount(): number {
+    if (this.kind !== 'customer') return 0;
+    return this.groups.filter((group) => group.summary.totalCount === 0).length;
   }
 
   get selectedGroupView(): DeadlineGroup | null {
@@ -307,6 +356,21 @@ export class DeadlinesManagementComponent implements OnInit {
       return [];
     }
     return this.getFolderGroups(this.selectedGroupView);
+  }
+
+  /** Nei presidi la lista principale è per cliente; qui recuperiamo i presidi del cliente aperto. */
+  get selectedCustomerAssetGroups(): DeadlineGroup[] {
+    if (this.kind !== 'customerAsset' || !this.selectedGroupView) return [];
+    const assets = this.customerAssetGroupsByCustomer[String(this.selectedGroupView.id)] || [];
+    const query = this.normalizeSearch(this.searchText);
+    if (!query) return assets;
+    return assets
+      .map((asset) => this.filterGroupForSearch(asset, query))
+      .filter((asset): asset is DeadlineGroup => !!asset);
+  }
+
+  get detailListLabel(): string {
+    return this.kind === 'customerAsset' ? 'clienti' : this.entityLabel;
   }
 
   get canSave(): boolean {
@@ -359,6 +423,20 @@ export class DeadlinesManagementComponent implements OnInit {
     return this.getEntityLabel(this.getEntityFromDeadline(this.editingDeadline));
   }
 
+  /** Cartelle già usate per questo tipo di scadenza, senza duplicati dovuti a maiuscole/spazi. */
+  get folderSuggestions(): string[] {
+    const folders = new Map<string, string>();
+    for (const deadline of this.deadlines) {
+      const folder = String(deadline.folder || '').trim();
+      if (folder) folders.set(folder.toLocaleLowerCase('it'), folder);
+    }
+    return [...folders.values()].sort((a, b) => a.localeCompare(b, 'it'));
+  }
+
+  get folderSuggestionsId(): string {
+    return `deadline-folders-${this.kind}`;
+  }
+
   back(): void {
     if (this.showForm) {
       this.cancelForm();
@@ -371,6 +449,15 @@ export class DeadlinesManagementComponent implements OnInit {
     this.router.navigateByUrl('/homeAdmin');
   }
 
+  openPrimaryCreate(): void {
+    if (!this.canCreate) return;
+    if (this.kind === 'customerAsset') {
+      this.router.navigate(['/homeAdmin/customer-assets'], { queryParams: { mode: 'create' } });
+      return;
+    }
+    this.openAddForm();
+  }
+
   loadAll(): void {
     this.error = '';
     this.loading = true;
@@ -381,7 +468,8 @@ export class DeadlinesManagementComponent implements OnInit {
   }
 
   loadEntities(): void {
-    const endpoint = `admin/deadlines/${this.endpointSegment}/targets`;
+    const archiveQuery = this.kind === 'customerAsset' && this.showArchivedCustomerAssets ? '?archived=1' : '';
+    const endpoint = `admin/deadlines/${this.endpointSegment}/targets${archiveQuery}`;
 
     this.http.get<any[]>(this.globalService.url + endpoint).subscribe({
       next: (response) => {
@@ -395,6 +483,38 @@ export class DeadlinesManagementComponent implements OnInit {
       error: (err) => {
         console.error('Errore caricamento entita scadenze:', err);
         this.entitiesLoading = false;
+        this.error = this.parseServerError(err);
+        this.popup.showError(this.error);
+      },
+    });
+  }
+
+  toggleCustomerAssetArchive(): void {
+    if (this.kind !== 'customerAsset') return;
+    this.showArchivedCustomerAssets = !this.showArchivedCustomerAssets;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { archived: this.showArchivedCustomerAssets ? 1 : null, targetKey: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    this.loadAll();
+  }
+
+  editCustomerAsset(asset: DeadlineGroup): void {
+    if (this.kind !== 'customerAsset' || this.showArchivedCustomerAssets) return;
+    this.router.navigate(['/homeAdmin/customer-assets'], { queryParams: { edit: asset.id } });
+  }
+
+  deleteCustomerAsset(asset: DeadlineGroup): void {
+    if (this.kind !== 'customerAsset' || this.showArchivedCustomerAssets) return;
+    if (!confirm(`Eliminare ${asset.label}? Il presidio e le sue scadenze passeranno nello storico eliminati.`)) return;
+    this.http.delete(this.globalService.url + `admin/deadlines/customer-assets/registry/${asset.id}`).subscribe({
+      next: () => {
+        this.success = `${asset.label} spostato nello storico eliminati.`;
+        this.loadAll();
+      },
+      error: (err) => {
         this.error = this.parseServerError(err);
         this.popup.showError(this.error);
       },
@@ -421,6 +541,10 @@ export class DeadlinesManagementComponent implements OnInit {
 
   openAddForm(entityId?: string | number): void {
     if (!this.canCreate) return;
+    if (this.kind === 'customerAsset') {
+      this.router.navigateByUrl('/homeAdmin/customer-assets');
+      return;
+    }
     if (this.kind === 'equipment' && !entityId && !this.preselectedEntityId && this.entities.length === 0) {
       this.router.navigateByUrl('/homeAdmin/equipmentSettings');
       return;
@@ -453,6 +577,22 @@ export class DeadlinesManagementComponent implements OnInit {
 
   openEditForm(deadline: DeadlineRecord): void {
     if (!this.canEdit) return;
+
+    // Le scadenze dei presidi sono generate dai campi configurati nella scheda
+    // del presidio. Vanno quindi modificate dalla scheda, non dalla maschera
+    // generica usata per dipendenti, mezzi, attrezzature e clienti.
+    if (this.kind === 'customerAsset') {
+      const assetId = deadline.targetKey || this.getEntityIdFromDeadline(deadline);
+      if (!assetId) return;
+      this.router.navigate(['/homeAdmin/customer-assets'], {
+        queryParams: {
+          edit: assetId,
+          deadlineId: deadline.id,
+          deadlineTitle: deadline.title,
+        },
+      });
+      return;
+    }
 
     this.resetForm();
     this.showForm = true;
@@ -631,6 +771,7 @@ export class DeadlinesManagementComponent implements OnInit {
         this.showForm = false;
         this.resetForm();
         this.loadAll();
+        this.globalService.notifyDeadlineSummaryChanged();
       },
       error: (err) => {
         console.error('Errore salvataggio scadenza:', err);
@@ -658,6 +799,7 @@ export class DeadlinesManagementComponent implements OnInit {
           this.success = 'Scadenza eliminata.';
           this.deadlines = this.deadlines.filter((item) => item.id !== deadline.id);
           this.rebuildGroups();
+          this.globalService.notifyDeadlineSummaryChanged();
         },
         error: (err) => {
           console.error('Errore eliminazione scadenza:', err);
@@ -1127,6 +1269,16 @@ export class DeadlinesManagementComponent implements OnInit {
       : String(entity?.name || '').trim();
     }
 
+    if (this.kind === 'customer') {
+      const labels = [entity?.ragioneSociale, entity?.nominativo, entity?.nome, entity?.targetLabel]
+        .map((value) => String(value || '').trim())
+        .filter((value, index, values) => value && values.indexOf(value) === index && value !== String(entity?.numeroCliente || ''));
+      return labels.join(' · ') || String(entity?.numeroCliente || entity?.id || '').trim();
+    }
+    if (this.kind === 'customerAsset') {
+      return String(entity?.targetLabel || entity?.assetCode || entity?.code || entity?.id || '').trim();
+    }
+
     return String(entity?.targetLabel || entity?.nome || entity?.ragioneSociale || entity?.numeroCliente || entity?.id || '').trim();
   }
 
@@ -1145,6 +1297,9 @@ export class DeadlinesManagementComponent implements OnInit {
 
     if (this.kind === 'equipment') {
       return entity?.quantity ? `Quantità: ${entity.quantity}` : 'Attrezzatura aziendale';
+    }
+    if (this.kind === 'customerAsset') {
+      return [entity?.customerLabel, entity?.location, entity?.serialNumber ? `Matricola: ${entity.serialNumber}` : ''].filter(Boolean).join(' • ');
     }
 
     return 'Scadenza aziendale interna';
@@ -1197,9 +1352,32 @@ export class DeadlinesManagementComponent implements OnInit {
 
   openGroup(group: DeadlineGroup): void {
     this.selectedGroup = group;
+    if (this.kind === 'internal') this.loadInternalCategories();
     this.showForm = false;
     this.error = '';
   }
+
+  private loadInternalCategories(): void {
+    this.http.get<any[]>(this.globalService.url + 'admin/resource-categories/internal').subscribe({
+      next: (categories) => {
+        this.internalDeadlineCategories = Array.isArray(categories) ? categories : [];
+        this.http.get<number[]>(this.globalService.url + 'admin/resource-categories/internal/assignment-by-target?targetKey=azienda').subscribe({
+          next: (ids) => this.selectedInternalCategoryIds = Array.isArray(ids) ? ids.map(Number) : [],
+        });
+      },
+    });
+  }
+
+  toggleInternalCategory(id: number, checked: boolean): void {
+    this.selectedInternalCategoryIds = checked ? [...new Set([...this.selectedInternalCategoryIds, id])] : this.selectedInternalCategoryIds.filter((value) => value !== id);
+  }
+
+  saveInternalCategories(): void {
+    this.http.post<{ createdDeadlines?: number }>(this.globalService.url + 'admin/resource-categories/internal/assignment-by-target', {
+      targetKey: 'azienda', targetLabel: 'Azienda', categoryIds: this.selectedInternalCategoryIds,
+    }).subscribe({ next: () => { this.loadAll(); this.globalService.notifyDeadlineSummaryChanged(); } });
+  }
+
 
   closeGroup(): void {
     this.selectedGroup = null;
@@ -1258,6 +1436,7 @@ export class DeadlinesManagementComponent implements OnInit {
     if (this.kind === 'employee') return 'employees';
     if (this.kind === 'vehicle') return 'vehicles';
     if (this.kind === 'customer') return 'customers';
+    if (this.kind === 'customerAsset') return 'customer-assets';
     return this.kind;
   }
 
@@ -1271,6 +1450,8 @@ export class DeadlinesManagementComponent implements OnInit {
             ? 'EQUIPMENT'
             : this.kind === 'customer'
               ? 'CUSTOMER'
+              : this.kind === 'customerAsset'
+                ? 'CUSTOMER_ASSET'
               : 'INTERNAL';
     return `${prefix}_DEADLINES_${action}`;
   }
@@ -1311,9 +1492,16 @@ export class DeadlinesManagementComponent implements OnInit {
         subtitle: this.getEntitySubtitle(entity),
         deadlines,
         summary: this.summarize(deadlines),
+        auditHistory: Array.isArray((entity as any)?.auditHistory) ? (entity as any).auditHistory : [],
       });
     }
 
+    if (this.kind === 'customerAsset') {
+      this.rebuildCustomerAssetGroups(groups);
+      return;
+    }
+
+    this.customerAssetGroupsByCustomer = {};
     this.groups = groups.sort((a, b) => {
       if (this.preselectedEntityId) {
         if (String(a.id) === String(this.preselectedEntityId) && String(b.id) !== String(this.preselectedEntityId)) {
@@ -1337,16 +1525,62 @@ export class DeadlinesManagementComponent implements OnInit {
     }
   }
 
+  private rebuildCustomerAssetGroups(assetGroups: DeadlineGroup[]): void {
+    const grouped = new Map<string, { label: string; assets: DeadlineGroup[] }>();
+
+    for (const assetGroup of assetGroups) {
+      const entity = this.entities.find((item: any) =>
+        String(item?.id || item?.targetKey || '') === String(assetGroup.id),
+      ) as any;
+      const customerId = String(entity?.numeroCliente || 'senza-cliente');
+      const customerLabel = String(entity?.customerLabel || '').trim() || 'Cliente non disponibile';
+      const entry = grouped.get(customerId) || { label: customerLabel, assets: [] };
+      const customerSuffix = ` — ${customerLabel}`;
+      entry.assets.push({
+        ...assetGroup,
+        label: assetGroup.label.endsWith(customerSuffix)
+          ? assetGroup.label.slice(0, -customerSuffix.length)
+          : assetGroup.label,
+        subtitle: this.getEntitySubtitle(entity),
+      });
+      grouped.set(customerId, entry);
+    }
+
+    this.customerAssetGroupsByCustomer = {};
+    this.groups = [...grouped.entries()].map(([customerId, entry]) => {
+      const assets = entry.assets.slice().sort((a, b) => a.label.localeCompare(b.label, 'it'));
+      this.customerAssetGroupsByCustomer[customerId] = assets;
+      const deadlines = assets.flatMap((asset) => asset.deadlines);
+      return {
+        id: customerId,
+        label: entry.label,
+        subtitle: `${assets.length} ${assets.length === 1 ? 'presidio' : 'presidi'} registrati`,
+        deadlines,
+        summary: this.summarize(deadlines),
+      };
+    }).sort((a, b) => {
+      const severityDiff = this.statusRank(a.summary.status) - this.statusRank(b.summary.status);
+      if (severityDiff !== 0) return severityDiff;
+      return a.label.localeCompare(b.label, 'it');
+    });
+
+    if (this.selectedGroup) {
+      this.selectedGroup = this.groups.find((group) => String(group.id) === String(this.selectedGroup?.id)) || null;
+    }
+  }
+
   private summarize(deadlines: DeadlineRecord[]): DeadlineSummary {
     const summary: DeadlineSummary = {
       expiredCount: 0,
       warningCount: 0,
+      pendingCount: 0,
       alertCount: 0,
       totalCount: deadlines.length,
       status: 'ok',
     };
 
     for (const deadline of deadlines) {
+      if (deadline.isPending) summary.pendingCount += 1;
       if (deadline.status === 'expired') summary.expiredCount += 1;
       if (deadline.status === 'warning') summary.warningCount += 1;
     }
@@ -1416,6 +1650,12 @@ export class DeadlinesManagementComponent implements OnInit {
       return deadline.vehicle || { id: deadline.vehicleId };
     }
 
+    const targetKey = String(deadline.targetKey || deadline.targetLabel || '');
+    const savedEntity = this.entities.find((entity: any) =>
+      String(entity?.id || entity?.targetKey || entity?.numeroCliente || '') === targetKey,
+    );
+    if (savedEntity) return savedEntity;
+
     return {
       id: deadline.targetKey || deadline.targetLabel,
       targetKey: deadline.targetKey || deadline.targetLabel || '',
@@ -1441,6 +1681,13 @@ export class DeadlinesManagementComponent implements OnInit {
 
     if (groupText.includes(query)) {
       return group;
+    }
+
+    if (this.kind === 'customerAsset') {
+      const assets = this.customerAssetGroupsByCustomer[String(group.id)] || [];
+      if (assets.some((asset) => this.normalizeSearch(`${asset.label} ${asset.subtitle}`).includes(query))) {
+        return group;
+      }
     }
 
     const deadlines = group.deadlines.filter((deadline) =>

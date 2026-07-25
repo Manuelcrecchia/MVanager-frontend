@@ -1,0 +1,47 @@
+<main class="assets-page">
+  <header><button type="button" class="back" (click)="back()">← Indietro</button><div><h1>{{ editorWorkflow ? editorTitle : (showArchived ? 'Storico ' + moduleLabel : moduleLabel) }}</h1><p>{{ editorWorkflow ? 'Compila i dati e torna automaticamente alle scadenze dei presidi dopo il salvataggio.' : (showArchived ? 'Consulta i presidi eliminati e le relative scadenze storiche.' : 'Registra ogni ' + (singularLabel | lowercase) + ' installato presso il cliente e pianifica le sue manutenzioni.') }}</p></div><button *ngIf="!editorWorkflow" type="button" (click)="toggleArchived()">{{ showArchived ? '← Operativo' : 'Storico eliminati' }}</button><button *ngIf="!showArchived && !editorWorkflow" type="button" class="primary" (click)="startNew()">+ Nuovo {{ singularLabel | lowercase }}</button></header>
+  <p class="error" *ngIf="error">{{ error }}</p>
+  <section class="editor" *ngIf="showForm">
+    <h2>{{ editorTitle }}</h2>
+    <p class="deadline-edit-hint" *ngIf="editingFromDeadline">
+      Modifica il campo <strong>{{ deadlineFieldTitle }}</strong> nella scheda del presidio. La scadenza e il suo storico verranno aggiornati automaticamente.
+    </p>
+    <div class="grid">
+      <label>Cliente *
+        <div class="customer-picker">
+          <input [(ngModel)]="customerSearch" (input)="onCustomerSearch()" (focus)="customerMenuOpen = true" (blur)="closeCustomerMenu()" placeholder="Cerca per nome, ragione sociale o codice" autocomplete="off" />
+          <div class="customer-options" *ngIf="customerMenuOpen">
+            <button type="button" *ngFor="let customer of filteredCustomers" (mousedown)="$event.preventDefault()" (click)="selectCustomer(customer)">{{ customer.label }} <small>· {{ customer.numeroCliente }}</small></button>
+            <p *ngIf="!filteredCustomers.length">Nessun cliente trovato.</p>
+          </div>
+        </div>
+      </label>
+      <label>Tipo *<select [(ngModel)]="form.typeKey" (ngModelChange)="changeType()"><option value="">Seleziona tipo</option><option *ngFor="let type of types" [value]="type.key">{{ type.label }}</option></select></label>
+      <ng-container *ngFor="let field of selectedType?.fields || []">
+        <label *ngIf="field.type !== 'boolean' && field.type !== 'select' && field.type !== 'attachment'" [class.deadline-source-field]="editingFromDeadline && field.label === deadlineFieldTitle">{{ field.label }}<input [type]="field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'" [(ngModel)]="form.customFields[field.key]" [name]="'custom_' + field.key" /></label>
+        <label *ngIf="field.type === 'date' && field.isDeadline" [class.deadline-source-field]="editingFromDeadline && field.label === deadlineFieldTitle">Preavviso per {{ field.label }} (giorni)<input type="number" min="0" [(ngModel)]="form.remindDays[field.key]" [name]="'remind_' + field.key" placeholder="es. 30" /></label>
+        <label *ngIf="field.type === 'select'">{{ field.label }}<select [(ngModel)]="form.customFields[field.key]" [name]="'custom_' + field.key"><option value="">Seleziona</option><option *ngFor="let option of field.options || []" [value]="option">{{ option }}</option></select></label>
+        <label class="checkbox-label" *ngIf="field.type === 'boolean'"><input type="checkbox" [(ngModel)]="form.customFields[field.key]" [name]="'custom_' + field.key" />{{ field.label }}</label>
+        <label *ngIf="field.type === 'attachment'">{{ field.label }}<input type="file" multiple (change)="onConfiguredAttachmentChange(field.key, $event)" [name]="'custom_' + field.key" /></label>
+      </ng-container>
+    </div>
+    <p class="attachment-summary" *ngIf="form.attachments.length">{{ form.attachments.length }} allegato/i pronti per questo presidio.</p>
+    <section class="batch" *ngIf="!editing && pendingAssets.length">
+      <strong>{{ pendingAssets.length }} presidi da salvare per questo cliente</strong>
+      <div class="batch-row" *ngFor="let asset of pendingAssets; let i = index" [class.batch-row-editing]="editingPendingIndex === i">
+        <span class="batch-index">{{ i + 1 }}</span>
+        <span class="batch-copy">
+          <strong>{{ pendingAssetLabel(asset) }}</strong>
+          <small *ngIf="pendingAssetDetails(asset)">{{ pendingAssetDetails(asset) }}</small>
+        </span>
+        <span class="batch-actions">
+          <button type="button" (click)="editPendingAsset(i)">{{ editingPendingIndex === i ? 'In modifica' : 'Modifica' }}</button>
+          <button type="button" class="batch-remove" (click)="removeFromBatch(i)">Rimuovi</button>
+        </span>
+      </div>
+    </section>
+    <div class="actions"><button (click)="cancel()">Annulla</button><button *ngIf="!editing" [disabled]="addingToBatch" (click)="addToBatch()">{{ addingToBatch ? 'Verifica…' : editingPendingIndex === null ? '+ Aggiungi alla lista' : 'Salva nella lista' }}</button><button class="primary" [disabled]="saving || addingToBatch || (!editing && (!pendingAssets.length || hasDraftAsset))" (click)="editing ? save() : saveBatch()">{{ saving ? 'Salvataggio…' : editing ? 'Salva modifica' : 'Salva tutti i presidi' }}</button></div>
+  </section>
+  <section class="list" *ngIf="!editorWorkflow && !selectedCustomerGroup"><p *ngIf="loading">Caricamento…</p><p *ngIf="!loading && !assets.length">Nessun {{ singularLabel | lowercase }} registrato.</p><article class="customer-row" *ngFor="let group of customerGroups"><div class="customer-summary"><div><h2>{{ group.label }}</h2><p>{{ group.assets.length }} elementi registrati</p></div><button type="button" class="primary customer-detail-button" [attr.data-customer-detail]="group.id" (click)="openCustomerGroup(group)">Dettaglio</button></div></article></section>
+  <section class="list" *ngIf="displayedCustomerGroup as group"><div class="detail-head"><button type="button" class="back detail-back" (click)="closeCustomerGroup()">← Elenco clienti</button><h2>{{ group.label }}</h2><p>{{ group.assets.length }} elementi registrati</p></div><div class="customer-assets-detail"><div class="asset-row" *ngFor="let asset of group.assets"><div><h3>{{ assetLabel(asset) }}</h3><div class="asset-details" *ngIf="assetDetails(asset).length"><span *ngFor="let detail of assetDetails(asset)"><strong>{{ detail.label }}:</strong> {{ detail.value }}</span></div><small *ngIf="asset.description">{{ asset.description }}</small></div><div class="row-actions"><button type="button" class="primary" (click)="openDeadlines(asset)">Scadenze</button><button type="button" (click)="edit(asset)">Modifica</button><button type="button" class="danger" [disabled]="archivingAssetId === asset.id" (click)="archive(asset)">{{ archivingAssetId === asset.id ? 'Eliminazione…' : 'Elimina' }}</button></div></div></div></section>
+</main>

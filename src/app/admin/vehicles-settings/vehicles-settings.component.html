@@ -52,6 +52,8 @@
             placeholder="Es. Scope, mop, carrello elevatore"
           />
         </div>
+        <div class="col-12 col-md-3"><label class="form-label fw-bold">Codice</label><input class="form-control form-control-glass" [(ngModel)]="equipmentAddForm.code" placeholder="Es. ATT-001" /></div>
+        <div class="col-12"><label class="form-label fw-bold">Descrizione</label><input class="form-control form-control-glass" [(ngModel)]="equipmentAddForm.description" placeholder="Dettagli per riconoscere l'attrezzatura" /></div>
         <div class="col-12 col-md-3">
           <label class="form-label fw-bold">Quantità *</label>
           <input
@@ -69,7 +71,7 @@
     </div>
   </section>
 
-  <section class="admin-card mb-4" *ngIf="isVehicleMode">
+  <section class="admin-card mb-4" *ngIf="false">
     <div class="card-header py-3 px-4">
       <h3 class="mb-0 fs-5">Categorie e scadenze mezzi</h3>
       <p class="mb-0 text-muted small">Definisci categorie mezzo e scadenze obbligatorie collegate</p>
@@ -161,7 +163,7 @@
     </div>
   </section>
 
-  <section class="admin-card mb-4" *ngIf="isEquipmentMode">
+  <section class="admin-card mb-4" *ngIf="false">
     <div class="card-header py-3 px-4">
       <h3 class="mb-0 fs-5">Categorie e scadenze attrezzature</h3>
       <p class="mb-0 text-muted small">Definisci categorie attrezzatura e scadenze obbligatorie collegate</p>
@@ -281,6 +283,7 @@
               <strong>{{ target.targetLabel || target.targetKey }}</strong>
               <span class="quantity-badge ms-2">Quantità: {{ target.quantity }}</span>
               <span class="text-muted small ms-2">{{ target.targetKey }}</span>
+              <p class="text-muted small mb-0 mt-1" *ngIf="target.code || target.description">{{ target.code }}<span *ngIf="target.code && target.description"> · </span>{{ target.description }}</p>
             </ng-container>
             <ng-template #editEquipmentFields>
               <div class="equipment-edit-row">
@@ -289,6 +292,8 @@
                   [(ngModel)]="equipmentEditForm.name"
                   placeholder="Nome attrezzatura"
                 />
+                <input class="form-control form-control-sm" [(ngModel)]="equipmentEditForm.code" placeholder="Codice" />
+                <input class="form-control form-control-sm" [(ngModel)]="equipmentEditForm.description" placeholder="Descrizione" />
                 <input
                   class="form-control form-control-sm quantity-input"
                   type="number"

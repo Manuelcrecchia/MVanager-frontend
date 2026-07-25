@@ -17,6 +17,8 @@ interface EquipmentTarget {
   targetKey: string;
   targetLabel: string;
   name?: string;
+  code?: string | null;
+  description?: string | null;
   quantity: number;
 }
 
@@ -64,12 +66,12 @@ export class VehiclesSettingsComponent implements OnInit {
   selectedEquipmentCategoryIds: number[] = [];
 
   addForm: { name: string; plate: string } = { name: '', plate: '' };
-  equipmentAddForm: { name: string; quantity: number } = { name: '', quantity: 1 };
+  equipmentAddForm: { name: string; code: string; description: string; quantity: number } = { name: '', code: '', description: '', quantity: 1 };
 
   editingId: number | null = null;
   editForm: { name: string; plate: string } = { name: '', plate: '' };
   editingEquipmentId: number | null = null;
-  equipmentEditForm: { name: string; quantity: number } = { name: '', quantity: 1 };
+  equipmentEditForm: { name: string; code: string; description: string; quantity: number } = { name: '', code: '', description: '', quantity: 1 };
 
   constructor(
     private http: HttpClient,
@@ -250,10 +252,10 @@ export class VehiclesSettingsComponent implements OnInit {
     }
 
     this.http
-      .post(this.globalService.url + 'equipment/add', { name, quantity })
+      .post(this.globalService.url + 'equipment/add', { name, code: this.equipmentAddForm.code, description: this.equipmentAddForm.description, quantity })
       .subscribe({
         next: () => {
-          this.equipmentAddForm = { name: '', quantity: 1 };
+          this.equipmentAddForm = { name: '', code: '', description: '', quantity: 1 };
           this.loadEquipmentTargets();
         },
         error: (err) => {
@@ -269,13 +271,14 @@ export class VehiclesSettingsComponent implements OnInit {
     this.editingEquipmentId = id;
     this.equipmentEditForm = {
       name: target.name || target.targetLabel || '',
+      code: target.code || '', description: target.description || '',
       quantity: target.quantity || 1,
     };
   }
 
   cancelEquipmentEdit(): void {
     this.editingEquipmentId = null;
-    this.equipmentEditForm = { name: '', quantity: 1 };
+    this.equipmentEditForm = { name: '', code: '', description: '', quantity: 1 };
   }
 
   saveEquipmentEdit(): void {
@@ -295,6 +298,8 @@ export class VehiclesSettingsComponent implements OnInit {
       .post(this.globalService.url + 'equipment/edit', {
         id: this.editingEquipmentId,
         name,
+        code: this.equipmentEditForm.code,
+        description: this.equipmentEditForm.description,
         quantity,
       })
       .subscribe({

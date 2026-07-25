@@ -39,6 +39,26 @@
   color: #000 !important;
 }
 
+.row-item .meta .name {
+  overflow-wrap: anywhere;
+}
+
+.dialog-title {
+  margin: 0 12px 12px;
+  font-size: 20px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+}
+
+.spacer {
+  flex: 1;
+}
+
 .row-item input[type="checkbox"] {
   transform: scale(1.15);
   cursor: pointer;

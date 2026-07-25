@@ -1244,6 +1244,11 @@
         color: #fff;
       }
 
+      .alert-badge-pending {
+        background: #dcecff;
+        color: #174a7a;
+      }
+
       /* ===== EMAIL HEALTH NOTICE ===== */
       .email-health-modal-backdrop {
         position: fixed;
@@ -1596,6 +1601,9 @@
             <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">
               <i class="fas fa-clipboard-check"></i> <span class="sidebar-btn-text">Permessi e assenze</span>
             </button>
+            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('CUSTOMER_DEADLINES_VIEW', 'customerDeadlines') || canUsePermission('EMPLOYEE_EDIT', 'employees') || canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines') || canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToCategorySettings()">
+              <i class="fas fa-tags"></i> <span class="sidebar-btn-text">Impostazioni categorie</span>
+            </button>
             <button class="sidebar-bottom-btn" *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines')" (click)="navigateToVehiclesSettings()">
               <i class="fas fa-truck"></i> <span class="sidebar-btn-text">Gestione mezzi</span>
             </button>
@@ -1660,7 +1668,7 @@
                   {{ category.label }}
                   <span
                     *ngIf="categoryBadgeCount(category) > 0"
-                    class="badge bg-danger ms-1"
+                    [ngClass]="categoryBadgeClass(category)"
                   >
                     {{ categoryBadgeCount(category) }}
                   </span>
@@ -1855,6 +1863,7 @@
           <a *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</a>
           <a (click)="navigateToCambiapassword()">Cambia password</a>
           <a *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</a>
+          <a *ngIf="canUsePermission('CUSTOMER_DEADLINES_VIEW', 'customerDeadlines') || canUsePermission('EMPLOYEE_EDIT', 'employees') || canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines') || canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToCategorySettings()">Impostazioni categorie</a>
           <a *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
           <a *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToEquipmentSettings()">Gestione attrezzature</a>
           <a *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>

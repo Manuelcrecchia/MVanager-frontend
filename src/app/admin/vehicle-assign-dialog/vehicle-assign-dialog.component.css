@@ -27,11 +27,36 @@
   margin-bottom: 8px;
 }
 
+.row-item .meta {
+  min-width: 0;
+  flex: 1;
+}
+
 .row-item .meta .name,
 .row-item .meta .plate,
 .dialog-title,
 .muted {
   color: #000 !important;
+}
+
+.row-item .meta .name {
+  overflow-wrap: anywhere;
+}
+
+.dialog-title {
+  margin: 0 12px 12px;
+  font-size: 20px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+}
+
+.spacer {
+  flex: 1;
 }
 
 .row-item input[type="checkbox"] {

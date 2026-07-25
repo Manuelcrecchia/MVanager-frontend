@@ -39,6 +39,9 @@
     .login-wrap{
       position:relative;
       z-index:1;
+      min-height:calc(100dvh - 44px)!important;
+      padding-block:24px;
+      box-sizing:border-box;
     }
 
     .glass-card{
@@ -276,6 +279,26 @@
       box-shadow:0 1px 4px rgba(2,6,23,.04);
     }
 
+    /* Il layout globale assegna width:100% agli input: nel gruppo password
+       il campo deve invece lasciare spazio al pulsante per mostrare la password. */
+    .input-group{
+      display:flex;
+      flex-wrap:nowrap;
+      align-items:stretch;
+    }
+
+    .input-group > .form-control{
+      width:auto!important;
+      min-width:0;
+      flex:1 1 auto;
+    }
+
+    .input-group > .btn-eye{
+      width:auto!important;
+      flex:0 0 auto;
+      margin-left:8px;
+    }
+
     .btn-eye:hover{
       border-color:rgba(0,0,0,0.15);
     }
@@ -284,6 +307,13 @@
       display:flex;
       justify-content:flex-end;
       margin-top:6px;
+    }
+
+    @media (max-height: 760px){
+      .login-wrap{ padding-block:12px; }
+      .glass-card{ padding:22px 24px; }
+      .brand-area{ margin-bottom:14px; }
+      .brand-badge{ width:88px; height:88px; border-radius:20px; }
     }
 
     .forgot-link{

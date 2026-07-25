@@ -241,31 +241,42 @@
       </mat-form-field>
     </section>
 
+    <section class="staff-requirements mt-4" *ngIf="customerDeadlineCategories.length">
+      <h3>Categorie scadenze cliente</h3>
+      <p class="staff-requirements__hint">Le scadenze standard delle categorie selezionate saranno create al salvataggio del cliente.</p>
+      <div class="specific-resource-grid"><label class="specific-resource-row" *ngFor="let category of customerDeadlineCategories"><input type="checkbox" [checked]="selectedCustomerDeadlineCategoryIds.includes(category.id)" (change)="toggleCustomerDeadlineCategory(category.id, $any($event.target).checked)" [name]="'customer_deadline_category_' + category.id" /><span>{{ category.name }}<small>{{ category.certifications?.length || 0 }} scadenze standard</small></span></label></div>
+    </section>
+
+    <section class="staff-requirements mt-4"><h3>Mezzi richiesti</h3><p class="staff-requirements__hint">Scegli una quantità per categoria oppure i mezzi precisi.</p><div class="requirement-mode"><label><input type="radio" name="edit_vehicle_requirement_mode" value="category" [(ngModel)]="vehicleRequirementMode" /> Per categoria</label><label><input type="radio" name="edit_vehicle_requirement_mode" value="specific" [(ngModel)]="vehicleRequirementMode" /> Mezzi specifici</label></div><div class="staff-requirements__grid" *ngIf="vehicleRequirementMode === 'category' && vehicleCategories.length"><label class="staff-requirements__row" *ngFor="let category of vehicleCategories"><span>{{ category.name }}</span><input type="number" min="0" [(ngModel)]="vehicleRequirementCounts[category.id]" name="edit_vehicle_category_req_{{ category.id }}" /></label></div><div class="specific-resource-grid" *ngIf="vehicleRequirementMode === 'specific'"><label class="specific-resource-row" *ngFor="let vehicle of vehicleTargets"><input type="checkbox" [(ngModel)]="selectedVehicleIds[vehicle.id]" name="edit_vehicle_specific_{{ vehicle.id }}" /><span>{{ vehicle.name }}<small *ngIf="vehicle.plate">{{ vehicle.plate }}</small></span></label></div></section>
+    <section class="staff-requirements mt-4"><h3>Attrezzature richieste</h3><p class="staff-requirements__hint">Scegli una quantità per categoria oppure le attrezzature precise.</p><div class="requirement-mode"><label><input type="radio" name="edit_equipment_requirement_mode" value="category" [(ngModel)]="equipmentRequirementMode" /> Per categoria</label><label><input type="radio" name="edit_equipment_requirement_mode" value="specific" [(ngModel)]="equipmentRequirementMode" /> Attrezzature specifiche</label></div><div class="staff-requirements__grid" *ngIf="equipmentRequirementMode === 'category' && equipmentCategories.length"><label class="staff-requirements__row" *ngFor="let category of equipmentCategories"><span>{{ category.name }}</span><input type="number" min="0" [(ngModel)]="equipmentCategoryRequirementCounts[category.id]" name="edit_equipment_category_req_{{ category.id }}" /></label></div></section>
+
     <section class="staff-requirements mt-4">
       <h3>Personale richiesto</h3>
       <p class="staff-requirements__hint">
         Imposta quante persone servono per ogni categoria operativa del cliente.
       </p>
+      <div class="requirement-mode"><label><input type="radio" name="edit_employee_requirement_mode" value="category" [(ngModel)]="employeeRequirementMode" /> Per categoria</label><label><input type="radio" name="edit_employee_requirement_mode" value="specific" [(ngModel)]="employeeRequirementMode" /> Dipendenti specifici</label></div>
       <div class="staff-requirements__empty" *ngIf="employeeCategoriesLoaded && !employeeCategories.length">
         Nessuna categoria dipendente configurata. Crea prima le categorie in Dipendenti &gt; Categorie e certificazioni.
       </div>
-      <div class="staff-requirements__grid" *ngIf="employeeCategories.length">
+      <div class="staff-requirements__grid" *ngIf="employeeRequirementMode === 'category' && employeeCategories.length">
         <label class="staff-requirements__row" *ngFor="let category of employeeCategories">
           <span>{{ category.name }}</span>
           <input type="number" min="0" [(ngModel)]="requirementCounts[category.id]" name="edit_staff_req_{{ category.id }}" />
         </label>
       </div>
+      <div class="specific-resource-grid" *ngIf="employeeRequirementMode === 'specific'"><label class="specific-resource-row" *ngFor="let employee of employeeTargets"><input type="checkbox" [(ngModel)]="selectedEmployeeIds[employee.id]" name="edit_employee_specific_{{ employee.id }}" /><span>{{ employee.nome }} {{ employee.cognome }}<small *ngIf="employee.email">{{ employee.email }}</small></span></label></div>
     </section>
 
     <section class="staff-requirements mt-4">
-      <h3>Attrezzature richieste</h3>
+      <h3>Attrezzature specifiche</h3>
       <p class="staff-requirements__hint">
         Imposta quante unità servono per ogni attrezzatura del cliente.
       </p>
       <div class="staff-requirements__empty" *ngIf="equipmentTargetsLoaded && !equipmentTargets.length">
         Nessuna attrezzatura configurata. Aggiungila da Gestione attrezzature.
       </div>
-      <div class="staff-requirements__grid" *ngIf="equipmentTargets.length">
+      <div class="staff-requirements__grid" *ngIf="equipmentRequirementMode === 'specific' && equipmentTargets.length">
         <label class="staff-requirements__row" *ngFor="let target of equipmentTargets">
           <span>{{ target.targetLabel || target.name || target.targetKey }}</span>
           <input

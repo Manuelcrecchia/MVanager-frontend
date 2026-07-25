@@ -5,6 +5,7 @@ import { AuthServiceService } from '../auth-service.service';
 import { TenantService } from './tenant.service';
 import { environment } from '../../environments/environment';
 import { PopupServiceService } from '../componenti/popup/popup-service.service';
+import { Subject } from 'rxjs';
 
 interface TenantBackendConfig {
   id: string;
@@ -26,6 +27,7 @@ interface TenantBackendConfig {
   };
   stampingConfig?: TenantStampingConfig;
   internalWarehouseConfig?: TenantInternalWarehouseConfig;
+  customerAssetsConfig?: TenantCustomerAssetsConfig;
   quoteConfig?: TenantQuoteConfig;
   addressConfig?: TenantCustomerAddressConfig;
   contractConfig?: TenantContractConfig;
@@ -42,6 +44,29 @@ export interface TenantBillingAccess {
   dueDate?: string;
   suspensionDate?: string;
   reminderDays?: number[];
+}
+
+export interface TenantCustomerAssetsConfig {
+  moduleLabel?: string;
+  singularLabel?: string;
+  codeLabel?: string;
+  nameLabel?: string;
+  serialNumberLabel?: string;
+  locationLabel?: string;
+  descriptionLabel?: string;
+  types?: Array<{
+    key: string;
+    label: string;
+    fields: Array<{
+      key: string;
+      label: string;
+      type: string;
+      required?: boolean;
+      unique?: boolean;
+      isDeadline?: boolean;
+      options?: string[];
+    }>;
+  }>;
 }
 
 export interface TenantAppointmentCategoryConfig {
@@ -256,7 +281,13 @@ export interface TenantMapsConfig {
   providedIn: 'root',
 })
 export class GlobalService {
-  version = '5.4';
+  /** Segnale locale: dopo una modifica il menu ricarica subito i conteggi delle scadenze. */
+  readonly deadlineSummaryChanged$ = new Subject<void>();
+
+  notifyDeadlineSummaryChanged(): void {
+    this.deadlineSummaryChanged$.next();
+  }
+  version = '5.5';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -564,6 +595,10 @@ export class GlobalService {
 
   getTenantRoutePlanningConfig(): TenantRoutePlanningConfig | null {
     return this.tenantConfig?.routePlanningConfig || null;
+  }
+
+  getTenantCustomerAssetsConfig(): TenantCustomerAssetsConfig {
+    return this.tenantConfig?.customerAssetsConfig || {};
   }
 
   getEmployeeSelfTransportField(): string {
@@ -1312,8 +1347,11 @@ export class GlobalService {
       // belongs to a different type.
       if (
         scope === 'customer' &&
-        String(field.visibleWhen?.field || '').trim().toLowerCase() === 'tipocliente'
-      ) return;
+        String(field.visibleWhen?.field || '')
+          .trim()
+          .toLowerCase() === 'tipocliente'
+      )
+        return;
 
       target[field.dbColumn] = '';
       if (field.key && field.key !== field.dbColumn) {

@@ -30,7 +30,9 @@ import { CalendarHomeComponent } from './admin/calendar/calendar-home/calendar-h
 import { GestioneEmployeesComponent } from './admin/gestione-employees/gestione-employees.component';
 import { GestioneUsersComponent } from './admin/gestione-users/gestione-users.component';
 import { SettingsEmployeesComponent } from './admin/settings-employees/settings-employees.component';
+import { CategorySettingsComponent } from './admin/category-settings/category-settings.component';
 import { DeadlinesManagementComponent } from './admin/deadlines-management/deadlines-management.component';
+import { CustomerAssetsComponent } from './admin/customer-assets/customer-assets.component';
 
 import { DocumentManagerComponent } from './admin/document-manager/document-manager.component';
 import { ViewPdfComponent } from './admin/view-pdf/view-pdf.component';
@@ -240,6 +242,24 @@ const routes: Routes = [
         data: { permission: 'CUSTOMER_DEADLINES_VIEW', feature: 'customerDeadlines', kind: 'customer' },
       },
       {
+        path: 'customer-asset-deadlines',
+        component: DeadlinesManagementComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMER_ASSET_DEADLINES_VIEW', feature: 'customerAssets', kind: 'customerAsset' },
+      },
+      {
+        path: 'customer-assets/customer/:customerId',
+        component: CustomerAssetsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMER_ASSETS_VIEW', feature: 'customerAssets' },
+      },
+      {
+        path: 'customer-assets',
+        component: CustomerAssetsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMER_ASSETS_VIEW', feature: 'customerAssets' },
+      },
+      {
         path: 'internal-deadlines',
         component: DeadlinesManagementComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
@@ -340,6 +360,12 @@ const routes: Routes = [
         component: GestioneTagClienteComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
         data: { permission: 'STAMPING_MANAGE' },
+      },
+      {
+        path: 'category-settings',
+        component: CategorySettingsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permissionsAny: ['CUSTOMER_DEADLINES_VIEW', 'EMPLOYEE_EDIT', 'VEHICLE_SETTINGS_MANAGE', 'EQUIPMENT_SETTINGS_MANAGE'] },
       },
       {
         path: 'settingsemployees',
@@ -570,6 +596,12 @@ const routes: Routes = [
     data: { permission: 'ADMIN_VIEW' },
   },
   {
+    path: 'category-settings',
+    component: CategorySettingsComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permissionsAny: ['CUSTOMER_DEADLINES_VIEW', 'EMPLOYEE_EDIT', 'VEHICLE_SETTINGS_MANAGE', 'EQUIPMENT_SETTINGS_MANAGE'] },
+  },
+  {
     path: 'settingsemployees',
     component: SettingsEmployeesComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
@@ -598,6 +630,24 @@ const routes: Routes = [
     component: DeadlinesManagementComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CUSTOMER_DEADLINES_VIEW', feature: 'customerDeadlines', kind: 'customer' },
+  },
+  {
+    path: 'customer-asset-deadlines',
+    component: DeadlinesManagementComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'CUSTOMER_ASSET_DEADLINES_VIEW', feature: 'customerAssets', kind: 'customerAsset' },
+  },
+  {
+    path: 'customer-assets/customer/:customerId',
+    component: CustomerAssetsComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'CUSTOMER_ASSETS_VIEW', feature: 'customerAssets' },
+  },
+  {
+    path: 'customer-assets',
+    component: CustomerAssetsComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'CUSTOMER_ASSETS_VIEW', feature: 'customerAssets' },
   },
   {
     path: 'internal-deadlines',

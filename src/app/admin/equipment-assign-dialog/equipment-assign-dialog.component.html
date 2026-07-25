@@ -4,7 +4,7 @@
   <div *ngIf="loading" class="muted">Caricamento...</div>
 
   <div class="list" *ngIf="!loading">
-    <div class="row-item" *ngFor="let item of equipment">
+    <label class="row-item" *ngFor="let item of equipment">
       <input
         type="checkbox"
         [checked]="isSelected(item.targetKey)"
@@ -24,7 +24,7 @@
           (ngModelChange)="setAssignedQuantity(item, $event)"
         />
       </div>
-    </div>
+    </label>
 
     <div class="text-center py-3" *ngIf="equipment.length === 0">
       Nessuna attrezzatura disponibile. Aggiungila da Gestione attrezzature.

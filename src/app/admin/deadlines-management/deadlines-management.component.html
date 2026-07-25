@@ -3,15 +3,18 @@
     <button class="btn-back" (click)="back()">← Indietro</button>
 
     <div class="topbar-actions">
+      <button *ngIf="kind === 'customerAsset'" class="btn btn-outline-light btn-sm" type="button" (click)="toggleCustomerAssetArchive()">
+        {{ showArchivedCustomerAssets ? '← Scadenze operative' : 'Storico presidi eliminati' }}
+      </button>
       <button class="btn btn-outline-light btn-sm deadline-refresh-button" type="button" (click)="loadAll()">
         ↻ Aggiorna
       </button>
       <button
-        *ngIf="canCreate"
+        *ngIf="canCreate && !showArchivedCustomerAssets"
         class="btn btn-primary btn-sm"
-        (click)="openAddForm()"
+        (click)="openPrimaryCreate()"
       >
-        + Aggiungi scadenza
+        {{ primaryCreateLabel }}
       </button>
     </div>
   </div>
@@ -36,6 +39,10 @@
         <span class="summary-value">{{ totalExpired }}</span>
         <span class="summary-label">Scadute</span>
       </div>
+      <div class="summary-box summary-box-pending">
+        <span class="summary-value">{{ totalPending }}</span>
+        <span class="summary-label">Da programmare</span>
+      </div>
     </div>
   </div>
 
@@ -59,6 +66,10 @@
     <span class="search-count" *ngIf="hasActiveSearch">
       {{ filteredGroups.length }} risultati
     </span>
+    <label class="empty-groups-toggle" *ngIf="kind === 'customer' && customersWithoutDeadlinesCount > 0">
+      <input type="checkbox" [(ngModel)]="showCustomersWithoutDeadlines" />
+      Mostra anche i clienti senza scadenze ({{ customersWithoutDeadlinesCount }})
+    </label>
   </div>
 
   <div *ngIf="success" class="alert alert-success mt-3">
@@ -95,7 +106,7 @@
         />
         <ng-template #entitySelect>
           <select
-            *ngIf="kind === 'employee' || kind === 'vehicle' || kind === 'customer' || kind === 'equipment'; else freeTarget"
+            *ngIf="kind === 'employee' || kind === 'vehicle' || kind === 'customer' || kind === 'equipment' || kind === 'customerAsset'; else freeTarget"
             class="form-select"
             [(ngModel)]="form.entityId"
           >
@@ -141,9 +152,14 @@
         <input
           class="form-control"
           [(ngModel)]="form.folder"
+          [attr.list]="folderSuggestionsId"
           maxlength="120"
           placeholder="Es. Patenti, Formazione, Contratti"
         />
+        <datalist [id]="folderSuggestionsId">
+          <option *ngFor="let folder of folderSuggestions" [value]="folder"></option>
+        </datalist>
+        <small class="form-text text-muted" *ngIf="folderSuggestions.length">Scegli una cartella esistente dall’elenco oppure scrivine una nuova.</small>
       </div>
 
       <div class="col-12 col-lg-6">
@@ -267,9 +283,9 @@
       *ngIf="canCreate"
       type="button"
       class="btn btn-primary btn-sm"
-      (click)="openAddForm()"
+      (click)="openPrimaryCreate()"
     >
-      {{ emptyStateActionLabel }}
+      {{ kind === 'customerAsset' ? primaryCreateLabel : emptyStateActionLabel }}
     </button>
   </div>
 
@@ -306,12 +322,15 @@
           <span *ngIf="group.summary.warningCount > 0" class="status-inline status-warning">
             {{ group.summary.warningCount }} in scadenza
           </span>
+          <span *ngIf="group.summary.pendingCount > 0" class="status-inline status-pending">
+            {{ group.summary.pendingCount }} da programmare
+          </span>
         </div>
       </div>
 
       <div class="entity-actions">
         <button
-          *ngIf="canCreate"
+          *ngIf="canCreate && kind !== 'customerAsset'"
           type="button"
           class="btn btn-primary btn-sm add-deadline-button"
           (click)="openAddForm(group.id)"
@@ -339,7 +358,7 @@
   <section class="card glass mt-3 detail-card" *ngIf="!loading && !entitiesLoading && selectedGroupView as currentGroup">
     <div class="entity-head">
       <div>
-        <button type="button" class="detail-back" (click)="closeGroup()">← Elenco {{ entityLabel }}</button>
+        <button type="button" class="detail-back" (click)="closeGroup()">← Elenco {{ detailListLabel }}</button>
         <h3 class="entity-title mt-2">{{ currentGroup.label }}</h3>
         <p class="entity-subtitle mb-0">{{ currentGroup.subtitle || ' ' }}</p>
       </div>
@@ -349,7 +368,7 @@
           Torna all'elenco
         </button>
         <button
-          *ngIf="canCreate"
+          *ngIf="canCreate && kind !== 'customerAsset'"
           type="button"
           class="btn btn-outline-light btn-sm"
           (click)="openAddForm(currentGroup.id)"
@@ -359,12 +378,57 @@
       </div>
     </div>
 
+
     <div class="empty-state" *ngIf="hasActiveSearch && selectedFolderGroups.length === 0">
       Nessuna scadenza trovata in questo {{ entityLabel }}.
     </div>
 
+    <section class="customer-category-panel" *ngIf="kind === 'internal' && internalDeadlineCategories.length">
+      <div><strong>Categorie scadenze interne</strong><p class="mb-0">Le scadenze standard selezionate vengono applicate all’azienda.</p></div>
+      <div class="category-check-grid"><label class="category-check" *ngFor="let category of internalDeadlineCategories"><input type="checkbox" [checked]="selectedInternalCategoryIds.includes(category.id)" (change)="toggleInternalCategory(category.id, $any($event.target).checked)" /><span><strong>{{ category.name }}</strong><small>{{ category.certifications.length }} scadenze standard</small></span></label></div>
+      <button *ngIf="canCreate" type="button" class="btn btn-outline-light btn-sm mt-2" (click)="saveInternalCategories()">Salva categorie interne</button>
+    </section>
+
+    <ng-container *ngIf="kind !== 'customerAsset'; else customerAssetDetail">
+      <ng-container *ngTemplateOutlet="folderList; context: { $implicit: selectedFolderGroups }"></ng-container>
+    </ng-container>
+
+    <ng-template #customerAssetDetail>
+      <div class="customer-asset-detail-list">
+        <section class="customer-asset-detail-block" *ngFor="let asset of selectedCustomerAssetGroups">
+          <div class="customer-asset-detail-head">
+            <div>
+              <h4 class="customer-asset-detail-title">{{ asset.label }}</h4>
+              <p class="entity-subtitle mb-0">{{ asset.summary.totalCount }} scadenze · {{ getFolderGroups(asset).length }} cartelle</p>
+            </div>
+            <div class="detail-head-actions" *ngIf="!showArchivedCustomerAssets">
+              <button type="button" class="btn btn-outline-light btn-sm" (click)="editCustomerAsset(asset)">Modifica presidio</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteCustomerAsset(asset)">Elimina presidio</button>
+            </div>
+          </div>
+          <details class="deadline-history customer-asset-audit" *ngIf="asset.auditHistory?.length">
+            <summary>Storico dati presidio ({{ asset.auditHistory?.length }})</summary>
+            <article class="history-entry" *ngFor="let entry of asset.auditHistory">
+              <div><strong>{{ entry.summary }}</strong> · {{ entry.createdAt | date:'dd/MM/yyyy, HH:mm' }}</div>
+              <small *ngIf="entry.actorEmail">Operatore: {{ entry.actorEmail }}</small>
+              <div class="history-snapshot">
+                <span *ngIf="entry.snapshot['code']">Codice: {{ entry.snapshot['code'] }}</span>
+                <span *ngIf="entry.snapshot['serialNumber']">Matricola: {{ entry.snapshot['serialNumber'] }}</span>
+                <span *ngIf="entry.snapshot['location']">Posizione: {{ entry.snapshot['location'] }}</span>
+              </div>
+            </article>
+          </details>
+          <ng-container *ngTemplateOutlet="folderList; context: { $implicit: getFolderGroups(asset) }"></ng-container>
+        </section>
+        <div class="empty-state" *ngIf="selectedCustomerAssetGroups.length === 0">
+          Nessun presidio trovato per questo cliente.
+        </div>
+      </div>
+    </ng-template>
+
+    <ng-template #folderList let-folders>
     <div class="folder-list">
-      <section class="folder-block" *ngFor="let folder of selectedFolderGroups">
+      <section class="folder-block" *ngFor="let folder of folders">
         <div class="folder-head">
           <div>
             <div class="folder-title-row">
@@ -379,6 +443,7 @@
             </div>
             <p class="entity-subtitle mb-0">
               {{ folder.summary.totalCount }} scadenze · {{ getFolderFileCount(folder) }} file
+              <span *ngIf="folder.summary.pendingCount > 0" class="status-inline status-pending ms-2">{{ folder.summary.pendingCount }} da programmare</span>
             </p>
           </div>
         </div>
@@ -398,12 +463,12 @@
               <div class="deadline-title-row">
                 <h4 class="deadline-title">{{ deadline.title }}</h4>
                 <span class="status-pill" [ngClass]="statusClass(deadline.status)">
-                  {{ statusLabel(deadline.status) }}
+                  {{ deadline.isPending ? 'Da programmare' : statusLabel(deadline.status) }}
                 </span>
               </div>
 
               <div class="deadline-meta">
-                <span>Scadenza: {{ formatDueDate(deadline.dueDate) }}</span>
+                <span>Scadenza: {{ deadline.isPending ? 'Da definire' : formatDueDate(deadline.dueDate) }}</span>
                 <span>{{ relativeDueLabel(deadline) }}</span>
                 <span>{{ remindLabel(deadline.remindDays) }}</span>
               </div>
@@ -508,5 +573,6 @@
         </div>
       </section>
     </div>
+    </ng-template>
   </section>
 </div>
