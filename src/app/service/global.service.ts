@@ -152,6 +152,7 @@ export interface TenantFieldMappingConfig {
   quoteToCustomer?: Array<{
     from: string;
     to: string;
+    quoteType?: string;
   }>;
 }
 
@@ -1305,6 +1306,14 @@ export class GlobalService {
       )
         return;
       if (this.matchesVisibleWhen(scope, field, target)) return;
+
+      // A customer is unique even when it has data from more than one quote
+      // type. Switching the visible customer section must not erase data that
+      // belongs to a different type.
+      if (
+        scope === 'customer' &&
+        String(field.visibleWhen?.field || '').trim().toLowerCase() === 'tipocliente'
+      ) return;
 
       target[field.dbColumn] = '';
       if (field.key && field.key !== field.dbColumn) {

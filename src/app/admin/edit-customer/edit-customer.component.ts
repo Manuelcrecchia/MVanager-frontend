@@ -212,6 +212,12 @@ export class EditCustomerComponent {
     this.syncCustomerFieldRules();
   }
 
+  onCustomerTypeChange(value: string): void {
+    const target = this.customerModelService as unknown as Record<string, any>;
+    target['tipoCliente'] = String(value || '').trim();
+    this.syncCustomerFieldRules();
+  }
+
   getRepeatableTextRows(field: TenantFieldMappingFieldConfig): string[] {
     const source = this.customerModelService as unknown as Record<string, any>;
     const rawValue = source[field.dbColumn] ?? (field.key ? source[field.key] : undefined);

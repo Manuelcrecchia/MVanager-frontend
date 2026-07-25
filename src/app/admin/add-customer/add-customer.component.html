@@ -10,6 +10,23 @@
       Nessun campo cliente configurato in MVControl.
     </div>
 
+    <div class="row g-3 mb-3" *ngIf="globalService.getQuoteTypes().length > 1">
+      <div class="col-md-6">
+        <mat-form-field appearance="fill" class="w-100">
+          <mat-label>Tipo cliente</mat-label>
+          <mat-select
+            name="tipoCliente"
+            [(ngModel)]="customerModelService.tipoCliente"
+            (ngModelChange)="onCustomerTypeChange($event)"
+          >
+            <mat-option *ngFor="let type of globalService.getQuoteTypes()" [value]="type.key">
+              {{ type.label || type.key }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </div>
+
     <div class="row g-3">
       <div
         class="col-md-6"

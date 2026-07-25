@@ -51,6 +51,9 @@ export class AddCustomerComponent {
       .loadTenantConfig(false, { showError: false })
       .then(() => {
         const target = this.customerModelService as unknown as Record<string, any>;
+        if (!String(target['tipoCliente'] || '').trim()) {
+          target['tipoCliente'] = this.globalService.getDefaultQuoteType('');
+        }
         this.globalService.applyFieldDefaults('customer', target);
         this.globalService.applyCalculatedFields('customer', target);
         this.refreshVisibleCustomerFields();
@@ -118,6 +121,12 @@ export class AddCustomerComponent {
       target[field.key] = value;
     }
     delete this.validationErrors[mappedFieldKey(field)];
+    this.syncCustomerFieldRules();
+  }
+
+  onCustomerTypeChange(value: string): void {
+    const target = this.customerModelService as unknown as Record<string, any>;
+    target['tipoCliente'] = String(value || '').trim();
     this.syncCustomerFieldRules();
   }
 
