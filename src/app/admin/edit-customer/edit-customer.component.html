@@ -150,9 +150,26 @@
       </div>
     </div>
 
-    <section class="access-work-panel mt-4" *ngIf="hasAccessWorkFields()">
+    <section class="access-work-panel mt-4" *ngIf="globalService.hasTenantFeature('customerAccessRules')">
       <div class="access-work-panel__header">
         <h3>Accesso lavori</h3>
+      </div>
+      <mat-checkbox
+        name="editCustomerHasKeys"
+        [(ngModel)]="customerModelService.key"
+      >
+        L'azienda dispone delle chiavi (accesso libero)
+      </mat-checkbox>
+
+      <p class="mt-3 mb-0" *ngIf="customerModelService.key">
+        Gli orari di apertura non limiteranno la pianificazione dei turni.
+      </p>
+      <p class="mt-3 mb-0" *ngIf="!customerModelService.key">
+        Durata e orari sono facoltativi. Se non inserisci orari, il cliente non avrà vincoli di accesso nei turni.
+      </p>
+
+      <div *ngIf="!customerModelService.key && !hasAccessWorkFields()" class="alert alert-warning mt-3">
+        Configura i campi “Accesso lavori” in MVControl per inserire gli orari del cliente.
       </div>
 
       <div class="access-work-panel__general">
@@ -168,7 +185,9 @@
             (ngModelChange)="updateAccessDurationHours(durationField, $event)"
           />
         </mat-form-field>
+      </div>
 
+      <div class="access-work-panel__general" *ngIf="!customerModelService.key">
         <mat-form-field appearance="fill" *ngIf="getAccessFieldByRole('customerAccessStart') as startField">
           <mat-label>Dalle</mat-label>
           <input
@@ -192,7 +211,7 @@
         </mat-form-field>
       </div>
 
-      <div class="access-week-table">
+      <div class="access-week-table" *ngIf="!customerModelService.key">
         <div class="access-week-table__head">
           <span>Giorno</span>
           <span>Dalle</span>
@@ -229,7 +248,7 @@
         </div>
       </div>
 
-      <mat-form-field appearance="fill" class="w-100 mt-3" *ngIf="getAccessFieldByRole('customerAccessNotes') as notesField">
+      <mat-form-field appearance="fill" class="w-100 mt-3" *ngIf="!customerModelService.key && getAccessFieldByRole('customerAccessNotes') as notesField">
         <mat-label>Note accesso</mat-label>
         <textarea
           matInput

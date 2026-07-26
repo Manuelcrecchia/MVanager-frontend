@@ -317,10 +317,7 @@ export class ShiftHomeComponent implements OnInit, OnDestroy {
   }
 
   canShowKeyTag(): boolean {
-    return (
-      this.globalService.hasTenantFeature('stamping') &&
-      this.globalService.hasPermission('STAMPING_VIEW')
-    );
+    return this.globalService.hasTenantFeature('customerAccessRules');
   }
 
   private parseSortMap(value: any): Record<number, number> {
@@ -1332,7 +1329,9 @@ export class ShiftHomeComponent implements OnInit, OnDestroy {
         lines.push(`Mezzo/i: ${mezziStr}`);
       }
 
-      lines.push(`Chiave richiesta: ${turno.keyRequired ? 'Sì' : 'No'}`);
+      if (this.globalService.hasTenantFeature('customerAccessRules')) {
+        lines.push(`Chiavi disponibili: ${turno.keyRequired ? 'Sì' : 'No'}`);
+      }
       lines.push(`Descrizione: ${turno.description || 'Nessuna descrizione'}`);
       lines.push('');
     });

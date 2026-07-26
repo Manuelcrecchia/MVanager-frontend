@@ -399,18 +399,45 @@ export class EditCustomerComponent {
   }
 
   hasAccessWorkFields(): boolean {
-    return this.accessWorkFields.length > 0;
+    return true;
   }
 
   getAccessFieldByRole(role: string): TenantFieldMappingFieldConfig | null {
-    return this.accessWorkFields.find((field) => String(field.displayRole || '').trim() === role) || null;
+    const fallbackKeys: Record<string, string> = {
+      customerAccessDays: 'giorniAccesso',
+      customerAccessStart: 'orarioAccessoDa',
+      customerAccessEnd: 'orarioAccessoA',
+      customerWorkDurationMinutes: 'durataLavoroMinuti',
+      customerAccessNotes: 'noteAccesso',
+    };
+    return this.accessWorkFields.find((field) => String(field.displayRole || '').trim() === role) ||
+      this.getTechnicalAccessField(fallbackKeys[role] || '', role);
   }
 
   getAccessFieldByKey(key: string): TenantFieldMappingFieldConfig | null {
     const normalizedKey = this.normalizeAccessLookup(key);
     return this.accessWorkFields.find((field) =>
       [field.key, field.dbColumn].some((value) => this.normalizeAccessLookup(value) === normalizedKey),
-    ) || null;
+    ) || this.getTechnicalAccessField(key);
+  }
+
+  private getTechnicalAccessField(key: string, displayRole = ''): TenantFieldMappingFieldConfig | null {
+    const allowed = new Set([
+      'giorniAccesso', 'orarioAccessoDa', 'orarioAccessoA', 'durataLavoroMinuti', 'noteAccesso',
+      ...this.accessWeekDays.flatMap((day) => [day.startKey, day.endKey]),
+    ]);
+    return allowed.has(key)
+      ? { key, dbColumn: key, label: key, displayRole, type: key === 'giorniAccesso' ? 'list' : 'time' }
+      : null;
+  }
+
+  private getTechnicalAccessPayload(): Record<string, any> {
+    const source = this.customerModelService as unknown as Record<string, any>;
+    const keys = [
+      'giorniAccesso', 'orarioAccessoDa', 'orarioAccessoA', 'durataLavoroMinuti', 'noteAccesso',
+      ...this.accessWeekDays.flatMap((day) => [day.startKey, day.endKey]),
+    ];
+    return Object.fromEntries(keys.map((key) => [key, source[key] ?? '']));
   }
 
   getAccessFieldValue(field: TenantFieldMappingFieldConfig | null): any {
@@ -476,6 +503,7 @@ export class EditCustomerComponent {
   editCustomer(): void {
     const source = this.customerModelService as unknown as Record<string, any>;
     this.validationErrors = {};
+    if (!this.validateAccessHours()) return;
     const missingFields = this.globalService.getMissingRequiredFields('customer', source);
     if (missingFields.length) {
       this.popup.show(
@@ -497,6 +525,8 @@ export class EditCustomerComponent {
         numeroCliente: String(source['numeroCliente'] || '').trim(),
         codiceOperatore: source['codiceOperatore'] || this.globalService.userCode,
         tipoCliente: source['tipoCliente'] || '',
+        key: source['key'] === true,
+        ...this.getTechnicalAccessPayload(),
         data: source['data'] || '',
       },
       source,
@@ -536,6 +566,38 @@ export class EditCustomerComponent {
     } catch {}
     if (err.status === 0) return 'Impossibile connettersi al server';
     return 'Errore durante il salvataggio. Riprova.';
+  }
+
+  private validateAccessHours(): boolean {
+    if (!this.globalService.hasTenantFeature('customerAccessRules')) return true;
+    if (this.customerModelService.key) return true;
+    if (!this.hasAccessWorkFields()) {
+      this.popup.showError('Configura i campi “Accesso lavori” in MVControl prima di salvare un cliente senza chiavi.');
+      return false;
+    }
+    const enabledDays = this.accessWeekDays.filter((day) => this.isAccessDayEnabled(day));
+    if (!enabledDays.length) {
+      const hasPartialHours = [
+        this.getAccessFieldValue(this.getAccessFieldByRole('customerAccessStart')),
+        this.getAccessFieldValue(this.getAccessFieldByRole('customerAccessEnd')),
+        ...this.accessWeekDays.flatMap((day) => [
+          this.getAccessFieldValueByKey(day.startKey),
+          this.getAccessFieldValueByKey(day.endKey),
+        ]),
+      ].some((value) => String(value || '').trim());
+      if (!hasPartialHours) return true;
+      this.popup.show('Inserisci almeno un giorno e un orario di apertura.', 'Orari cliente', 'warning');
+      return false;
+    }
+    const incomplete = enabledDays.find((day) =>
+      !String(this.getAccessFieldValueByKey(day.startKey) || '').trim() ||
+      !String(this.getAccessFieldValueByKey(day.endKey) || '').trim(),
+    );
+    if (incomplete) {
+      this.popup.show(`Completa l'orario di ${incomplete.label}.`, 'Orari cliente', 'warning');
+      return false;
+    }
+    return true;
   }
 
   private showValidationErrors(errors: MappedFieldValidationError[]): void {

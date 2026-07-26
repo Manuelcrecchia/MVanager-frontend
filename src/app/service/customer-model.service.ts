@@ -10,6 +10,7 @@ export class CustomerModelService {
   codiceOperatore = '';
   data = '';
   password = '';
+  key = false;
 
   constructor() {}
 
@@ -35,5 +36,6 @@ export class CustomerModelService {
     this.codiceOperatore = '';
     this.data = '';
     this.password = '';
+    this.key = false;
   }
 }

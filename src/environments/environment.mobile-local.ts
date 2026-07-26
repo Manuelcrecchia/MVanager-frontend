@@ -6,5 +6,5 @@ export const environment = {
   googleMapsApiKey: '',
   googleMapsMapId: '',
   companyRegistryEndpoint:
-    'http://192.168.1.92:5001/company-registry/companies',
+    'http://192.168.1.92:5001/company-registry/all-companies',
 };

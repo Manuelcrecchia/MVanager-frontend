@@ -6,5 +6,5 @@ export const environment = {
   googleMapsApiKey: '',
   googleMapsMapId: '',
   companyRegistryEndpoint:
-    'http://mvanager.localhost:5001/company-registry/companies',
+    'http://mvanager.localhost:5001/company-registry/all-companies',
 };

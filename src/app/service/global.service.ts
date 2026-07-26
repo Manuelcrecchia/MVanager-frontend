@@ -75,6 +75,7 @@ export interface TenantAppointmentCategoryConfig {
   color?: string;
   source?: 'none' | 'customers' | 'quotes';
   customerType?: string;
+  quoteType?: string;
   forShifts?: boolean;
   withCustomerLink?: boolean;
   inspection?: boolean;
@@ -287,7 +288,7 @@ export class GlobalService {
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '5.5';
+  version = '5.6';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;

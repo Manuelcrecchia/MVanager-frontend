@@ -326,6 +326,7 @@
             <input
               type="text"
               class="form-control form-control-sm"
+              [class.is-invalid]="!!getCustomerAccessWarning(a)"
               placeholder="HH:mm"
               [ngModel]="getShiftTime(a)"
               (ngModelChange)="onTimeTextChange(a, $event)"
@@ -335,6 +336,7 @@
           <div class="shift-duration-field">
             <select
               class="form-control form-control-sm"
+              [class.is-invalid]="!!getCustomerAccessWarning(a)"
               [(ngModel)]="a.duration"
               (ngModelChange)="onDurationChange(a, $event)"
             >
@@ -353,6 +355,16 @@
           >
             ❌
           </button>
+          </div>
+
+          <div
+            class="customer-access-warning"
+            *ngIf="getCustomerAccessWarning(a) as accessWarning"
+            role="alert"
+            aria-live="polite"
+          >
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>{{ accessWarning }}</span>
           </div>
         </div>
 

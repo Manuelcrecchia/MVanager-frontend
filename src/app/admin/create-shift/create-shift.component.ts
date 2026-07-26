@@ -1889,15 +1889,16 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       const address = this.getAppointmentRouteAddress(stop.appRef, customer);
       const coords = this.getAppointmentRouteCoords(stop.appRef, customer);
       const point = this.buildPseudoMapPoint(`${address}-${stop.title}-${stop.id}`);
-      const accessDays = this.getAppointmentAccessDays(stop.appRef, customer);
+      const hasKeys = customer?.key === true || customer?.key === 1 || customer?.key === '1' || customer?.key === 'true';
+      const accessDays = hasKeys ? [] : this.getAppointmentAccessDays(stop.appRef, customer);
 
       return {
         ...stop,
         customer,
         address,
         duration: this.getAppointmentWorkDuration(stop.appRef, customer),
-        startDate: this.getRoutePlannerRequestedStart(stop.appRef, customer),
-        accessEndDate: this.getRoutePlannerAccessEnd(stop.appRef, customer),
+        startDate: hasKeys ? null : this.getRoutePlannerRequestedStart(stop.appRef, customer),
+        accessEndDate: hasKeys ? null : this.getRoutePlannerAccessEnd(stop.appRef, customer),
         accessDays,
         assignmentWarnings: this.getRoutePlannerAccessDayWarnings(accessDays),
         mapX: point.x,
@@ -4654,6 +4655,56 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       date: this.formatDate(this.selectedDate),
       data: { id: app.id, duration: value },
     });
+  }
+
+  getCustomerAccessWarning(app: any): string {
+    if (
+      !this.globalService.hasTenantFeature('customerAccessRules') ||
+      !app ||
+      app.isExtra
+    ) {
+      return '';
+    }
+
+    const customer = this.getAppointmentCustomer(app);
+    if (!customer) return '';
+
+    const hasKeys = customer.key === true ||
+      customer.key === 1 ||
+      customer.key === '1' ||
+      customer.key === 'true';
+    if (hasKeys) return '';
+
+    const accessDays = this.getAppointmentAccessDays(app, customer);
+    const selectedDay = this.normalizeWeekdayName(
+      this.selectedDate.toLocaleDateString('it-IT', { weekday: 'long' }),
+    );
+    if (accessDays.length && selectedDay && !accessDays.includes(selectedDay)) {
+      return 'Il cliente risulta chiuso nel giorno selezionato.';
+    }
+
+    const start = app.startDate instanceof Date ? app.startDate : null;
+    const startMinutes = this.routeMinutesFromDate(start);
+    if (startMinutes === null) return '';
+
+    const accessStart = this.routeMinutesFromDate(
+      this.getRoutePlannerRequestedStart(app, customer),
+    );
+    const accessEnd = this.routeMinutesFromDate(
+      this.getRoutePlannerAccessEnd(app, customer),
+    );
+    const durationMinutes = Math.max(0, Number(app.duration) || 0);
+    const calculatedEnd = startMinutes + durationMinutes;
+
+    if (accessStart !== null && startMinutes < accessStart) {
+      return `Orario non valido: il cliente apre alle ${this.minutesToRouteTime(accessStart)}.`;
+    }
+
+    if (accessEnd !== null && calculatedEnd > accessEnd) {
+      return `Il lavoro terminerebbe alle ${this.minutesToRouteTime(calculatedEnd)}, dopo la chiusura del cliente alle ${this.minutesToRouteTime(accessEnd)}.`;
+    }
+
+    return '';
   }
 
   openPostponePopup(app: any): void {

@@ -1,7 +1,7 @@
 import { Component, OnInit, HostListener } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../../service/global.service';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AutomaticAddInspectionToCalendarService } from '../../../service/automatic-add-inspection-to-calendar.service';
 import { PopupServiceService } from '../../../componenti/popup/popup-service.service';
 import { TenantService } from '../../../service/tenant.service';
@@ -54,6 +54,7 @@ interface CalendarCategoryOption {
   forShifts?: boolean;
   source?: 'none' | 'customers' | 'quotes';
   customerType?: string;
+  quoteType?: string;
   inspection?: boolean;
   serviceOrder?: boolean;
   keyRequired?: boolean;
@@ -98,8 +99,7 @@ export class CalendarHomeComponent implements OnInit {
   editingOccurrenceStart: Date | null = null;
   editingSelectedDate: Date | null = null;
 
-  readonly MAX_VISIBLE_EVENTS = 5;
-  readonly MAX_OVERLAP_COLS = 4;
+  readonly MAX_OVERLAP_COLS = Number.POSITIVE_INFINITY;
 
   popupTitle = '';
   popupDescription = '';
@@ -146,11 +146,19 @@ export class CalendarHomeComponent implements OnInit {
   ];
 
   categories: CalendarCategoryOption[] = [];
+  private pendingDeadlineIds: number[] = [];
+  private pendingAppointmentId: number | null = null;
+  private routeActionOpened = false;
+
+  get isDeadlinePlanning(): boolean {
+    return this.pendingDeadlineIds.length > 0;
+  }
 
   constructor(
     private http: HttpClient,
     private globalService: GlobalService,
     private router: Router,
+    private route: ActivatedRoute,
     private autoInspectionService: AutomaticAddInspectionToCalendarService,
     private popupService: PopupServiceService,
     public tenantService: TenantService,
@@ -160,7 +168,63 @@ export class CalendarHomeComponent implements OnInit {
   ngOnInit() {
     this.globalService.loadTenantConfig(false, { showError: false }).then(() => {
       this.categories = this.getCategoriesForTenant();
+      this.readDeadlineRouteAction();
       this.loadAll();
+    });
+  }
+
+  private readDeadlineRouteAction(): void {
+    const ids = String(this.route.snapshot.queryParamMap.get('deadlineIds') || '')
+      .split(',')
+      .map((value) => Number.parseInt(value, 10))
+      .filter((value) => Number.isInteger(value) && value > 0);
+    this.pendingDeadlineIds = [...new Set(ids)];
+    const appointmentId = Number.parseInt(
+      String(this.route.snapshot.queryParamMap.get('appointmentId') || ''),
+      10,
+    );
+    this.pendingAppointmentId = Number.isInteger(appointmentId) && appointmentId > 0
+      ? appointmentId
+      : null;
+
+    if (!this.pendingDeadlineIds.length) return;
+    const category = String(this.route.snapshot.queryParamMap.get('deadlineCategory') || '');
+    if (!this.categories.some((item) => item.id === category)) {
+      this.pendingDeadlineIds = [];
+      this.popupService.showError('Categoria calendario della scadenza non configurata in MVControl.');
+      this.clearRouteActionQuery();
+      return;
+    }
+    const rawDate = String(this.route.snapshot.queryParamMap.get('planDate') || '');
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+      ? new Date(`${rawDate}T09:00:00`)
+      : new Date();
+    date.setHours(9, 0, 0, 0);
+    this.currentView = 'day';
+    this.currentDate = new Date(date);
+    this.openNewPopup(
+      date,
+      category,
+      String(this.route.snapshot.queryParamMap.get('planTitle') || ''),
+      String(this.route.snapshot.queryParamMap.get('planDescription') || ''),
+    );
+    this.routeActionOpened = true;
+    this.clearRouteActionQuery();
+  }
+
+  private clearRouteActionQuery(): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        deadlineIds: null,
+        deadlineCategory: null,
+        planTitle: null,
+        planDescription: null,
+        planDate: null,
+        appointmentId: null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
   }
 
@@ -183,9 +247,35 @@ export class CalendarHomeComponent implements OnInit {
     }).subscribe((res) => {
       this.rawEvents = JSON.parse(res);
       this.buildGrid();
+      if (this.pendingAppointmentId && !this.routeActionOpened) {
+        const raw = this.rawEvents.find((item) => Number(item.id) === this.pendingAppointmentId);
+        this.pendingAppointmentId = null;
+        if (raw) {
+          const event = this.toCalEvent(raw);
+          this.currentDate = new Date(event.start);
+          this.currentView = 'day';
+          this.buildGrid();
+          this.openEditPopup(event);
+        } else {
+          this.popupService.showError('Evento pianificato non trovato.');
+        }
+        this.clearRouteActionQuery();
+      }
       if (this.autoInspectionService.pass) {
         this.autoInspectionService.pass = false;
-        const inspectionCategory = this.categories.find((category) => category.inspection === true)?.id || '';
+        const quoteType = this.normalize(this.autoInspectionService.quoteType);
+        const inspectionCategory =
+          this.categories.find((category) =>
+            category.inspection === true &&
+            quoteType &&
+            this.normalize(category.quoteType || '') === quoteType,
+          )?.id ||
+          this.categories.find((category) =>
+            category.inspection === true && !String(category.quoteType || '').trim(),
+          )?.id ||
+          this.categories.find((category) => category.inspection === true)?.id ||
+          '';
+        this.autoInspectionService.quoteType = '';
         if (!inspectionCategory) {
           this.popupService.text = 'Configura prima una categoria calendario per gli appuntamenti collegati ai preventivi';
           this.popupService.openPopup();
@@ -426,6 +516,10 @@ export class CalendarHomeComponent implements OnInit {
     }];
   }
 
+  getTimedEvents(cell: DayCell): CalEvent[] {
+    return cell.events;
+  }
+
   isSameDay(a: Date, b: Date): boolean {
     return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
   }
@@ -499,13 +593,13 @@ export class CalendarHomeComponent implements OnInit {
 
   openNewPopup(date: Date, category = '', title = '', description = '', numeroPreventivo = '') {
     const start = new Date(date); start.setSeconds(0,0);
-    const end = new Date(start.getTime()+30*60000);
     this.isNewEvent=true; this.editingEventId=null; this.isRecurringInstance=false; this.hasRecurrenceRule=false;
     this.editingSingleOccurrence=false; this.editingOccurrenceStart=null; this.editingSelectedDate=null;
     this.popupTitle=title; this.popupDescription=description;
     this.popupNumeroPreventivo = numeroPreventivo;
-    this.popupStartDate=this.toInputDatetime(start); this.popupEndDate=this.toInputDatetime(end);
+    this.popupStartDate=this.toInputDatetime(start);
     this.popupCategory=category||this.globalService.getDefaultAppointmentCategory(this.categories[0]?.id || '')||'';
+    this.updatePopupEndFromCustomerDuration();
     this.popupInspectionAdminIds = [];
     this.popupInspectionReminderMinutes = 30;
     this.recurrenceEnabled=false; this.recurrenceFreq='DAILY'; this.recurrenceInterval=1;
@@ -647,6 +741,8 @@ export class CalendarHomeComponent implements OnInit {
 
   closePopup() {
     this.showPopup=false; this.showDeleteConfirm=false;
+    this.pendingDeadlineIds = [];
+    this.routeActionOpened = false;
     this.editingSingleOccurrence=false; this.editingOccurrenceStart=null; this.editingSelectedDate=null;
   }
 
@@ -722,14 +818,18 @@ export class CalendarHomeComponent implements OnInit {
 
     if (this.isCustomerCategory(category)) {
       this.popupNumeroPreventivo = '';
-      this.clientiArray.find(c=>this.normalize(this.customerLabel(c))===this.normalize(val));
+      this.updatePopupEndFromCustomerDuration();
       return;
     }
   }
 
   getAutocompleteSource(categoria: string): string[] {
     const category = this.getCategoryOption(categoria);
-    if (this.isQuoteCategory(category)) return this.nPreventiviArray;
+    if (this.isQuoteCategory(category)) {
+      return [...this.quotesMap.values()]
+        .filter((quote) => !quote?.complete && this.quoteMatchesCategoryType(quote, category))
+        .map((quote) => this.quoteLabel(quote));
+    }
     if (this.isCustomerCategory(category)) {
       return this.clientiArray
         .filter((customer) => this.customerMatchesCategoryType(customer, category))
@@ -740,6 +840,7 @@ export class CalendarHomeComponent implements OnInit {
 
   onCategoryChange() {
     if (!this.isQuoteCategory(this.getCategoryOption(this.popupCategory))) this.popupNumeroPreventivo='';
+    this.updatePopupEndFromCustomerDuration();
     this.filteredAutocomplete=this.getAutocompleteSource(this.popupCategory); this.autocompleteOpen=false;
   }
 
@@ -763,13 +864,54 @@ export class CalendarHomeComponent implements OnInit {
   }
 
   onStartDateChange() {
+    this.updatePopupEndFromCustomerDuration();
+  }
+
+  updatePopupEndFromCustomerDuration(): void {
     if (!this.popupStartDate) return;
-    this.popupEndDate = this.toInputDatetime(new Date(new Date(this.popupStartDate).getTime()+30*60000));
+
+    const start = new Date(this.popupStartDate);
+    if (Number.isNaN(start.getTime())) return;
+
+    const durationMinutes = this.getSelectedCustomerWorkDurationMinutes() || 30;
+    this.popupEndDate = this.toInputDatetime(
+      new Date(start.getTime() + durationMinutes * 60_000),
+    );
+  }
+
+  private getSelectedCustomerWorkDurationMinutes(): number | null {
+    const category = this.getCategoryOption(this.popupCategory);
+    if (!this.isCustomerCategory(category)) return null;
+
+    const customerCode = this.normalize(this.popupTitle.split(' - ')[0]);
+    if (!customerCode) return null;
+
+    const customer = this.clientiArray.find((item) =>
+      this.normalize(String(item?.numeroCliente || '')) === customerCode,
+    );
+    if (!customer) return null;
+
+    const configuredDuration = this.globalService.getRecordValueByRole(
+      'customer',
+      customer,
+      'customerWorkDurationMinutes',
+    );
+    const durationValue = configuredDuration !== null &&
+      configuredDuration !== undefined &&
+      configuredDuration !== ''
+      ? configuredDuration
+      : customer.durataLavoroMinuti;
+    const durationMinutes = Number(durationValue);
+
+    return Number.isFinite(durationMinutes) && durationMinutes > 0
+      ? durationMinutes
+      : null;
   }
 
   // ── RECURRENCE ─────────────────────────────────────────────────────────
 
   buildRRule(): string {
+    if (this.isDeadlinePlanning) return '';
     if (!this.recurrenceEnabled) return '';
     let rule = `FREQ=${this.recurrenceFreq}`;
     if (this.recurrenceInterval>1) rule+=`;INTERVAL=${this.recurrenceInterval}`;
@@ -791,10 +933,8 @@ export class CalendarHomeComponent implements OnInit {
     }
     const category = this.getCategoryOption(this.popupCategory);
     const isInspection = this.isInspectionCategory(category);
-    if (isInspection) {
-      if (!this.popupInspectionAdminIds.length) {
-        this.popupService.text='Seleziona almeno un utente per il promemoria'; this.popupService.openPopup(); return;
-      }
+    const hasReminder = this.popupInspectionAdminIds.length > 0;
+    if (hasReminder) {
       if (this.popupInspectionReminderMinutes === null || this.popupInspectionReminderMinutes < 0) {
         this.popupService.text='Specifica quanti minuti prima inviare il promemoria'; this.popupService.openPopup(); return;
       }
@@ -810,9 +950,9 @@ export class CalendarHomeComponent implements OnInit {
       recurrenceRule: this.buildRRule(),
       dayLong: false, description: this.popupDescription,
       categories: this.popupCategory, recurrenceException: null,
-      inspectionAdminIds: isInspection ? this.popupInspectionAdminIds : [],
+      inspectionAdminIds: this.popupInspectionAdminIds,
       inspectionReminderMinutes:
-        isInspection
+        hasReminder
           ? this.popupInspectionReminderMinutes
           : null,
     };
@@ -822,26 +962,65 @@ export class CalendarHomeComponent implements OnInit {
       body.numeroPreventivo = this.popupNumeroPreventivo || null;
     }
     if (!this.isNewEvent && this.editingSingleOccurrence) {
-      this.saveSingleOccurrence(body, isInspection);
+      this.saveSingleOccurrence(body, isInspection, hasReminder);
       return;
     }
     if (!this.isNewEvent) body.id = this.editingEventId;
-    this.http.post(this.globalService.url+(this.isNewEvent?'appointments/add':'appointments/edit'), body, {
+    if (this.isNewEvent && this.pendingDeadlineIds.length) {
+      body.returnAppointmentId = true;
+    }
+    const wasNewEvent = this.isNewEvent;
+    this.http.post(this.globalService.url+(wasNewEvent?'appointments/add':'appointments/edit'), body, {
       headers: this.globalService.headers, responseType: 'text',
-    }).subscribe(()=>{
-      this.closePopup();
-      this.loadAll();
-      if (isInspection) {
+    }).subscribe((response)=>{
+      let appointmentId = this.editingEventId;
+      if (wasNewEvent) {
+        try {
+          appointmentId = Number(JSON.parse(response)?.appointmentId) || null;
+        } catch {
+          appointmentId = null;
+        }
+      }
+      const finish = () => {
+        this.pendingDeadlineIds = [];
+        this.routeActionOpened = false;
+        this.closePopup();
+        this.loadAll();
+      };
+      if (this.pendingDeadlineIds.length) {
+        if (!appointmentId) {
+          this.popupService.showError('Evento creato, ma non è stato possibile collegare le scadenze.');
+          return;
+        }
+        this.isNewEvent = false;
+        this.editingEventId = appointmentId;
+        this.http.post(
+          this.globalService.url + 'admin/deadlines/plan',
+          { deadlineIds: this.pendingDeadlineIds, appointmentId },
+        ).subscribe({
+          next: finish,
+          error: (err) => {
+            this.popupService.showError(
+              err?.error?.error || 'Evento salvato, ma collegamento alle scadenze non riuscito. Riprova a salvare.',
+            );
+          },
+        });
+      } else {
+        finish();
+      }
+      if (hasReminder) {
         this.inspectionAlarmSync.setToken(this.globalService.token);
         this.inspectionAlarmSync.syncSoon('calendar-save', true).catch((err) => {
           console.error('[Calendar] Errore sync promemoria appuntamento:', err);
         });
+      }
+      if (isInspection) {
         this.sendInspectionConfirmation(body);
       }
     });
   }
 
-  private saveSingleOccurrence(body: any, isInspection: boolean) {
+  private saveSingleOccurrence(body: any, isInspection: boolean, hasReminder: boolean) {
     const occurrenceStart = this.editingOccurrenceStart || new Date(this.popupStartDate);
     const selectedDate = this.editingSelectedDate || occurrenceStart;
     const payload = {
@@ -860,11 +1039,13 @@ export class CalendarHomeComponent implements OnInit {
       next: () => {
         this.closePopup();
         this.loadAll();
-        if (isInspection) {
+        if (hasReminder) {
           this.inspectionAlarmSync.setToken(this.globalService.token);
           this.inspectionAlarmSync.syncSoon('calendar-save-single', true).catch((err) => {
             console.error('[Calendar] Errore sync promemoria occorrenza:', err);
           });
+        }
+        if (isInspection) {
           this.sendInspectionConfirmation(body);
         }
       },
@@ -879,7 +1060,8 @@ export class CalendarHomeComponent implements OnInit {
   validateCodice(codice: string, categoria: string): boolean {
     const category = this.getCategoryOption(categoria);
     if (this.isQuoteCategory(category)) {
-      return this.nPreventiviArray.some(p=>this.normalize(p).startsWith(this.normalize(codice+' -')));
+      const quote = this.quotesMap.get(this.normalize(codice));
+      return !!quote && !quote.complete && this.quoteMatchesCategoryType(quote, category);
     }
     if (this.isCustomerCategory(category)) {
       return this.clientiArray.some((customer) => {
@@ -963,6 +1145,7 @@ export class CalendarHomeComponent implements OnInit {
         forShifts: category.forShifts === true,
         source: category.source || 'none',
         customerType: category.customerType || '',
+        quoteType: category.quoteType || '',
         inspection: category.inspection === true,
         serviceOrder: category.serviceOrder === true,
         keyRequired: category.keyRequired === true,
@@ -977,6 +1160,17 @@ export class CalendarHomeComponent implements OnInit {
 
   private isQuoteCategory(category?: CalendarCategoryOption): boolean {
     return category?.source === 'quotes' || category?.inspection === true;
+  }
+
+  private quoteMatchesCategoryType(quote: any, category?: CalendarCategoryOption): boolean {
+    const requiredType = String(category?.quoteType || '').trim();
+    if (!requiredType) return true;
+    const quoteType = String(
+      this.globalService.getRecordValueByRole('quote', quote || {}, 'quoteType') ||
+      quote?.tipoPreventivo ||
+      '',
+    ).trim();
+    return this.normalize(quoteType) === this.normalize(requiredType);
   }
 
   private isCustomerCategory(category?: CalendarCategoryOption): boolean {

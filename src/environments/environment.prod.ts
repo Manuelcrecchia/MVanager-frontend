@@ -6,5 +6,5 @@ export const environment = {
   googleMapsApiKey: '',
   googleMapsMapId: '',
   companyRegistryEndpoint:
-    'https://mvanager.mvtechcore.it/company-registry/companies',
+    'https://mvanager.mvtechcore.it/company-registry/all-companies',
 };

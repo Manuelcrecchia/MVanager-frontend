@@ -10,6 +10,7 @@
     "build": "ng build",
     "build:mobile": "ng build --configuration production && npx cap sync",
     "build:mobile:local": "ng build --configuration mobileLocal && npx cap sync",
+    "build:mobile:ip": "node scripts/build-mobile-with-ip.mjs",
     "sync:android": "ng build --configuration production && npx cap sync android",
     "sync:ios": "ng build --configuration production && npx cap sync ios",
     "open:android": "npx cap open android",

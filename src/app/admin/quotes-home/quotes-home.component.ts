@@ -92,6 +92,11 @@ export class QuotesHomeComponent implements OnDestroy {
       .subscribe({
         next: (response) => {
           const temp = Array.isArray(response) ? response : [];
+          this.automaticAddInspectionToCalendarService.quoteType = String(
+            this.globalService.getRecordValueByRole('quote', temp[0] || {}, 'quoteType') ||
+            temp[0]?.tipoPreventivo ||
+            '',
+          ).trim();
           this.automaticAddInspectionToCalendarService.telefono =
             this.getQuotePhone(temp[0]) || '';
           this.router.navigateByUrl('/homeAdmin/calendarHome');

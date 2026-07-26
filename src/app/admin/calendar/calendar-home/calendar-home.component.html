@@ -132,7 +132,7 @@
           <div class="current-time-line" *ngIf="cell.isToday" [style.top.px]="currentTimeTopPx()"></div>
           <!-- events -->
           <div
-            *ngFor="let ev of cell.events.slice(0, MAX_VISIBLE_EVENTS)"
+            *ngFor="let ev of getTimedEvents(cell)"
             class="ev-block"
             [ngClass]="getCategoryClass(ev.categories)"
             [ngStyle]="getEventBlockStyle(ev, cell.eventLayout)"
@@ -141,10 +141,6 @@
             (dblclick)="onEventDblClick(ev,$event,cell.date)">
             <span class="evb-title">{{ ev.title }}</span>
             <span class="evb-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</span>
-          </div>
-          <div class="ev-more-block" *ngIf="cell.events.length > MAX_VISIBLE_EVENTS"
-               (click)="showDayEventsPopup(cell)">
-            +{{ cell.events.length - MAX_VISIBLE_EVENTS }} altri
           </div>
         </div>
       </div>
@@ -180,7 +176,7 @@
           </div>
           <div class="current-time-line" *ngIf="weekCells[0].isToday" [style.top.px]="currentTimeTopPx()"></div>
           <div
-            *ngFor="let ev of weekCells[0].events.slice(0, MAX_VISIBLE_EVENTS)"
+            *ngFor="let ev of getTimedEvents(weekCells[0])"
             class="ev-block"
             [ngClass]="getCategoryClass(ev.categories)"
             [ngStyle]="getEventBlockStyle(ev, weekCells[0].eventLayout)"
@@ -189,10 +185,6 @@
             (dblclick)="onEventDblClick(ev,$event,weekCells[0].date)">
             <span class="evb-title">{{ ev.title }}</span>
             <span class="evb-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</span>
-          </div>
-          <div class="ev-more-block" *ngIf="weekCells[0].events.length > MAX_VISIBLE_EVENTS"
-               (click)="showDayEventsPopup(weekCells[0])">
-            +{{ weekCells[0].events.length - MAX_VISIBLE_EVENTS }} altri
           </div>
         </div>
       </div>
@@ -304,9 +296,9 @@
         </select>
       </div>
 
-      <div class="inspection-settings" *ngIf="isInspectionCategory(popupCategory)">
+      <div class="inspection-settings">
         <div class="form-group">
-          <label>Utenti incaricati *</label>
+          <label>Ricorda questo evento a</label>
           <div class="inspection-users-list">
             <label class="inspection-user-row" *ngFor="let admin of adminOptions">
               <input
@@ -322,7 +314,7 @@
         </div>
 
         <div class="form-group">
-          <label>Avvisa prima di *</label>
+          <label>Avvisa prima di</label>
           <select [(ngModel)]="popupInspectionReminderMinutes" class="form-input">
             <option [ngValue]="1">1 minuto</option>
             <option [ngValue]="5">5 minuti</option>
@@ -341,7 +333,7 @@
       </div>
 
       <!-- Recurrence toggle -->
-      <div class="form-group form-inline" *ngIf="!editingSingleOccurrence">
+      <div class="form-group form-inline" *ngIf="!editingSingleOccurrence && !isDeadlinePlanning">
         <label>Abilita Ricorrenza</label>
         <label class="toggle-switch">
           <input type="checkbox" [(ngModel)]="recurrenceEnabled">
@@ -350,7 +342,7 @@
       </div>
 
       <!-- Recurrence options -->
-      <div class="recurrence-box" *ngIf="recurrenceEnabled && !editingSingleOccurrence">
+      <div class="recurrence-box" *ngIf="recurrenceEnabled && !editingSingleOccurrence && !isDeadlinePlanning">
         <div class="form-group">
           <label>Ripeti</label>
           <select [(ngModel)]="recurrenceFreq" class="form-input">

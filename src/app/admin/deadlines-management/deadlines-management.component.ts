@@ -5,7 +5,7 @@ import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 type DeadlineKind = 'employee' | 'vehicle' | 'equipment' | 'customer' | 'customerAsset' | 'internal';
-type DeadlineStatus = 'ok' | 'warning' | 'expired';
+type DeadlineStatus = 'ok' | 'warning' | 'expired' | 'planned';
 
 interface DeadlineAttachment {
   id: string;
@@ -65,6 +65,11 @@ interface DeadlineRecord {
   attachments: DeadlineAttachment[];
   status: DeadlineStatus;
   daysUntil: number | null;
+  plannedAppointmentId?: number | null;
+  plannedFor?: string | null;
+  planned?: boolean;
+  planningDue?: boolean;
+  planningDaysUntil?: number | null;
   employee?: EmployeeTarget;
   vehicle?: VehicleTarget;
 }
@@ -141,6 +146,7 @@ export class DeadlinesManagementComponent implements OnInit {
   internalDeadlineCategories: Array<{ id: number; name: string; certifications: any[] }> = [];
   selectedInternalCategoryIds: number[] = [];
   private deadlinePointerActionPending = false;
+  selectedDeadlineIds = new Set<number>();
 
   form: {
     entityId: string | number | null;
@@ -400,6 +406,14 @@ export class DeadlinesManagementComponent implements OnInit {
     );
   }
 
+  get canPlan(): boolean {
+    return this.canEdit && this.globalService.hasPermission('CALENDAR_EVENT_MANAGE');
+  }
+
+  get selectedDeadlines(): DeadlineRecord[] {
+    return this.deadlines.filter((deadline) => this.selectedDeadlineIds.has(Number(deadline.id)));
+  }
+
   get isEditing(): boolean {
     return !!this.editingDeadline;
   }
@@ -463,8 +477,145 @@ export class DeadlinesManagementComponent implements OnInit {
     this.loading = true;
     this.entitiesLoading = true;
     this.selectedGroup = null;
+    this.selectedDeadlineIds.clear();
     this.loadEntities();
     this.loadDeadlines();
+  }
+
+  isDeadlineSelected(deadline: DeadlineRecord): boolean {
+    return this.selectedDeadlineIds.has(Number(deadline.id));
+  }
+
+  toggleDeadlineSelection(deadline: DeadlineRecord, selected: boolean): void {
+    const deadlineId = Number(deadline.id);
+    if (!Number.isFinite(deadlineId)) return;
+
+    const nextSelection = new Set(this.selectedDeadlineIds);
+    if (selected) nextSelection.add(deadlineId);
+    else nextSelection.delete(deadlineId);
+    this.selectedDeadlineIds = nextSelection;
+  }
+
+  onDeadlineSelectionPointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
+    this.runDeadlinePointerAction(event, () => {
+      this.toggleDeadlineSelection(deadline, !this.isDeadlineSelected(deadline));
+    });
+  }
+
+  onDeadlineSelectionClick(event: Event, deadline: DeadlineRecord): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.consumePointerActionClick()) return;
+    this.toggleDeadlineSelection(deadline, !this.isDeadlineSelected(deadline));
+  }
+
+  planDeadline(deadline: DeadlineRecord): void {
+    this.navigateToDeadlinePlanning([deadline]);
+  }
+
+  onPlanDeadlinePointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
+    this.runDeadlinePointerAction(event, () => this.planDeadline(deadline));
+  }
+
+  onPlanDeadlineClick(event: Event, deadline: DeadlineRecord): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.consumePointerActionClick()) return;
+    this.planDeadline(deadline);
+  }
+
+  planSelectedDeadlines(): void {
+    this.navigateToDeadlinePlanning(this.selectedDeadlines);
+  }
+
+  onPlanSelectedDeadlinesPointerDown(event: PointerEvent): void {
+    this.runDeadlinePointerAction(event, () => this.planSelectedDeadlines());
+  }
+
+  onPlanSelectedDeadlinesClick(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.consumePointerActionClick()) return;
+    this.planSelectedDeadlines();
+  }
+
+  openPlannedEvent(deadline: DeadlineRecord): void {
+    if (!deadline.plannedAppointmentId) return;
+    this.router.navigate(['/homeAdmin/calendarHome'], {
+      queryParams: { appointmentId: deadline.plannedAppointmentId },
+    });
+  }
+
+  onOpenPlannedEventPointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
+    this.runDeadlinePointerAction(event, () => this.openPlannedEvent(deadline));
+  }
+
+  onOpenPlannedEventClick(event: Event, deadline: DeadlineRecord): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.consumePointerActionClick()) return;
+    this.openPlannedEvent(deadline);
+  }
+
+  private navigateToDeadlinePlanning(deadlines: DeadlineRecord[]): void {
+    if (!this.canPlan || !deadlines.length) return;
+    const targetKeys = new Set(deadlines.map((deadline) => this.planningTargetKey(deadline)));
+    if (targetKeys.size > 1 && this.kind !== 'customerAsset') {
+      this.popup.showError(`Seleziona scadenze dello stesso ${this.entityLabel}.`);
+      return;
+    }
+
+    const targetLabel = this.selectedGroupView?.label
+      || deadlines[0].targetLabel
+      || this.getEntityLabel(this.getEntityFromDeadline(deadlines[0]));
+    const items = deadlines.map((deadline) => {
+      const assetLabel = this.kind === 'customerAsset' && deadline.targetLabel
+        ? `${deadline.targetLabel}: `
+        : '';
+      return `${assetLabel}${deadline.title}`;
+    });
+    const title = `Aggiornamento ${targetLabel} – ${items.join(', ')}`.slice(0, 240);
+    const description = [
+      `Scadenze da aggiornare: ${items.join(', ')}`,
+      ...deadlines.map((deadline) => deadline.description).filter(Boolean),
+    ].join('\n').slice(0, 500);
+    const today = this.toDateOnly(new Date());
+    const candidateDates = deadlines
+      .map((deadline) => deadline.dueDate)
+      .filter((date) => date && date >= today)
+      .sort();
+
+    this.router.navigate(['/homeAdmin/calendarHome'], {
+      queryParams: {
+        deadlineIds: deadlines.map((deadline) => deadline.id).join(','),
+        deadlineCategory: this.deadlineCalendarCategory,
+        planTitle: title,
+        planDescription: description,
+        planDate: candidateDates[0] || today,
+      },
+    });
+  }
+
+  private planningTargetKey(deadline: DeadlineRecord): string {
+    if (deadline.entityType === 'employee') return String(deadline.employeeId || '');
+    if (deadline.entityType === 'vehicle') return String(deadline.vehicleId || '');
+    return String(deadline.targetKey || deadline.targetLabel || '');
+  }
+
+  private get deadlineCalendarCategory(): string {
+    return ({
+      employee: 'deadline_employee',
+      vehicle: 'deadline_vehicle',
+      equipment: 'deadline_equipment',
+      customer: 'deadline_customer',
+      customerAsset: 'deadline_customer_asset',
+      internal: 'deadline_internal',
+    } as Record<DeadlineKind, string>)[this.kind];
+  }
+
+  private toDateOnly(date: Date): string {
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   }
 
   loadEntities(): void {
@@ -1312,6 +1463,13 @@ export class DeadlinesManagementComponent implements OnInit {
   }
 
   relativeDueLabel(deadline: DeadlineRecord): string {
+    if (deadline.plannedFor && deadline.status === 'planned') {
+      return `Pianificata per il ${this.formatDueDate(deadline.plannedFor)}`;
+    }
+    if (deadline.planningDue) {
+      if (deadline.planningDaysUntil === 0) return 'Da aggiornare oggi';
+      return `Da aggiornare da ${Math.abs(deadline.planningDaysUntil || 0)} giorni`;
+    }
     if (deadline.daysUntil === null || deadline.daysUntil === undefined) {
       return '';
     }
@@ -1341,16 +1499,19 @@ export class DeadlinesManagementComponent implements OnInit {
   statusLabel(status: DeadlineStatus): string {
     if (status === 'expired') return 'Scaduta';
     if (status === 'warning') return 'In scadenza';
-    return 'Programmato';
+    if (status === 'planned') return 'Pianificata';
+    return 'Regolare';
   }
 
   statusClass(status: DeadlineStatus): string {
     if (status === 'expired') return 'status-expired';
     if (status === 'warning') return 'status-warning';
+    if (status === 'planned') return 'status-planned';
     return 'status-ok';
   }
 
   openGroup(group: DeadlineGroup): void {
+    this.selectedDeadlineIds.clear();
     this.selectedGroup = group;
     if (this.kind === 'internal') this.loadInternalCategories();
     this.showForm = false;
@@ -1380,6 +1541,7 @@ export class DeadlinesManagementComponent implements OnInit {
 
 
   closeGroup(): void {
+    this.selectedDeadlineIds.clear();
     this.selectedGroup = null;
     this.showForm = false;
     this.error = '';

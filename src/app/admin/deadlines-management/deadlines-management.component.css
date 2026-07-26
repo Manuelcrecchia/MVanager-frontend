@@ -561,6 +561,11 @@
   color: #12304d;
 }
 
+.status-planned {
+  background: #c9f1e2;
+  color: #075b45;
+}
+
 .empty-state {
   margin-top: 16px;
   padding: 18px;
@@ -611,6 +616,11 @@
   border: 1px solid rgba(17, 53, 93, 0.08);
 }
 
+.deadline-item-selected {
+  border-color: rgba(23, 105, 170, 0.55);
+  box-shadow: 0 0 0 3px rgba(23, 105, 170, 0.12);
+}
+
 .deadline-top {
   position: relative;
   z-index: 2;
@@ -618,6 +628,43 @@
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
+}
+
+.deadline-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  margin-top: 3px;
+  padding: 0;
+  border: 2px solid #687786;
+  border-radius: 4px;
+  background: #fff;
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 900;
+  position: relative;
+  z-index: 4;
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.deadline-select:hover,
+.deadline-select:focus-visible {
+  border-color: #1769aa;
+  box-shadow: 0 0 0 3px rgba(23, 105, 170, 0.16);
+  outline: none;
+}
+
+.deadline-select-checked {
+  border-color: #1769aa;
+  background: #1769aa;
 }
 
 .deadline-copy {

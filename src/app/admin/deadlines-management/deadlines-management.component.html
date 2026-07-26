@@ -364,6 +364,15 @@
       </div>
 
       <div class="detail-head-actions">
+        <button
+          *ngIf="canPlan && selectedDeadlineIds.size > 0"
+          type="button"
+          class="btn btn-primary btn-sm"
+          (pointerdown)="onPlanSelectedDeadlinesPointerDown($event)"
+          (click)="onPlanSelectedDeadlinesClick($event)"
+        >
+          Pianifica selezionate ({{ selectedDeadlineIds.size }})
+        </button>
         <button type="button" class="btn btn-outline-light btn-sm detail-return-button" (click)="closeGroup()">
           Torna all'elenco
         </button>
@@ -457,13 +466,32 @@
             class="deadline-item"
             *ngFor="let deadline of folder.deadlines"
             [attr.data-deadline-id]="deadline.id"
+            [class.deadline-item-selected]="isDeadlineSelected(deadline)"
           >
           <div class="deadline-top">
+            <button
+              *ngIf="canPlan && !deadline.plannedAppointmentId && !showArchivedCustomerAssets"
+              type="button"
+              class="deadline-select"
+              [class.deadline-select-checked]="isDeadlineSelected(deadline)"
+              role="checkbox"
+              [attr.aria-checked]="isDeadlineSelected(deadline)"
+              [attr.aria-label]="
+                isDeadlineSelected(deadline)
+                  ? 'Deseleziona ' + deadline.title
+                  : 'Seleziona ' + deadline.title + ' per pianificare'
+              "
+              title="Seleziona per pianificare"
+              (pointerdown)="onDeadlineSelectionPointerDown($event, deadline)"
+              (click)="onDeadlineSelectionClick($event, deadline)"
+            >
+              <span aria-hidden="true">{{ isDeadlineSelected(deadline) ? '✓' : '' }}</span>
+            </button>
             <div class="deadline-copy">
               <div class="deadline-title-row">
                 <h4 class="deadline-title">{{ deadline.title }}</h4>
                 <span class="status-pill" [ngClass]="statusClass(deadline.status)">
-                  {{ deadline.isPending ? 'Da programmare' : statusLabel(deadline.status) }}
+                  {{ deadline.isPending ? 'Da programmare' : (deadline.planningDue ? 'Da aggiornare' : statusLabel(deadline.status)) }}
                 </span>
               </div>
 
@@ -475,6 +503,24 @@
             </div>
 
             <div class="deadline-actions">
+              <button
+                *ngIf="canPlan && !deadline.plannedAppointmentId"
+                type="button"
+                class="btn btn-primary btn-sm"
+                (pointerdown)="onPlanDeadlinePointerDown($event, deadline)"
+                (click)="onPlanDeadlineClick($event, deadline)"
+              >
+                Pianifica
+              </button>
+              <button
+                *ngIf="canPlan && deadline.plannedAppointmentId"
+                type="button"
+                class="btn btn-outline-info btn-sm"
+                (pointerdown)="onOpenPlannedEventPointerDown($event, deadline)"
+                (click)="onOpenPlannedEventClick($event, deadline)"
+              >
+                Apri evento
+              </button>
               <button
                 *ngIf="canEdit"
                 type="button"
