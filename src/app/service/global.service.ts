@@ -247,9 +247,7 @@ export interface TenantEmployeeConfig {
 }
 
 export interface TenantRoutePlanningConfig {
-  employeeSelfTransportField?: string;
   minimizeSplitRejoins?: boolean;
-  requireSelfTransportForSoloLegs?: boolean;
   splitPenaltyMinutes?: number | string | null;
   rejoinPenaltyMinutes?: number | string | null;
 }
@@ -600,30 +598,6 @@ export class GlobalService {
 
   getTenantCustomerAssetsConfig(): TenantCustomerAssetsConfig {
     return this.tenantConfig?.customerAssetsConfig || {};
-  }
-
-  getEmployeeSelfTransportField(): string {
-    return (
-      String(
-        this.getTenantRoutePlanningConfig()?.employeeSelfTransportField ||
-          'automunito',
-      ).trim() || 'automunito'
-    );
-  }
-
-  isEmployeeSelfTransported(
-    employee: Record<string, any> | null | undefined,
-  ): boolean {
-    if (!employee) return false;
-    const value =
-      employee[this.getEmployeeSelfTransportField()] ?? employee['automunito'];
-    if (typeof value === 'boolean') return value;
-    if (typeof value === 'number') return value === 1;
-    return ['1', 'true', 'yes', 'si', 'sì', 'on'].includes(
-      String(value || '')
-        .trim()
-        .toLowerCase(),
-    );
   }
 
   getContractFields(): TenantFieldMappingFieldConfig[] {

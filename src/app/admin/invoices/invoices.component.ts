@@ -1078,7 +1078,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.http.post<any>(this.global.url + 'invoices/import-passive', { size: 50 }).subscribe({
       next: (res) => {
         this.saving = false;
-        this.success = `Import provider completato: ${res?.imported || 0} importate, ${res?.skipped || 0} saltate`;
+        this.success = `Aggiornamento fatture acquisto completato: ${res?.imported || 0} nuove, ${res?.skipped || 0} ignorate o già presenti`;
         this.directionFilter = 'inbound';
         this.loadInvoices();
         this.loadPaymentSchedule();
@@ -2153,25 +2153,6 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         this.loadPaymentSchedule();
         this.loadEvents();
         this.loadStatusReport();
-      },
-      error: (err) => {
-        this.saving = false;
-        this.error = this.errorText(err);
-      },
-    });
-  }
-
-  configureProvider(): void {
-    const email = prompt('Email per configurazione provider SDI');
-    if (!email) return;
-    this.saving = true;
-    this.error = '';
-    this.success = '';
-    this.http.post<any>(this.global.url + 'invoices/configure-provider', { email }).subscribe({
-      next: () => {
-        this.saving = false;
-        this.success = 'Azienda configurata sul provider';
-        this.loadEvents();
       },
       error: (err) => {
         this.saving = false;

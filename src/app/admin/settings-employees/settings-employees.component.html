@@ -39,15 +39,6 @@
             <label for="oreGiornaliereDefault" class="form-label fw-bold">Ore giornaliere standard</label>
             <input type="number" id="oreGiornaliereDefault" name="oreGiornaliereDefault" [(ngModel)]="employeesAdd.oreGiornaliereDefault" class="form-control form-control-glass" min="0" max="24" step="0.25" placeholder="es. 8" />
           </div>
-          <div class="col-md-6">
-            <label class="mobility-check">
-              <input type="checkbox" name="automunito" [(ngModel)]="employeesAdd.automunito" />
-              <span>
-                <strong>Automunito</strong>
-                <small>Può effettuare tratte o rientri senza dipendere dalla squadra</small>
-              </span>
-            </label>
-          </div>
           <div class="col-md-6" *ngFor="let field of employeeExtraFields">
             <label class="form-label fw-bold">{{ field.label || field.key }}</label>
             <ng-container [ngSwitch]="field.type">
@@ -222,7 +213,6 @@
           <th class="d-none d-md-table-cell">Email</th>
           <th class="d-none d-md-table-cell">Cellulare</th>
           <th>Ore std.</th>
-          <th>Mobilità</th>
           <th>Categorie</th>
           <th style="min-width: 200px">Azioni</th>
         </tr>
@@ -239,11 +229,6 @@
             <td class="d-none d-md-table-cell">{{ emp.email }}</td>
             <td class="d-none d-md-table-cell">{{ emp.cellulare }}</td>
             <td>{{ emp.oreGiornaliereDefault ?? '8.00' }}</td>
-            <td>
-              <span class="mobility-badge" [class.mobility-badge--muted]="!isEmployeeSelfTransported(emp)">
-                {{ isEmployeeSelfTransported(emp) ? 'Automunito' : 'Non automunito' }}
-              </span>
-            </td>
             <td>
               <div class="employee-category-badges" *ngIf="getEmployeeCategoryNames(emp).length; else noEmployeeCategories">
                 <span class="employee-category-badge" *ngFor="let name of getEmployeeCategoryNames(emp)">{{ name }}</span>
@@ -280,12 +265,6 @@
             <td class="d-none d-md-table-cell"><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.email" name="e_email_{{ emp.id }}" /></td>
             <td class="d-none d-md-table-cell"><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.cellulare" name="e_cell_{{ emp.id }}" /></td>
             <td><input type="number" class="form-control form-control-sm" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="e_ore_standard_{{ emp.id }}" min="0" max="24" step="0.25" /></td>
-            <td>
-              <label class="mobility-check mobility-check--compact">
-                <input type="checkbox" [(ngModel)]="employeeEdit.automunito" name="e_automunito_{{ emp.id }}" />
-                <span>Automunito</span>
-              </label>
-            </td>
             <td>
               <div class="employee-extra-edit-grid" *ngIf="employeeExtraFields.length; else noEmployeeExtraEdit">
                 <label *ngFor="let field of employeeExtraFields">
@@ -336,7 +315,7 @@
           </ng-template>
         </tr>
         <tr *ngIf="filteredEmployees.length === 0">
-          <td colspan="8" class="text-center text-muted py-4">
+          <td colspan="7" class="text-center text-muted py-4">
             Nessun dipendente trovato.
           </td>
         </tr>
@@ -354,9 +333,6 @@
         <h3>{{ emp.nome }} {{ emp.cognome }}</h3>
         <p>{{ emp.email }}</p>
         <p class="small">{{ emp.cellulare }} &middot; {{ emp.oreGiornaliereDefault ?? '8' }}h/g</p>
-        <span class="mobility-badge" [class.mobility-badge--muted]="!isEmployeeSelfTransported(emp)">
-          {{ isEmployeeSelfTransported(emp) ? 'Automunito' : 'Non automunito' }}
-        </span>
         <div class="employee-category-badges" *ngIf="getEmployeeCategoryNames(emp).length">
           <span class="employee-category-badge" *ngFor="let name of getEmployeeCategoryNames(emp)">{{ name }}</span>
         </div>
@@ -387,10 +363,6 @@
           <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.email" name="m_email_{{ emp.id }}" placeholder="Email" />
           <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.cellulare" name="m_cell_{{ emp.id }}" placeholder="Cellulare" />
           <input type="number" class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="m_ore_{{ emp.id }}" placeholder="Ore std." min="0" max="24" step="0.25" />
-          <label class="mobility-check mobility-check--compact mb-2">
-            <input type="checkbox" [(ngModel)]="employeeEdit.automunito" name="m_automunito_{{ emp.id }}" />
-            <span>Automunito</span>
-          </label>
           <div class="employee-extra-edit-grid employee-extra-edit-grid--mobile" *ngIf="employeeExtraFields.length">
             <label *ngFor="let field of employeeExtraFields">
               <span>{{ field.label || field.key }}</span>

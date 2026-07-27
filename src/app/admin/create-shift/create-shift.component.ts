@@ -102,7 +102,6 @@ interface RoutePlannerEmployeeState {
   employee: any;
   id: number;
   name: string;
-  automunito: boolean;
   capacityMinutes: number;
   loadMinutes: number;
   intervals: Array<{ start: number; end: number; stopId: string }>;
@@ -1945,7 +1944,6 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         employee,
         id,
         name,
-        automunito: this.globalService.isEmployeeSelfTransported(employee),
         capacityMinutes,
         loadMinutes: 0,
         intervals: [],
@@ -2166,7 +2164,6 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       if ((stop.assignmentWarnings || []).includes('Giorno non tra quelli di accesso cliente')) score += 90000;
       if ((stop.assignmentWarnings || []).includes("Prima dell'orario di accesso")) score += 40000;
       if ((stop.assignmentWarnings || []).includes('Fuori orario accesso cliente')) score += 80000;
-      if ((stop.assignmentWarnings || []).includes('Tratta singola senza dipendente automunito')) score += 20000;
       score += (stop.assignmentWarnings || []).filter((warning) => warning.includes('Manca categoria')).length * 95000;
 
       for (const employeeId of assignedIds) {
@@ -2213,7 +2210,6 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
               employee,
               id: employeeId,
               name: this.formatEmployeeName(employee),
-              automunito: this.globalService.isEmployeeSelfTransported(employee),
               capacityMinutes: this.getEmployeeDailyCapacityMinutes(employee),
               loadMinutes: 0,
               intervals: [],
@@ -2518,8 +2514,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         state,
         score:
           (primaryTeamByEmployee.has(state.id) ? 500 : 0) +
-          (state.loadMinutes / Math.max(1, state.capacityMinutes)) * 100 -
-          (state.automunito ? 5 : 0),
+          (state.loadMinutes / Math.max(1, state.capacityMinutes)) * 100,
       }))
       .sort((a, b) => a.score - b.score || a.state.name.localeCompare(b.state.name, 'it'))[0]?.state || null;
   }
@@ -2581,25 +2576,6 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       selected.push(candidate);
     }
 
-    const config = this.globalService.getTenantRoutePlanningConfig();
-    if (
-      config?.requireSelfTransportForSoloLegs !== false &&
-      targetCount === 1 &&
-      selected.length === 1 &&
-      !selected[0].automunito &&
-      !mandatoryEmployeeIds.has(selected[0].id)
-    ) {
-      const replacement = this.pickEmployeeForStop(stop, team, employeeStates, [], null, true, {
-        requireSelfTransport: true,
-        avoidIds: new Set(selected.map((state) => state.id)),
-      });
-      if (replacement) {
-        selected.splice(0, 1, replacement);
-      } else {
-        warnings.push('Tratta singola senza dipendente automunito');
-      }
-    }
-
     const capacitySafeSelection = this.enforceRouteCapacityForSelection(stop, selected, warnings, mandatoryEmployeeIds);
     selected.splice(0, selected.length, ...capacitySafeSelection);
 
@@ -2648,7 +2624,6 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
           employee,
           id: employeeId,
           name: this.formatEmployeeName(employee),
-          automunito: this.globalService.isEmployeeSelfTransported(employee),
           capacityMinutes: this.getEmployeeDailyCapacityMinutes(employee),
           loadMinutes: 0,
           intervals: [],
@@ -2743,7 +2718,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     selected: RoutePlannerEmployeeState[],
     requiredCategoryId: number | null,
     strictAvailability: boolean,
-    options: { requireSelfTransport?: boolean; avoidIds?: Set<number> } = {},
+    options: { avoidIds?: Set<number> } = {},
   ): RoutePlannerEmployeeState | null {
     const selectedIds = new Set(selected.map((state) => state.id));
     const teamEmployeeIds = new Set(team.employees.map((employee) => Number(employee.id)));
@@ -2758,7 +2733,6 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     return employeeStates
       .filter((state) => {
         if (selectedIds.has(state.id) || options.avoidIds?.has(state.id)) return false;
-        if (options.requireSelfTransport && !state.automunito) return false;
         if (requiredCategoryId && !this.employeeMatchesRouteCategory(state, stop, requiredCategoryId)) return false;
         if (strictAvailability && this.isEmployeeBusyForRouteStop(state, start, end)) return false;
         if (this.wouldExceedRouteCapacity(state, extraLoadMinutes)) return false;
@@ -2774,8 +2748,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
             (outsideTeam ? splitPenalty : 0) +
             partialLeaveOverlap +
             (-preferenceScore * 4) +
-            (state.loadMinutes / Math.max(1, state.capacityMinutes)) * 90 +
-            (state.automunito ? -4 : 0),
+            (state.loadMinutes / Math.max(1, state.capacityMinutes)) * 90,
         };
       })
       .sort((a, b) => a.score - b.score || a.state.name.localeCompare(b.state.name, 'it'))[0]?.state || null;

@@ -28,8 +28,8 @@
         Import XML acquisto
       </button>
       <button type="button" class="ghost-btn" *ngIf="directionFilter === 'inbound'" (click)="importPassiveFromProvider()" [disabled]="saving">
-        <i class="fas fa-cloud-download-alt"></i>
-        Import provider
+        <i class="fas fa-sync-alt"></i>
+        {{ saving ? 'Aggiornamento...' : 'Aggiorna' }}
       </button>
     </ng-container>
   </header>
@@ -451,7 +451,6 @@
                 <button type="button" class="ghost-btn" (click)="validate()" [disabled]="saving || !canSendElectronic()">Valida</button>
                 <button type="button" class="ghost-btn" (click)="sync()" [disabled]="saving || !canSendElectronic()">Sync</button>
                 <button type="button" class="ghost-btn" (click)="generateXml()" [disabled]="saving || !canSendElectronic()">XML</button>
-                <button type="button" class="ghost-btn" (click)="configureProvider()" [disabled]="saving">Configura provider</button>
                 <button type="button" class="ghost-btn danger" (click)="deleteDraft()" [disabled]="saving || selected.status !== 'draft'">Elimina</button>
               </div>
             </details>

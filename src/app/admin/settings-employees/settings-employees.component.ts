@@ -11,7 +11,6 @@ interface Employee {
   email: string;
   cellulare: string;
   oreGiornaliereDefault?: string | number | null;
-  automunito?: boolean | number | string | null;
   active: boolean;
   [key: string]: any;
 }
@@ -22,7 +21,6 @@ interface EmployeeForm {
   email: string;
   cellulare: string;
   oreGiornaliereDefault?: string | number | null;
-  automunito?: boolean | number | string | null;
   [key: string]: any;
 }
 
@@ -70,7 +68,6 @@ export class SettingsEmployeesComponent implements OnInit {
     'email',
     'cellulare',
     'oreGiornaliereDefault',
-    'automunito',
   ].map((key) => key.toLowerCase()));
 
   constructor(
@@ -92,7 +89,6 @@ export class SettingsEmployeesComponent implements OnInit {
       email: '',
       cellulare: '',
       oreGiornaliereDefault: null,
-      automunito: false,
     };
   }
 
@@ -199,7 +195,6 @@ export class SettingsEmployeesComponent implements OnInit {
         emp.cellulare,
         emp.oreGiornaliereDefault,
         ...this.employeeExtraFields.map((field) => this.getEmployeeFieldValue(emp, field)),
-        this.isEmployeeSelfTransported(emp) ? 'automunito auto patente guida' : 'non automunito senza auto',
         emp.active ? 'attivo' : 'archiviato',
         ...this.getEmployeeCategoryNames(emp),
       ].join(' '));
@@ -480,7 +475,6 @@ export class SettingsEmployeesComponent implements OnInit {
       email: this.employeeEdit.email,
       cellulare: this.employeeEdit.cellulare,
       oreGiornaliereDefault: this.employeeEdit.oreGiornaliereDefault,
-      automunito: this.isEmployeeSelfTransported(this.employeeEdit),
     };
     this.appendEmployeeExtraPayload(body, this.employeeEdit);
 
@@ -508,7 +502,6 @@ export class SettingsEmployeesComponent implements OnInit {
       email: this.employeesAdd.email,
       cellulare: this.employeesAdd.cellulare,
       oreGiornaliereDefault: this.employeesAdd.oreGiornaliereDefault,
-      automunito: this.isEmployeeSelfTransported(this.employeesAdd),
     };
     this.appendEmployeeExtraPayload(body, this.employeesAdd);
 
@@ -554,10 +547,6 @@ export class SettingsEmployeesComponent implements OnInit {
       .replace(/\p{Diacritic}/gu, '')
       .toLowerCase()
       .trim();
-  }
-
-  isEmployeeSelfTransported(emp: Partial<Employee> | any): boolean {
-    return this.globalService.isEmployeeSelfTransported(emp);
   }
 
   unarchiveEmployee(emp: Employee): void {
