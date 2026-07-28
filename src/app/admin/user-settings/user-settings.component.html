@@ -152,6 +152,7 @@
 <ng-template #permissionsTemplate let-target="target">
   <div class="d-flex flex-column gap-2">
     <details
+      appReliableDetails
       class="perm-accordion"
       *ngFor="let g of permissionGroups; let first = first"
       [attr.open]="first ? '' : null"

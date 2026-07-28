@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import {
@@ -66,6 +67,7 @@ export class QuoteSettingsComponent implements OnInit {
     private http: HttpClient,
     private router: Router,
     public globalService: GlobalService,
+    private appDialog: PopupServiceService,
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -194,8 +196,8 @@ export class QuoteSettingsComponent implements OnInit {
       });
   }
 
-  deletePhrase(phrase: QuotePhrase) {
-    const ok = confirm(`Eliminare la frase "${phrase.testo}"?`);
+  async deletePhrase(phrase: QuotePhrase): Promise<void> {
+    const ok = await this.appDialog.confirm(`Eliminare la frase "${phrase.testo}"?`);
     if (!ok) return;
 
     this.http
@@ -318,8 +320,8 @@ export class QuoteSettingsComponent implements OnInit {
       });
   }
 
-  deleteRoom(room: QuoteRoom) {
-    const ok = confirm(`Eliminare il gruppo "${room.nome}"?`);
+  async deleteRoom(room: QuoteRoom): Promise<void> {
+    const ok = await this.appDialog.confirm(`Eliminare il gruppo "${room.nome}"?`);
     if (!ok) return;
 
     this.http

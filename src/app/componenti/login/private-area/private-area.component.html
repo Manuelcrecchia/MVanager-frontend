@@ -6,8 +6,12 @@
     }
 
     body{
-      min-height:100vh;
+      width:100%;
+      height:100dvh;
+      min-height:100svh;
       margin:0;
+      overflow:hidden;
+      overscroll-behavior:none;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
       background:
         radial-gradient(900px 500px at 20% 10%, rgba(47,183,255,0.12), transparent 50%),
@@ -15,6 +19,15 @@
         radial-gradient(1200px 600px at 50% 100%, rgba(255,122,0,0.06), transparent 50%),
         linear-gradient(180deg,#eef4ff 0%,#f8fbff 100%);
       background-attachment:fixed;
+    }
+
+    app-private-area{
+      display:flex;
+      flex-direction:column;
+      width:100%;
+      height:100dvh;
+      min-height:100svh;
+      overflow:hidden;
     }
 
     .clouds{
@@ -30,6 +43,7 @@
     }
 
     header{
+      flex:0 0 auto;
       backdrop-filter:blur(10px);
       -webkit-backdrop-filter:blur(10px);
       background:rgba(255,255,255,.55)!important;
@@ -39,9 +53,16 @@
     .login-wrap{
       position:relative;
       z-index:1;
-      min-height:calc(100dvh - 44px)!important;
+      flex:1 1 auto;
+      width:100%;
+      min-width:0;
+      min-height:0!important;
+      height:auto;
       padding-block:24px;
       box-sizing:border-box;
+      overflow-x:hidden;
+      overflow-y:auto;
+      overscroll-behavior:contain;
     }
 
     .glass-card{
@@ -282,25 +303,50 @@
     /* Il layout globale assegna width:100% agli input: nel gruppo password
        il campo deve invece lasciare spazio al pulsante per mostrare la password. */
     .input-group{
+      position:relative;
       display:flex;
       flex-wrap:nowrap;
       align-items:stretch;
     }
 
     .input-group > .form-control{
-      width:auto!important;
+      width:100%!important;
       min-width:0;
-      flex:1 1 auto;
+      flex:1 1 100%;
+      padding-right:58px;
     }
 
     .input-group > .btn-eye{
-      width:auto!important;
-      flex:0 0 auto;
-      margin-left:8px;
+      position:absolute;
+      top:50%;
+      right:6px;
+      z-index:3;
+      width:42px!important;
+      height:42px;
+      min-width:42px;
+      margin:0!important;
+      padding:0!important;
+      display:grid;
+      place-items:center;
+      border:0;
+      border-radius:10px!important;
+      background:transparent;
+      color:#334155;
+      line-height:1;
+      transform:translateY(-50%);
+      box-shadow:none;
+    }
+
+    .input-group > .btn-eye svg{
+      display:block;
+      width:22px;
+      height:22px;
+      pointer-events:none;
     }
 
     .btn-eye:hover{
-      border-color:rgba(0,0,0,0.15);
+      background:rgba(15,23,42,.06);
+      color:var(--brand-orange);
     }
 
     .forgot-row{
@@ -310,7 +356,8 @@
     }
 
     @media (max-height: 760px){
-      .login-wrap{ padding-block:12px; }
+      .login-wrap{ padding-block:12px; align-items:flex-start!important; }
+      .glass-card{ margin-block:auto; }
       .glass-card{ padding:22px 24px; }
       .brand-area{ margin-bottom:14px; }
       .brand-badge{ width:88px; height:88px; border-radius:20px; }
@@ -399,7 +446,7 @@
   </div>
 </header>
 
-<main class="login-wrap d-flex justify-content-center align-items-center min-vh-100 px-3">
+<main class="login-wrap d-flex justify-content-center align-items-center px-3">
   <div class="glass-card">
 
     <div class="brand-area">
@@ -488,8 +535,13 @@
             class="btn btn-eye"
             [disabled]="!loginReady"
             (click)="togglePasswordVisibility(passwordInput)"
+            [attr.aria-label]="passwordInput.type === 'password' ? 'Mostra password' : 'Nascondi password'"
+            [attr.title]="passwordInput.type === 'password' ? 'Mostra password' : 'Nascondi password'"
           >
-            👁️
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+              <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="12" cy="12" r="2.7" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
           </button>
         </div>
 

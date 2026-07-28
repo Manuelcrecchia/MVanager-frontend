@@ -79,11 +79,25 @@
   -webkit-backdrop-filter: blur(12px);
 }
 
+.employee-header-layout {
+  display: flex;
+  align-items: center;
+  border-radius: 22px 22px 0 0;
+  background: linear-gradient(135deg, rgba(13,110,253,.22), rgba(255,122,0,.14));
+}
+
+.employee-header-layout > .employee-selector {
+  flex: 0 0 auto;
+  padding-left: 14px;
+}
+
 .employee-header-btn {
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
   border: 0;
   border-radius: 22px 22px 0 0;
-  background: linear-gradient(135deg, rgba(13,110,253,.22), rgba(255,122,0,.14));
+  background: transparent;
   padding: 14px;
   display: flex;
   align-items: center;
@@ -95,7 +109,7 @@
 }
 
 .employee-header-btn:hover {
-  background: linear-gradient(135deg, rgba(13,110,253,.30), rgba(255,122,0,.20));
+  background: rgba(255, 255, 255, .18);
 }
 
 .employee-main {

@@ -41,7 +41,7 @@
           </small>
         </div>
         <div class="col-12 col-lg-2 d-grid">
-          <button class="btn btn-primary btn-round" (click)="addRoom()" [disabled]="getQuoteTypeOptions().length === 0 || getQuoteFieldOptions().length === 0">Aggiungi</button>
+          <button type="button" class="btn btn-primary btn-round" (click)="addRoom()" [disabled]="getQuoteTypeOptions().length === 0 || getQuoteFieldOptions().length === 0">Aggiungi</button>
         </div>
       </div>
     </div>
@@ -53,7 +53,7 @@
         <h3 class="mb-0 fs-5">Gruppi configurati</h3>
         <p class="mb-0 text-muted small">Riordina, modifica o elimina i gruppi disponibili.</p>
       </div>
-      <button class="btn btn-glass btn-round btn-sm" (click)="loadRooms()">Aggiorna</button>
+      <button type="button" class="btn btn-glass btn-round btn-sm" (click)="loadRooms()">Aggiorna</button>
     </div>
     <div class="card-body p-0">
       <div *ngIf="loading" class="text-center text-muted py-4">Caricamento...</div>
@@ -71,8 +71,8 @@
           </thead>
           <tbody cdkDropList [cdkDropListData]="rooms" (cdkDropListDropped)="dropRoom($event)">
             <tr *ngFor="let room of rooms" cdkDrag>
-              <td class="drag-handle" cdkDragHandle>⠿</td>
-              <td>
+              <td class="drag-handle" cdkDragHandle data-label="Riordina">⠿</td>
+              <td data-label="Gruppo">
                 <ng-container *ngIf="editingRoomId !== room.id; else editRoomView">
                   <strong>{{ room.nome }}</strong>
                 </ng-container>
@@ -80,7 +80,7 @@
                   <input class="form-control form-control-sm" [(ngModel)]="editRoomName" />
                 </ng-template>
               </td>
-              <td>
+              <td data-label="Campo">
                 <ng-container *ngIf="editingRoomId !== room.id; else editRoomFieldView">
                   {{ getQuoteFieldLabel(room.fieldKey) }}
                 </ng-container>
@@ -92,7 +92,7 @@
                   </select>
                 </ng-template>
               </td>
-              <td>
+              <td data-label="Tipo">
                 <ng-container *ngIf="editingRoomId !== room.id; else editRoomTypeView">
                   {{ getQuoteTypeLabel(room.tipoPreventivo) }}
                 </ng-container>
@@ -104,25 +104,25 @@
                   </select>
                 </ng-template>
               </td>
-              <td>
+              <td data-label="Frasi associate">
                 <small class="text-muted" *ngIf="getPhrasesForRoom(room.id).length === 0">(nessuna)</small>
                 <div *ngFor="let p of getPhrasesForRoom(room.id)" class="mb-1">
                   <span class="badge" style="background: rgba(47,183,255,0.12); color: #1a6fa8; font-weight: 600;">{{ p.testo }}</span>
                 </div>
               </td>
-              <td class="actions-cell">
+              <td class="actions-cell" data-label="Azioni">
                 <ng-container *ngIf="editingRoomId !== room.id; else roomEditActions">
-                  <button class="btn btn-glass btn-round btn-sm" (click)="startEditRoom(room)">Modifica</button>
-                  <button class="btn btn-glass-dark btn-round btn-sm" (click)="deleteRoom(room)">Elimina</button>
+                  <button type="button" class="btn btn-glass btn-round btn-sm" (click)="startEditRoom(room)">Modifica</button>
+                  <button type="button" class="btn btn-glass-dark btn-round btn-sm" (click)="deleteRoom(room)">Elimina</button>
                 </ng-container>
                 <ng-template #roomEditActions>
-                  <button class="btn btn-primary btn-round btn-sm" (click)="saveEditRoom()">Salva</button>
-                  <button class="btn btn-glass btn-round btn-sm" (click)="cancelEditRoom()">Annulla</button>
+                  <button type="button" class="btn btn-primary btn-round btn-sm" (click)="saveEditRoom()">Salva</button>
+                  <button type="button" class="btn btn-glass btn-round btn-sm" (click)="cancelEditRoom()">Annulla</button>
                 </ng-template>
               </td>
             </tr>
             <tr *ngIf="rooms.length === 0">
-              <td colspan="6" class="text-center text-muted py-4">Nessun gruppo inserito</td>
+              <td colspan="6" class="empty-table-cell text-center text-muted py-4">Nessun gruppo inserito</td>
             </tr>
           </tbody>
         </table>
@@ -171,7 +171,7 @@
           </select>
         </div>
         <div class="col-12 col-lg-1 d-grid">
-          <button class="btn btn-primary btn-round" (click)="addPhrase()" [disabled]="getQuoteFieldOptions().length === 0">Aggiungi</button>
+          <button type="button" class="btn btn-primary btn-round" (click)="addPhrase()" [disabled]="getQuoteFieldOptions().length === 0">Aggiungi</button>
         </div>
       </div>
     </div>
@@ -183,7 +183,7 @@
         <h3 class="mb-0 fs-5">Frasi precompilate</h3>
         <p class="mb-0 text-muted small">Gestisci tutte le frasi disponibili.</p>
       </div>
-      <button class="btn btn-glass btn-round btn-sm" (click)="loadPhrases()">Aggiorna</button>
+      <button type="button" class="btn btn-glass btn-round btn-sm" (click)="loadPhrases()">Aggiorna</button>
     </div>
     <div class="card-body p-0">
       <div *ngIf="loading" class="text-center text-muted py-4">Caricamento...</div>
@@ -202,8 +202,8 @@
           </thead>
           <tbody cdkDropList (cdkDropListDropped)="dropPhrase($event)">
             <tr *ngFor="let phrase of phrases" cdkDrag>
-              <td class="drag-handle" cdkDragHandle>⠿</td>
-              <td>
+              <td class="drag-handle" cdkDragHandle data-label="Riordina">⠿</td>
+              <td data-label="Frase">
                 <ng-container *ngIf="editingPhraseId !== phrase.id; else editPhraseView">
                   <span>{{ phrase.testo }}</span>
                 </ng-container>
@@ -211,7 +211,7 @@
                   <input class="form-control form-control-sm" [(ngModel)]="editPhraseText" />
                 </ng-template>
               </td>
-              <td>
+              <td data-label="Campo">
                 <ng-container *ngIf="editingPhraseId !== phrase.id; else editPhraseFieldView">
                   <strong>{{ getPhraseEffectiveFieldLabel(phrase) }}</strong>
                 </ng-container>
@@ -223,7 +223,7 @@
                   </select>
                 </ng-template>
               </td>
-              <td>
+              <td data-label="Tipo">
                 <ng-container *ngIf="editingPhraseId !== phrase.id; else editPhraseTypeView">
                   {{ getPhraseEffectiveQuoteTypeLabel(phrase) }}
                 </ng-container>
@@ -236,7 +236,7 @@
                   </select>
                 </ng-template>
               </td>
-              <td>
+              <td data-label="Gruppo">
                 <ng-container *ngIf="editingPhraseId !== phrase.id; else editRoomDropdown">
                   <span *ngIf="!phrase.roomId" class="text-muted">Nessuno</span>
                   <strong *ngIf="phrase.roomId">{{ getRoomById(phrase.roomId)?.nome || 'Gruppo rimosso' }}</strong>
@@ -250,19 +250,19 @@
                   </select>
                 </ng-template>
               </td>
-              <td class="actions-cell">
+              <td class="actions-cell" data-label="Azioni">
                 <ng-container *ngIf="editingPhraseId !== phrase.id; else phraseEditActions">
-                  <button class="btn btn-glass btn-round btn-sm" (click)="startEditPhrase(phrase)">Modifica</button>
-                  <button class="btn btn-glass-dark btn-round btn-sm" (click)="deletePhrase(phrase)">Elimina</button>
+                  <button type="button" class="btn btn-glass btn-round btn-sm" (click)="startEditPhrase(phrase)">Modifica</button>
+                  <button type="button" class="btn btn-glass-dark btn-round btn-sm" (click)="deletePhrase(phrase)">Elimina</button>
                 </ng-container>
                 <ng-template #phraseEditActions>
-                  <button class="btn btn-primary btn-round btn-sm" (click)="saveEditPhrase()">Salva</button>
-                  <button class="btn btn-glass btn-round btn-sm" (click)="cancelEditPhrase()">Annulla</button>
+                  <button type="button" class="btn btn-primary btn-round btn-sm" (click)="saveEditPhrase()">Salva</button>
+                  <button type="button" class="btn btn-glass btn-round btn-sm" (click)="cancelEditPhrase()">Annulla</button>
                 </ng-template>
               </td>
             </tr>
             <tr *ngIf="phrases.length === 0">
-              <td colspan="6" class="text-center text-muted py-4">Nessuna frase inserita</td>
+              <td colspan="6" class="empty-table-cell text-center text-muted py-4">Nessuna frase inserita</td>
             </tr>
           </tbody>
         </table>

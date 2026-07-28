@@ -76,6 +76,14 @@ type EditScope = 'single' | 'series';
   styleUrl: './calendar-home.component.css',
 })
 export class CalendarHomeComponent implements OnInit {
+  trackCalendarWeek(index: number, week: Date[]): number {
+    return week?.[0]?.getTime() ?? index;
+  }
+
+  trackCalendarDay(index: number, day: Date): number {
+    return day?.getTime() ?? index;
+  }
+
   rawEvents: RawEvent[] = [];
   activeFilter = 'all';
   currentView: 'month' | 'week' | 'day' = 'month';
@@ -761,13 +769,13 @@ export class CalendarHomeComponent implements OnInit {
     this.openNewPopup(d);
   }
 
-  onEventClick(ev: CalEvent, event: MouseEvent, selectedDate?: Date | null) {
+  onEventClick(ev: CalEvent, event: Event, selectedDate?: Date | null) {
     event.stopPropagation();
     event.preventDefault();
     this.requestEditPopup(ev, selectedDate);
   }
 
-  onDayPopupEventClick(ev: CalEvent, event: MouseEvent) {
+  onDayPopupEventClick(ev: CalEvent, event: Event) {
     event.stopPropagation();
     event.preventDefault();
     const selectedDate = new Date(this.dayPopupDate);

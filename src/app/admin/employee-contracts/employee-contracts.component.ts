@@ -6,6 +6,7 @@ import {
   TenantFieldMappingFieldConfig,
 } from '../../service/global.service';
 import { ContactRequirementPromptService } from '../../service/contact-requirement-prompt.service';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 interface EmployeeContract {
   id: number;
@@ -120,6 +121,7 @@ export class EmployeeContractsComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private contactPrompt: ContactRequirementPromptService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -350,8 +352,8 @@ export class EmployeeContractsComponent implements OnInit {
       });
   }
 
-  acceptContract(contract: EmployeeContract): void {
-    if (!confirm(`Accettare manualmente il contratto ${contract.contractNumber}?`)) return;
+  async acceptContract(contract: EmployeeContract): Promise<void> {
+    if (!await this.appDialog.confirm(`Accettare manualmente il contratto ${contract.contractNumber}?`)) return;
 
     this.errorMessage = '';
     this.successMessage = '';
@@ -394,8 +396,8 @@ export class EmployeeContractsComponent implements OnInit {
     });
   }
 
-  refuseContract(contract: EmployeeContract): void {
-    if (!confirm(`Rifiutare il contratto ${contract.contractNumber}?`)) return;
+  async refuseContract(contract: EmployeeContract): Promise<void> {
+    if (!await this.appDialog.confirm(`Rifiutare il contratto ${contract.contractNumber}?`)) return;
 
     this.http
       .post(
@@ -416,8 +418,8 @@ export class EmployeeContractsComponent implements OnInit {
       });
   }
 
-  deleteContract(contract: EmployeeContract): void {
-    if (!confirm(`Eliminare definitivamente la bozza ${contract.contractNumber}?`)) return;
+  async deleteContract(contract: EmployeeContract): Promise<void> {
+    if (!await this.appDialog.confirm(`Eliminare definitivamente la bozza ${contract.contractNumber}?`)) return;
 
     this.errorMessage = '';
     this.successMessage = '';

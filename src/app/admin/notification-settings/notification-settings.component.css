@@ -91,3 +91,35 @@
   width: 100%;
   margin-top: 18px;
 }
+
+@media (max-width: 560px) {
+  .notification-settings-page {
+    min-height: 100svh;
+    padding: 16px 12px;
+  }
+
+  .page-title {
+    margin: 18px 0;
+    font-size: 1.55rem;
+  }
+
+  .settings-panel {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .panel-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .panel-header .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .category-row {
+    min-height: 54px;
+    padding: 12px 10px;
+  }
+}

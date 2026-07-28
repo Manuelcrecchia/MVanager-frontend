@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
@@ -26,6 +27,7 @@ export class InternalDocumentsComponent implements OnInit {
     private router: Router,
     private http: HttpClient,
     public globalService: GlobalService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -137,8 +139,8 @@ export class InternalDocumentsComponent implements OnInit {
       });
   }
 
-  deleteFolder(folder: string): void {
-    if (!confirm(`Eliminare la cartella "${folder}"?`)) return;
+  async deleteFolder(folder: string): Promise<void> {
+    if (!await this.appDialog.confirm(`Eliminare la cartella "${folder}"?`)) return;
 
     this.http
       .post(
@@ -445,11 +447,11 @@ export class InternalDocumentsComponent implements OnInit {
       });
   }
 
-  deleteFile(fileOrName: any): void {
+  async deleteFile(fileOrName: any): Promise<void> {
     const filename = this.storedFileName(fileOrName);
     if (!filename) return;
 
-    if (!confirm(`Eliminare il file "${this.displayFileName(fileOrName)}"?`)) return;
+    if (!await this.appDialog.confirm(`Eliminare il file "${this.displayFileName(fileOrName)}"?`)) return;
 
     const body = { folder: this.selectedFolder, filename };
 

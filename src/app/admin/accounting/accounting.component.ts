@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -78,6 +79,10 @@ type EntryDirection = 'incoming' | 'outgoing' | 'neutral';
   styleUrl: './accounting.component.css',
 })
 export class AccountingComponent implements OnInit, OnDestroy {
+  trackStableInteractiveItem(index: number, item: any): string | number {
+    return item?.id ?? item?.key ?? item?.code ?? item?.name ?? index;
+  }
+
   activeTab = 'dashboard';
   loading = false;
   saving = false;
@@ -121,6 +126,7 @@ export class AccountingComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private global: GlobalService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -291,9 +297,9 @@ export class AccountingComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteAccount(account: AccountingAccount): void {
+  async deleteAccount(account: AccountingAccount): Promise<void> {
     if (!account.id || account.systemKey) return;
-    if (!window.confirm(`Eliminare o disattivare il conto ${account.code} - ${account.name}?`)) return;
+    if (!await this.appDialog.confirm(`Eliminare o disattivare il conto ${account.code} - ${account.name}?`)) return;
     this.saving = true;
     this.clearMessages();
     this.http.post(this.api('accounts/delete'), { id: account.id }).subscribe({
@@ -335,9 +341,9 @@ export class AccountingComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteEntry(entry: AccountingEntry): void {
+  async deleteEntry(entry: AccountingEntry): Promise<void> {
     if (!entry.id || entry.locked || entry.sourceType !== 'manual') return;
-    if (!window.confirm('Eliminare questa scrittura di prima nota?')) return;
+    if (!await this.appDialog.confirm('Eliminare questa scrittura di prima nota?')) return;
     this.saving = true;
     this.clearMessages();
     this.http.post(this.api('entries/delete'), { id: entry.id }).subscribe({

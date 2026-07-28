@@ -125,7 +125,10 @@ describe('ShiftHomeComponent', () => {
       .find((el) => el.nativeElement.getAttribute('data-date') === '2026-07-15');
 
     expect(dayButton).toBeTruthy();
-    dayButton!.nativeElement.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    const pointerOptions = { bubbles: true, button: 0, isPrimary: true, pointerId: 1 };
+    dayButton!.nativeElement.dispatchEvent(new PointerEvent('pointerdown', pointerOptions));
+    dayButton!.nativeElement.dispatchEvent(new PointerEvent('pointerup', pointerOptions));
+    dayButton!.nativeElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
 
     expect(component.selectedDate).toEqual(new Date(2026, 6, 15));

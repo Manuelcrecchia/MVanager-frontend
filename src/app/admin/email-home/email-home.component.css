@@ -201,11 +201,25 @@
   background: #fff;
   padding: 14px;
   display: grid;
-  grid-template-columns: 10px 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   text-align: left;
   color: #111827;
   align-items: center;
+}
+
+.message-open {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
 }
 
 .message-row .message-account {

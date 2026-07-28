@@ -1,0 +1,47 @@
+@media (max-width: 1099.98px) {
+  .history-responsive-table {
+    overflow-x: visible;
+  }
+
+  .history-responsive-table .table,
+  .history-responsive-table .table tbody,
+  .history-responsive-table .table tr,
+  .history-responsive-table .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .history-responsive-table .table thead {
+    display: none;
+  }
+
+  .history-responsive-table .table tr {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid rgba(0, 0, 0, .1);
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  .history-responsive-table .table td {
+    display: grid;
+    grid-template-columns: minmax(110px, .42fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, .08);
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .history-responsive-table .table td:last-child {
+    border-bottom: 0;
+  }
+
+  .history-responsive-table .table td::before {
+    content: attr(data-label);
+    color: rgba(0, 0, 0, .58);
+    font-size: .74rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+}

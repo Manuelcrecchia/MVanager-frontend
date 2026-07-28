@@ -34,11 +34,11 @@
 @media (min-width: 992px) {
   /* The desktop dashboard owns a 260px sidebar. Keep the global notice in
      its content column rather than allowing the sidebar to cover it. */
-  .subscription-notice--home {
+  .subscription-notice--admin-shell {
     width: auto;
     max-width: none;
     margin-right: 22px;
-    margin-left: calc(var(--sidebar-width, 260px) + 30px);
+    margin-left: calc(var(--admin-sidebar-width, 260px) + 30px);
   }
 }
 @media (max-width: 640px) {

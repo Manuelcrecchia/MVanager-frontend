@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 type SettingsMode = 'vehicle' | 'equipment';
 
@@ -78,6 +79,7 @@ export class VehiclesSettingsComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     public globalService: GlobalService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -314,10 +316,10 @@ export class VehiclesSettingsComponent implements OnInit {
       });
   }
 
-  deleteEquipment(target: EquipmentTarget): void {
+  async deleteEquipment(target: EquipmentTarget): Promise<void> {
     const id = this.getEquipmentNumericId(target);
     if (!id) return;
-    const ok = confirm(
+    const ok = await this.appDialog.confirm(
       `Eliminare l'attrezzatura "${target.targetLabel || target.targetKey}"?\n\nVerranno rimosse anche le scadenze e le categorie collegate.`,
     );
     if (!ok) return;
@@ -435,8 +437,8 @@ export class VehiclesSettingsComponent implements OnInit {
       });
   }
 
-  deleteVehicle(v: Vehicle) {
-    const ok = confirm(
+  async deleteVehicle(v: Vehicle): Promise<void> {
+    const ok = await this.appDialog.confirm(
       `Eliminare il mezzo "${v.name}"?\n\nNOTA: eventuali turni che lo usano manterranno lo storico ma il mezzo verrà rimosso dal turno.`,
     );
     if (!ok) return;
@@ -523,9 +525,9 @@ export class VehiclesSettingsComponent implements OnInit {
       });
   }
 
-  deleteCategory(category: ResourceCategory): void {
+  async deleteCategory(category: ResourceCategory): Promise<void> {
     if (!category.id) return;
-    const ok = confirm(`Eliminare la categoria mezzo "${category.name}"?`);
+    const ok = await this.appDialog.confirm(`Eliminare la categoria mezzo "${category.name}"?`);
     if (!ok) return;
 
     this.http
@@ -679,9 +681,9 @@ export class VehiclesSettingsComponent implements OnInit {
       });
   }
 
-  deleteEquipmentCategory(category: ResourceCategory): void {
+  async deleteEquipmentCategory(category: ResourceCategory): Promise<void> {
     if (!category.id) return;
-    const ok = confirm(`Eliminare la categoria attrezzatura "${category.name}"?`);
+    const ok = await this.appDialog.confirm(`Eliminare la categoria attrezzatura "${category.name}"?`);
     if (!ok) return;
 
     this.http

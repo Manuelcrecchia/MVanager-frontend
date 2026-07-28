@@ -145,6 +145,9 @@
 }
 .mini-dow { text-align: center; font-size: 11px; font-weight: 700; color: #888; padding: 4px 0; }
 .mini-day {
+  appearance: none;
+  border: 0;
+  background: transparent;
   text-align: center;
   font-size: 12px;
   padding: 5px 2px;
@@ -155,6 +158,17 @@
 .mini-day:hover { background: #e8f0fe; }
 .mini-day.mini-today { background: #1a73e8; color: #fff; font-weight: 700; }
 .mini-day.mini-other { color: #bbb; }
+
+.ev-more {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
 
 /* ═══════════════════════════════════════════════
    FILTER BAR
@@ -203,18 +217,20 @@
   margin: 12px 14px;
   border-radius: 14px;
   border: 1px solid #e5e7eb;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: visible;
   box-shadow: 0 2px 12px rgba(0,0,0,.05);
 }
 
 .month-dow-row,
 .month-week {
-  min-width: 1400px;
+  width: 100%;
+  min-width: 0;
 }
 
 .month-body {
-  min-width: 1400px;
+  width: 100%;
+  min-width: 0;
 }
 
 .month-dow-row {
@@ -242,7 +258,7 @@
 
 .month-cell {
   min-height: 220px;
-  min-width: 200px;
+  min-width: 0;
   border-right: 1px solid #e5e7eb;
   padding: 8px 6px 6px;
   cursor: default;

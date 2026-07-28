@@ -85,7 +85,7 @@
         </select>
       </div>
 
-      <section class="invoice-list-group" *ngFor="let group of invoiceListGroups()">
+      <section class="invoice-list-group" *ngFor="let group of invoiceListGroups(); trackBy: trackStableInteractiveItem">
         <header class="invoice-list-group__head">
           <span>{{ group.label }}</span>
           <strong>{{ group.items.length }}</strong>
@@ -98,9 +98,7 @@
           [class.active]="invoice.id === selected.id"
           [class.invoice-row--note]="isCreditOrDebitNote(invoice)"
           [class.invoice-row--supplier]="isInbound(invoice)"
-          (pointerdown)="selectInvoice(invoice)"
-          (keydown.enter)="selectInvoice(invoice)"
-          (keydown.space)="selectInvoice(invoice)"
+          (click)="selectInvoice(invoice)"
         >
           <span>
             <strong>{{ invoice.series ? invoice.series + '/' : '' }}{{ invoice.number }}</strong>
@@ -171,8 +169,8 @@
 
         <h2>{{ partyTitle() }}</h2>
         <div class="form-grid">
-          <label class="wide">
-            {{ partySearchLabel() }}
+          <div class="wide form-field-group">
+            <span>{{ partySearchLabel() }}</span>
             <div class="customer-picker">
               <input
                 type="search"
@@ -195,7 +193,7 @@
               <div class="customer-picker__list" *ngIf="canEdit() && customerPickerOpen && filteredCustomers().length">
                 <button
                   type="button"
-                  *ngFor="let customer of filteredCustomers()"
+                  *ngFor="let customer of filteredCustomers(); trackBy: trackStableInteractiveItem"
                   (click)="selectCustomer(customer)"
                   [class.active]="customer.numeroCliente === selectedCustomerCode"
                 >
@@ -203,7 +201,7 @@
                 </button>
               </div>
             </div>
-          </label>
+          </div>
           <label>
             Tipo anagrafica
             <select [(ngModel)]="selected.customerRecipientType" name="customerRecipientType" [disabled]="!canEdit()">
@@ -276,20 +274,20 @@
             <span></span>
           </div>
           <div class="line-row" *ngFor="let line of selected.lines; let i = index">
-            <input [(ngModel)]="line.serviceCode" [name]="'serviceCode' + i" list="invoice-service-codes" [readonly]="!canEdit()" (change)="applyServiceToLine(line)" />
-            <input [(ngModel)]="line.description" [name]="'description' + i" [readonly]="!canEdit()" />
-            <input type="number" step="0.01" [(ngModel)]="line.quantity" [name]="'quantity' + i" [readonly]="!canEdit()" />
-            <input [(ngModel)]="line.unit" [name]="'unit' + i" [readonly]="!canEdit()" />
-            <input type="number" step="0.01" [(ngModel)]="line.unitPriceInput" [name]="'unitPriceInput' + i" [readonly]="!canEdit()" (ngModelChange)="syncLinePriceMode(line)" />
-            <select [(ngModel)]="line.priceIncludesVat" [name]="'priceIncludesVat' + i" [disabled]="!canEdit()" (ngModelChange)="syncLinePriceMode(line)">
+            <label class="line-field"><span>Codice</span><input [(ngModel)]="line.serviceCode" [name]="'serviceCode' + i" list="invoice-service-codes" [readonly]="!canEdit()" (change)="applyServiceToLine(line)" /></label>
+            <label class="line-field"><span>Descrizione</span><input [(ngModel)]="line.description" [name]="'description' + i" [readonly]="!canEdit()" /></label>
+            <label class="line-field"><span>Quantità</span><input type="number" step="0.01" [(ngModel)]="line.quantity" [name]="'quantity' + i" [readonly]="!canEdit()" /></label>
+            <label class="line-field"><span>Unità</span><input [(ngModel)]="line.unit" [name]="'unit' + i" [readonly]="!canEdit()" /></label>
+            <label class="line-field"><span>Prezzo</span><input type="number" step="0.01" [(ngModel)]="line.unitPriceInput" [name]="'unitPriceInput' + i" [readonly]="!canEdit()" (ngModelChange)="syncLinePriceMode(line)" /></label>
+            <label class="line-field"><span>Tipo prezzo</span><select [(ngModel)]="line.priceIncludesVat" [name]="'priceIncludesVat' + i" [disabled]="!canEdit()" (ngModelChange)="syncLinePriceMode(line)">
               <option [ngValue]="false">IVA escl.</option>
               <option [ngValue]="true">IVA incl.</option>
-            </select>
-            <input type="number" step="0.01" [(ngModel)]="line.discountPercent" [name]="'discount' + i" [readonly]="!canEdit()" />
-            <input type="number" step="0.01" [(ngModel)]="line.vatRate" [name]="'vat' + i" [readonly]="!canEdit()" (ngModelChange)="onLineVatRateChange(line); syncLinePriceMode(line)" />
-            <select [(ngModel)]="line.vatNature" [name]="'nature' + i" [disabled]="!canEdit() || +line.vatRate !== 0">
+            </select></label>
+            <label class="line-field"><span>Sconto %</span><input type="number" step="0.01" [(ngModel)]="line.discountPercent" [name]="'discount' + i" [readonly]="!canEdit()" /></label>
+            <label class="line-field"><span>IVA %</span><input type="number" step="0.01" [(ngModel)]="line.vatRate" [name]="'vat' + i" [readonly]="!canEdit()" (ngModelChange)="onLineVatRateChange(line); syncLinePriceMode(line)" /></label>
+            <label class="line-field"><span>Natura IVA</span><select [(ngModel)]="line.vatNature" [name]="'nature' + i" [disabled]="!canEdit() || +line.vatRate !== 0">
               <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
-            </select>
+            </select></label>
             <button type="button" class="icon-btn danger" (click)="removeLine(i)" [disabled]="!canEdit()">
               <i class="fas fa-trash"></i>
             </button>
@@ -442,7 +440,7 @@
               </div>
             </section>
 
-            <details class="action-group action-group--advanced">
+            <details appReliableDetails class="action-group action-group--advanced">
               <summary>Avanzate/provider</summary>
               <div class="action-group__buttons">
                 <button type="button" class="ghost-btn" (click)="saveAndValidate()" [disabled]="saving || !canEdit() || isProforma(selected)">Salva e valida</button>
@@ -686,6 +684,8 @@
           *ngFor="let ddt of ddts"
           [class.active]="ddt.id === selectedDdt.id"
           (click)="selectDdt(ddt)"
+          (keydown.enter)="selectDdt(ddt)"
+          (keydown.space)="selectDdt(ddt); $event.preventDefault()"
           role="button"
           tabindex="0"
         >
@@ -740,8 +740,8 @@
 
         <h2>Cliente DDT</h2>
         <div class="form-grid">
-          <label class="wide">
-            Cerca cliente
+          <div class="wide form-field-group">
+            <span>Cerca cliente</span>
             <div class="customer-picker">
               <input
                 type="search"
@@ -765,7 +765,7 @@
               <div class="customer-picker__list" *ngIf="selectedDdt.status !== 'invoiced' && ddtCustomerPickerOpen && filteredDdtCustomers().length">
                 <button
                   type="button"
-                  *ngFor="let customer of filteredDdtCustomers()"
+                  *ngFor="let customer of filteredDdtCustomers(); trackBy: trackStableInteractiveItem"
                   (click)="selectDdtCustomer(customer)"
                   [class.active]="customer.numeroCliente === selectedDdtCustomerCode"
                 >
@@ -773,7 +773,7 @@
                 </button>
               </div>
             </div>
-          </label>
+          </div>
           <label>
             Ragione sociale
             <input [(ngModel)]="selectedDdt.customerName" name="ddtCustomerName" [readonly]="selectedDdt.status === 'invoiced'" />
@@ -858,20 +858,20 @@
             <span></span>
           </div>
           <div class="ddt-line-row" *ngFor="let line of selectedDdt.lines; let i = index">
-            <input [(ngModel)]="line.serviceCode" [name]="'ddtServiceCode' + i" list="ddt-service-codes" [readonly]="selectedDdt.status === 'invoiced'" (change)="applyServiceToLine(line)" />
-            <input [(ngModel)]="line.description" [name]="'ddtDescription' + i" [readonly]="selectedDdt.status === 'invoiced'" />
-            <input type="number" step="0.01" [(ngModel)]="line.quantity" [name]="'ddtQuantity' + i" [readonly]="selectedDdt.status === 'invoiced'" />
-            <input [(ngModel)]="line.unit" [name]="'ddtUnit' + i" [readonly]="selectedDdt.status === 'invoiced'" />
-            <input type="number" step="0.01" [(ngModel)]="line.unitPriceInput" [name]="'ddtUnitPriceInput' + i" [readonly]="selectedDdt.status === 'invoiced'" (ngModelChange)="syncLinePriceMode(line)" />
-            <select [(ngModel)]="line.priceIncludesVat" [name]="'ddtPriceIncludesVat' + i" [disabled]="selectedDdt.status === 'invoiced'" (ngModelChange)="syncLinePriceMode(line)">
+            <label class="line-field"><span>Codice</span><input [(ngModel)]="line.serviceCode" [name]="'ddtServiceCode' + i" list="ddt-service-codes" [readonly]="selectedDdt.status === 'invoiced'" (change)="applyServiceToLine(line)" /></label>
+            <label class="line-field"><span>Descrizione</span><input [(ngModel)]="line.description" [name]="'ddtDescription' + i" [readonly]="selectedDdt.status === 'invoiced'" /></label>
+            <label class="line-field"><span>Quantità</span><input type="number" step="0.01" [(ngModel)]="line.quantity" [name]="'ddtQuantity' + i" [readonly]="selectedDdt.status === 'invoiced'" /></label>
+            <label class="line-field"><span>Unità</span><input [(ngModel)]="line.unit" [name]="'ddtUnit' + i" [readonly]="selectedDdt.status === 'invoiced'" /></label>
+            <label class="line-field"><span>Prezzo</span><input type="number" step="0.01" [(ngModel)]="line.unitPriceInput" [name]="'ddtUnitPriceInput' + i" [readonly]="selectedDdt.status === 'invoiced'" (ngModelChange)="syncLinePriceMode(line)" /></label>
+            <label class="line-field"><span>Tipo prezzo</span><select [(ngModel)]="line.priceIncludesVat" [name]="'ddtPriceIncludesVat' + i" [disabled]="selectedDdt.status === 'invoiced'" (ngModelChange)="syncLinePriceMode(line)">
               <option [ngValue]="false">IVA escl.</option>
               <option [ngValue]="true">IVA incl.</option>
-            </select>
-            <input type="number" step="0.01" [(ngModel)]="line.discountPercent" [name]="'ddtDiscount' + i" [readonly]="selectedDdt.status === 'invoiced'" />
-            <input type="number" step="0.01" [(ngModel)]="line.vatRate" [name]="'ddtVat' + i" [readonly]="selectedDdt.status === 'invoiced'" (ngModelChange)="onDdtVatRateChange(line); syncLinePriceMode(line)" />
-            <select [(ngModel)]="line.vatNature" [name]="'ddtNature' + i" [disabled]="selectedDdt.status === 'invoiced' || +line.vatRate !== 0">
+            </select></label>
+            <label class="line-field"><span>Sconto %</span><input type="number" step="0.01" [(ngModel)]="line.discountPercent" [name]="'ddtDiscount' + i" [readonly]="selectedDdt.status === 'invoiced'" /></label>
+            <label class="line-field"><span>IVA %</span><input type="number" step="0.01" [(ngModel)]="line.vatRate" [name]="'ddtVat' + i" [readonly]="selectedDdt.status === 'invoiced'" (ngModelChange)="onDdtVatRateChange(line); syncLinePriceMode(line)" /></label>
+            <label class="line-field"><span>Natura IVA</span><select [(ngModel)]="line.vatNature" [name]="'ddtNature' + i" [disabled]="selectedDdt.status === 'invoiced' || +line.vatRate !== 0">
               <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
-            </select>
+            </select></label>
             <button type="button" class="icon-btn danger" (click)="removeDdtLine(i)" [disabled]="selectedDdt.status === 'invoiced'">
               <i class="fas fa-trash"></i>
             </button>
@@ -958,24 +958,24 @@
           </thead>
           <tbody>
             <tr
-              *ngFor="let item of filteredPaymentScheduleItems()"
+              *ngFor="let item of filteredPaymentScheduleItems(); trackBy: trackStableInteractiveItem"
               [class.schedule-row--paid]="scheduleItemStatusClass(item) === 'paid'"
               [class.schedule-row--partial]="scheduleItemStatusClass(item) === 'partial'"
               [class.schedule-row--overdue]="scheduleItemStatusClass(item) === 'overdue'"
             >
-              <td>{{ item.dueDate ? (item.dueDate | date:'dd/MM/yyyy') : 'Senza scadenza' }}</td>
-              <td>
+              <td data-label="Data">{{ item.dueDate ? (item.dueDate | date:'dd/MM/yyyy') : 'Senza scadenza' }}</td>
+              <td data-label="Ragione sociale">
                 <strong>{{ item.subjectName || scheduleSubjectFallback(item) }}</strong>
                 <small>{{ item.direction === 'inbound' ? 'Fattura acquisto' : 'Fattura vendita' }}</small>
               </td>
-              <td>{{ item.installmentNumber ? 'Rata ' + item.installmentNumber : 'Saldo' }}</td>
-              <td>{{ scheduleReference(item) }}</td>
-              <td class="money debit">{{ scheduleDebitAmount(item) ? (scheduleDebitAmount(item) | currency:'EUR':'symbol':'1.2-2':'it-IT') : '-' }}</td>
-              <td class="money credit">{{ scheduleCreditAmount(item) ? (scheduleCreditAmount(item) | currency:'EUR':'symbol':'1.2-2':'it-IT') : '-' }}</td>
-              <td class="money">{{ (item.paidAmount || 0) | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</td>
-              <td class="money residual">{{ scheduleResidual(item) | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</td>
-              <td><span class="schedule-status" [ngClass]="'schedule-status--' + scheduleItemStatusClass(item)">{{ scheduleItemStatusLabel(item) }}</span></td>
-              <td><button type="button" class="icon-btn" (click)="selectScheduleItem(item)" aria-label="Apri fattura"><i class="fas fa-arrow-right"></i></button></td>
+              <td data-label="Descrizione">{{ item.installmentNumber ? 'Rata ' + item.installmentNumber : 'Saldo' }}</td>
+              <td data-label="Riferimento">{{ scheduleReference(item) }}</td>
+              <td data-label="Dare" class="money debit">{{ scheduleDebitAmount(item) ? (scheduleDebitAmount(item) | currency:'EUR':'symbol':'1.2-2':'it-IT') : '-' }}</td>
+              <td data-label="Avere" class="money credit">{{ scheduleCreditAmount(item) ? (scheduleCreditAmount(item) | currency:'EUR':'symbol':'1.2-2':'it-IT') : '-' }}</td>
+              <td data-label="Pagato" class="money">{{ (item.paidAmount || 0) | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</td>
+              <td data-label="Residuo" class="money residual">{{ scheduleResidual(item) | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</td>
+              <td data-label="Stato"><span class="schedule-status" [ngClass]="'schedule-status--' + scheduleItemStatusClass(item)">{{ scheduleItemStatusLabel(item) }}</span></td>
+              <td data-label="Azioni"><button type="button" class="icon-btn" (click)="selectScheduleItem(item)" aria-label="Apri fattura"><i class="fas fa-arrow-right"></i></button></td>
             </tr>
           </tbody>
         </table>
@@ -995,11 +995,11 @@
         </div>
       </header>
       <div class="ops-list">
-        <div class="supplier-row" *ngFor="let supplier of suppliers" (click)="editSupplier(supplier)">
+        <button type="button" class="supplier-row" *ngFor="let supplier of suppliers" (click)="editSupplier(supplier)">
           <strong>{{ supplier.name }}</strong>
           <span>{{ supplier.vatNumber || supplier.fiscalCode || '-' }}</span>
           <small>{{ supplierLocation(supplier) }}</small>
-        </div>
+        </button>
         <p class="empty" *ngIf="suppliers.length === 0">Nessun fornitore trovato</p>
       </div>
 
@@ -1316,18 +1316,18 @@
               <span></span>
             </div>
             <div class="vat-profile-row" *ngFor="let profile of customerInvoiceDefaults.vatProfiles; let i = index">
-              <input [(ngModel)]="profile.code" [name]="'customerVatProfileCode' + i" />
-              <input [(ngModel)]="profile.label" [name]="'customerVatProfileLabel' + i" />
-              <input type="number" step="0.01" [(ngModel)]="profile.vatRate" [name]="'customerVatProfileRate' + i" (ngModelChange)="onCustomerVatProfileRateChange(profile)" />
-              <select [(ngModel)]="profile.vatNature" [name]="'customerVatProfileNature' + i" [disabled]="+profile.vatRate !== 0">
+              <label class="vat-field"><span>Codice</span><input [(ngModel)]="profile.code" [name]="'customerVatProfileCode' + i" /></label>
+              <label class="vat-field"><span>Etichetta</span><input [(ngModel)]="profile.label" [name]="'customerVatProfileLabel' + i" /></label>
+              <label class="vat-field"><span>IVA</span><input type="number" step="0.01" [(ngModel)]="profile.vatRate" [name]="'customerVatProfileRate' + i" (ngModelChange)="onCustomerVatProfileRateChange(profile)" /></label>
+              <label class="vat-field"><span>Natura</span><select [(ngModel)]="profile.vatNature" [name]="'customerVatProfileNature' + i" [disabled]="+profile.vatRate !== 0">
                 <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
-              </select>
-              <input type="checkbox" [(ngModel)]="profile.splitPayment" [name]="'customerVatProfileSplit' + i" (ngModelChange)="onCustomerVatProfileSplitPaymentChange(profile)" />
-              <select [(ngModel)]="profile.vatExigibility" [name]="'customerVatProfileExigibility' + i">
+              </select></label>
+              <label class="vat-field vat-field--check"><span>Split</span><input type="checkbox" [(ngModel)]="profile.splitPayment" [name]="'customerVatProfileSplit' + i" (ngModelChange)="onCustomerVatProfileSplitPaymentChange(profile)" /></label>
+              <label class="vat-field"><span>Esigibilità</span><select [(ngModel)]="profile.vatExigibility" [name]="'customerVatProfileExigibility' + i">
                 <option value="I">Immediata</option>
                 <option value="D">Differita</option>
                 <option value="S">Split payment</option>
-              </select>
+              </select></label>
               <button type="button" class="icon-btn danger" (click)="removeCustomerVatProfile(i)" [disabled]="customerInvoiceDefaults.vatProfiles.length <= 1">
                 <span class="material-icons">close</span>
               </button>

@@ -2,12 +2,12 @@
 
 <div class="container py-4 page-wrap">
   <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <button class="btn btn-back-glass" (click)="back()">
+    <button type="button" class="btn btn-back-glass" (click)="back()">
       ⬅ Torna Indietro
     </button>
 
     <div class="selection-actions d-flex align-items-center gap-2 flex-wrap" *ngIf="globalService.hasPermission('NOTIFICATIONS_MANAGE')">
-      <button
+      <button type="button"
         class="btn btn-glass btn-round"
         (click)="toggleSelectAll()"
         [disabled]="admins.length === 0"
@@ -19,7 +19,7 @@
         Selezionati: {{ selectedCount }}
       </span>
 
-      <button
+      <button type="button"
         class="btn btn-primary btn-round"
         (click)="openNotifyModal(notifyModal)"
         [disabled]="selectedCount === 0"
@@ -70,7 +70,7 @@
           <td class="d-none d-lg-table-cell">{{ admin.codiceOperatore || "—" }}</td>
 
           <td class="actions-cell">
-            <button
+            <button type="button"
               *ngIf="globalService.hasPermission('NOTIFICATIONS_VIEW')"
               class="btn btn-glass-dark btn-sm btn-round"
               (click)="openAdminNotifications(admin, adminNotifModal)"
@@ -104,7 +104,7 @@
       </div>
 
       <div class="employee-card__actions">
-        <button
+        <button type="button"
           *ngIf="globalService.hasPermission('NOTIFICATIONS_VIEW')"
           class="btn btn-glass-dark btn-sm btn-round"
           (click)="openAdminNotifications(admin, adminNotifModal)"
@@ -172,7 +172,7 @@
     </div>
 
     <div class="modal-footer">
-      <button
+      <button type="button"
         class="btn btn-glass btn-round"
         (click)="modal.dismiss()"
         [disabled]="sending"
@@ -180,7 +180,7 @@
         Annulla
       </button>
 
-      <button
+      <button type="button"
         class="btn btn-brand-primary btn-round"
         (click)="sendNotification(modal)"
         [disabled]="sending || !notifyTitle.trim() || !notifyBody.trim()"
@@ -239,7 +239,7 @@
   </div>
 
   <div class="modal-footer">
-    <button class="btn btn-glass btn-round" (click)="modal.dismiss()">
+    <button type="button" class="btn btn-glass btn-round" (click)="modal.dismiss()">
       Chiudi
     </button>
   </div>

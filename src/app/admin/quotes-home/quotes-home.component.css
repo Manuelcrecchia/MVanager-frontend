@@ -14,10 +14,22 @@
   box-shadow: 0 22px 70px rgba(255,122,0,.28), 0 18px 54px rgba(2,6,23,.16);
 }
 
-.quote-header-btn {
-  width: 100%;
-  border: 0;
+.quote-header-layout {
+  display: flex;
+  align-items: stretch;
   background: linear-gradient(135deg, rgba(142,197,255,.40), rgba(255,122,0,.22));
+}
+
+.quote-header-layout > .d-flex {
+  flex: 0 0 auto;
+  padding: 8px 12px 8px 0;
+}
+
+.quote-header-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
   padding: 14px;
   display: flex;
   align-items: center;
@@ -31,7 +43,7 @@
 }
 
 .quote-header-btn:hover {
-  background: linear-gradient(135deg, rgba(142,197,255,.55), rgba(255,122,0,.32));
+  background: rgba(255, 255, 255, .18);
 }
 
 .quote-title {

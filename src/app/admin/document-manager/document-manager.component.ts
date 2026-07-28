@@ -10,6 +10,7 @@ import {
   ViewChildren,
 } from '@angular/core';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
 import { Subscription } from 'rxjs';
@@ -58,6 +59,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
     public globalService: GlobalService,
     private ngZone: NgZone,
     private contactPrompt: ContactRequirementPromptService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -437,12 +439,12 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
       });
   }
 
-  deleteFolder(folder: string): void {
+  async deleteFolder(folder: string): Promise<void> {
     if (this.isDeadlineManagedFolder(folder)) {
       return alert('La cartella Scadenze è gestita automaticamente dalle scadenze.');
     }
 
-    if (!confirm(`Eliminare la cartella "${folder}"?`)) return;
+    if (!await this.appDialog.confirm(`Eliminare la cartella "${folder}"?`)) return;
 
     const body = this.getPayload({ folder: this.joinPath(this.selectedFolder, folder) });
 
@@ -785,9 +787,14 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
       });
   }
 
-  renameFile(file: any): void {
+  async renameFile(file: any): Promise<void> {
     const currentName = this.displayFileName(file);
-    const requestedName = prompt('Nuovo nome file', currentName);
+    const requestedName = await this.appDialog.prompt(
+      'Scegli il nuovo nome da mostrare per questo file.',
+      currentName,
+      'Rinomina file',
+      { inputLabel: 'Nome file', confirmLabel: 'Rinomina' },
+    );
     if (requestedName === null) return;
 
     const newName = requestedName.trim();
@@ -831,7 +838,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
       });
   }
 
-  deleteFile(fileOrName: any): void {
+  async deleteFile(fileOrName: any): Promise<void> {
     const filename = this.storedFileName(fileOrName);
     if (!filename) return;
 
@@ -842,7 +849,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
         ? `Eliminare la copia in Documenti di "${displayName}"? L'allegato restera nella scadenza.`
         : `Eliminare il file "${displayName}"?`;
 
-    if (!confirm(confirmMessage)) return;
+    if (!await this.appDialog.confirm(confirmMessage)) return;
 
     const body = this.getPayload({ folder: this.selectedFolder, filename });
 

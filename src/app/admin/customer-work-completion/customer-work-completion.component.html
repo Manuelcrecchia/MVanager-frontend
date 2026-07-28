@@ -1,0 +1,77 @@
+<main class="work-page">
+  <header class="work-topbar">
+    <button type="button" class="btn btn-outline-light" (click)="back()">← Lista clienti</button>
+    <div>
+      <span>Foglio di fine lavoro</span>
+      <strong *ngIf="displayName">{{ displayName }}</strong>
+    </div>
+  </header>
+
+  <section class="work-card empty-state" *ngIf="loading">Caricamento del foglio…</section>
+  <section class="work-card error-card" *ngIf="error">{{ error }}</section>
+
+  <section class="work-card success-card" *ngIf="success">
+    <h1>Foglio salvato</h1>
+    <p>Il PDF è stato generato e archiviato nei documenti del cliente.</p>
+    <button type="button" class="btn btn-primary" (click)="back()">Torna alla lista clienti</button>
+  </section>
+
+  <ng-container *ngIf="!loading && customer && !success">
+    <div class="step-indicator" aria-label="Avanzamento compilazione">
+      <ng-container *ngFor="let step of stepNumbers(); let last = last">
+        <span [class.active]="currentStep >= step">{{ step }}</span>
+        <i *ngIf="!last" [class.active]="currentStep > step"></i>
+      </ng-container>
+    </div>
+
+    <section class="work-card intro-step" *ngIf="currentStep === 1">
+      <div class="step-icon">▣</div>
+      <h1>{{ config.title || 'Foglio di fine lavoro' }}</h1>
+      <p>{{ config.introText || 'Passa il dispositivo al cliente per completare la valutazione del servizio.' }}</p>
+      <div class="info-box">Il cliente dovrà compilare la scheda e firmare il documento.</div>
+      <small>Cliente: <strong>{{ displayName }}</strong></small>
+    </section>
+
+    <section class="work-card" *ngIf="currentStep === 2 && questions.length">
+      <h2>Scheda di valutazione qualità</h2>
+      <article class="question" *ngFor="let question of questions; let index = index">
+        <h3>{{ index + 1 }}. {{ question.label }} <span *ngIf="question.required !== false">*</span></h3>
+        <div class="options">
+          <label *ngFor="let option of question.options" [for]="optionId(question, option)">
+            <input type="radio" [id]="optionId(question, option)" [name]="'question_' + question.key" [value]="option.value" [(ngModel)]="answers[question.key]" />
+            <span>{{ option.label }}</span>
+          </label>
+        </div>
+      </article>
+      <label class="notes" *ngIf="config.noteEnabled !== false">{{ config.noteLabel || 'Note' }}
+        <textarea class="form-control" rows="4" [(ngModel)]="note"></textarea>
+      </label>
+    </section>
+
+    <section class="work-card" *ngIf="currentStep === signatureStep">
+      <h2>Firma digitale <span *ngIf="signatureRequired">*</span></h2>
+      <p>Firma nel riquadro sottostante.</p>
+      <canvas
+        #signatureCanvas
+        class="signature-canvas"
+        (pointerdown)="startDrawing($event)"
+        (pointermove)="draw($event)"
+        (pointerup)="stopDrawing($event)"
+        (pointercancel)="stopDrawing($event)"
+        (pointerleave)="stopDrawing($event)"
+      ></canvas>
+      <button type="button" class="btn btn-outline-secondary mt-3" (click)="clearSignature()">Pulisci</button>
+      <p class="signature-hint">Su telefono, per una migliore esperienza, ruota il dispositivo in orizzontale.</p>
+    </section>
+
+    <div class="submit-bar" *ngIf="currentStep < totalSteps">
+      <button type="button" class="btn btn-outline-light" (click)="back()">Annulla</button>
+      <button type="button" class="btn btn-outline-secondary" [disabled]="currentStep === 1" (click)="previousStep()">
+        Indietro
+      </button>
+      <button type="button" class="btn btn-primary" [disabled]="!canAdvance || saving" (click)="nextStep()">
+        {{ saving ? 'Invio…' : (currentStep === signatureStep ? 'Invia' : 'Avanti') }}
+      </button>
+    </div>
+  </ng-container>
+</main>

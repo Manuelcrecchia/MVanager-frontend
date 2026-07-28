@@ -167,7 +167,7 @@
           <span>Entrate</span>
           <strong>{{ money(entryDirectionTotal('incoming')) }}</strong>
         </header>
-        <div class="entry-row entry-row--incoming" *ngFor="let entry of entriesByDirection('incoming')">
+        <div class="entry-row entry-row--incoming" *ngFor="let entry of entriesByDirection('incoming'); trackBy: trackStableInteractiveItem">
           <div class="entry-main">
             <strong>{{ entry.entryDate }} · {{ entry.number || entry.id }}</strong>
             <small>{{ sourceLabel(entry.sourceType) }} · {{ entry.description }}</small>
@@ -188,7 +188,7 @@
           <span>Uscite</span>
           <strong>{{ money(entryDirectionTotal('outgoing')) }}</strong>
         </header>
-        <div class="entry-row entry-row--outgoing" *ngFor="let entry of entriesByDirection('outgoing')">
+        <div class="entry-row entry-row--outgoing" *ngFor="let entry of entriesByDirection('outgoing'); trackBy: trackStableInteractiveItem">
           <div class="entry-main">
             <strong>{{ entry.entryDate }} · {{ entry.number || entry.id }}</strong>
             <small>{{ sourceLabel(entry.sourceType) }} · {{ entry.description }}</small>
@@ -209,7 +209,7 @@
           <span>Altre scritture</span>
           <strong>{{ money(entryDirectionTotal('neutral')) }}</strong>
         </header>
-        <div class="entry-row" *ngFor="let entry of entriesByDirection('neutral')">
+        <div class="entry-row" *ngFor="let entry of entriesByDirection('neutral'); trackBy: trackStableInteractiveItem">
           <div class="entry-main">
             <strong>{{ entry.entryDate }} · {{ entry.number || entry.id }}</strong>
             <small>{{ sourceLabel(entry.sourceType) }} · {{ entry.description }}</small>

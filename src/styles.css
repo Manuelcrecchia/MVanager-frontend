@@ -7,12 +7,29 @@
   padding: 0;
 }
 
+html,
+body,
+app-root {
+  width: 100%;
+  max-width: 100%;
+}
+
+html,
+body {
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
 body {
   font-family: "Roboto", sans-serif;
   background-color: #f8f9fa;
   color: #333;
   line-height: 1.5;
   min-height: 100vh;
+}
+
+.app-alert-dialog-panel {
+  max-width: calc(100vw - 24px) !important;
 }
 
 .app-alert-dialog-panel .mat-mdc-dialog-container .mdc-dialog__surface {
@@ -100,6 +117,24 @@ button {
   border-radius: 50px;
   transition: background-color 0.3s ease, transform 0.2s ease;
   border: none;
+}
+
+button,
+a,
+[role="button"],
+label,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn {
@@ -430,9 +465,13 @@ input:invalid {
      RESPONSIVE
   ====================================== */
 @media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
   .example-form-field,
-  .btn,
-  .btn-back,
   .form-group {
     width: 100%;
     margin-bottom: 0.75rem;
@@ -442,6 +481,18 @@ input:invalid {
   }
   .ngx-extended-pdf-viewer {
     min-height: 400px;
+  }
+}
+
+@media (hover: none) {
+  .btn:hover,
+  .btn-back:hover,
+  .btn-back-glass:hover,
+  .btn-back-brand:hover,
+  .btn-nav-glass:hover,
+  .mv-back-btn:hover,
+  .inno:hover {
+    transform: none !important;
   }
 }
 

@@ -204,10 +204,10 @@
 
 <div class="container mt-4 permessi-page">
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <button class="btn btn-outline-secondary btn-back-glass" (click)="goBack()">
+    <button type="button" class="btn btn-outline-secondary btn-back-glass" (click)="goBack()">
       &larr; Torna Indietro
     </button>
-    <button class="btn btn-primary" (click)="openCreaModal()">
+    <button type="button" class="btn btn-primary" (click)="openCreaModal()">
       + Aggiungi permesso
     </button>
   </div>
@@ -255,19 +255,19 @@
         </div>
 
         <div class="btn-group mt-2 mt-sm-0 permessi-actions">
-          <button
+          <button type="button"
             class="btn btn-info btn-accept-glass"
             (click)="openModal(req)"
           >
             <i class="fas fa-eye me-1"></i> Visualizza
           </button>
-          <button
+          <button type="button"
             class="btn btn-success btn-accept-glass"
             (click)="confirmAcceptDirect(req)"
           >
             Accetta
           </button>
-          <button
+          <button type="button"
             class="btn btn-danger btn-reject-glass"
             (click)="rifiuta(req.id)"
           >
@@ -297,7 +297,7 @@
       Nessuno storico disponibile.
     </div>
 
-    <div class="table-responsive" *ngIf="historyRequests.length > 0">
+    <div class="table-responsive history-responsive-table" *ngIf="historyRequests.length > 0">
       <table class="table table-sm table-striped bg-white text-dark align-middle">
         <thead>
           <tr>
@@ -311,16 +311,16 @@
         </thead>
         <tbody>
           <tr *ngFor="let req of historyRequests">
-            <td>{{ req.employee?.nome }} {{ req.employee?.cognome }}</td>
-            <td>{{ req.categoria }}</td>
-            <td class="text-capitalize">{{ req.tipoPermesso }}</td>
-            <td>
+            <td data-label="Dipendente">{{ req.employee?.nome }} {{ req.employee?.cognome }}</td>
+            <td data-label="Categoria">{{ req.categoria }}</td>
+            <td data-label="Tipo" class="text-capitalize">{{ req.tipoPermesso }}</td>
+            <td data-label="Periodo">
               <span *ngIf="req.fromDate === req.toDate">{{ req.fromDate | date:'dd/MM/yyyy' }}</span>
               <span *ngIf="req.fromDate !== req.toDate">
                 {{ req.fromDate | date:'dd/MM/yyyy' }} - {{ req.toDate | date:'dd/MM/yyyy' }}
               </span>
             </td>
-            <td>
+            <td data-label="Ore">
               <span *ngIf="req.oraInizioModificata && req.oraFineModificata">
                 {{ req.oraInizioModificata }}-{{ req.oraFineModificata }}
               </span>
@@ -328,7 +328,7 @@
                 {{ req.oreGiornaliere || '-' }}
               </span>
             </td>
-            <td>
+            <td data-label="Stato">
               <span
                 class="badge"
                 [ngClass]="{

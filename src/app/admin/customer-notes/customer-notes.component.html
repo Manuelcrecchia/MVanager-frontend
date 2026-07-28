@@ -1,11 +1,4 @@
-<!DOCTYPE html>
-<html lang="it">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Note Cliente</title>
-  </head>
-  <body class="bg-light">
+<div class="bg-light">
 
     <!-- TOOLBAR -->
     <mat-toolbar
@@ -175,13 +168,19 @@
 
               <!-- IMMAGINE inline -->
               <div *ngIf="isImage(a)" class="allegato-img-wrapper">
-                <img
-                  [src]="getDataUrl(a)"
-                  [alt]="a.nome"
-                  class="allegato-img"
+                <button
+                  type="button"
+                  class="allegato-img-button"
                   (click)="viewAllegato(a)"
                   title="Clicca per visualizzare"
-                />
+                  [attr.aria-label]="'Visualizza ' + a.nome"
+                >
+                  <img
+                    [src]="getDataUrl(a)"
+                    [alt]="a.nome"
+                    class="allegato-img"
+                  />
+                </button>
                 <span class="allegato-img-nome">{{ a.nome }}</span>
                 <div class="allegato-actions">
                   <button type="button" class="btn-pdf-download" (click)="viewAllegato(a)" title="Visualizza">
@@ -303,5 +302,4 @@
       </div>
     </div>
 
-  </body>
-</html>
+</div>

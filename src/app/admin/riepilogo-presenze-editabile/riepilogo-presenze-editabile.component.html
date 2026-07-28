@@ -267,6 +267,20 @@ html, body{
     max-height: calc(100vh - 320px);
   }
 }
+
+.summary-wide-matrix {
+  display: none;
+}
+
+@media (min-width: 1600px) {
+  .summary-compact-view {
+    display: none;
+  }
+
+  .summary-wide-matrix {
+    display: block;
+  }
+}
 </style>
 
 <div class="container-fluid py-4 presenze-page">
@@ -303,7 +317,7 @@ html, body{
   </div>
 
   <!-- Tabella -->
-  <div *ngIf="!loading" class="mobile-day-view d-md-none">
+  <div *ngIf="!loading" class="mobile-day-view summary-compact-view">
     <div class="mobile-day-toolbar">
       <button type="button" class="mobile-day-nav" (click)="prevDay()" [disabled]="selectedDayIndex === 0">‹</button>
       <div class="mobile-day-current">{{ selectedDayLabel }}</div>
@@ -392,7 +406,7 @@ html, body{
     </div>
   </div>
 
-  <div *ngIf="!loading" class="scroll-wrapper d-none d-md-block">
+  <div *ngIf="!loading" class="scroll-wrapper summary-wide-matrix">
     <table class="presenze-table table table-bordered align-middle">
       <thead class="table-light">
         <tr>
@@ -440,7 +454,7 @@ html, body{
                   (blur)="voce.ore = voce.ore ? formatOreStr(voce.ore) : ''"
                   placeholder="h"
                 />
-                <button
+                <button type="button"
                   class="btn-remove"
                   (click)="rimuoviVoce(d, i, v)"
                   title="Rimuovi voce"
@@ -450,7 +464,7 @@ html, body{
               </div>
 
               <!-- BOTTONE AGGIUNGI -->
-              <button
+              <button type="button"
                 class="btn-add-voce"
                 (click)="aggiungiVoce(d, i)"
                 title="Aggiungi voce"
@@ -477,7 +491,7 @@ html, body{
   </div>
 
   <div class="text-center mt-4">
-    <button
+    <button type="button"
       class="btn btn-primary px-5 btn-genera"
       (click)="generaPdf()"
       [disabled]="loading"

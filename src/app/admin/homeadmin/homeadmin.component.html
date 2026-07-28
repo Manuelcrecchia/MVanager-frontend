@@ -1,17 +1,4 @@
-<!doctype html>
-<html lang="it">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Home Admin</title>
-
-    <!-- Bootstrap -->
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-
-    <style>
+<style>
       :root {
         --brand-black: #0f172a;
         --brand-orange: #ff7a00;
@@ -25,9 +12,13 @@
         --sidebar-width: 260px;
       }
 
-      body {
+      .homeadmin-root {
+        width: 100%;
+        max-width: 100vw;
         min-height: 100vh;
         margin: 0;
+        overflow-x: clip;
+        overscroll-behavior-x: none;
         font-family:
           system-ui,
           -apple-system,
@@ -83,6 +74,9 @@
       .page {
         position: relative;
         z-index: 1;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: clip;
       }
 
       /* ===== MOBILE TOP BAR ===== */
@@ -145,10 +139,13 @@
         gap: 10px;
       }
 
-      .mobile-menu a {
+      .mobile-menu button {
+        width: 100%;
         cursor: pointer;
         text-decoration: none;
         font-weight: 800;
+        font-family: inherit;
+        text-align: left;
         color: var(--brand-black);
         padding: 10px 12px;
         border-radius: 12px;
@@ -157,7 +154,7 @@
         transition: transform 0.18s ease, background 0.18s ease;
       }
 
-      .mobile-menu a:hover {
+      .mobile-menu button:hover {
         transform: translateY(-1px);
         background: rgba(255, 122, 0, 0.15);
       }
@@ -227,7 +224,8 @@
         min-height: 100vh;
         padding: 18px 24px 32px 32px;
         transition: margin-left 0.25s ease;
-        overflow-x: auto;
+        min-width: 0;
+        overflow-x: clip;
       }
 
       .sidebar-toggle-btn {
@@ -685,7 +683,8 @@
         min-height: 100vh;
         padding: 18px 22px 32px 30px;
         transition: margin-left 0.25s ease;
-        overflow-x: auto;
+        min-width: 0;
+        overflow-x: clip;
       }
 
       .desktop-workspace-grid {
@@ -1396,6 +1395,14 @@
 
       /* ===== MOBILE MEDIA QUERY (< 992px) ===== */
       @media (max-width: 991.98px) {
+        .mobile-layout {
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          overflow-x: clip;
+          touch-action: pan-y;
+        }
+
         .home-desktop-sidebar {
           display: none !important;
         }
@@ -1410,6 +1417,27 @@
 
         .home-mobile-body {
           display: block !important;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          overflow-x: clip;
+        }
+
+        .home-mobile-category-grid,
+        .home-mobile-body .home-submenu-grid {
+          grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
+          width: 100%;
+          min-width: 0;
+        }
+
+        .home-mobile-body .dash-btn {
+          min-width: 0;
+          max-width: 100%;
+          touch-action: pan-y;
+        }
+
+        .home-mobile-body .dash-btn:hover {
+          transform: none;
         }
       }
 
@@ -1505,9 +1533,7 @@
         }
       }
     </style>
-  </head>
-
-  <body class="no-fa">
+  <div class="homeadmin-root no-fa">
     <div class="clouds"></div>
 
     <div class="page" [class.home-ios]="isIos">
@@ -1551,7 +1577,7 @@
       <!-- DESKTOP SIDEBAR       -->
       <!-- ===================== -->
       <aside class="home-desktop-sidebar" [class.sidebar-collapsed]="sidebarCollapsed" [style.width]="sidebarCollapsed ? '60px' : '260px'" *ngIf="isDesktopHome">
-        <button class="sidebar-toggle-btn" (click)="toggleSidebar()" [attr.title]="sidebarCollapsed ? 'Espandi menu' : 'Comprimi menu'">
+        <button class="sidebar-toggle-btn" type="button" (click)="toggleSidebar()" [attr.title]="sidebarCollapsed ? 'Espandi menu' : 'Comprimi menu'">
           <i class="fas" [class.fa-chevron-left]="!sidebarCollapsed" [class.fa-chevron-right]="sidebarCollapsed"></i>
         </button>
 
@@ -1586,34 +1612,34 @@
 
         <div class="sidebar-top-actions" *ngIf="settingsMenuOpen && !sidebarCollapsed">
           <div class="sidebar-settings-menu">
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">
               <i class="fas fa-user-plus"></i> <span class="sidebar-btn-text">Aggiungi utenti</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToGestioneUsers()">
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToGestioneUsers()">
               <i class="fas fa-users-cog"></i> <span class="sidebar-btn-text">Invio notifiche dipendenti</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">
               <i class="fas fa-user-tie"></i> <span class="sidebar-btn-text">Aggiungi dipendenti</span>
             </button>
-            <button class="sidebar-bottom-btn" (click)="navigateToCambiapassword()">
+            <button class="sidebar-bottom-btn" type="button" (click)="navigateToCambiapassword()">
               <i class="fas fa-key"></i> <span class="sidebar-btn-text">Cambia password</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">
               <i class="fas fa-clipboard-check"></i> <span class="sidebar-btn-text">Permessi e assenze</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('CUSTOMER_DEADLINES_VIEW', 'customerDeadlines') || canUsePermission('EMPLOYEE_EDIT', 'employees') || canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines') || canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToCategorySettings()">
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('CUSTOMER_DEADLINES_VIEW', 'customerDeadlines') || canUsePermission('EMPLOYEE_EDIT', 'employees') || canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines') || canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToCategorySettings()">
               <i class="fas fa-tags"></i> <span class="sidebar-btn-text">Impostazioni categorie</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines')" (click)="navigateToVehiclesSettings()">
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines')" (click)="navigateToVehiclesSettings()">
               <i class="fas fa-truck"></i> <span class="sidebar-btn-text">Gestione mezzi</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToEquipmentSettings()">
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToEquipmentSettings()">
               <i class="fas fa-tools"></i> <span class="sidebar-btn-text">Gestione attrezzature</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">
               <i class="fas fa-file-invoice-dollar"></i> <span class="sidebar-btn-text">Impostazioni preventivi</span>
             </button>
-            <button class="sidebar-bottom-btn" *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSettings()">
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSettings()">
               <i class="fas fa-envelope-open-text"></i> <span class="sidebar-btn-text">Impostazioni email</span>
             </button>
           </div>
@@ -1849,6 +1875,7 @@
           </button>
           <button
             class="menu-toggle"
+            type="button"
             (click)="toggleMenu()"
             aria-label="Impostazioni"
           >
@@ -1858,19 +1885,19 @@
         </div>
 
         <div *ngIf="isMenuOpen" class="mobile-menu">
-          <a *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">Aggiungi utenti</a>
-          <a *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToGestioneUsers()">Invio notifiche dipendenti</a>
-          <a *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</a>
-          <a (click)="navigateToCambiapassword()">Cambia password</a>
-          <a *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</a>
-          <a *ngIf="canUsePermission('CUSTOMER_DEADLINES_VIEW', 'customerDeadlines') || canUsePermission('EMPLOYEE_EDIT', 'employees') || canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines') || canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToCategorySettings()">Impostazioni categorie</a>
-          <a *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines')" (click)="navigateToVehiclesSettings()">Gestione mezzi</a>
-          <a *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToEquipmentSettings()">Gestione attrezzature</a>
-          <a *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</a>
-          <a *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSettings()">Impostazioni email</a>
-          <a *ngIf="global.forMobile && canUsePermission('NOTIFICATIONS_VIEW', 'notifications')" (click)="navigateToNotificationSettings()">Notifiche mobile</a>
-          <a (click)="changeTenant()">Cambia azienda</a>
-          <a class="menu-logout" (click)="back()">Logout</a>
+          <button type="button" *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">Aggiungi utenti</button>
+          <button type="button" *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToGestioneUsers()">Invio notifiche dipendenti</button>
+          <button type="button" *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</button>
+          <button type="button" (click)="navigateToCambiapassword()">Cambia password</button>
+          <button type="button" *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</button>
+          <button type="button" *ngIf="canUsePermission('CUSTOMER_DEADLINES_VIEW', 'customerDeadlines') || canUsePermission('EMPLOYEE_EDIT', 'employees') || canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines') || canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToCategorySettings()">Impostazioni categorie</button>
+          <button type="button" *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines')" (click)="navigateToVehiclesSettings()">Gestione mezzi</button>
+          <button type="button" *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToEquipmentSettings()">Gestione attrezzature</button>
+          <button type="button" *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</button>
+          <button type="button" *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSettings()">Impostazioni email</button>
+          <button type="button" *ngIf="global.forMobile && canUsePermission('NOTIFICATIONS_VIEW', 'notifications')" (click)="navigateToNotificationSettings()">Notifiche mobile</button>
+          <button type="button" (click)="changeTenant()">Cambia azienda</button>
+          <button type="button" class="menu-logout" (click)="back()">Logout</button>
         </div>
 
         <ng-container *ngIf="isMobileHomeChildRouteActive; else mobileHomeMenu">
@@ -1893,6 +1920,7 @@
                 type="button"
                 (click)="clearHomeCategory()"
                 *ngIf="!isDesktopHome && visibleHomeCategories.length > 1 && selectedHomeCategoryId"
+                aria-label="Torna al menu principale"
               >
                 &larr;
               </button>
@@ -1953,6 +1981,7 @@
             <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">
               <button
                 class="dash-btn"
+                type="button"
                 *ngFor="let button of standaloneHomeButtons; trackBy: trackByHomeButton"
                 (click)="activateHomeButton(button)"
               >
@@ -1970,6 +1999,7 @@
 
               <button
                 class="dash-btn"
+                type="button"
                 *ngFor="let category of visibleHomeCategories; trackBy: trackByHomeCategory"
                 (click)="selectHomeCategory(category.id)"
               >
@@ -1992,6 +2022,7 @@
             <div class="home-submenu-grid" *ngIf="!shouldShowHomeCategories">
               <button
                 class="dash-btn home-submenu-button"
+                type="button"
                 *ngFor="let button of currentHomeButtons; trackBy: trackByHomeButton"
                 (click)="activateHomeButton(button)"
               >
@@ -2012,6 +2043,4 @@
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
-</html>
+  </div>

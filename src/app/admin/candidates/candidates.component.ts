@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 
@@ -168,6 +169,7 @@ export class CandidatesComponent implements OnInit {
     private http: HttpClient,
     public globalService: GlobalService,
     private router: Router,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -512,9 +514,9 @@ export class CandidatesComponent implements OnInit {
       });
   }
 
-  convertToEmployee(): void {
+  async convertToEmployee(): Promise<void> {
     if (!this.selectedCandidate || !this.canConvert) return;
-    if (!window.confirm('Aggiungere questo candidato come dipendente?')) return;
+    if (!await this.appDialog.confirm('Aggiungere questo candidato come dipendente?')) return;
     const hasEmail = Boolean(String(this.selectedCandidate.email || '').trim());
     this.http.post<{ candidate: Candidate; employee: { id: number }; credentialEmailError?: string }>(
       this.api(`${this.selectedCandidate.id}/convert-to-employee`),

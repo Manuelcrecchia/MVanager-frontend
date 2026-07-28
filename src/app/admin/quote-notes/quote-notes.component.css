@@ -214,6 +214,15 @@ mat-toolbar[color="primary"] {
 }
 
 /* ── IMMAGINE INLINE ── */
+.allegato-img-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+}
+
 .allegato-img-wrapper {
   display: flex;
   flex-direction: column;

@@ -227,6 +227,15 @@ mat-toolbar .mat-mdc-form-field {
   color: #000;
   text-align: left;
   cursor: pointer;
+  list-style: none;
+}
+
+.customer-header-btn::-webkit-details-marker {
+  display: none;
+}
+
+.customer-card[open] .customer-header-btn .chev {
+  transform: rotate(180deg);
 }
 
 .customer-info {
@@ -282,6 +291,7 @@ mat-toolbar .mat-mdc-form-field {
   font-size: 18px;
   color: #000;
   flex-shrink: 0;
+  transition: transform .2s ease;
 }
 
 /* Pulsante note nell'header */
@@ -350,20 +360,6 @@ button[mat-raised-button] i {
   color: #000 !important;
   min-width: 20px;
   text-align: center;
-}
-
-.invoice-action-button {
-  display: inline-flex !important;
-  align-items: center;
-  gap: 7px;
-  min-width: 148px !important;
-  padding-inline: 14px !important;
-}
-
-.invoice-action-button span {
-  font-size: .86rem;
-  font-weight: 950;
-  line-height: 1;
 }
 
 .action-with-tooltip {

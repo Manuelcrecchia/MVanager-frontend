@@ -1,11 +1,4 @@
-<!DOCTYPE html>
-<html lang="it">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gestione Clienti</title>
-  </head>
-  <body class="bg-light">
+<div class="bg-light">
 
     <!-- TOOLBAR -->
     <mat-toolbar
@@ -98,17 +91,10 @@
       <div class="row g-3">
         <div class="col-12" *ngFor="let customer of customersFrEnd">
 
-          <div class="customer-card" [class.customer-card--archive-reminder]="isArchiveReminderCustomer(customer)">
+          <details appReliableDetails class="customer-card" [class.customer-card--archive-reminder]="isArchiveReminderCustomer(customer)">
 
             <!-- HEADER: apre/chiude tendina -->
-            <button
-              type="button"
-              class="customer-header-btn"
-              data-bs-toggle="collapse"
-              [attr.data-bs-target]="'#cActions' + customer.numeroCliente"
-              aria-expanded="false"
-              [attr.aria-controls]="'cActions' + customer.numeroCliente"
-            >
+            <summary class="customer-header-btn">
               <span class="customer-info">
                 <span class="customer-num">{{ customer.numeroCliente }}</span>
                 <span class="customer-sep">—</span>
@@ -116,22 +102,8 @@
                 <span class="badge bg-warning text-dark" *ngIf="customer.active === false">Archiviato</span>
               </span>
 
-              <span class="d-flex align-items-center gap-2">
-                <!-- Pulsante note -->
-                <button
-                  *ngIf="globalService.hasPermission('CUSTOMERS_NOTES_VIEW')"
-                  type="button"
-                  class="btn btn-sm btn-notes action-with-tooltip"
-                  (click)="navigateToNotes(customer.numeroCliente, getCustomerDisplayName(customer)); $event.stopPropagation()"
-                  title="Apri le note del cliente"
-                  aria-label="Apri le note del cliente"
-                  data-tooltip="Note cliente"
-                >
-                  <mat-icon>sticky_note_2</mat-icon>
-                </button>
-                <span class="chev">▾</span>
-              </span>
-            </button>
+              <span class="chev">▾</span>
+            </summary>
 
             <!-- INFO RAPIDE (email + telefono) -->
             <div class="customer-meta-row">
@@ -156,12 +128,23 @@
               </button>
             </div>
             <div
-              class="collapse customer-actions"
-              [attr.id]="'cActions' + customer.numeroCliente"
+              class="customer-actions"
             >
               <div class="customer-actions-inner">
+                <button
+                  *ngIf="globalService.hasPermission('CUSTOMERS_NOTES_VIEW')"
+                  type="button"
+                  class="btn btn-sm btn-notes action-with-tooltip"
+                  (click)="navigateToNotes(customer.numeroCliente, getCustomerDisplayName(customer))"
+                  title="Apri le note del cliente"
+                  aria-label="Apri le note del cliente"
+                  data-tooltip="Note cliente"
+                >
+                  <mat-icon>sticky_note_2</mat-icon>
+                </button>
 
                 <button
+                  type="button"
                   *ngIf="
                     globalService.hasTenantFeature('stamping') &&
                     globalService.isCustomerTagStampingMode() &&
@@ -179,7 +162,7 @@
                   <mat-icon>label</mat-icon>
                 </button>
 
-                <button
+                <button type="button"
                   *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
                   color="accent"
@@ -192,21 +175,20 @@
                   <mat-icon>edit</mat-icon>
                 </button>
 
-                <button
+                <button type="button"
                   *ngIf="canGenerateSalesInvoice(customer)"
                   mat-raised-button
                   color="primary"
                   (click)="generateSalesInvoice(customer)"
-                  class="action-with-tooltip invoice-action-button"
+                  class="action-with-tooltip"
                   title="Genera una fattura vendita con i dati del cliente già compilati"
                   aria-label="Genera fattura vendita"
                   data-tooltip="Genera fattura vendita"
                 >
                   <mat-icon>receipt_long</mat-icon>
-                  <span>Genera fattura</span>
                 </button>
 
-                <button
+                <button type="button"
                   *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
                   color="warn"
@@ -219,7 +201,7 @@
                   <mat-icon>archive</mat-icon>
                 </button>
 
-                <button
+                <button type="button"
                   *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active === false"
                   mat-raised-button
                   color="primary"
@@ -232,7 +214,7 @@
                   <mat-icon>unarchive</mat-icon>
                 </button>
 
-                <button
+                <button type="button"
                   *ngIf="globalService.hasPermission('CUSTOMER_DOCS_MANAGE') && customer.active !== false"
                   mat-raised-button
                   color="primary"
@@ -245,7 +227,20 @@
                   <mat-icon>folder</mat-icon>
                 </button>
 
-                <button
+                <button type="button"
+                  *ngIf="globalService.hasTenantFeature('workCompletion') && globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
+                  mat-raised-button
+                  color="primary"
+                  (click)="openWorkCompletion(customer)"
+                  class="action-with-tooltip"
+                  title="Compila il foglio di fine lavoro e raccogli la firma del cliente"
+                  aria-label="Compila foglio fine lavoro"
+                  data-tooltip="Foglio fine lavoro"
+                >
+                  <mat-icon>assignment_turned_in</mat-icon>
+                </button>
+
+                <button type="button"
                   *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
                   color="accent"
@@ -259,6 +254,7 @@
                 </button>
 
                 <button
+                  type="button"
                   mat-raised-button
                   color="accent"
                   [routerLink]="['/schedaCliente', customer.numeroCliente]"
@@ -270,7 +266,7 @@
                   <mat-icon>badge</mat-icon>
                 </button>
 
-                <button
+                <button type="button"
                   mat-raised-button
                   color="primary"
                   (click)="openCustomerWhatsApp(customer)"
@@ -282,7 +278,7 @@
                   <i class="fab fa-whatsapp"></i>
                 </button>
 
-                <button
+                <button type="button"
                   *ngIf="globalService.hasPermission('EMAIL_VIEW')"
                   mat-raised-button
                   color="accent"
@@ -298,7 +294,7 @@
               </div>
             </div>
 
-          </div>
+          </details>
 
         </div>
 
@@ -310,6 +306,4 @@
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
-</html>
+</div>

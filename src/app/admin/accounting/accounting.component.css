@@ -4,7 +4,10 @@
   gap: 18px;
   padding: 28px;
   color: #182238;
-  min-width: 1120px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
 }
 
 .accounting-toolbar {
@@ -222,8 +225,8 @@ textarea {
 }
 
 .entries-layout {
-  grid-template-columns: 360px minmax(740px, 1fr);
-  overflow-x: auto;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 2fr);
+  overflow-x: visible;
   align-items: start;
 }
 
@@ -315,10 +318,10 @@ textarea {
 
 .entries-panel {
   display: grid;
-  grid-template-columns: repeat(2, minmax(340px, 1fr));
+  grid-template-columns: repeat(2, minmax(min(340px, 100%), 1fr));
   align-items: start;
   gap: 14px;
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 .entries-panel > h2,
@@ -468,7 +471,8 @@ textarea {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 780px;
+  min-width: 0;
+  table-layout: fixed;
 }
 
 th,
@@ -477,6 +481,7 @@ td {
   padding: 10px 8px;
   text-align: left;
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 th {
@@ -488,6 +493,20 @@ th {
 .loading {
   color: #64748b;
   font-weight: 800;
+}
+
+@media (max-width: 1280px) {
+  .entries-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .journal-line {
+    grid-template-columns: minmax(0, 1fr) repeat(2, minmax(100px, .55fr));
+  }
+
+  .journal-line > :nth-child(4) {
+    grid-column: 1 / -2;
+  }
 }
 
 @media (max-width: 900px) {
@@ -510,5 +529,18 @@ th {
   .entries-panel > .entry-section,
   .entries-panel > .subtle {
     grid-column: auto;
+  }
+
+  .accounting-page {
+    padding: 16px;
+  }
+
+  table {
+    font-size: .82rem;
+  }
+
+  th,
+  td {
+    padding: 8px 5px;
   }
 }

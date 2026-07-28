@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import JSZip from 'jszip';
 import { GlobalService } from '../../service/global.service';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 interface InvoiceLine {
   id?: number;
@@ -477,6 +478,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     private router: Router,
     private changeDetector: ChangeDetectorRef,
     public global: GlobalService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -572,6 +574,10 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       { key: 'inbound-credit-notes', label: 'Note credito acquisto', items: creditNotesInbound },
       { key: 'inbound-debit-notes', label: 'Note debito acquisto', items: debitNotesInbound },
     ].filter((group) => group.items.length);
+  }
+
+  trackStableInteractiveItem(index: number, item: any): string | number {
+    return item?.id ?? item?.key ?? item?.numeroCliente ?? item?.code ?? item?.name ?? index;
   }
 
   filteredInvoicesByDocumentKind(): Invoice[] {
@@ -1630,7 +1636,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  generateInstallments(): void {
+  async generateInstallments(): Promise<void> {
     if (!this.selected.id) {
       this.error = 'Salva la fattura prima di generare le rate';
       return;
@@ -1657,16 +1663,16 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       });
       return;
     }
-    const countRaw = prompt('Numero rate', '2');
+    const countRaw = await this.appDialog.prompt('Quante rate vuoi generare?', '2', 'Genera piano rate', { inputLabel: 'Numero rate', inputType: 'number' });
     if (countRaw === null) return;
     const count = Number(countRaw);
     if (!Number.isInteger(count) || count <= 0) {
       this.error = 'Numero rate non valido';
       return;
     }
-    const firstDueDate = prompt('Prima scadenza', this.selected.dueDate || new Date().toISOString().slice(0, 10));
+    const firstDueDate = await this.appDialog.prompt('Scegli la data della prima rata.', this.selected.dueDate || new Date().toISOString().slice(0, 10), 'Prima scadenza', { inputLabel: 'Data', inputType: 'date' });
     if (firstDueDate === null) return;
-    const intervalRaw = prompt('Giorni tra le rate', '30');
+    const intervalRaw = await this.appDialog.prompt('Indica l’intervallo tra una rata e la successiva.', '30', 'Intervallo rate', { inputLabel: 'Giorni', inputType: 'number' });
     if (intervalRaw === null) return;
     const intervalDays = Number(intervalRaw);
     if (!Number.isInteger(intervalDays) || intervalDays <= 0) {
@@ -1723,8 +1729,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteInstallments(): void {
-    if (!this.selected.id || !confirm('Eliminare il piano rate?')) return;
+  async deleteInstallments(): Promise<void> {
+    if (!this.selected.id || !await this.appDialog.confirm('Eliminare il piano rate?')) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -1743,8 +1749,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteDdt(): void {
-    if (!this.selectedDdt.id || !confirm('Eliminare questa bozza DDT?')) return;
+  async deleteDdt(): Promise<void> {
+    if (!this.selectedDdt.id || !await this.appDialog.confirm('Eliminare questa bozza DDT?')) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -1784,8 +1790,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteSupplier(): void {
-    if (!this.selectedSupplier.id || !confirm('Eliminare questo fornitore?')) return;
+  async deleteSupplier(): Promise<void> {
+    if (!this.selectedSupplier.id || !await this.appDialog.confirm('Eliminare questo fornitore?')) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -1841,8 +1847,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  deletePaymentTerm(): void {
-    if (!this.selectedPaymentTerm.id || !confirm('Disattivare questo termine pagamento?')) return;
+  async deletePaymentTerm(): Promise<void> {
+    if (!this.selectedPaymentTerm.id || !await this.appDialog.confirm('Disattivare questo termine pagamento?')) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -1886,8 +1892,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteBankAccount(): void {
-    if (!this.selectedBankAccount.id || !confirm('Disattivare questa banca?')) return;
+  async deleteBankAccount(): Promise<void> {
+    if (!this.selectedBankAccount.id || !await this.appDialog.confirm('Disattivare questa banca?')) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -1931,8 +1937,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteServiceItem(): void {
-    if (!this.selectedServiceItem.id || !confirm('Disattivare questo servizio?')) return;
+  async deleteServiceItem(): Promise<void> {
+    if (!this.selectedServiceItem.id || !await this.appDialog.confirm('Disattivare questo servizio?')) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2084,12 +2090,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.loadStatusReport();
   }
 
-  createCreditNote(): void {
+  async createCreditNote(): Promise<void> {
     if (!this.selected.id) {
       this.error = 'Seleziona una fattura prima di creare la nota credito';
       return;
     }
-    const reason = prompt('Motivo nota credito', `Nota credito fattura ${this.selected.series ? this.selected.series + '/' : ''}${this.selected.number}`);
+    const reason = await this.appDialog.prompt('Indica il motivo della nota di credito.', `Nota credito fattura ${this.selected.series ? this.selected.series + '/' : ''}${this.selected.number}`, 'Crea nota di credito', { inputLabel: 'Motivo' });
     if (reason === null) return;
     this.saving = true;
     this.error = '';
@@ -2110,12 +2116,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  createDebitNote(): void {
+  async createDebitNote(): Promise<void> {
     if (!this.selected.id) {
       this.error = 'Seleziona una fattura prima di creare la nota debito';
       return;
     }
-    const reason = prompt('Motivo nota debito', `Nota debito fattura ${this.selected.series ? this.selected.series + '/' : ''}${this.selected.number}`);
+    const reason = await this.appDialog.prompt('Indica il motivo della nota di debito.', `Nota debito fattura ${this.selected.series ? this.selected.series + '/' : ''}${this.selected.number}`, 'Crea nota di debito', { inputLabel: 'Motivo' });
     if (reason === null) return;
     this.saving = true;
     this.error = '';
@@ -2242,12 +2248,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  emailDdt(): void {
+  async emailDdt(): Promise<void> {
     if (!this.selectedDdt.id) {
       this.error = 'Salva il DDT prima di inviarlo via email';
       return;
     }
-    const email = prompt('Email destinatario', '');
+    const email = await this.appDialog.prompt('Inserisci l’indirizzo a cui inviare il DDT.', '', 'Invia DDT via email', { inputLabel: 'Email destinatario', inputType: 'email', confirmLabel: 'Invia' });
     if (!email) return;
     this.saving = true;
     this.error = '';
@@ -2378,15 +2384,15 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     return result;
   }
 
-  markPaid(): void {
+  async markPaid(): Promise<void> {
     if (!this.selected.id) {
       this.error = 'Salva la fattura prima di segnarla come saldata';
       return;
     }
     const residual = Number(this.selected.residualAmount ?? this.selected.total ?? 0);
     const formattedResidual = residual.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
-    if (!confirm(`Segnare questa fattura come completamente saldata per ${formattedResidual}?`)) return;
-    const paymentDate = prompt('Data pagamento', this.todayInputDate());
+    if (!await this.appDialog.confirm(`Segnare questa fattura come completamente saldata per ${formattedResidual}?`)) return;
+    const paymentDate = await this.appDialog.prompt('Scegli la data del pagamento.', this.todayInputDate(), 'Registra saldo fattura', { inputLabel: 'Data pagamento', inputType: 'date' });
     if (paymentDate === null) return;
     if (!this.parseDate(paymentDate)) {
       this.error = 'Data pagamento non valida. Usa il formato AAAA-MM-GG';
@@ -2416,20 +2422,20 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  registerPayment(): void {
+  async registerPayment(): Promise<void> {
     if (!this.selected.id) {
       this.error = 'Salva la fattura prima di registrare un pagamento';
       return;
     }
     const residual = Number(this.selected.residualAmount || this.selected.total || 0);
-    const rawAmount = prompt('Importo da registrare', residual.toFixed(2));
+    const rawAmount = await this.appDialog.prompt('Inserisci l’importo ricevuto.', residual.toFixed(2), 'Registra pagamento', { inputLabel: 'Importo', inputType: 'number' });
     if (rawAmount === null) return;
     const amount = Number(String(rawAmount).replace(',', '.'));
     if (!Number.isFinite(amount) || amount <= 0) {
       this.error = 'Importo pagamento non valido';
       return;
     }
-    const paymentDate = prompt('Data pagamento', this.todayInputDate());
+    const paymentDate = await this.appDialog.prompt('Scegli la data del pagamento.', this.todayInputDate(), 'Registra pagamento', { inputLabel: 'Data pagamento', inputType: 'date' });
     if (paymentDate === null) return;
     if (!this.parseDate(paymentDate)) {
       this.error = 'Data pagamento non valida. Usa il formato AAAA-MM-GG';
@@ -2459,8 +2465,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  deletePayment(payment: InvoicePayment): void {
-    if (!payment.id || !confirm('Eliminare questo pagamento?')) return;
+  async deletePayment(payment: InvoicePayment): Promise<void> {
+    if (!payment.id || !await this.appDialog.confirm('Eliminare questo pagamento?')) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2480,8 +2486,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteDraft(): void {
-    if (!this.selected.id || !confirm('Eliminare questa bozza fattura?')) return;
+  async deleteDraft(): Promise<void> {
+    if (!this.selected.id || !await this.appDialog.confirm('Eliminare questa bozza fattura?')) return;
     this.runInvoiceAction('delete', 'Bozza eliminata', () => {
       this.newInvoice();
     });

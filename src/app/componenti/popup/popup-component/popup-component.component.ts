@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
-import { PopupServiceService } from '../popup-service.service';
+import { Component, Inject } from '@angular/core';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { AppDialogData } from '../popup-service.service';
 
 @Component({
   selector: 'app-popup-component',
@@ -7,18 +8,25 @@ import { PopupServiceService } from '../popup-service.service';
   styleUrl: './popup-component.component.css'
 })
 export class PopupComponentComponent {
-  constructor(private popup: PopupServiceService){}
+  inputValue = '';
+
+  constructor(
+    @Inject(MAT_DIALOG_DATA) public data: AppDialogData,
+    private readonly dialogRef: MatDialogRef<PopupComponentComponent>,
+  ) {
+    this.inputValue = data.inputValue || '';
+  }
 
   get text(): string {
-    return this.popup.text;
+    return this.data.message;
   }
 
   get title(): string {
-    return this.popup.title;
+    return this.data.title;
   }
 
   get type(): string {
-    return this.popup.type;
+    return this.data.type;
   }
 
   get messageLines(): string[] {
@@ -36,7 +44,11 @@ export class PopupComponentComponent {
     return this.messageLines.slice(1);
   }
 
-  closeDialog(){
-    this.popup.closePopup();
+  cancel(): void {
+    this.dialogRef.close(this.data.mode === 'alert' ? true : null);
+  }
+
+  confirm(): void {
+    this.dialogRef.close(this.data.mode === 'prompt' ? this.inputValue : true);
   }
 }

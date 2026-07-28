@@ -32,6 +32,7 @@ import { GestioneUsersComponent } from './admin/gestione-users/gestione-users.co
 import { SettingsEmployeesComponent } from './admin/settings-employees/settings-employees.component';
 import { CategorySettingsComponent } from './admin/category-settings/category-settings.component';
 import { DeadlinesManagementComponent } from './admin/deadlines-management/deadlines-management.component';
+import { CustomerAssetsGuidedUpdateComponent } from './admin/customer-assets-guided-update/customer-assets-guided-update.component';
 import { CustomerAssetsComponent } from './admin/customer-assets/customer-assets.component';
 
 import { DocumentManagerComponent } from './admin/document-manager/document-manager.component';
@@ -51,6 +52,7 @@ import { TimbratureDettaglioComponent } from './admin/timbrature-dettaglio/timbr
 import { QuoteAcceptComponent } from './public/quote-accept/quote-accept.component';
 import { ContractAcceptComponent } from './public/contract-accept/contract-accept.component';
 import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work-completion-stats.component';
+import { CustomerWorkCompletionComponent } from './admin/customer-work-completion/customer-work-completion.component';
 import { EmailHomeComponent } from './admin/email-home/email-home.component';
 import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
 import { NotificationSettingsComponent } from './admin/notification-settings/notification-settings.component';
@@ -176,6 +178,12 @@ const routes: Routes = [
         data: { permission: 'CUSTOMERS_VIEW' },
       },
       {
+        path: 'listCustomer/:numeroCliente/work-completion',
+        component: CustomerWorkCompletionComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMERS_MANAGE', feature: 'workCompletion' },
+      },
+      {
         path: 'quotesHome',
         component: QuotesHomeComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
@@ -246,6 +254,12 @@ const routes: Routes = [
         component: DeadlinesManagementComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
         data: { permission: 'CUSTOMER_ASSET_DEADLINES_VIEW', feature: 'customerAssets', kind: 'customerAsset' },
+      },
+      {
+        path: 'customer-asset-deadlines/guided-update',
+        component: CustomerAssetsGuidedUpdateComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMER_ASSET_DEADLINES_EDIT', feature: 'customerAssets' },
       },
       {
         path: 'customer-assets/customer/:customerId',
@@ -540,6 +554,12 @@ const routes: Routes = [
     data: { permission: 'CUSTOMERS_VIEW' },
   },
   {
+    path: 'listCustomer/:numeroCliente/work-completion',
+    component: CustomerWorkCompletionComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'CUSTOMERS_MANAGE', feature: 'workCompletion' },
+  },
+  {
     path: 'addCustomer',
     component: AddCustomerComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
@@ -636,6 +656,12 @@ const routes: Routes = [
     component: DeadlinesManagementComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
     data: { permission: 'CUSTOMER_ASSET_DEADLINES_VIEW', feature: 'customerAssets', kind: 'customerAsset' },
+  },
+  {
+    path: 'customer-asset-deadlines/guided-update',
+    component: CustomerAssetsGuidedUpdateComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'CUSTOMER_ASSET_DEADLINES_EDIT', feature: 'customerAssets' },
   },
   {
     path: 'customer-assets/customer/:customerId',
@@ -786,7 +812,12 @@ const routes: Routes = [
 ];
 
 @NgModule({
-  imports: [RouterModule.forRoot(routes)],
+  imports: [
+    RouterModule.forRoot(routes, {
+      scrollPositionRestoration: 'top',
+      anchorScrolling: 'enabled',
+    }),
+  ],
   exports: [RouterModule],
 })
 export class AppRoutingModule {}

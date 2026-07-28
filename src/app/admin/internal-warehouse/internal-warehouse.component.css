@@ -2058,10 +2058,23 @@ details[open] .settings-summary i {
   }
 }
 
-@media (min-width: 901px) and (max-width: 1180px) {
+@media (min-width: 901px) and (max-width: 1399.98px) {
   .movement-fields,
   .product-settings-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .product-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .product-filters .filter-field-wide {
+    min-width: 0;
+    grid-column: span 2;
+  }
+
+  .product-filters .filter-submit {
+    grid-column: auto;
   }
 }
 

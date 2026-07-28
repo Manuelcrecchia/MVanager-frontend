@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
@@ -17,7 +18,7 @@ export class CategorySettingsComponent implements OnInit {
   saving = false;
   error = '';
 
-  constructor(private http: HttpClient, private router: Router, public global: GlobalService) {}
+  constructor(private http: HttpClient, private router: Router, public global: GlobalService, private appDialog: PopupServiceService) {}
 
   ngOnInit(): void {
     const firstAvailable = this.availableTypes[0];
@@ -89,8 +90,8 @@ export class CategorySettingsComponent implements OnInit {
       error: (err) => { this.saving = false; this.error = err?.error?.error || 'Impossibile salvare la categoria.'; },
     });
   }
-  remove(category: ManagedCategory): void {
-    if (!confirm(`Eliminare la categoria ${this.singularTitle} "${category.name}"?`)) return;
+  async remove(category: ManagedCategory): Promise<void> {
+    if (!await this.appDialog.confirm(`Eliminare la categoria ${this.singularTitle} "${category.name}"?`)) return;
     this.http.post(this.global.url + this.endpoint('delete'), { id: category.id }).subscribe({ next: () => this.load(), error: () => this.error = 'Impossibile eliminare la categoria.' });
   }
   back(): void { this.router.navigate(['/homeAdmin']); }

@@ -1,0 +1,272 @@
+<main class="guided-page">
+  <header class="guided-header">
+    <button type="button" class="guided-back" (click)="cancelGuidedUpdate()">← Torna alle scadenze</button>
+    <div>
+      <span class="eyebrow">Procedura assistita</span>
+      <h1>Modifica guidata dei presidi</h1>
+      <p *ngIf="phase === 'prepare'">Prepara liberamente la combinazione di presidi e valori da aggiornare.</p>
+      <p *ngIf="phase === 'edit'">{{ completedCount }} di {{ steps.length }} presidi compilati</p>
+      <p *ngIf="phase === 'complete'">Operazione completata.</p>
+    </div>
+  </header>
+
+  <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
+
+  <section class="guided-card prepare-card" *ngIf="phase === 'prepare'">
+    <div class="section-heading">
+      <div><h2>1. Scegli il cliente</h2><p>La preparazione mostra soltanto i presidi del cliente selezionato.</p></div>
+      <div class="customer-picker" [class.is-open]="customerPickerOpen">
+        <div class="customer-picker-desktop">
+          <button
+            type="button"
+            class="customer-picker-trigger"
+            [attr.aria-expanded]="customerPickerOpen"
+            aria-haspopup="listbox"
+            (click)="toggleCustomerPicker()"
+          >
+            <span>{{ selectedCustomerLabel }}</span>
+            <span class="customer-picker-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div class="customer-picker-list" role="listbox" *ngIf="customerPickerOpen">
+            <button
+              type="button"
+              role="option"
+              *ngFor="let customer of customers"
+              [class.is-selected]="selectedCustomer === customer.id"
+              [attr.aria-selected]="selectedCustomer === customer.id"
+              (click)="selectCustomer(customer.id)"
+            >
+              <span>{{ customer.label }}</span>
+              <small>{{ customer.count }} {{ customer.count === 1 ? 'presidio' : 'presidi' }}</small>
+            </button>
+            <p *ngIf="!customers.length">Nessun cliente disponibile.</p>
+          </div>
+        </div>
+
+        <label class="customer-picker-native">
+          <span>Cliente</span>
+          <select
+            class="form-select"
+            [value]="selectedCustomer"
+            (change)="selectCustomer($any($event.target).value)"
+          >
+            <option value="">Seleziona cliente</option>
+            <option
+              *ngFor="let customer of customers; trackBy: trackCustomer"
+              [value]="customer.id"
+              [selected]="selectedCustomer === customer.id"
+            >
+              {{ customer.label }} · {{ customer.count }}
+              {{ customer.count === 1 ? 'presidio' : 'presidi' }}
+            </option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="selection-summary" *ngIf="selectedCustomer">
+      <span><strong>{{ selectedAssetCount }}</strong> presidi coinvolti</span>
+      <span><strong>{{ selectedPairs.size }}</strong> valori da modificare</span>
+    </div>
+
+    <details appReliableDetails class="prepare-type" *ngFor="let group of customerTypeGroups(); trackBy: trackTypeGroup">
+      <summary class="prepare-type-toggle">
+          <span class="prepare-type-chevron" aria-hidden="true">›</span>
+          <span>
+            <strong>{{ group.label }}</strong>
+            <small>{{ group.assets.length }} {{ group.assets.length === 1 ? 'presidio' : 'presidi' }}</small>
+          </span>
+      </summary>
+      <header>
+        <div class="rule-list">
+          <button type="button" role="checkbox" class="selection-checkbox" *ngFor="let field of group.fields; trackBy: trackField" [class.is-checked]="isRuleSelected(group.typeKey, field)" [attr.aria-checked]="isRuleSelected(group.typeKey, field)" (click)="toggleRuleFromClick($event, group.typeKey, field)">
+            <span class="selection-checkbox-box">{{ isRuleSelected(group.typeKey, field) ? '✓' : '' }}</span>
+            <span>Tutte: {{ field.label }}</span>
+          </button>
+        </div>
+      </header>
+      <div class="prepare-type-assets">
+      <article class="prepare-asset" *ngFor="let asset of group.assets; trackBy: trackAsset">
+        <div class="asset-summary">
+          <button
+            type="button"
+            class="asset-all"
+            [class.partial]="isAssetPartial(asset)"
+            [class.selected]="isAssetSelected(asset)"
+            [attr.aria-label]="'Seleziona tutti i valori di ' + assetDisplayLabel(asset)"
+            (click)="toggleAssetFromClick($event, asset)"
+          >
+            <span>{{ isAssetSelected(asset) ? '✓' : (isAssetPartial(asset) ? '−' : '') }}</span>
+          </button>
+          <details appReliableDetails class="asset-native-details">
+            <summary class="asset-toggle">
+              <span>
+                <strong>{{ assetDisplayLabel(asset) }}</strong>
+                <small *ngIf="asset.location">{{ asset.location }}</small>
+              </span>
+              <span class="asset-chevron" aria-hidden="true">›</span>
+            </summary>
+            <div class="asset-fields">
+              <button type="button" role="checkbox" class="selection-checkbox" *ngFor="let field of group.fields; trackBy: trackField" [class.is-checked]="isPairSelected(asset, field)" [attr.aria-checked]="isPairSelected(asset, field)" (click)="togglePairFromClick($event, asset, field)">
+                <span class="selection-checkbox-box">{{ isPairSelected(asset, field) ? '✓' : '' }}</span>
+                <span>{{ field.label }}</span>
+              </button>
+            </div>
+          </details>
+        </div>
+      </article>
+      </div>
+    </details>
+
+    <div class="empty-state" *ngIf="selectedCustomer && !customerAssets.length">Nessun presidio disponibile per questo cliente.</div>
+    <footer class="prepare-footer">
+      <button type="button" class="btn btn-outline-danger" (click)="cancelGuidedUpdate()">Annulla modifica guidata</button>
+      <button type="button" class="btn btn-primary" [disabled]="!selectedPairs.size" (click)="startGuidedEdit()">
+        Avvia modifica guidata · {{ selectedAssetCount }} presidi
+      </button>
+    </footer>
+  </section>
+
+  <section class="guided-workspace" *ngIf="phase === 'edit'">
+    <aside class="guided-queue" [class.mobile-open]="mobileQueueOpen">
+      <button
+        type="button"
+        class="mobile-queue-toggle"
+        [attr.aria-expanded]="mobileQueueOpen"
+        (click)="toggleMobileQueue()"
+      >
+        <span>
+          <strong>Elenco presidi</strong>
+          <small>{{ completedCount }}/{{ steps.length }} completati</small>
+        </span>
+        <span class="mobile-queue-chevron" aria-hidden="true">›</span>
+      </button>
+
+      <div class="guided-queue-content">
+        <div class="progress-copy"><strong>{{ completedCount }}/{{ steps.length }}</strong><span>completati</span></div>
+        <div class="progress"><div class="progress-bar" [style.width.%]="steps.length ? completedCount * 100 / steps.length : 0"></div></div>
+        <input class="form-control" type="search" [(ngModel)]="searchText" placeholder="Cerca codice, posizione, matricola…" />
+        <div class="queue-filters">
+          <button type="button" [class.active]="statusFilter === 'all'" (click)="statusFilter = 'all'">Tutti</button>
+          <button type="button" [class.active]="statusFilter === 'pending'" (click)="statusFilter = 'pending'">Da compilare</button>
+          <button type="button" [class.active]="statusFilter === 'done'" (click)="statusFilter = 'done'">Completati</button>
+        </div>
+        <button
+          type="button"
+          class="queue-item"
+          *ngFor="let item of filteredSteps"
+          [class.current]="item.index === currentIndex"
+          [class.done]="item.step.done"
+          [class.has-error]="item.step.error"
+          (click)="selectStep(item.index)"
+        >
+          <span>{{ item.step.done ? '✓' : (item.step.error ? '!' : item.index + 1) }}</span>
+          <span><strong>{{ assetDisplayLabel(item.step.asset) }}</strong><small>{{ item.step.fields.length }} campi da aggiornare</small></span>
+        </button>
+      </div>
+    </aside>
+
+    <section class="guided-editor" *ngIf="currentStep as step">
+      <header><div><span class="step-number">Presidio {{ currentIndex + 1 }} di {{ steps.length }}</span><h2>{{ assetDisplayLabel(step.asset) }}</h2><p>{{ step.asset.customerLabel }}</p></div><span class="draft-status" [class.done]="step.done">{{ step.done ? 'Bozza pronta' : 'Da compilare' }}</span></header>
+      <div class="readonly-grid">
+        <span *ngIf="step.asset.code && !isStepField(step, '__base_code')"><small>Codice</small><strong>{{ step.asset.code }}</strong></span>
+        <span *ngIf="step.asset.serialNumber && !isStepField(step, '__base_serialNumber')"><small>Matricola</small><strong>{{ step.asset.serialNumber }}</strong></span>
+        <span *ngIf="step.asset.location && !isStepField(step, '__base_location')"><small>Posizione</small><strong>{{ step.asset.location }}</strong></span>
+        <span *ngIf="step.asset.description && !isStepField(step, '__base_description')"><small>Note / descrizione</small><strong>{{ step.asset.description }}</strong></span>
+        <span *ngIf="step.asset.installedAt && !isStepField(step, '__base_installedAt')"><small>Data installazione</small><strong>{{ step.asset.installedAt }}</strong></span>
+        <span *ngFor="let line of customFieldLines(step.asset)"><small>{{ line.label }}</small><strong>{{ line.value }}</strong></span>
+      </div>
+      <div class="editable-fields">
+        <article *ngFor="let field of step.fields">
+          <div><h3>{{ field.label }}</h3><small *ngIf="field.bulkUpdateMode === 'today' || field.bulkUpdateMode === 'date_offset'">{{ guidedCalculationHint(field, step.asset.typeKey) }}</small></div>
+          <label *ngIf="field.type !== 'boolean' && field.type !== 'select' && field.type !== 'textarea' && field.type !== 'attachment'">
+            Nuovo valore
+            <input class="form-control" [type]="inputType(field)" [(ngModel)]="step.values[field.key]" (ngModelChange)="onGuidedValueChange(step, field)" />
+          </label>
+          <label *ngIf="field.type === 'textarea'">
+            Nuovo valore
+            <textarea class="form-control" rows="3" [(ngModel)]="step.values[field.key]" (ngModelChange)="onGuidedValueChange(step, field)"></textarea>
+          </label>
+          <label *ngIf="field.type === 'select'">
+            Nuovo valore
+            <select class="form-select" [(ngModel)]="step.values[field.key]" (ngModelChange)="onGuidedValueChange(step, field)">
+              <option value="">Seleziona</option>
+              <option *ngFor="let option of field.options || []" [value]="option">{{ option }}</option>
+            </select>
+          </label>
+          <button type="button" role="checkbox" class="selection-checkbox boolean-editor" *ngIf="field.type === 'boolean'" [class.is-checked]="step.values[field.key] === true" [attr.aria-checked]="step.values[field.key] === true" (click)="toggleStepBooleanFromClick($event, step, field)">
+            <span class="selection-checkbox-box">{{ step.values[field.key] ? '✓' : '' }}</span>
+            <span>{{ step.values[field.key] ? 'Sì' : 'No' }}</span>
+          </button>
+          <section class="guided-attachment-editor" *ngIf="field.type === 'attachment'">
+            <p>{{ field.attachmentMultiple ? 'Puoi allegare più file.' : 'Il nuovo file sostituisce quello precedente.' }}</p>
+            <label class="guided-desktop-upload">Allega file
+              <input type="file" [multiple]="field.attachmentMultiple" (change)="onGuidedAttachmentChange(step, field, $event)" />
+            </label>
+            <div class="guided-mobile-uploads">
+              <button type="button" (click)="guidedCamera.click()">Scatta foto</button>
+              <button type="button" (click)="guidedGallery.click()">Galleria</button>
+              <button type="button" (click)="guidedFile.click()">File</button>
+              <input #guidedCamera hidden type="file" accept="image/*" capture="environment" (change)="onGuidedAttachmentChange(step, field, $event)" />
+              <input #guidedGallery hidden type="file" accept="image/*" [multiple]="field.attachmentMultiple" (change)="onGuidedAttachmentChange(step, field, $event)" />
+              <input #guidedFile hidden type="file" [multiple]="field.attachmentMultiple" (change)="onGuidedAttachmentChange(step, field, $event)" />
+            </div>
+            <div class="guided-attachment-list">
+              <div *ngFor="let attachment of guidedExistingAttachments(step, field.key); trackBy: trackStableInteractiveItem">
+                <button
+                  type="button"
+                  class="guided-attachment-open"
+                  appReliableTap
+                  (reliableTap)="openGuidedExistingAttachment(step, attachment)"
+                >
+                  <span aria-hidden="true">📎</span>
+                  <span>{{ attachment.originalName }}</span>
+                </button>
+                <small>Salvato</small>
+                <button type="button" (click)="removeGuidedExistingAttachment(step, attachment.id)">Rimuovi</button>
+              </div>
+              <div *ngFor="let file of guidedNewAttachments(step, field.key); let fileIndex = index; trackBy: trackStableInteractiveItem">
+                <button
+                  type="button"
+                  class="guided-attachment-open"
+                  appReliableTap
+                  (reliableTap)="openGuidedNewAttachment(file)"
+                >
+                  <span aria-hidden="true">📎</span>
+                  <span>{{ file.name }}</span>
+                </button>
+                <small>Nuovo</small>
+                <button type="button" (click)="removeGuidedNewAttachment(step, field.key, fileIndex)">Rimuovi</button>
+              </div>
+            </div>
+          </section>
+          <label *ngIf="field.type === 'date' && field.isDeadline">
+            Preavviso (giorni)
+            <input class="form-control" type="number" min="0" [(ngModel)]="step.remindDays[field.key]" (ngModelChange)="markDirty(step)" />
+          </label>
+        </article>
+      </div>
+      <div class="alert alert-danger" *ngIf="step.error">{{ step.error }}</div>
+      <footer class="editor-actions">
+        <button type="button" class="btn btn-outline-light" [disabled]="currentIndex === 0" (click)="selectStep(currentIndex - 1)">← Precedente</button>
+        <button type="button" class="btn btn-primary" (click)="markCurrentDone(true)">Salva bozza e avanti →</button>
+      </footer>
+    </section>
+
+    <footer class="guided-final">
+      <button type="button" class="btn btn-outline-danger guided-cancel" [disabled]="saving" (click)="cancelGuidedUpdate()">Annulla modifica guidata</button>
+      <div class="guided-final-status">
+        <span *ngIf="pendingCount">{{ pendingCount }} presidi ancora da compilare</span>
+        <span *ngIf="!pendingCount">Tutti i presidi sono pronti.</span>
+        <button type="button" class="btn btn-success" [disabled]="saving || !completedCount" (click)="submit()">
+          {{ saving ? 'Salvataggio…' : 'Conferma e salva ' + completedCount + ' presidi' }}
+        </button>
+      </div>
+    </footer>
+  </section>
+
+  <section class="guided-card complete-card" *ngIf="phase === 'complete'">
+    <span class="complete-icon">✓</span><h2>{{ success }}</h2>
+    <button type="button" class="btn btn-primary" (click)="cancelGuidedUpdate()">Torna alle scadenze</button>
+  </section>
+</main>

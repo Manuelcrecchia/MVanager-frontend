@@ -1,6 +1,21 @@
 import { Injectable } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { PopupComponentComponent } from './popup-component/popup-component.component';
+import { firstValueFrom } from 'rxjs';
+
+export type AppDialogTone = 'error' | 'warning' | 'success' | 'info';
+
+export interface AppDialogData {
+  mode: 'alert' | 'confirm' | 'prompt';
+  title: string;
+  message: string;
+  type: AppDialogTone;
+  confirmLabel: string;
+  cancelLabel?: string;
+  inputLabel?: string;
+  inputValue?: string;
+  inputType?: 'text' | 'number' | 'date' | 'email';
+}
 
 @Injectable({
   providedIn: 'root'
@@ -9,7 +24,7 @@ export class PopupServiceService {
 
   text = '';
   title = 'Attenzione';
-  type: 'error' | 'warning' | 'success' | 'info' = 'warning';
+  type: AppDialogTone = 'warning';
   private browserAlertInstalled = false;
   private readonly nativeAlert = window.alert.bind(window);
   private lastDialogKey = '';
@@ -21,7 +36,7 @@ export class PopupServiceService {
 
   openPopup(
     title = 'Attenzione',
-    type: 'error' | 'warning' | 'success' | 'info' = this.guessType(this.text),
+    type: AppDialogTone = this.guessType(this.text),
   ) {
     const key = `${title}|${type}|${this.text}`;
     const now = Date.now();
@@ -33,23 +48,82 @@ export class PopupServiceService {
 
     this.title = title;
     this.type = type;
-    this.dialog.open(PopupComponentComponent, {
+    return this.openDialog({
+      mode: 'alert',
+      title,
+      message: this.text,
+      type,
+      confirmLabel: 'Ok',
+    });
+  }
+
+  private openDialog(data: AppDialogData) {
+    return this.dialog.open(PopupComponentComponent, {
       width: 'min(420px, calc(100vw - 32px))',
       maxWidth: 'calc(100vw - 32px)',
       panelClass: 'app-alert-dialog-panel',
       backdropClass: 'app-alert-dialog-backdrop',
-      autoFocus: false,
+      autoFocus: data.mode === 'prompt' ? 'input' : false,
       restoreFocus: false,
+      disableClose: data.mode !== 'alert',
+      data,
     });
   }
 
-  show(message: unknown, title = 'Attenzione', type: 'error' | 'warning' | 'success' | 'info' = 'warning') {
+  show(message: unknown, title = 'Attenzione', type: AppDialogTone = 'warning') {
     this.text = this.formatMessage(message);
     this.openPopup(title, type);
   }
 
   showError(message: unknown, title = 'Errore'): void {
     this.show(message, title, 'error');
+  }
+
+  async confirm(
+    message: unknown,
+    title = 'Conferma operazione',
+    options: {
+      type?: AppDialogTone;
+      confirmLabel?: string;
+      cancelLabel?: string;
+    } = {},
+  ): Promise<boolean> {
+    const ref = this.openDialog({
+      mode: 'confirm',
+      title,
+      message: this.formatMessage(message),
+      type: options.type || 'warning',
+      confirmLabel: options.confirmLabel || 'Conferma',
+      cancelLabel: options.cancelLabel || 'Annulla',
+    });
+    return (await firstValueFrom(ref.afterClosed())) === true;
+  }
+
+  async prompt(
+    message: unknown,
+    initialValue = '',
+    title = 'Inserisci un valore',
+    options: {
+      type?: AppDialogTone;
+      confirmLabel?: string;
+      cancelLabel?: string;
+      inputLabel?: string;
+      inputType?: 'text' | 'number' | 'date' | 'email';
+    } = {},
+  ): Promise<string | null> {
+    const ref = this.openDialog({
+      mode: 'prompt',
+      title,
+      message: this.formatMessage(message),
+      type: options.type || 'info',
+      confirmLabel: options.confirmLabel || 'Continua',
+      cancelLabel: options.cancelLabel || 'Annulla',
+      inputLabel: options.inputLabel || 'Valore',
+      inputValue: String(initialValue ?? ''),
+      inputType: options.inputType || 'text',
+    });
+    const result = await firstValueFrom(ref.afterClosed());
+    return typeof result === 'string' ? result : null;
   }
 
   showHttpError(err: any, fallback = 'Errore imprevisto. Riprova.', title = 'Errore'): void {
@@ -92,7 +166,7 @@ export class PopupServiceService {
     };
   }
 
-  private guessType(message: unknown): 'error' | 'warning' | 'success' | 'info' {
+  private guessType(message: unknown): AppDialogTone {
     const text = this.formatMessage(message).toLowerCase();
     if (
       text.includes('errore') ||

@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { GlobalService, TenantEmployeeFieldConfig } from '../../service/global.service';
 import { Router } from '@angular/router';
 import { saveAs } from 'file-saver';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 interface Employee {
   id: number;
@@ -74,6 +75,7 @@ export class SettingsEmployeesComponent implements OnInit {
     private http: HttpClient,
     public globalService: GlobalService,
     private router: Router,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit() {
@@ -346,9 +348,9 @@ export class SettingsEmployeesComponent implements OnInit {
       });
   }
 
-  deleteCategory(category: EmployeeCategory) {
+  async deleteCategory(category: EmployeeCategory): Promise<void> {
     if (!category.id) return;
-    if (!confirm(`Eliminare la categoria "${category.name}"?`)) return;
+    if (!await this.appDialog.confirm(`Eliminare la categoria "${category.name}"?`)) return;
 
     this.http
       .post(this.globalService.url + 'admin/employee-categories/delete', { id: category.id }, {
@@ -549,8 +551,8 @@ export class SettingsEmployeesComponent implements OnInit {
       .trim();
   }
 
-  unarchiveEmployee(emp: Employee): void {
-    if (!confirm(`Vuoi riattivare il dipendente "${emp.nome} ${emp.cognome}"?`)) return;
+  async unarchiveEmployee(emp: Employee): Promise<void> {
+    if (!await this.appDialog.confirm(`Vuoi riattivare il dipendente "${emp.nome} ${emp.cognome}"?`)) return;
 
     this.isLoading = true;
     this.http
@@ -577,9 +579,9 @@ export class SettingsEmployeesComponent implements OnInit {
       });
   }
 
-  exportAndArchiveEmployee(emp: any): void {
+  async exportAndArchiveEmployee(emp: any): Promise<void> {
     if (
-      !confirm(
+      !await this.appDialog.confirm(
         `Vuoi esportare e ARCHIVIARE il dipendente "${emp.nome} ${emp.cognome}"?\n\n` +
           `Lo storico (turni, presenze, timbrature) rimarrà nel sistema.`,
       )

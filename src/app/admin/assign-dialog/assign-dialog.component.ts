@@ -2,6 +2,7 @@ import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 @Component({
   selector: 'app-assign-dialog',
@@ -25,7 +26,8 @@ export class AssignDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: any,
     private dialogRef: MatDialogRef<AssignDialogComponent>,
     private http: HttpClient,
-    private globalService: GlobalService
+    private globalService: GlobalService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -197,7 +199,7 @@ export class AssignDialogComponent implements OnInit {
     return 'available';
   }
 
-  onSave(): void {
+  async onSave(): Promise<void> {
     const conflicts = this.selectedEmployees
       .map(id => this.data.busyDetails.find((c: any) => c.employeeId === id))
       .filter(Boolean);
@@ -210,7 +212,7 @@ export class AssignDialogComponent implements OnInit {
         msg += `• ${empName} è occupato su "${c.title}" alle ${hours}\n`;
       }
       msg += "\nVuoi salvare comunque?";
-      const proceed = confirm(msg);
+      const proceed = await this.appDialog.confirm(msg, 'Dipendenti già occupati', { confirmLabel: 'Salva comunque' });
       if (!proceed) return;
     }
 

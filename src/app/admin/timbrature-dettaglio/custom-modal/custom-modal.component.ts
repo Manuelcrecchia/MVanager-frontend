@@ -1,11 +1,12 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ReliableTapDirective } from '../../../shared/reliable-tap.directive';
 
 @Component({
   selector: 'app-custom-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ReliableTapDirective],
   templateUrl: './custom-modal.component.html',
 })
 export class CustomModalComponent {

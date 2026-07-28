@@ -1,0 +1,217 @@
+.work-page {
+  min-height: 100vh;
+  padding: 1.25rem;
+  color: #eaf1ff;
+  background: radial-gradient(circle at top right, #24466f 0, #101c31 42%, #08111f 100%);
+}
+
+.work-topbar,
+.submit-bar {
+  max-width: 920px;
+  margin: 0 auto 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.work-topbar div {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+}
+
+.work-card {
+  max-width: 920px;
+  margin: 0 auto 1rem;
+  padding: 1.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background: rgba(14, 29, 51, 0.92);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+}
+
+.step-indicator {
+  max-width: 420px;
+  margin: 1.25rem auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-indicator span {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: #d8e4f5;
+  background: #5f6f84;
+  font-weight: 800;
+}
+
+.step-indicator span.active {
+  color: #fff;
+  background: #0d6efd;
+}
+
+.step-indicator i {
+  width: 4rem;
+  height: 3px;
+  background: #5f6f84;
+}
+
+.step-indicator i.active {
+  background: #0d6efd;
+}
+
+.intro-step {
+  text-align: center;
+}
+
+.step-icon {
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 1.2rem;
+  color: #fff;
+  background: #0d6efd;
+  font-size: 2rem;
+}
+
+.info-box {
+  margin: 1.25rem 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(100, 175, 255, 0.38);
+  border-radius: 0.75rem;
+  color: #dcecff;
+  background: rgba(13, 110, 253, 0.14);
+}
+
+.work-card h1,
+.work-card h2,
+.work-card h3 {
+  margin-top: 0;
+}
+
+.eyebrow {
+  margin: 0 0 0.25rem;
+  color: #8fbaf3;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+}
+
+.customer-data,
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.customer-data span,
+.form-grid label,
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.customer-data strong {
+  color: #8fbaf3;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.question {
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.options label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.notes {
+  margin-top: 1rem;
+}
+
+.signature-canvas {
+  display: block;
+  width: 100%;
+  height: 260px;
+  border: 2px dashed #91a7c5;
+  border-radius: 0.8rem;
+  background: #fff;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.submit-bar {
+  position: sticky;
+  bottom: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 0.9rem;
+  background: rgba(7, 17, 31, 0.96);
+}
+
+.submit-bar span {
+  margin-left: auto;
+  color: #ffd17a;
+}
+
+.signature-hint {
+  margin: 1rem 0 0;
+  color: #aebfd7;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.success-card {
+  text-align: center;
+}
+
+.error-card {
+  color: #ffd0d0;
+  border-color: rgba(255, 90, 90, 0.45);
+}
+
+@media (max-width: 680px) {
+  .work-page {
+    padding: 0.75rem;
+  }
+
+  .customer-data,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .full {
+    grid-column: auto;
+  }
+
+  .work-topbar,
+  .submit-bar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+}

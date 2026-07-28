@@ -205,34 +205,34 @@
     <!-- COLONNA SINISTRA -->
     <div class="col-md-8 shift-work-column">
       <div class="shift-date-toolbar">
-        <button (click)="prevDay()" class="btn btn-secondary" aria-label="Giorno precedente">
+        <button type="button" (click)="prevDay()" class="btn btn-secondary" aria-label="Giorno precedente">
           <i class="fas fa-chevron-left"></i>
         </button>
         <div class="shift-mini-cal-wrapper">
-          <button class="shift-date-btn" (click)="toggleMiniCal()">
+          <button type="button" class="shift-date-btn" (click)="toggleMiniCal()">
             {{ selectedDate | date : "fullDate" }} ▾
           </button>
           <div class="shift-mini-cal" *ngIf="showMiniCal" (click)="$event.stopPropagation()">
             <div class="smc-header">
-              <button (click)="miniPrev()">‹</button>
+              <button type="button" (click)="miniPrev()">‹</button>
               <span>{{ miniCalTitle }}</span>
-              <button (click)="miniNext()">›</button>
+              <button type="button" (click)="miniNext()">›</button>
             </div>
             <div class="smc-grid">
               <div class="smc-dow" *ngFor="let d of DAYS_SHORT">{{ d }}</div>
-              <ng-container *ngFor="let week of miniCalGrid">
-                <div class="smc-day"
-                  *ngFor="let day of week"
+              <ng-container *ngFor="let week of miniCalGrid; trackBy: trackCalendarWeek">
+                <button type="button" class="smc-day"
+                  *ngFor="let day of week; trackBy: trackCalendarDay"
                   [class.smc-today]="isSameDay(day, selectedDate)"
                   [class.smc-other]="day.getMonth() !== miniCalDate.getMonth()"
                   (click)="miniSelectDay(day)">
                   {{ day.getDate() }}
-                </div>
+                </button>
               </ng-container>
             </div>
           </div>
         </div>
-        <button (click)="nextDay()" class="btn btn-secondary" aria-label="Giorno successivo">
+        <button type="button" (click)="nextDay()" class="btn btn-secondary" aria-label="Giorno successivo">
           <i class="fas fa-chevron-right"></i>
         </button>
       </div>
@@ -247,7 +247,7 @@
 
       <div *ngIf="!loading && appointments.length > 0" class="list-group">
         <div class="text-center mb-3">
-          <button class="btn btn-outline-primary btn-sm add-extra-btn" (click)="addExtra()">
+          <button type="button" class="btn btn-outline-primary btn-sm add-extra-btn" (click)="addExtra()">
             <i class="fas fa-plus"></i>
             Aggiungi lavoro extra
           </button>
@@ -290,7 +290,7 @@
           </div>
 
           <div class="shift-job-actions">
-          <button
+          <button type="button"
             class="btn btn-sm btn-outline-primary"
             (click)="openAssignmentDialog(a)"
             title="Assegna dipendenti"
@@ -298,7 +298,7 @@
             <i class="fas fa-user-friends"></i>
           </button>
 
-          <button
+          <button type="button"
             class="btn btn-sm btn-outline-warning"
             (click)="openVehicleDialog(a)"
             title="Assegna mezzo"
@@ -310,7 +310,7 @@
             {{ getVehicleLabel(a.id) }}
           </span>
 
-          <button
+          <button type="button"
             class="btn btn-sm btn-outline-info"
             (click)="openEquipmentDialog(a)"
             title="Assegna attrezzature"
@@ -348,7 +348,7 @@
 
           <div *ngIf="!isComplete(a)" class="text-danger shift-job-warning">❗</div>
 
-          <button
+          <button type="button"
             *ngIf="a.isExtra"
             class="btn btn-sm btn-outline-danger"
             (click)="removeExtra(a)"
@@ -369,7 +369,7 @@
         </div>
 
         <div class="text-center mt-3">
-          <button class="btn btn-outline-primary btn-sm add-extra-btn" (click)="addExtra()">
+          <button type="button" class="btn btn-outline-primary btn-sm add-extra-btn" (click)="addExtra()">
             <i class="fas fa-plus"></i>
             Aggiungi lavoro extra
           </button>
@@ -377,7 +377,7 @@
       </div>
 
       <div class="text-center mt-4">
-        <button class="btn btn-success" (click)="finalSave()">
+        <button type="button" class="btn btn-success" (click)="finalSave()">
           <i class="fas fa-save"></i>
           Salva Turni
         </button>

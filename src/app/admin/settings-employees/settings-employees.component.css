@@ -307,7 +307,8 @@
   text-align: left;
 }
 
-.employee-extra-edit-grid label {
+.employee-extra-edit-grid label,
+.employee-extra-edit-grid .employee-extra-field {
   display: grid;
   gap: 4px;
   margin: 0;
@@ -324,7 +325,7 @@
   display: none;
 }
 
-@media (max-width: 767.98px) {
+@media (max-width: 1399.98px) {
   .table-wrapper.desktop-table {
     display: none;
   }

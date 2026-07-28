@@ -82,39 +82,39 @@
     <div class="empty" *ngIf="!loading && accounts.length === 0">Nessun indirizzo email assegnato al tuo utente.</div>
     <div class="empty" *ngIf="!loading && accounts.length > 0 && messages.length === 0">Nessuna email in questa categoria.</div>
 
-    <button
+    <div
       class="message-row"
       *ngFor="let message of messages"
       [class.unread]="!message.read"
       [class.active]="selectedMessage?.id === message.id"
       [class.failed]="isFailedMessage(message)"
-      type="button"
-      (click)="openMessage(message)"
     >
-      <span class="read-indicator" [class.is-unread]="!message.read"></span>
-      <span class="message-account">{{ message.accountLabel || message.accountEmail }}</span>
-      <span class="message-main">
-        <strong>{{ sender(message) }}</strong>
-        <span class="message-subject-line">
-          <span class="message-subject-text">{{ message.subject || '(Senza oggetto)' }}</span>
-          <em
-            class="message-status-badge"
-            [class.message-status-badge--failed]="isFailedMessage(message)"
-            *ngIf="messageStatusLabel(message)"
-          >
-            {{ messageStatusLabel(message) }}
-          </em>
-          <i class="fas fa-paperclip attachment-inline" *ngIf="message.attachments && message.attachments.length > 0"></i>
+      <button class="message-open" type="button" (click)="openMessage(message)">
+        <span class="read-indicator" [class.is-unread]="!message.read"></span>
+        <span class="message-account">{{ message.accountLabel || message.accountEmail }}</span>
+        <span class="message-main">
+          <strong>{{ sender(message) }}</strong>
+          <span class="message-subject-line">
+            <span class="message-subject-text">{{ message.subject || '(Senza oggetto)' }}</span>
+            <em
+              class="message-status-badge"
+              [class.message-status-badge--failed]="isFailedMessage(message)"
+              *ngIf="messageStatusLabel(message)"
+            >
+              {{ messageStatusLabel(message) }}
+            </em>
+            <i class="fas fa-paperclip attachment-inline" *ngIf="message.attachments && message.attachments.length > 0"></i>
+          </span>
+          <small>{{ message.preview }}</small>
         </span>
-        <small>{{ message.preview }}</small>
-      </span>
+      </button>
       <span class="message-meta">
         <time *ngIf="messageDate(message)">{{ messageDate(message) | date:'dd/MM HH:mm' }}</time>
         <button class="trash-btn" type="button" (click)="trash(message, $event)" title="Cestino">
           <i class="fas fa-trash"></i>
         </button>
       </span>
-    </button>
+    </div>
 
     <div class="load-more-row" *ngIf="!loading && loadingMore">
       <span class="load-more-status">

@@ -4,6 +4,10 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "start:mobile:ip": "node scripts/start-mobile-with-ip.mjs",
+    "check:native-dialogs": "node scripts/check-native-dialogs.mjs",
+    "check:interactions": "node scripts/check-interactions.mjs",
+    "check:responsive-layout": "node scripts/check-responsive-layout.mjs",
     "cert:local": "node scripts/create-local-https-cert.js",
     "start:https": "npm run cert:local && ng serve --host 0.0.0.0 --ssl true --ssl-cert certs/mvanager-local.pem --ssl-key certs/mvanager-local-key.pem",
     "start:https:mobile": "npm run cert:local && ng serve --host 0.0.0.0 --configuration mobileLocalHttps --ssl true --ssl-cert certs/mvanager-local.pem --ssl-key certs/mvanager-local-key.pem",

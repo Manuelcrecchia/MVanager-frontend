@@ -113,6 +113,11 @@ import { EmployeeContractsComponent } from './admin/employee-contracts/employee-
 import { CandidatesComponent } from './admin/candidates/candidates.component';
 import { AiAssistantWidgetComponent } from './ai-assistant/ai-assistant-widget.component';
 import { MissingContactDialogComponent } from './shared/missing-contact-dialog/missing-contact-dialog.component';
+import { CustomerWorkCompletionComponent } from './admin/customer-work-completion/customer-work-completion.component';
+import { CustomerAssetsGuidedUpdateComponent } from './admin/customer-assets-guided-update/customer-assets-guided-update.component';
+import { AttachmentViewerComponent } from './shared/attachment-viewer/attachment-viewer.component';
+import { ReliableTapDirective } from './shared/reliable-tap.directive';
+import { ReliableDetailsDirective } from './shared/reliable-details.directive';
 
 registerLocaleData(localeIt);
 
@@ -177,6 +182,10 @@ registerLocaleData(localeIt);
     CandidatesComponent,
     AiAssistantWidgetComponent,
     MissingContactDialogComponent,
+    CustomerWorkCompletionComponent,
+    CustomerAssetsGuidedUpdateComponent,
+    AttachmentViewerComponent,
+    ReliableDetailsDirective,
   ],
   imports: [
     BrowserModule,
@@ -211,6 +220,7 @@ registerLocaleData(localeIt);
     MatDialogModule,
     DragDropModule,
     NgbModalModule,
+    ReliableTapDirective,
   ],
   providers: [
     provideHttpClient(withFetch(), withInterceptorsFromDi()),

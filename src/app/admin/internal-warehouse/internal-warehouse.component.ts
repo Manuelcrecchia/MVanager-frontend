@@ -180,6 +180,10 @@ interface WarehouseRequest {
   styleUrls: ['./internal-warehouse.component.css'],
 })
 export class InternalWarehouseComponent implements OnInit, OnDestroy {
+  trackStableInteractiveItem(index: number, item: any): string | number {
+    return item?.id ?? item?.key ?? item?.numeroCliente ?? item?.productId ?? item?.code ?? item?.name ?? index;
+  }
+
   @ViewChildren('scannerVideo') scannerVideos?: QueryList<ElementRef<HTMLVideoElement>>;
   private readonly validTabs: WarehouseTab[] = ['list', 'requests', 'orders', 'in', 'out', 'movements', 'products', 'tools'];
   private readonly fractionalUnits = new Set(['litri', 'ml', 'kg', 'g', 'metri']);
@@ -972,9 +976,9 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteProduct(product: WarehouseProduct): void {
+  async deleteProduct(product: WarehouseProduct): Promise<void> {
     if (!this.canManageProducts) return;
-    if (!confirm(`Archiviare il prodotto "${product.name}"?`)) return;
+    if (!await this.popup.confirm(`Archiviare il prodotto "${product.name}"?`)) return;
 
     this.http.delete(this.api(`/products/${product.id}`)).subscribe({
       next: () => {
@@ -1576,13 +1580,13 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     };
   }
 
-  deleteCategory(category: WarehouseCategory): void {
+  async deleteCategory(category: WarehouseCategory): Promise<void> {
     if (!this.canManageProducts) return;
     if (category.name === 'Generale') {
       this.error = 'La categoria Generale non può essere archiviata.';
       return;
     }
-    if (!confirm(`Archiviare la categoria "${category.name}"?`)) return;
+    if (!await this.popup.confirm(`Archiviare la categoria "${category.name}"?`)) return;
 
     this.http.delete(this.api(`/categories/${category.id}`)).subscribe({
       next: () => {

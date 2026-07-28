@@ -8,7 +8,7 @@
   display: block;
 }
 
-@media (max-width: 767.98px) {
+@media (max-width: 1399.98px) {
   .desktop-table {
     display: none !important;
   }

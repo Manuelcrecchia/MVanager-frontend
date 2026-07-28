@@ -142,12 +142,13 @@
         [class.notification-target]="contract.id === highlightedContractId"
         [attr.id]="'employee-contract-' + contract.id"
       >
-        <button
-          type="button"
-          class="quote-header-btn"
-          (click)="toggleContractOpen(contract.id)"
-        >
-          <span class="quote-title">
+        <div class="quote-header-layout">
+          <button
+            type="button"
+            class="quote-header-btn"
+            (click)="toggleContractOpen(contract.id)"
+          >
+            <span class="quote-title">
             {{ contract.contractNumber }} - {{ getContractDisplayName(contract) }}
             <span
               *ngIf="contract.status === 'sent' && !showCompletedContracts"
@@ -177,8 +178,9 @@
               <i *ngIf="contract.status === 'accepted'" class="fas fa-check-circle text-success ms-2"></i>
               <i *ngIf="contract.status === 'cancelled' || contract.status === 'expired'" class="fas fa-times-circle text-danger ms-2"></i>
             </ng-container>
-          </span>
-
+            </span>
+            <span class="chev" [class.chev--open]="isContractOpen(contract.id)">▾</span>
+          </button>
           <span class="d-flex align-items-center gap-2">
             <button
               type="button"
@@ -190,13 +192,12 @@
             >
               <i class="fas fa-file-pdf"></i>
             </button>
-            <span class="chev" [class.chev--open]="isContractOpen(contract.id)">▾</span>
           </span>
-        </button>
+        </div>
 
         <div class="quote-actions" *ngIf="isContractOpen(contract.id)">
           <div class="quote-actions-inner">
-            <button
+            <button type="button"
               *ngIf="!showCompletedContracts && canEdit(contract)"
               class="btn btn-quote-action btn-quote-edit action-with-tooltip"
               (click)="openEditForm(contract)"
@@ -207,7 +208,7 @@
               <i class="fas fa-pen-to-square"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedContracts && canDelete(contract)"
               class="btn btn-quote-action btn-quote-delete action-with-tooltip"
               (click)="deleteContract(contract)"
@@ -218,7 +219,7 @@
               <i class="fas fa-trash"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedContracts && canSend(contract)"
               class="btn btn-quote-action btn-quote-whatsapp action-with-tooltip"
               (click)="openContractWhatsApp(contract)"
@@ -229,7 +230,7 @@
               <i class="fab fa-whatsapp"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedContracts && canSend(contract) && canComposeEmail()"
               class="btn btn-quote-action btn-quote-email action-with-tooltip"
               (click)="composeContractEmail(contract)"
@@ -240,7 +241,7 @@
               <i class="fas fa-envelope"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedContracts && canSend(contract)"
               class="btn btn-quote-action btn-quote-chat action-with-tooltip"
               (click)="sendSignatureLink(contract)"
@@ -251,7 +252,7 @@
               <i class="fas fa-file-signature"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedContracts && canSendContractPdf(contract)"
               class="btn btn-quote-action btn-quote-send action-with-tooltip"
               (click)="sendContractPdf(contract)"
@@ -262,7 +263,7 @@
               <i class="fas fa-file-export"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedContracts && canAcceptContract(contract)"
               class="btn btn-quote-action btn-quote-confirm action-with-tooltip"
               (click)="acceptContract(contract)"
@@ -273,7 +274,7 @@
               <i class="fas fa-check"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedContracts && canRefuseContract(contract)"
               class="btn btn-quote-action btn-quote-refuse action-with-tooltip"
               (click)="refuseContract(contract)"
@@ -284,7 +285,7 @@
               <i class="fas fa-times"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="canDuplicate(contract)"
               class="btn btn-quote-action btn-quote-copy action-with-tooltip"
               (click)="duplicateContract(contract)"
@@ -295,7 +296,7 @@
               <i class="fas fa-copy"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="showCompletedContracts && canCompleteOnboarding(contract)"
               class="btn btn-quote-action btn-quote-verify action-with-tooltip"
               (click)="reviewSignedContractAndCreateEmployee(contract)"

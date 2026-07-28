@@ -72,6 +72,18 @@ interface RoutePlannerTeam {
   styleUrl: './shift-home.component.css',
 })
 export class ShiftHomeComponent implements OnInit, OnDestroy {
+  trackStableInteractiveItem(index: number, item: any): string | number {
+    return item?.id ?? item?.key ?? item?.name ?? item ?? index;
+  }
+
+  trackCalendarWeek(index: number, week: Date[]): number {
+    return week?.[0]?.getTime() ?? index;
+  }
+
+  trackCalendarDay(index: number, day: Date): number {
+    return day?.getTime() ?? index;
+  }
+
   @ViewChild('routePlannerMap') routePlannerMap?: ElementRef<HTMLDivElement>;
 
   selectedDate: Date = new Date();

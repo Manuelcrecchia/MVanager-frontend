@@ -1,23 +1,172 @@
 <div class="page-wrap">
   <div class="topbar">
-    <button class="btn-back" (click)="back()">← Indietro</button>
+    <button type="button" class="btn-back" (click)="back()">← Indietro</button>
 
     <div class="topbar-actions">
-      <button *ngIf="kind === 'customerAsset'" class="btn btn-outline-light btn-sm" type="button" (click)="toggleCustomerAssetArchive()">
-        {{ showArchivedCustomerAssets ? '← Scadenze operative' : 'Storico presidi eliminati' }}
-      </button>
-      <button class="btn btn-outline-light btn-sm deadline-refresh-button" type="button" (click)="loadAll()">
-        ↻ Aggiorna
+      <label class="deadline-month-picker desktop-secondary-operation">
+        <span>Mese riepilogo</span>
+        <input type="month" [(ngModel)]="selectedMonth" (ngModelChange)="onSelectedMonthChange()" />
+      </label>
+      <button class="btn btn-outline-light btn-sm desktop-secondary-operation" type="button" [disabled]="exportingPdf || !selectedMonth" (click)="openMonthlyPdfExport()">
+        {{ exportingPdf ? 'Generazione…' : 'Esporta PDF' }}
       </button>
       <button
+        *ngIf="kind === 'customerAsset' && !showArchivedCustomerAssets"
+        class="btn btn-outline-light btn-sm desktop-secondary-operation"
+        type="button"
+        [class.filter-active]="hasActiveDeadlineDateFilter"
+        (click)="openDeadlineDateFilter()"
+      >
+        {{ hasActiveDeadlineDateFilter ? 'Filtra · attivo' : 'Filtra' }}
+      </button>
+      <button *ngIf="kind === 'customerAsset'" class="btn btn-outline-light btn-sm desktop-secondary-operation" type="button" (click)="toggleCustomerAssetArchive()">
+        {{ showArchivedCustomerAssets ? '← Scadenze operative' : 'Storico presidi eliminati' }}
+      </button>
+      <button
+        *ngIf="kind === 'customerAsset' && canEdit && !showArchivedCustomerAssets"
+        class="btn btn-primary btn-sm topbar-primary-operation"
+        type="button"
+        (click)="openGuidedCustomerAssetUpdate()"
+      >
+        Prepara modifica guidata
+      </button>
+      <button class="btn btn-outline-light btn-sm deadline-refresh-button desktop-secondary-operation" type="button" (click)="loadAll()">
+        ↻ Aggiorna
+      </button>
+      <button type="button"
         *ngIf="canCreate && !showArchivedCustomerAssets"
-        class="btn btn-primary btn-sm"
+        class="btn btn-primary btn-sm topbar-primary-operation"
         (click)="openPrimaryCreate()"
       >
         {{ primaryCreateLabel }}
       </button>
+
+      <details appReliableDetails #mobileOperations class="mobile-operations-menu">
+        <summary>Altre operazioni</summary>
+        <div class="mobile-operations-content">
+          <label class="deadline-month-picker">
+            <span>Mese riepilogo</span>
+            <input type="month" [(ngModel)]="selectedMonth" (ngModelChange)="onSelectedMonthChange()" />
+          </label>
+          <button class="btn btn-outline-light btn-sm" type="button" [disabled]="exportingPdf || !selectedMonth" (click)="mobileOperations.open = false; openMonthlyPdfExport()">
+            {{ exportingPdf ? 'Generazione…' : 'Esporta PDF' }}
+          </button>
+          <button
+            *ngIf="kind === 'customerAsset' && !showArchivedCustomerAssets"
+            class="btn btn-outline-light btn-sm"
+            type="button"
+            [class.filter-active]="hasActiveDeadlineDateFilter"
+            (click)="mobileOperations.open = false; openDeadlineDateFilter()"
+          >
+            {{ hasActiveDeadlineDateFilter ? 'Filtra · attivo' : 'Filtra per data' }}
+          </button>
+          <button *ngIf="kind === 'customerAsset'" class="btn btn-outline-light btn-sm" type="button" (click)="mobileOperations.open = false; toggleCustomerAssetArchive()">
+            {{ showArchivedCustomerAssets ? '← Scadenze operative' : 'Storico presidi eliminati' }}
+          </button>
+          <button class="btn btn-outline-light btn-sm deadline-refresh-button" type="button" (click)="mobileOperations.open = false; loadAll()">
+            ↻ Aggiorna dati
+          </button>
+        </div>
+      </details>
     </div>
   </div>
+
+  <section class="deadline-filter-panel glass" *ngIf="showDeadlineDateFilter">
+    <div class="deadline-filter-heading">
+      <div>
+        <span class="eyebrow">Filtro operativo</span>
+        <h3>Presidi in scadenza per intervallo</h3>
+        <p>Mostra soltanto i clienti e i presidi con almeno una scadenza compresa tra le due date.</p>
+      </div>
+      <button type="button" class="btn btn-outline-light btn-sm" (click)="closeDeadlineDateFilter()">Chiudi</button>
+    </div>
+    <div class="deadline-filter-fields">
+      <label>Data iniziale
+        <input class="form-control" type="date" [(ngModel)]="deadlineFilterDraftStart" />
+      </label>
+      <label>Data finale
+        <input class="form-control" type="date" [(ngModel)]="deadlineFilterDraftEnd" />
+      </label>
+    </div>
+    <div class="deadline-filter-actions">
+      <button type="button" class="btn btn-outline-light" *ngIf="hasActiveDeadlineDateFilter" (click)="clearDeadlineDateFilter()">Azzera filtro</button>
+      <button type="button" class="btn btn-outline-light" (click)="closeDeadlineDateFilter()">Annulla</button>
+      <button type="button" class="btn btn-primary" (click)="applyDeadlineDateFilter()">Applica filtro</button>
+    </div>
+  </section>
+
+  <div class="active-deadline-filter" *ngIf="hasActiveDeadlineDateFilter">
+    <span>Presidi con scadenze dal <strong>{{ deadlineFilterStart | date:'dd/MM/yyyy' }}</strong> al <strong>{{ deadlineFilterEnd | date:'dd/MM/yyyy' }}</strong></span>
+    <button type="button" (click)="clearDeadlineDateFilter()">Azzera filtro</button>
+  </div>
+
+  <section class="pdf-export-panel glass" *ngIf="showPdfExport">
+    <div class="pdf-export-heading">
+      <div>
+        <span class="eyebrow">Riepilogo {{ selectedMonth }}</span>
+        <h3>Prepara il PDF delle scadenze</h3>
+        <p>Scegli un elenco compatto dei clienti oppure il dettaglio dei presidi in scadenza.</p>
+      </div>
+      <button type="button" class="btn btn-outline-light btn-sm" [disabled]="exportingPdf" (click)="closeMonthlyPdfExport()">Chiudi</button>
+    </div>
+
+    <div class="pdf-export-modes">
+      <label class="pdf-mode-card" [class.active]="pdfExportMode === 'customers'">
+        <input type="radio" name="pdfExportMode" [checked]="pdfExportMode === 'customers'" (change)="onPdfExportModeChange('customers')" />
+        <span>
+          <strong>Solo elenco clienti</strong>
+          <small>Un cliente per riga, con il numero di presidi e scadenze del mese.</small>
+        </span>
+      </label>
+      <label class="pdf-mode-card" [class.active]="pdfExportMode === 'assets'">
+        <input type="radio" name="pdfExportMode" [checked]="pdfExportMode === 'assets'" (change)="onPdfExportModeChange('assets')" />
+        <span>
+          <strong>Presidi dei clienti selezionati</strong>
+          <small>Cliente, presidio, tipo di scadenza, data, stato e posizione.</small>
+        </span>
+      </label>
+    </div>
+
+    <div class="pdf-customer-selector" *ngIf="pdfExportMode === 'assets'">
+      <div class="pdf-customer-toolbar">
+        <label>
+          <input
+            type="checkbox"
+            [checked]="allPdfCustomersSelected"
+            [indeterminate]="somePdfCustomersSelected"
+            (change)="toggleAllPdfCustomers($any($event.target).checked)"
+          />
+          <strong>Seleziona tutti i clienti del mese</strong>
+        </label>
+        <span>{{ selectedPdfCustomerIds.size }} di {{ pdfCustomers.length }} selezionati</span>
+      </div>
+      <p class="empty-state" *ngIf="pdfCustomersLoading">Caricamento clienti…</p>
+      <p class="error" *ngIf="pdfCustomersError">{{ pdfCustomersError }}</p>
+      <div class="pdf-customer-list" *ngIf="!pdfCustomersLoading && !pdfCustomersError">
+        <label *ngFor="let customer of pdfCustomers">
+          <input
+            type="checkbox"
+            [checked]="selectedPdfCustomerIds.has(customer.id)"
+            (change)="togglePdfCustomer(customer.id, $any($event.target).checked)"
+          />
+          <span><strong>{{ customer.label }}</strong><small>{{ customer.assetCount }} presidi · {{ customer.deadlineCount }} scadenze</small></span>
+        </label>
+        <p class="empty-state" *ngIf="pdfCustomers.length === 0">Nessun cliente ha presidi in scadenza nel mese selezionato.</p>
+      </div>
+    </div>
+
+    <div class="pdf-export-actions">
+      <button type="button" class="btn btn-outline-light" [disabled]="exportingPdf" (click)="closeMonthlyPdfExport()">Annulla</button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        [disabled]="exportingPdf || pdfCustomersLoading || (pdfExportMode === 'assets' && selectedPdfCustomerIds.size === 0)"
+        (click)="confirmMonthlyPdfExport()"
+      >
+        {{ exportingPdf ? 'Generazione…' : 'Scarica PDF' }}
+      </button>
+    </div>
+  </section>
 
   <div class="card glass hero-card">
     <div>
@@ -63,7 +212,7 @@
         Pulisci
       </button>
     </div>
-    <span class="search-count" *ngIf="hasActiveSearch">
+    <span class="search-count" *ngIf="hasActiveListFilter">
       {{ filteredGroups.length }} risultati
     </span>
     <label class="empty-groups-toggle" *ngIf="kind === 'customer' && customersWithoutDeadlinesCount > 0">
@@ -86,7 +235,7 @@
         <h3 class="section-title mb-1">{{ formTitle }}</h3>
         <p class="section-subtitle mb-0">{{ formSubtitle }}</p>
       </div>
-      <button class="btn btn-outline-light btn-sm" (click)="cancelForm()">
+      <button type="button" class="btn btn-outline-light btn-sm" (click)="cancelForm()">
         Chiudi
       </button>
     </div>
@@ -228,20 +377,21 @@
         </div>
 
         <div class="deadline-actions">
-          <button
+          <button type="button"
             class="btn btn-outline-light btn-sm"
             (click)="renameExistingAttachment(attachment)"
           >
             Rinomina
           </button>
-          <button
+          <button type="button"
             class="btn btn-outline-light btn-sm"
             *ngIf="editingDeadline"
-            (click)="openAttachment(editingDeadline, attachment)"
+            appReliableTap
+            (reliableTap)="openAttachment(editingDeadline, attachment)"
           >
             Apri
           </button>
-          <button
+          <button type="button"
             class="btn btn-outline-danger btn-sm"
             (click)="deleteExistingAttachment(attachment)"
           >
@@ -254,17 +404,17 @@
     <div class="selected-files" *ngIf="pendingFiles.length > 0">
       <div class="selected-file" *ngFor="let file of pendingFiles; let i = index">
         <span>{{ file.name }}</span>
-        <button class="btn btn-link btn-sm" (click)="removePendingFile(i)">
+        <button type="button" class="btn btn-link btn-sm" (click)="removePendingFile(i)">
           rimuovi
         </button>
       </div>
     </div>
 
     <div class="form-actions">
-      <button class="btn btn-outline-light" (click)="cancelForm()">
+      <button type="button" class="btn btn-outline-light" (click)="cancelForm()">
         Annulla
       </button>
-      <button class="btn btn-primary" [disabled]="!canSave || saving" (click)="submit()">
+      <button type="button" class="btn btn-primary" [disabled]="!canSave || saving" (click)="submit()">
         <span *ngIf="saving" class="spinner-border spinner-border-sm me-2"></span>
         {{ submitLabel }}
       </button>
@@ -276,7 +426,7 @@
     Caricamento in corso...
   </div>
 
-  <div class="card glass mt-3 empty-page-state" *ngIf="!loading && !entitiesLoading && groups.length === 0 && !hasActiveSearch">
+  <div class="card glass mt-3 empty-page-state" *ngIf="!loading && !entitiesLoading && groups.length === 0 && !hasActiveListFilter">
     <h3>{{ emptyStateTitle }}</h3>
     <p>{{ emptyStateMessage }}</p>
     <button
@@ -291,13 +441,18 @@
 
   <div
     class="card glass mt-3 text-center py-4"
-    *ngIf="!loading && !entitiesLoading && hasActiveSearch && !selectedGroup && filteredGroups.length === 0"
+    *ngIf="!loading && !entitiesLoading && hasActiveListFilter && !selectedGroup && filteredGroups.length === 0"
   >
-    Nessun risultato per questa ricerca.
+    {{ kind === 'customerAsset' && hasActiveDeadlineDateFilter
+      ? 'Nessun presidio ha scadenze comprese nell’intervallo selezionato.'
+      : 'Nessun risultato per questa ricerca.' }}
   </div>
 
   <div class="entity-list" *ngIf="!loading && !entitiesLoading && filteredGroups.length > 0 && !selectedGroup">
-    <article class="card glass entity-row" *ngFor="let group of filteredGroups">
+    <article
+      class="card glass entity-row"
+      *ngFor="let group of filteredGroups; trackBy: trackDeadlineGroup"
+    >
       <div class="entity-row-main">
         <div class="entity-head-copy">
           <div class="entity-title-row">
@@ -340,7 +495,8 @@
         <button
           type="button"
           class="btn btn-outline-light btn-sm detail-button"
-          (click)="openGroup(group)"
+          appReliableTap
+          (reliableTap)="openGroupById(group.id)"
         >
           Dettaglio
           <span
@@ -358,7 +514,7 @@
   <section class="card glass mt-3 detail-card" *ngIf="!loading && !entitiesLoading && selectedGroupView as currentGroup">
     <div class="entity-head">
       <div>
-        <button type="button" class="detail-back" (click)="closeGroup()">← Elenco {{ detailListLabel }}</button>
+        <button type="button" class="detail-back" appReliableTap (reliableTap)="closeGroup()">← Elenco {{ detailListLabel }}</button>
         <h3 class="entity-title mt-2">{{ currentGroup.label }}</h3>
         <p class="entity-subtitle mb-0">{{ currentGroup.subtitle || ' ' }}</p>
       </div>
@@ -368,12 +524,19 @@
           *ngIf="canPlan && selectedDeadlineIds.size > 0"
           type="button"
           class="btn btn-primary btn-sm"
-          (pointerdown)="onPlanSelectedDeadlinesPointerDown($event)"
-          (click)="onPlanSelectedDeadlinesClick($event)"
+          (click)="planSelectedDeadlines()"
         >
           Pianifica selezionate ({{ selectedDeadlineIds.size }})
         </button>
-        <button type="button" class="btn btn-outline-light btn-sm detail-return-button" (click)="closeGroup()">
+        <button
+          *ngIf="kind === 'customerAsset' && canEdit && selectedDeadlineIds.size > 0"
+          type="button"
+          class="btn btn-dark btn-sm"
+          (click)="openBulkSelectedCustomerAssetDeadlinesUpdate()"
+        >
+          Aggiorna scadenze selezionate ({{ selectedDeadlineIds.size }})
+        </button>
+        <button type="button" class="btn btn-outline-light btn-sm detail-return-button" appReliableTap (reliableTap)="closeGroup()">
           Torna all'elenco
         </button>
         <button
@@ -388,7 +551,7 @@
     </div>
 
 
-    <div class="empty-state" *ngIf="hasActiveSearch && selectedFolderGroups.length === 0">
+    <div class="empty-state" *ngIf="hasActiveListFilter && selectedFolderGroups.length === 0">
       Nessuna scadenza trovata in questo {{ entityLabel }}.
     </div>
 
@@ -403,33 +566,238 @@
     </ng-container>
 
     <ng-template #customerAssetDetail>
-      <div class="customer-asset-detail-list">
-        <section class="customer-asset-detail-block" *ngFor="let asset of selectedCustomerAssetGroups">
-          <div class="customer-asset-detail-head">
+      <details appReliableDetails class="customer-secondary-bulk" *ngIf="!showArchivedCustomerAssets && selectedCustomerAssetGroups.length">
+        <summary>Altre operazioni massive sui presidi</summary>
+        <section class="customer-asset-quick-panel" *ngIf="selectedCustomerAssetTypeGroups.length">
+          <div class="quick-panel-heading">
             <div>
-              <h4 class="customer-asset-detail-title">{{ asset.label }}</h4>
-              <p class="entity-subtitle mb-0">{{ asset.summary.totalCount }} scadenze · {{ getFolderGroups(asset).length }} cartelle</p>
+              <span class="quick-panel-eyebrow">Scadenze dei presidi</span>
+              <h4>Aggiornamento massivo</h4>
+              <p>Seleziona automaticamente le scadenze indicando il tipo di presidio e il lavoro eseguito. Le altre scadenze non verranno modificate.</p>
             </div>
-            <div class="detail-head-actions" *ngIf="!showArchivedCustomerAssets">
-              <button type="button" class="btn btn-outline-light btn-sm" (click)="editCustomerAsset(asset)">Modifica presidio</button>
-              <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteCustomerAsset(asset)">Elimina presidio</button>
-            </div>
+            <span class="quick-selection-badge" *ngIf="selectedCustomerAssetDeadlineCount">
+              {{ selectedCustomerAssetDeadlineCount }} selezionate
+            </span>
           </div>
-          <details class="deadline-history customer-asset-audit" *ngIf="asset.auditHistory?.length">
-            <summary>Storico dati presidio ({{ asset.auditHistory?.length }})</summary>
-            <article class="history-entry" *ngFor="let entry of asset.auditHistory">
-              <div><strong>{{ entry.summary }}</strong> · {{ entry.createdAt | date:'dd/MM/yyyy, HH:mm' }}</div>
-              <small *ngIf="entry.actorEmail">Operatore: {{ entry.actorEmail }}</small>
-              <div class="history-snapshot">
-                <span *ngIf="entry.snapshot['code']">Codice: {{ entry.snapshot['code'] }}</span>
-                <span *ngIf="entry.snapshot['serialNumber']">Matricola: {{ entry.snapshot['serialNumber'] }}</span>
-                <span *ngIf="entry.snapshot['location']">Posizione: {{ entry.snapshot['location'] }}</span>
-              </div>
-            </article>
-          </details>
-          <ng-container *ngTemplateOutlet="folderList; context: { $implicit: getFolderGroups(asset) }"></ng-container>
+          <div class="quick-selection-grid">
+            <label>Tipo di presidio
+              <select class="form-select" [(ngModel)]="quickAssetTypeKey" (ngModelChange)="onQuickAssetTypeChange()">
+                <option *ngFor="let typeGroup of selectedCustomerAssetTypeGroups" [value]="typeGroup.key">
+                  {{ typeGroup.label }} ({{ typeGroup.assets.length }})
+                </option>
+              </select>
+            </label>
+            <label>Intervento
+              <select class="form-select" [(ngModel)]="quickDeadlineFieldKey">
+                <option *ngFor="let action of quickDeadlineActions" [value]="action.fieldKey">{{ action.label }}</option>
+              </select>
+            </label>
+            <label>Quali scadenze
+              <select class="form-select" [(ngModel)]="quickDeadlineScope">
+                <option value="alerts">Solo scadute o in preavviso</option>
+                <option value="all">Tutte, anche quelle future</option>
+              </select>
+            </label>
+            <button type="button" class="btn btn-primary quick-update-button" [disabled]="quickSelectionCount === 0" (click)="prepareQuickCustomerAssetDeadlineUpdate()">
+              Seleziona e aggiorna {{ quickSelectionCount }}
+            </button>
+          </div>
+          <p class="quick-selection-note" *ngIf="quickDeadlineAction">
+            Verranno modificate soltanto le scadenze “{{ quickDeadlineAction.label }}” dei {{ quickCustomerAssetTypeGroup?.label | lowercase }}.
+          </p>
         </section>
-        <div class="empty-state" *ngIf="selectedCustomerAssetGroups.length === 0">
+        <p>Seleziona interi presidi per aggiornare insieme anche gli altri campi configurati.</p>
+        <div class="detail-head-actions">
+          <button type="button" class="btn btn-outline-light btn-sm" (click)="selectAllCustomerAssetsForCurrentCustomer()">
+            {{ selectedCustomerAssetIds.size === selectedCustomerAssetGroups.length ? 'Deseleziona tutti i presidi' : 'Seleziona tutti i presidi' }}
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" [disabled]="selectedCustomerAssetIds.size === 0" (click)="openBulkCustomerAssetUpdate()">
+            Aggiorna presidi selezionati ({{ selectedCustomerAssetIds.size }})
+          </button>
+        </div>
+      </details>
+
+      <section class="customer-category-panel" *ngIf="showBulkCustomerAssetForm">
+        <div>
+          <strong>Anteprima aggiornamento massivo</strong>
+          <p class="mb-0">Deseleziona i campi che non vuoi modificare oppure correggi liberamente i valori proposti.</p>
+        </div>
+        <div class="customer-asset-detail-list">
+          <div class="category-check" *ngFor="let row of bulkRows">
+            <input type="checkbox" [(ngModel)]="row.included" />
+            <span>
+              <strong>{{ row.typeLabel }} · {{ row.label }}</strong>
+              <small *ngIf="row.mode === 'today' || row.mode === 'date_offset'">Valore suggerito: {{ row.calculationHint }}</small>
+              <input *ngIf="row.type !== 'boolean' && row.type !== 'select'" class="form-control mt-2" [type]="bulkRowInputType(row)" [(ngModel)]="row.value" [disabled]="!row.included" />
+              <select *ngIf="row.type === 'select'" class="form-select mt-2" [(ngModel)]="row.value" [disabled]="!row.included">
+                <option value="">Seleziona</option>
+                <option *ngFor="let option of row.options" [value]="option">{{ option }}</option>
+              </select>
+              <input *ngIf="row.type === 'boolean'" type="checkbox" [(ngModel)]="row.value" [disabled]="!row.included" />
+              <button *ngIf="row.mode === 'today' || row.mode === 'date_offset'" type="button" class="btn btn-link btn-sm" (click)="resetBulkRowSuggestion(row)">Ripristina suggerimento</button>
+            </span>
+          </div>
+          <p class="empty-state" *ngIf="bulkRows.length === 0">Nessun campo aggiornabile configurato per i tipi selezionati.</p>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline-light" (click)="closeBulkCustomerAssetUpdate()">Annulla</button>
+          <button type="button" class="btn btn-primary" [disabled]="bulkSaving || bulkRows.length === 0" (click)="submitBulkCustomerAssetUpdate()">
+            {{ bulkSaving ? 'Aggiornamento…' : 'Conferma aggiornamento' }}
+          </button>
+        </div>
+      </section>
+
+      <div class="customer-asset-sortbar" *ngIf="selectedCustomerAssetTypeGroups.length">
+        <div>
+          <strong>Elenco presidi</strong>
+          <small>I tipi sono chiusi all’apertura. Espandi solo quello che ti serve.</small>
+        </div>
+        <label>Ordina per
+          <select class="form-select form-select-sm" [(ngModel)]="customerAssetSortMode">
+            <option value="type">Tipo di presidio</option>
+            <option value="status">Urgenza</option>
+            <option value="dueDate">Scadenza più vicina</option>
+            <option value="asset">Codice / nome presidio</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="customer-asset-type-list">
+        <details
+          appReliableDetails
+          class="customer-asset-type-group"
+          *ngFor="let typeGroup of selectedCustomerAssetTypeGroups; trackBy: trackCustomerAssetTypeGroup"
+        >
+          <summary
+            class="customer-asset-type-head"
+          >
+            <span class="customer-asset-type-toggle">
+              <span class="type-toggle-arrow">›</span>
+              <span>
+                <strong>{{ typeGroup.label }}</strong>
+                <small>
+                  {{ typeGroup.assets.length }} presidi · {{ typeGroup.summary.alertCount }} da controllare
+                  <ng-container *ngIf="selectedDeadlineCountForType(typeGroup)"> · {{ selectedDeadlineCountForType(typeGroup) }} selezionate</ng-container>
+                </small>
+              </span>
+            </span>
+          </summary>
+
+          <div class="customer-asset-type-body">
+            <div class="type-quick-actions" *ngIf="!showArchivedCustomerAssets && typeGroup.actions.length">
+              <button
+                type="button"
+                class="type-action-chip"
+                *ngFor="let action of typeGroup.actions"
+                [disabled]="action.alertCount === 0"
+                (click)="selectCustomerAssetDeadlineAction(typeGroup, action, 'alerts')"
+              >
+                {{ action.label }} <span>{{ action.alertCount }}</span>
+              </button>
+            </div>
+            <section
+              class="customer-asset-detail-block"
+              *ngFor="let asset of typeGroup.assets"
+              [class.is-open]="isCustomerAssetExpanded(asset)"
+            >
+              <div class="customer-asset-detail-head">
+                <div class="customer-asset-detail-main">
+                  <button
+                    *ngIf="!showArchivedCustomerAssets"
+                    type="button"
+                    class="customer-asset-select"
+                    [class.customer-asset-select-checked]="isCustomerAssetSelected(asset)"
+                    [class.customer-asset-select-partial]="isCustomerAssetSelectionPartial(asset)"
+                    role="checkbox"
+                    [attr.aria-checked]="isCustomerAssetSelectionPartial(asset) ? 'mixed' : isCustomerAssetSelected(asset)"
+                    [attr.aria-label]="isCustomerAssetSelected(asset) ? 'Deseleziona tutto il presidio' : 'Seleziona tutto il presidio'"
+                    (click)="toggleCustomerAssetSelection(asset, !isCustomerAssetSelected(asset))"
+                  >
+                    <span aria-hidden="true">
+                      {{ isCustomerAssetSelected(asset) ? '✓' : (isCustomerAssetSelectionPartial(asset) ? '−' : '') }}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    class="customer-asset-detail-toggle"
+                    [attr.aria-expanded]="isCustomerAssetExpanded(asset)"
+                    (click)="toggleCustomerAsset(asset)"
+                  >
+                    <span class="asset-toggle-arrow" aria-hidden="true">›</span>
+                    <span>
+                      <strong>{{ asset.label }}</strong>
+                      <small>
+                        {{ asset.summary.totalCount }} scadenze · {{ getFolderGroups(asset).length }} cartelle
+                        <ng-container *ngIf="asset.summary.alertCount"> · {{ asset.summary.alertCount }} da controllare</ng-container>
+                        <ng-container *ngIf="selectedDeadlineCountForAsset(asset)"> · {{ selectedDeadlineCountForAsset(asset) }} selezionate</ng-container>
+                      </small>
+                    </span>
+                  </button>
+                </div>
+                <div class="detail-head-actions" *ngIf="!showArchivedCustomerAssets">
+                  <button type="button" class="btn btn-outline-light btn-sm" (click)="editCustomerAsset(asset)">Modifica presidio</button>
+                  <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteCustomerAsset(asset)">Elimina presidio</button>
+                </div>
+              </div>
+              <div class="customer-asset-deadline-body" *ngIf="isCustomerAssetExpanded(asset)">
+                <section class="customer-asset-data-summary" aria-label="Dati del presidio">
+                  <div class="asset-data-heading">
+                    <strong>Dati del presidio</strong>
+                    <small>I dati configurati e compilati per questo presidio.</small>
+                  </div>
+                  <dl class="asset-data-grid" *ngIf="asset.assetDetails?.length; else noAdditionalAssetData">
+                    <div class="asset-data-item" *ngFor="let detail of asset.assetDetails">
+                      <dt>{{ detail.label }}</dt>
+                      <dd *ngIf="detail.type !== 'attachment'">{{ detail.value }}</dd>
+                      <dd class="asset-attachment-list" *ngIf="detail.type === 'attachment'">
+                        <button
+                          type="button"
+                          *ngFor="let attachment of detail.attachments"
+                          appReliableTap
+                          (reliableTap)="downloadCustomerAssetAttachment(asset, attachment)"
+                        >
+                          <span aria-hidden="true">📎</span>
+                          <span>{{ attachment.originalName }}</span>
+                        </button>
+                      </dd>
+                    </div>
+                  </dl>
+                  <ng-template #noAdditionalAssetData>
+                    <p class="asset-data-empty">Nessun altro dato compilato.</p>
+                  </ng-template>
+                </section>
+                <details appReliableDetails class="deadline-history customer-asset-audit" *ngIf="asset.auditHistory?.length">
+                  <summary>Storico dati presidio ({{ asset.auditHistory?.length }})</summary>
+                  <article class="history-entry" *ngFor="let entry of asset.auditHistory">
+                    <div><strong>{{ entry.summary }}</strong> · {{ entry.createdAt | date:'dd/MM/yyyy, HH:mm' }}</div>
+                    <small *ngIf="entry.actorEmail">Operatore: {{ entry.actorEmail }}</small>
+                    <div class="history-snapshot">
+                      <span *ngIf="entry.snapshot['code']">Codice: {{ entry.snapshot['code'] }}</span>
+                      <span *ngIf="entry.snapshot['serialNumber']">Matricola: {{ entry.snapshot['serialNumber'] }}</span>
+                      <span *ngIf="entry.snapshot['location']">Posizione: {{ entry.snapshot['location'] }}</span>
+                    </div>
+                    <div class="customer-asset-audit-attachments" *ngIf="entry.attachmentItems?.length">
+                      <button
+                        type="button"
+                        *ngFor="let item of entry.attachmentItems"
+                        appReliableTap
+                        (reliableTap)="downloadCustomerAssetAttachment(asset, item.attachment)"
+                      >
+                        <span aria-hidden="true">📎</span>
+                        <span>
+                          <strong>{{ item.attachment.originalName }}</strong>
+                          <small>{{ item.label }}</small>
+                        </span>
+                      </button>
+                    </div>
+                  </article>
+                </details>
+                <ng-container *ngTemplateOutlet="folderList; context: { $implicit: getFolderGroups(asset) }"></ng-container>
+              </div>
+            </section>
+          </div>
+        </details>
+        <div class="empty-state" *ngIf="selectedCustomerAssetTypeGroups.length === 0">
           Nessun presidio trovato per questo cliente.
         </div>
       </div>
@@ -482,8 +850,7 @@
                   : 'Seleziona ' + deadline.title + ' per pianificare'
               "
               title="Seleziona per pianificare"
-              (pointerdown)="onDeadlineSelectionPointerDown($event, deadline)"
-              (click)="onDeadlineSelectionClick($event, deadline)"
+              (click)="toggleDeadlineSelection(deadline, !isDeadlineSelected(deadline))"
             >
               <span aria-hidden="true">{{ isDeadlineSelected(deadline) ? '✓' : '' }}</span>
             </button>
@@ -507,8 +874,7 @@
                 *ngIf="canPlan && !deadline.plannedAppointmentId"
                 type="button"
                 class="btn btn-primary btn-sm"
-                (pointerdown)="onPlanDeadlinePointerDown($event, deadline)"
-                (click)="onPlanDeadlineClick($event, deadline)"
+                (click)="planDeadline(deadline)"
               >
                 Pianifica
               </button>
@@ -516,8 +882,7 @@
                 *ngIf="canPlan && deadline.plannedAppointmentId"
                 type="button"
                 class="btn btn-outline-info btn-sm"
-                (pointerdown)="onOpenPlannedEventPointerDown($event, deadline)"
-                (click)="onOpenPlannedEventClick($event, deadline)"
+                (click)="openPlannedEvent(deadline)"
               >
                 Apri evento
               </button>
@@ -525,8 +890,7 @@
                 *ngIf="canEdit"
                 type="button"
                 class="btn btn-dark btn-sm"
-                (pointerdown)="onEditDeadlinePointerDown($event, deadline)"
-                (click)="onEditDeadlineClick($event, deadline)"
+                (click)="openEditForm(deadline)"
               >
                 Aggiorna
               </button>
@@ -534,16 +898,14 @@
                 *ngIf="canDelete"
                 type="button"
                 class="btn btn-outline-danger btn-sm"
-                (pointerdown)="onDeleteDeadlinePointerDown($event, deadline)"
-                (click)="onDeleteDeadlineClick($event, deadline)"
+                (click)="deleteDeadline(deadline)"
               >
                 Elimina
               </button>
               <button
                 type="button"
                 class="btn btn-deadline-secondary btn-sm"
-                (pointerdown)="onToggleHistoryPointerDown($event, deadline)"
-                (click)="onToggleHistoryClick($event, deadline)"
+                (click)="toggleHistory(deadline)"
               >
                 Storico
               </button>
@@ -557,11 +919,11 @@
           <div class="attachments" *ngIf="deadline.attachments?.length">
             <span class="attachments-title">Allegati</span>
 
-            <button
+            <button type="button"
               class="attachment-chip"
               *ngFor="let attachment of deadline.attachments"
-              (pointerdown)="onOpenAttachmentPointerDown($event, deadline, attachment)"
-              (click)="openAttachment(deadline, attachment)"
+              appReliableTap
+              (reliableTap)="openAttachment(deadline, attachment)"
             >
               <span>{{ attachment.originalName }}</span>
               <small>{{ formatFileSize(attachment.size) }}</small>
@@ -580,40 +942,58 @@
               Nessun evento registrato.
             </div>
 
-            <div
-              class="history-entry"
-              *ngFor="let entry of historyByDeadlineId[deadline.id] || []"
+            <details
+              appReliableDetails
+              class="history-day-group"
+              *ngFor="let dayGroup of historyDayGroups(deadline.id); trackBy: trackHistoryDayGroup"
             >
-              <div class="history-entry-head">
-                <strong>{{ historyActionLabel(entry.action) }}</strong>
-                <span>{{ formatDateTime(entry.createdAt) }}</span>
+              <summary
+                class="history-day-toggle"
+              >
+                <span class="history-day-chevron" aria-hidden="true">›</span>
+                <span class="history-day-heading">
+                  <strong>{{ historyDayLabel(dayGroup.key) }}</strong>
+                  <small>{{ historyDayCountLabel(dayGroup.entries.length) }}</small>
+                </span>
+              </summary>
+
+              <div class="history-day-content">
+                <article
+                  class="history-entry"
+                  *ngFor="let entry of dayGroup.entries; trackBy: trackHistoryEntry"
+                >
+                  <div class="history-entry-head">
+                    <strong>{{ historyActionLabel(entry.action) }}</strong>
+                    <span>{{ formatHistoryTime(entry.createdAt) }}</span>
+                  </div>
+                  <p>{{ entry.summary }}</p>
+                  <small *ngIf="entry.actorEmail">Operatore: {{ entry.actorEmail }}</small>
+                  <ul *ngIf="historyChangeLines(entry).length > 0">
+                    <li *ngFor="let line of historyChangeLines(entry)">{{ line }}</li>
+                  </ul>
+                  <div class="history-snapshot" *ngIf="historySnapshotLines(entry).length > 0">
+                    <span>Dati registrati</span>
+                    <ul>
+                      <li *ngFor="let line of historySnapshotLines(entry)">{{ line }}</li>
+                    </ul>
+                  </div>
+                  <div class="history-attachments" *ngIf="historyAttachments(entry).length > 0">
+                    <span>Documenti storico</span>
+                    <div class="history-attachment-list">
+                      <button type="button"
+                        class="attachment-chip history-attachment-chip"
+                        *ngFor="let attachment of historyAttachments(entry); trackBy: trackStableInteractiveItem"
+                        appReliableTap
+                        (reliableTap)="openHistoryAttachment(deadline, entry, attachment)"
+                      >
+                        <span>{{ attachment.originalName }}</span>
+                        <small>{{ formatFileSize(attachment.size) }}</small>
+                      </button>
+                    </div>
+                  </div>
+                </article>
               </div>
-              <p>{{ entry.summary }}</p>
-              <small *ngIf="entry.actorEmail">Operatore: {{ entry.actorEmail }}</small>
-              <ul *ngIf="historyChangeLines(entry).length > 0">
-                <li *ngFor="let line of historyChangeLines(entry)">{{ line }}</li>
-              </ul>
-              <div class="history-snapshot" *ngIf="historySnapshotLines(entry).length > 0">
-                <span>Dati registrati</span>
-                <ul>
-                  <li *ngFor="let line of historySnapshotLines(entry)">{{ line }}</li>
-                </ul>
-              </div>
-              <div class="history-attachments" *ngIf="historyAttachments(entry).length > 0">
-                <span>Documenti storico</span>
-                <div class="history-attachment-list">
-                  <button
-                    class="attachment-chip history-attachment-chip"
-                    *ngFor="let attachment of historyAttachments(entry)"
-                    (pointerdown)="onOpenHistoryAttachmentPointerDown($event, deadline, entry, attachment)"
-                    (click)="openHistoryAttachment(deadline, entry, attachment)"
-                  >
-                    <span>{{ attachment.originalName }}</span>
-                    <small>{{ formatFileSize(attachment.size) }}</small>
-                  </button>
-                </div>
-              </div>
-            </div>
+            </details>
           </div>
           </article>
         </div>
@@ -621,4 +1001,5 @@
     </div>
     </ng-template>
   </section>
+
 </div>

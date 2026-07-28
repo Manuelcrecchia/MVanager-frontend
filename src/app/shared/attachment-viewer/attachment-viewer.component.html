@@ -1,0 +1,64 @@
+<div
+  class="attachment-viewer-backdrop"
+  *ngIf="viewer.state.open"
+  role="presentation"
+  (click)="viewer.close()"
+>
+  <section
+    class="attachment-viewer"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="global-attachment-viewer-title"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="attachment-viewer-header">
+      <div>
+        <span class="eyebrow">Allegato</span>
+        <h2 id="global-attachment-viewer-title">{{ viewer.state.name }}</h2>
+        <small *ngIf="viewer.state.mimeType || viewer.state.size">
+          {{ viewer.state.mimeType || 'Tipo non riconosciuto' }}
+          <ng-container *ngIf="viewer.state.size"> · {{ formatSize(viewer.state.size) }}</ng-container>
+        </small>
+      </div>
+      <button
+        type="button"
+        class="attachment-viewer-close"
+        appReliableTap
+        (reliableTap)="viewer.close()"
+        aria-label="Chiudi anteprima"
+      >×</button>
+    </header>
+
+    <div class="attachment-viewer-body">
+      <div class="attachment-viewer-status" *ngIf="viewer.state.loading">
+        <span class="attachment-viewer-spinner" aria-hidden="true"></span>
+        <strong>Caricamento allegato…</strong>
+      </div>
+      <div class="attachment-viewer-status attachment-viewer-error" *ngIf="viewer.state.error">
+        <strong>Impossibile aprire l’allegato</strong>
+        <span>{{ viewer.state.error }}</span>
+      </div>
+      <ng-container *ngIf="!viewer.state.loading && !viewer.state.error">
+        <iframe *ngIf="viewer.state.kind === 'pdf'" class="attachment-viewer-frame" [src]="viewer.state.safeUrl" [title]="viewer.state.name"></iframe>
+        <img *ngIf="viewer.state.kind === 'image'" class="attachment-viewer-image" [src]="viewer.state.objectUrl" [alt]="viewer.state.name" />
+        <video *ngIf="viewer.state.kind === 'video'" class="attachment-viewer-media" [src]="viewer.state.objectUrl" controls></video>
+        <audio *ngIf="viewer.state.kind === 'audio'" class="attachment-viewer-audio" [src]="viewer.state.objectUrl" controls></audio>
+        <pre *ngIf="viewer.state.kind === 'text'" class="attachment-viewer-text">{{ viewer.state.textContent }}</pre>
+        <div class="attachment-viewer-status" *ngIf="viewer.state.kind === 'unsupported'">
+          <span class="attachment-viewer-file-icon" aria-hidden="true">📄</span>
+          <strong>Anteprima non disponibile per questo formato</strong>
+          <span>Puoi comunque scaricare o condividere il file.</span>
+        </div>
+      </ng-container>
+    </div>
+
+    <footer class="attachment-viewer-actions">
+      <button type="button" class="btn btn-outline-light" appReliableTap (reliableTap)="viewer.close()">Chiudi</button>
+      <div>
+        <button type="button" class="btn btn-outline-light" appReliableTap [disabled]="!viewer.canPrint" (reliableTap)="viewer.print()">Stampa</button>
+        <button type="button" class="btn btn-outline-light" appReliableTap [disabled]="!viewer.state.blob" (reliableTap)="viewer.share()">Condividi</button>
+        <button type="button" class="btn btn-primary" appReliableTap [disabled]="!viewer.state.blob" (reliableTap)="viewer.download()">Scarica</button>
+      </div>
+    </footer>
+  </section>
+</div>

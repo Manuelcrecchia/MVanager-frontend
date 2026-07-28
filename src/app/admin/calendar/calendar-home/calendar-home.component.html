@@ -2,47 +2,47 @@
 
   <!-- ═══ HEADER ═══ -->
   <div class="cal-header">
-    <button class="btn-back" (click)="goBack()">
+    <button type="button" class="btn-back" (click)="goBack()">
       <i class="fa fa-arrow-left"></i> Indietro
     </button>
 
     <div class="cal-nav-group">
-      <button class="nav-arrow" (click)="prev()">&#8249;</button>
+      <button type="button" class="nav-arrow" (click)="prev()">&#8249;</button>
 
       <div class="mini-cal-wrapper">
-        <button class="cal-title-btn" (click)="toggleMiniCal()">
+        <button type="button" class="cal-title-btn" (click)="toggleMiniCal()">
           {{ viewTitle }} <span class="caret">▾</span>
         </button>
 
         <div class="mini-cal" *ngIf="showMiniCal" (click)="$event.stopPropagation()">
           <div class="mini-cal-header">
-            <button (click)="miniPrev()">&#8249;</button>
+            <button type="button" (click)="miniPrev()">&#8249;</button>
             <span>{{ miniCalTitle }}</span>
-            <button (click)="miniNext()">&#8250;</button>
+            <button type="button" (click)="miniNext()">&#8250;</button>
           </div>
           <div class="mini-cal-grid">
             <div class="mini-dow" *ngFor="let d of DAYS_SHORT">{{ d }}</div>
-            <ng-container *ngFor="let week of miniCalGrid">
-              <div class="mini-day"
-                *ngFor="let day of week"
+            <ng-container *ngFor="let week of miniCalGrid; trackBy: trackCalendarWeek">
+              <button type="button" class="mini-day"
+                *ngFor="let day of week; trackBy: trackCalendarDay"
                 [class.mini-today]="isSameDay(day, currentDate)"
                 [class.mini-other]="day.getMonth() !== miniCalDate.getMonth()"
                 (click)="miniSelectDay(day)">
                 {{ day.getDate() }}
-              </div>
+              </button>
             </ng-container>
           </div>
         </div>
       </div>
 
-      <button class="nav-arrow" (click)="next()">&#8250;</button>
-      <button class="btn-today" (click)="goToday()">Oggi</button>
+      <button type="button" class="nav-arrow" (click)="next()">&#8250;</button>
+      <button type="button" class="btn-today" (click)="goToday()">Oggi</button>
     </div>
 
     <div class="view-switcher">
-      <button [class.active]="currentView==='month'" (click)="setView('month')">Mese</button>
-      <button [class.active]="currentView==='week'" (click)="setView('week')">Settimana</button>
-      <button [class.active]="currentView==='day'" (click)="setView('day')">Giorno</button>
+      <button type="button" [class.active]="currentView==='month'" (click)="setView('month')">Mese</button>
+      <button type="button" [class.active]="currentView==='week'" (click)="setView('week')">Settimana</button>
+      <button type="button" [class.active]="currentView==='day'" (click)="setView('day')">Giorno</button>
     </div>
   </div>
 
@@ -82,16 +82,20 @@
             <div
               *ngFor="let ev of cell.events.slice(0,3)"
               class="ev-pill"
+              role="button"
+              tabindex="0"
               [ngClass]="getCategoryClass(ev.categories)"
               [ngStyle]="getCategoryStyle(ev.categories)"
               (click)="onEventClick(ev,$event,cell.date)"
+              (keydown.enter)="onEventClick(ev,$event,cell.date)"
+              (keydown.space)="onEventClick(ev,$event,cell.date); $event.preventDefault()"
               (dblclick)="onEventDblClick(ev,$event,cell.date)">
               <span class="ev-pill-time">{{ formatTime(ev.start) }}</span>
               <span class="ev-pill-title">{{ ev.title }}</span>
             </div>
-            <div class="ev-more" *ngIf="cell.events.length > 3" (click)="showDayEventsPopup(cell)">
+            <button type="button" class="ev-more" *ngIf="cell.events.length > 3" (click)="showDayEventsPopup(cell)">
               +{{ cell.events.length - 3 }} altri
-            </div>
+            </button>
           </div>
         </div>
       </div>
@@ -134,10 +138,14 @@
           <div
             *ngFor="let ev of getTimedEvents(cell)"
             class="ev-block"
+            role="button"
+            tabindex="0"
             [ngClass]="getCategoryClass(ev.categories)"
             [ngStyle]="getEventBlockStyle(ev, cell.eventLayout)"
             [title]="ev.title"
             (click)="onEventClick(ev,$event,cell.date)"
+            (keydown.enter)="onEventClick(ev,$event,cell.date)"
+            (keydown.space)="onEventClick(ev,$event,cell.date); $event.preventDefault()"
             (dblclick)="onEventDblClick(ev,$event,cell.date)">
             <span class="evb-title">{{ ev.title }}</span>
             <span class="evb-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</span>
@@ -178,10 +186,14 @@
           <div
             *ngFor="let ev of getTimedEvents(weekCells[0])"
             class="ev-block"
+            role="button"
+            tabindex="0"
             [ngClass]="getCategoryClass(ev.categories)"
             [ngStyle]="getEventBlockStyle(ev, weekCells[0].eventLayout)"
             [title]="ev.title"
             (click)="onEventClick(ev,$event,weekCells[0].date)"
+            (keydown.enter)="onEventClick(ev,$event,weekCells[0].date)"
+            (keydown.space)="onEventClick(ev,$event,weekCells[0].date); $event.preventDefault()"
             (dblclick)="onEventDblClick(ev,$event,weekCells[0].date)">
             <span class="evb-title">{{ ev.title }}</span>
             <span class="evb-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</span>
@@ -198,13 +210,17 @@
   <div class="popup-box popup-day-list" (click)="$event.stopPropagation()">
     <div class="popup-header">
       <h3>{{ dayPopupDate | date:'fullDate' }}</h3>
-      <button class="popup-close" (click)="closeDayPopup()">✕</button>
+      <button type="button" class="popup-close" (click)="closeDayPopup()">✕</button>
     </div>
     <div class="popup-body">
       <div class="day-event-row" *ngFor="let ev of dayPopupEvents"
+        role="button"
+        tabindex="0"
         [ngClass]="getCategoryClass(ev.categories)"
         [ngStyle]="getCategoryStyle(ev.categories)"
-        (click)="onDayPopupEventClick(ev, $event)">
+        (click)="onDayPopupEventClick(ev, $event)"
+        (keydown.enter)="onDayPopupEventClick(ev, $event)"
+        (keydown.space)="onDayPopupEventClick(ev, $event); $event.preventDefault()">
         <div class="day-event-time">{{ formatTime(ev.start) }} – {{ formatTime(ev.end) }}</div>
         <div class="day-event-title">{{ ev.title }}</div>
         <div class="day-event-desc" *ngIf="ev.description">{{ ev.description }}</div>
@@ -219,7 +235,7 @@
   <div class="popup-box scope-choice-box" (click)="$event.stopPropagation()">
     <div class="popup-header">
       <h3>Modifica evento</h3>
-      <button class="popup-close" (click)="closeEditScopeChoice()">✕</button>
+      <button type="button" class="popup-close" (click)="closeEditScopeChoice()">✕</button>
     </div>
     <div class="popup-body">
       <p class="scope-choice-text">
@@ -227,10 +243,10 @@
         Cosa vuoi modificare?
       </p>
       <div class="scope-choice-actions">
-        <button class="btn-primary" (click)="chooseEditScope('single')">
+        <button type="button" class="btn-primary" (click)="chooseEditScope('single')">
           Solo questo giorno
         </button>
-        <button class="btn-secondary" (click)="chooseEditScope('series')">
+        <button type="button" class="btn-secondary" (click)="chooseEditScope('series')">
           {{ pendingEditIsRecurring() ? 'Tutta la ricorrenza' : "Tutto l'evento" }}
         </button>
       </div>
@@ -244,7 +260,7 @@
 
     <div class="popup-header">
       <h3>{{ isNewEvent ? 'Nuovo evento' : 'Modifica evento' }}</h3>
-      <button class="popup-close" (click)="closePopup()">✕</button>
+      <button type="button" class="popup-close" (click)="closePopup()">✕</button>
     </div>
 
     <div class="popup-body">
@@ -401,17 +417,17 @@
     <div class="delete-confirm" *ngIf="showDeleteConfirm">
       <p>Eliminare solo <strong>questa occorrenza</strong> o <strong>tutta la serie</strong>?</p>
       <div class="delete-btns">
-        <button class="btn-danger-outline" (click)="deleteSingle()">Solo questa</button>
-        <button class="btn-danger" (click)="deleteAll()">Tutta la serie</button>
-        <button class="btn-secondary" (click)="showDeleteConfirm=false">Annulla</button>
+        <button type="button" class="btn-danger-outline" (click)="deleteSingle()">Solo questa</button>
+        <button type="button" class="btn-danger" (click)="deleteAll()">Tutta la serie</button>
+        <button type="button" class="btn-secondary" (click)="showDeleteConfirm=false">Annulla</button>
       </div>
     </div>
 
     <div class="popup-footer" *ngIf="!showDeleteConfirm">
-      <button class="btn-danger" *ngIf="!isNewEvent" (click)="requestDelete()">Elimina</button>
+      <button type="button" class="btn-danger" *ngIf="!isNewEvent" (click)="requestDelete()">Elimina</button>
       <div class="footer-right">
-        <button class="btn-secondary" (click)="closePopup()">Annulla</button>
-        <button class="btn-primary" (click)="saveEvent()">
+        <button type="button" class="btn-secondary" (click)="closePopup()">Annulla</button>
+        <button type="button" class="btn-primary" (click)="saveEvent()">
           {{ isNewEvent ? 'Aggiungi' : 'Salva' }}
         </button>
       </div>

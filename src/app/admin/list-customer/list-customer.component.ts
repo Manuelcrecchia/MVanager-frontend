@@ -5,6 +5,7 @@ import { CustomerModelService } from '../../service/customer-model.service';
 import { Component, Input } from '@angular/core';
 import { saveAs } from 'file-saver';
 import { forkJoin } from 'rxjs';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 @Component({
   selector: 'app-list-customer',
@@ -31,6 +32,7 @@ export class ListCustomerComponent {
     private router: Router,
     private route: ActivatedRoute,
     private customerModelService: CustomerModelService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -223,9 +225,9 @@ export class ListCustomerComponent {
       });
   }
 
-  archiveCustomer(customer: any): void {
+  async archiveCustomer(customer: any): Promise<void> {
     if (
-      !confirm(
+      !await this.appDialog.confirm(
         `Vuoi scaricare l'archivio completo e archiviare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}"?`,
       )
     )
@@ -258,8 +260,8 @@ export class ListCustomerComponent {
       });
   }
 
-  archiveOnlyCustomer(customer: any): void {
-    if (!confirm(`Archiviare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}" senza scaricare lo ZIP?`)) return;
+  async archiveOnlyCustomer(customer: any): Promise<void> {
+    if (!await this.appDialog.confirm(`Archiviare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}" senza scaricare lo ZIP?`)) return;
 
     this.http
       .post(this.globalService.url + 'customers/archiveOnly', { numeroCliente: customer.numeroCliente }, {
@@ -280,8 +282,8 @@ export class ListCustomerComponent {
       });
   }
 
-  unarchiveCustomer(customer: any): void {
-    if (!confirm(`Riattivare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}"?`)) return;
+  async unarchiveCustomer(customer: any): Promise<void> {
+    if (!await this.appDialog.confirm(`Riattivare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}"?`)) return;
 
     this.http
       .post(this.globalService.url + 'customers/unarchive', { numeroCliente: customer.numeroCliente }, {
@@ -338,6 +340,12 @@ export class ListCustomerComponent {
   viewDocuments(numeroCliente: string) {
     // Naviga o apri modale, a seconda di come gestisci i documenti
     this.router.navigate(['/homeAdmin/documenti/client', numeroCliente]);
+  }
+
+  openWorkCompletion(customer: any): void {
+    const numeroCliente = String(customer?.numeroCliente || '').trim();
+    if (!numeroCliente) return;
+    this.router.navigate(['/homeAdmin/listCustomer', numeroCliente, 'work-completion']);
   }
 
   openStaffRequirements(customer: any): void {

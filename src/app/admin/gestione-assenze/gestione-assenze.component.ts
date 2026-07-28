@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
@@ -23,7 +24,8 @@ export class GestioneAssenzeComponent implements OnInit {
     private http: HttpClient,
     private route: ActivatedRoute,
     private router: Router,
-    private global: GlobalService
+    private global: GlobalService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -89,8 +91,8 @@ export class GestioneAssenzeComponent implements OnInit {
       });
   }
 
-  deleteAssenza(id: number) {
-    if (confirm('Vuoi davvero eliminare questa assenza?')) {
+  async deleteAssenza(id: number): Promise<void> {
+    if (await this.appDialog.confirm('Vuoi davvero eliminare questa assenza?')) {
       this.http
         .post(this.global.url + 'admin/attendanceCategory/delete/' + id, {})
         .subscribe({

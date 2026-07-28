@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
@@ -18,6 +19,7 @@ export class ServiceOrdersComponent implements OnInit {
     private http: HttpClient,
     private router: Router,
     public global: GlobalService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -50,8 +52,8 @@ export class ServiceOrdersComponent implements OnInit {
     this.router.navigate(['/homeAdmin', 'service-orders', 'edit', orderId]);
   }
 
-  deleteOrder(orderId: number): void {
-    const confirmed = confirm(
+  async deleteOrder(orderId: number): Promise<void> {
+    const confirmed = await this.appDialog.confirm(
       "Vuoi davvero eliminare questo ordine di servizio? Verrà eliminato anche l'appuntamento collegato nel calendario.",
     );
     if (!confirmed) {

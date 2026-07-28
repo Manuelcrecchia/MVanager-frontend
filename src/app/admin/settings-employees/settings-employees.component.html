@@ -194,7 +194,7 @@
         />
         <span>{{ filteredEmployees.length }} / {{ employeess.length }}</span>
       </div>
-      <button
+      <button type="button"
         class="btn"
         [ngClass]="showArchived ? 'btn-glass-dark' : 'btn-glass'"
         (click)="toggleShowArchived()"
@@ -267,7 +267,7 @@
             <td><input type="number" class="form-control form-control-sm" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="e_ore_standard_{{ emp.id }}" min="0" max="24" step="0.25" /></td>
             <td>
               <div class="employee-extra-edit-grid" *ngIf="employeeExtraFields.length; else noEmployeeExtraEdit">
-                <label *ngFor="let field of employeeExtraFields">
+                <div class="employee-extra-field" *ngFor="let field of employeeExtraFields">
                   <span>{{ field.label || field.key }}</span>
                   <ng-container [ngSwitch]="field.type">
                     <textarea
@@ -302,7 +302,7 @@
                       [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]"
                     />
                   </ng-container>
-                </label>
+                </div>
               </div>
               <ng-template #noEmployeeExtraEdit>
                 <span class="text-muted small">Salva o annulla modifica dati</span>
@@ -364,7 +364,7 @@
           <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.cellulare" name="m_cell_{{ emp.id }}" placeholder="Cellulare" />
           <input type="number" class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="m_ore_{{ emp.id }}" placeholder="Ore std." min="0" max="24" step="0.25" />
           <div class="employee-extra-edit-grid employee-extra-edit-grid--mobile" *ngIf="employeeExtraFields.length">
-            <label *ngFor="let field of employeeExtraFields">
+            <div class="employee-extra-field" *ngFor="let field of employeeExtraFields">
               <span>{{ field.label || field.key }}</span>
               <ng-container [ngSwitch]="field.type">
                 <textarea
@@ -399,7 +399,7 @@
                   [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]"
                 />
               </ng-container>
-            </label>
+            </div>
           </div>
           <button type="button" class="btn btn-primary btn-round btn-sm w-100 mb-1" (click)="saveEdit()">✅ Salva</button>
           <button type="button" class="btn btn-glass btn-round btn-sm w-100" (click)="cancelEdit()">✖ Annulla</button>

@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
@@ -55,6 +56,7 @@ export class EmailSettingsComponent implements OnInit {
     private http: HttpClient,
     private router: Router,
     public globalService: GlobalService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -196,9 +198,9 @@ export class EmailSettingsComponent implements OnInit {
     return latest.toLocaleString('it-IT');
   }
 
-  delete(account: EmailAccount) {
+  async delete(account: EmailAccount): Promise<void> {
     if (!account.id) return;
-    const ok = confirm(`Eliminare l'account email "${account.email}"?`);
+    const ok = await this.appDialog.confirm(`Eliminare l'account email "${account.email}"?`);
     if (!ok) return;
 
     this.http.delete(this.globalService.url + `admin/email/accounts/${account.id}`).subscribe({

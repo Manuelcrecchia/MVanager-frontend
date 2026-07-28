@@ -4,7 +4,7 @@
       <button class="btn btn-back-glass" type="button" (click)="back()">
         &larr; Torna Indietro
       </button>
-      <button
+      <button type="button"
         *ngIf="globalService.hasPermission('QUOTES_MANAGE')"
         class="btn btn-pink"
         (click)="navigateToAddQuote()"
@@ -43,12 +43,13 @@
         [class.notification-target]="quote.numeroPreventivo === highlightedQuoteFromNotification"
         [attr.id]="'quote-' + quote.numeroPreventivo"
       >
-        <button
-          type="button"
-          class="quote-header-btn"
-          (click)="toggleQuoteOpen(quote.numeroPreventivo)"
-        >
-          <span class="quote-title">
+        <div class="quote-header-layout">
+          <button
+            type="button"
+            class="quote-header-btn"
+            (click)="toggleQuoteOpen(quote.numeroPreventivo)"
+          >
+            <span class="quote-title">
             {{ quote.numeroPreventivo }} - {{ getQuoteDisplayName(quote) }}
             <span
               *ngIf="quote.acceptanceStatus === 'pending' && !showCompletedQuotes"
@@ -78,8 +79,9 @@
               <i *ngIf="quote.complete === 'A'" class="fas fa-check-circle text-success ms-2"></i>
               <i *ngIf="quote.complete === 'R'" class="fas fa-times-circle text-danger ms-2"></i>
             </ng-container>
-          </span>
-
+            </span>
+            <span class="chev" [class.chev--open]="isQuoteOpen(quote.numeroPreventivo)">▾</span>
+          </button>
           <span class="d-flex align-items-center gap-2">
             <button
               type="button"
@@ -102,13 +104,12 @@
             >
               <i class="fas fa-note-sticky"></i>
             </button>
-            <span class="chev" [class.chev--open]="isQuoteOpen(quote.numeroPreventivo)">▾</span>
           </span>
-        </button>
+        </div>
 
         <div class="quote-actions" *ngIf="isQuoteOpen(quote.numeroPreventivo)">
           <div class="quote-actions-inner">
-            <button
+            <button type="button"
               *ngIf="!showCompletedQuotes && globalService.hasPermission('QUOTES_MANAGE') && !quote.isLocked"
               class="btn btn-quote-action btn-quote-edit action-with-tooltip"
               (click)="navigateToEditQuote(quote.numeroPreventivo)"
@@ -119,7 +120,7 @@
               <i class="fas fa-pen-to-square"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="globalService.hasPermission('QUOTES_MANAGE') && !quote.isLocked"
               class="btn btn-quote-action btn-quote-delete action-with-tooltip"
               (click)="delete(quote.numeroPreventivo)"
@@ -130,7 +131,7 @@
               <i class="fas fa-trash"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedQuotes"
               class="btn btn-quote-action btn-quote-whatsapp action-with-tooltip"
               (click)="openQuoteWhatsApp(quote)"
@@ -141,7 +142,7 @@
               <i class="fab fa-whatsapp"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedQuotes && globalService.hasPermission('EMAIL_VIEW')"
               class="btn btn-quote-action btn-quote-email action-with-tooltip"
               (click)="composeQuoteEmail(quote)"
@@ -152,7 +153,7 @@
               <i class="fas fa-envelope"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedQuotes"
               class="btn btn-quote-action btn-quote-chat action-with-tooltip"
               (click)="sendAcceptanceLink(quote.numeroPreventivo)"
@@ -163,7 +164,7 @@
               <i class="fas fa-file-signature"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedQuotes && !quote.isLocked"
               class="btn btn-quote-action btn-quote-send action-with-tooltip"
               (click)="invio(quote.numeroPreventivo)"
@@ -174,7 +175,7 @@
               <i class="fas fa-file-export"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedQuotes && canCreateCalendarEvents()"
               class="btn btn-quote-action btn-quote-calendar action-with-tooltip"
               (click)="addInspection(quote.numeroPreventivo, getQuoteDisplayName(quote))"
@@ -185,7 +186,7 @@
               <i class="fas fa-calendar-alt"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedQuotes && !quote.isLocked"
               class="btn btn-quote-action btn-quote-confirm action-with-tooltip"
               (click)="conferm(quote.numeroPreventivo)"
@@ -196,7 +197,7 @@
               <i class="fas fa-check"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="!showCompletedQuotes && (!quote.isLocked || quote.acceptanceStatus === 'pending')"
               class="btn btn-quote-action btn-quote-refuse action-with-tooltip"
               (click)="refuse(quote.numeroPreventivo)"
@@ -207,7 +208,7 @@
               <i class="fas fa-times"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="quote.isLocked && globalService.hasPermission('QUOTES_MANAGE')"
               class="btn btn-quote-action btn-quote-copy action-with-tooltip"
               (click)="duplicateQuote(quote.numeroPreventivo)"
@@ -218,7 +219,7 @@
               <i class="fas fa-copy"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="showCompletedQuotes && quote.needsOfficeReview && canCreateCustomersFromQuote()"
               class="btn btn-quote-action btn-quote-verify action-with-tooltip"
               (click)="reviewSignedQuoteAndCreateCustomer(quote)"
@@ -229,7 +230,7 @@
               <i class="fas fa-file-signature"></i>
             </button>
 
-            <button
+            <button type="button"
               *ngIf="showCompletedQuotes && !quote.needsOfficeReview"
               class="btn btn-quote-action btn-quote-restore action-with-tooltip"
               (click)="restore(quote.numeroPreventivo)"

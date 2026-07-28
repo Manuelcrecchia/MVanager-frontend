@@ -43,7 +43,7 @@
   </div>
 
   <!-- 📋 Tabella principale -->
-  <div *ngIf="!loading; else loadingTpl">
+  <div class="responsive-data-table" *ngIf="!loading; else loadingTpl">
     <table class="table table-hover align-middle text-center shadow-sm">
       <thead class="table-light">
         <tr>
@@ -72,19 +72,20 @@
           }"
         >
           <!-- 🏷 Cliente/Lavoro -->
-          <td>
+          <td [attr.data-label]="isWarehouseMode() ? 'Sede' : 'Cliente / Lavoro'">
             <strong>{{ work.label }}</strong>
             <div *ngIf="work.summary" class="small text-muted">Riepilogo giornaliero</div>
           </td>
 
           <!-- ⏱ Pianificato -->
-          <td *ngIf="showPlanningColumns()">{{ work.plannedMinutes }} min</td>
+          <td data-label="Durata pianificata" *ngIf="showPlanningColumns()">{{ work.plannedMinutes }} min</td>
 
           <!-- ⏱ Effettivo -->
-          <td>{{ work.stampedMinutes }} min</td>
+          <td data-label="Durata effettiva">{{ work.stampedMinutes }} min</td>
 
           <!-- 🔁 Differenza -->
           <td
+            data-label="Differenza"
             *ngIf="showPlanningColumns()"
             [ngClass]="{
               'text-success': work.diffMinutes === 0,
@@ -95,8 +96,9 @@
           </td>
 
           <!-- ⚠️ Stato -->
-          <td>
-            <span
+          <td data-label="Stato">
+            <button
+              type="button"
               *ngIf="work.errorType"
               class="badge"
               [ngClass]="{
@@ -108,17 +110,18 @@
                   work.errorType === 'TIMBRATURA_INCOMPLETA'
               }"
               (click)="resolveError(work)"
+              [disabled]="!work.solutions?.length"
               [style.cursor]="work.solutions?.length ? 'pointer' : 'default'"
               title="Gestisci errore"
             >
               {{ getStatusLabel(work.errorType) }}
-            </span>
+            </button>
 
             <span *ngIf="!work.errorType" class="badge bg-success">OK</span>
           </td>
 
           <!-- 🕒 Timbrature -->
-          <td>
+          <td data-label="Timbrature">
             <div *ngIf="work.summary; else stampsTpl" class="small text-muted">
               {{ work.stampingsCount || 0 }} timbrature registrate
             </div>
@@ -146,7 +149,7 @@
           </td>
 
           <!-- ➕ Azioni -->
-          <td>
+          <td data-label="Azioni">
             <button
               *ngIf="work.canAddStamping !== false"
               type="button"
@@ -172,7 +175,7 @@
           </td>
 
           <!-- ℹ️ Info -->
-          <td>
+          <td data-label="Info">
             <button
               *ngIf="!work.summary"
               type="button"
@@ -378,7 +381,7 @@
 
           <p class="mt-2 mb-2">{{ n.note }}</p>
 
-          <details class="mt-2">
+          <details appReliableDetails class="mt-2">
             <summary>Dettagli JSON</summary>
             <pre class="mt-2">{{ n.oldValue || "-" }}</pre>
             <pre>{{ n.newValue || "-" }}</pre>

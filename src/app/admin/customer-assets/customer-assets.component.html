@@ -1,31 +1,143 @@
 <main class="assets-page">
   <header><button type="button" class="back" (click)="back()">← Indietro</button><div><h1>{{ editorWorkflow ? editorTitle : (showArchived ? 'Storico ' + moduleLabel : moduleLabel) }}</h1><p>{{ editorWorkflow ? 'Compila i dati e torna automaticamente alle scadenze dei presidi dopo il salvataggio.' : (showArchived ? 'Consulta i presidi eliminati e le relative scadenze storiche.' : 'Registra ogni ' + (singularLabel | lowercase) + ' installato presso il cliente e pianifica le sue manutenzioni.') }}</p></div><button *ngIf="!editorWorkflow" type="button" (click)="toggleArchived()">{{ showArchived ? '← Operativo' : 'Storico eliminati' }}</button><button *ngIf="!showArchived && !editorWorkflow" type="button" class="primary" (click)="startNew()">+ Nuovo {{ singularLabel | lowercase }}</button></header>
-  <p class="error" *ngIf="error">{{ error }}</p>
+  <p id="customer-asset-error" class="error" *ngIf="error" role="alert">{{ error }}</p>
   <section class="editor" *ngIf="showForm">
     <h2>{{ editorTitle }}</h2>
     <p class="deadline-edit-hint" *ngIf="editingFromDeadline">
-      Modifica il campo <strong>{{ deadlineFieldTitle }}</strong> nella scheda del presidio. La scadenza e il suo storico verranno aggiornati automaticamente.
+      Stai aggiornando solo <strong>{{ deadlineFieldTitle }}</strong>. Le altre scadenze del presidio resteranno invariate.
     </p>
-    <div class="grid">
-      <label>Cliente *
-        <div class="customer-picker">
-          <input [(ngModel)]="customerSearch" (input)="onCustomerSearch()" (focus)="customerMenuOpen = true" (blur)="closeCustomerMenu()" placeholder="Cerca per nome, ragione sociale o codice" autocomplete="off" />
+    <div class="asset-context-grid">
+      <div class="field-control"><span>Cliente *</span>
+        <div class="customer-picker customer-picker-search">
+          <input [(ngModel)]="customerSearch" [disabled]="editingFromDeadline" (input)="onCustomerSearch()" (focus)="customerMenuOpen = true" (blur)="closeCustomerMenu()" placeholder="Cerca per nome, ragione sociale o codice" autocomplete="off" />
           <div class="customer-options" *ngIf="customerMenuOpen">
             <button type="button" *ngFor="let customer of filteredCustomers" (mousedown)="$event.preventDefault()" (click)="selectCustomer(customer)">{{ customer.label }} <small>· {{ customer.numeroCliente }}</small></button>
             <p *ngIf="!filteredCustomers.length">Nessun cliente trovato.</p>
           </div>
         </div>
+        <div class="customer-picker-native">
+          <select
+            aria-label="Seleziona cliente"
+            [disabled]="editingFromDeadline"
+            [ngModel]="form.numeroCliente"
+            (ngModelChange)="selectCustomerByNumber($event)"
+          >
+            <option value="">Seleziona cliente</option>
+            <option *ngFor="let customer of customers" [value]="customer.numeroCliente">
+              {{ customer.label }} · {{ customer.numeroCliente }}
+            </option>
+          </select>
+        </div>
+      </div>
+      <label class="field-control">Tipo *
+        <select [(ngModel)]="form.typeKey" [disabled]="editingFromDeadline" (ngModelChange)="changeType()">
+          <option value="">Seleziona tipo</option>
+          <option *ngFor="let type of types" [value]="type.key">{{ type.label }}</option>
+        </select>
       </label>
-      <label>Tipo *<select [(ngModel)]="form.typeKey" (ngModelChange)="changeType()"><option value="">Seleziona tipo</option><option *ngFor="let type of types" [value]="type.key">{{ type.label }}</option></select></label>
-      <ng-container *ngFor="let field of selectedType?.fields || []">
-        <label *ngIf="field.type !== 'boolean' && field.type !== 'select' && field.type !== 'attachment'" [class.deadline-source-field]="editingFromDeadline && field.label === deadlineFieldTitle">{{ field.label }}<input [type]="field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'" [(ngModel)]="form.customFields[field.key]" [name]="'custom_' + field.key" /></label>
-        <label *ngIf="field.type === 'date' && field.isDeadline" [class.deadline-source-field]="editingFromDeadline && field.label === deadlineFieldTitle">Preavviso per {{ field.label }} (giorni)<input type="number" min="0" [(ngModel)]="form.remindDays[field.key]" [name]="'remind_' + field.key" placeholder="es. 30" /></label>
-        <label *ngIf="field.type === 'select'">{{ field.label }}<select [(ngModel)]="form.customFields[field.key]" [name]="'custom_' + field.key"><option value="">Seleziona</option><option *ngFor="let option of field.options || []" [value]="option">{{ option }}</option></select></label>
-        <label class="checkbox-label" *ngIf="field.type === 'boolean'"><input type="checkbox" [(ngModel)]="form.customFields[field.key]" [name]="'custom_' + field.key" />{{ field.label }}</label>
-        <label *ngIf="field.type === 'attachment'">{{ field.label }}<input type="file" multiple (change)="onConfiguredAttachmentChange(field.key, $event)" [name]="'custom_' + field.key" /></label>
-      </ng-container>
     </div>
-    <p class="attachment-summary" *ngIf="form.attachments.length">{{ form.attachments.length }} allegato/i pronti per questo presidio.</p>
+
+    <section class="configured-section" *ngIf="generalFields.length && !editingFromDeadline">
+      <div class="configured-section-heading">
+        <div>
+          <h3>Dati del {{ singularLabel | lowercase }}</h3>
+          <p>Informazioni identificative e caratteristiche.</p>
+        </div>
+      </div>
+      <div class="general-fields-grid">
+        <ng-container *ngFor="let field of generalFields">
+        <label class="field-control" *ngIf="field.type !== 'boolean' && field.type !== 'select' && field.type !== 'attachment'">
+          {{ field.label }}
+          <input [type]="field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'" [ngModel]="form.customFields[field.key]" (ngModelChange)="onConfiguredFieldChange(field, $event)" [name]="'custom_' + field.key" />
+        </label>
+        <label class="field-control" *ngIf="field.type === 'select'">{{ field.label }}
+          <select [(ngModel)]="form.customFields[field.key]" [name]="'custom_' + field.key">
+            <option value="">Seleziona</option>
+            <option *ngFor="let option of field.options || []" [value]="option">{{ option }}</option>
+          </select>
+        </label>
+        <label class="checkbox-label general-checkbox" *ngIf="field.type === 'boolean'">
+          <input type="checkbox" [(ngModel)]="form.customFields[field.key]" [name]="'custom_' + field.key" />
+          <span>{{ field.label }}</span>
+        </label>
+        <section class="attachment-field" *ngIf="field.type === 'attachment'">
+          <div class="attachment-heading">
+            <strong>{{ field.label }}<span *ngIf="field.required"> *</span></strong>
+            <small>{{ field.attachmentMultiple ? 'Allegati multipli' : 'Un solo allegato' }}</small>
+          </div>
+          <label class="desktop-attachment-picker">
+            Allega file
+            <input type="file" [multiple]="field.attachmentMultiple" (change)="onConfiguredAttachmentChange(field, $event)" [name]="'custom_' + field.key" />
+          </label>
+          <div class="mobile-attachment-pickers">
+            <button type="button" (click)="cameraInput.click()">Scatta foto</button>
+            <button type="button" (click)="galleryInput.click()">Galleria</button>
+            <button type="button" (click)="fileInput.click()">File</button>
+            <input #cameraInput hidden type="file" accept="image/*" capture="environment" (change)="onConfiguredAttachmentChange(field, $event)" />
+            <input #galleryInput hidden type="file" accept="image/*" [multiple]="field.attachmentMultiple" (change)="onConfiguredAttachmentChange(field, $event)" />
+            <input #fileInput hidden type="file" [multiple]="field.attachmentMultiple" (change)="onConfiguredAttachmentChange(field, $event)" />
+          </div>
+          <div class="attachment-list" *ngIf="configuredExistingAttachments(field.key).length || configuredNewAttachments(field.key).length">
+            <div *ngFor="let attachment of configuredExistingAttachments(field.key); trackBy: trackStableInteractiveItem">
+              <button class="attachment-name" type="button" (click)="downloadAttachment(attachment)">{{ attachment.originalName }}</button>
+              <span>Salvato</span>
+              <button class="attachment-remove" type="button" (click)="removeExistingAttachment(attachment)">Rimuovi</button>
+            </div>
+            <div *ngFor="let file of configuredNewAttachments(field.key); let fileIndex = index; trackBy: trackStableInteractiveItem">
+              <span class="attachment-name">{{ file.name }}</span>
+              <span>Nuovo</span>
+              <button class="attachment-remove" type="button" (click)="removeNewAttachment(field.key, fileIndex)">Rimuovi</button>
+            </div>
+          </div>
+        </section>
+        </ng-container>
+      </div>
+    </section>
+
+    <section class="configured-section deadline-section" *ngIf="deadlineFields.length">
+      <div class="configured-section-heading">
+        <div>
+          <h3>Scadenze automatiche</h3>
+          <p>Le date calcolate sono proposte: puoi sempre modificarle prima di salvare.</p>
+        </div>
+        <span class="deadline-count">{{ deadlineFields.length }} {{ deadlineFields.length === 1 ? 'scadenza' : 'scadenze' }}</span>
+      </div>
+      <div class="deadline-cards-grid">
+        <article
+          class="deadline-card"
+          *ngFor="let field of deadlineFields; let deadlineIndex = index"
+          [class.deadline-source-field]="editingFromDeadline && field.label === deadlineFieldTitle"
+        >
+          <header class="deadline-card-heading">
+            <span class="deadline-number">{{ deadlineIndex + 1 }}</span>
+            <div>
+              <strong>{{ field.label }}</strong>
+              <small *ngIf="isCalculatedField(field)">{{ calculationHint(field) }}</small>
+              <small *ngIf="!isCalculatedField(field)">Data inserita manualmente</small>
+            </div>
+          </header>
+          <div class="deadline-card-fields">
+            <label class="field-control">Data di scadenza
+              <input type="date" [ngModel]="form.customFields[field.key]" (ngModelChange)="onConfiguredFieldChange(field, $event)" [name]="'custom_' + field.key" />
+            </label>
+            <label class="field-control">Preavviso <span class="label-unit">(giorni)</span>
+              <input type="number" min="0" [(ngModel)]="form.remindDays[field.key]" [name]="'remind_' + field.key" placeholder="es. 30" />
+            </label>
+          </div>
+          <button class="reset-suggestion" *ngIf="isCalculatedField(field)" type="button" (click)="resetConfiguredFieldSuggestion(field)">
+            ↻ Ripristina data calcolata
+          </button>
+        </article>
+      </div>
+    </section>
+    <div class="draft-actions" *ngIf="!editing">
+      <button type="button" class="discard-draft" *ngIf="hasDraftAsset" [disabled]="addingToBatch || saving" (click)="discardDraft()">
+        {{ editingPendingIndex === null ? 'Cancella bozza' : 'Annulla modifica' }}
+      </button>
+      <button type="button" class="add-to-batch" [disabled]="addingToBatch || saving" (click)="addToBatch()">
+        {{ addingToBatch ? 'Verifica…' : editingPendingIndex === null ? '+ Aggiungi alla lista' : 'Salva nella lista' }}
+      </button>
+    </div>
     <section class="batch" *ngIf="!editing && pendingAssets.length">
       <strong>{{ pendingAssets.length }} presidi da salvare per questo cliente</strong>
       <div class="batch-row" *ngFor="let asset of pendingAssets; let i = index" [class.batch-row-editing]="editingPendingIndex === i">
@@ -40,8 +152,14 @@
         </span>
       </div>
     </section>
-    <div class="actions"><button (click)="cancel()">Annulla</button><button *ngIf="!editing" [disabled]="addingToBatch" (click)="addToBatch()">{{ addingToBatch ? 'Verifica…' : editingPendingIndex === null ? '+ Aggiungi alla lista' : 'Salva nella lista' }}</button><button class="primary" [disabled]="saving || addingToBatch || (!editing && (!pendingAssets.length || hasDraftAsset))" (click)="editing ? save() : saveBatch()">{{ saving ? 'Salvataggio…' : editing ? 'Salva modifica' : 'Salva tutti i presidi' }}</button></div>
+    <div class="batch-save-message" *ngIf="!editing && batchSaveBlockReason">{{ batchSaveBlockReason }}</div>
+    <div class="actions final-actions">
+      <button type="button" (click)="cancel()">Annulla</button>
+      <button type="button" class="primary" [disabled]="saving || addingToBatch || (!editing && !!batchSaveBlockReason)" [attr.title]="!editing && batchSaveBlockReason ? batchSaveBlockReason : null" (click)="editing ? save() : saveBatch()">
+        {{ saving ? 'Salvataggio…' : editing ? 'Salva modifica' : 'Salva tutti i presidi' }}
+      </button>
+    </div>
   </section>
-  <section class="list" *ngIf="!editorWorkflow && !selectedCustomerGroup"><p *ngIf="loading">Caricamento…</p><p *ngIf="!loading && !assets.length">Nessun {{ singularLabel | lowercase }} registrato.</p><article class="customer-row" *ngFor="let group of customerGroups"><div class="customer-summary"><div><h2>{{ group.label }}</h2><p>{{ group.assets.length }} elementi registrati</p></div><button type="button" class="primary customer-detail-button" [attr.data-customer-detail]="group.id" (click)="openCustomerGroup(group)">Dettaglio</button></div></article></section>
-  <section class="list" *ngIf="displayedCustomerGroup as group"><div class="detail-head"><button type="button" class="back detail-back" (click)="closeCustomerGroup()">← Elenco clienti</button><h2>{{ group.label }}</h2><p>{{ group.assets.length }} elementi registrati</p></div><div class="customer-assets-detail"><div class="asset-row" *ngFor="let asset of group.assets"><div><h3>{{ assetLabel(asset) }}</h3><div class="asset-details" *ngIf="assetDetails(asset).length"><span *ngFor="let detail of assetDetails(asset)"><strong>{{ detail.label }}:</strong> {{ detail.value }}</span></div><small *ngIf="asset.description">{{ asset.description }}</small></div><div class="row-actions"><button type="button" class="primary" (click)="openDeadlines(asset)">Scadenze</button><button type="button" (click)="edit(asset)">Modifica</button><button type="button" class="danger" [disabled]="archivingAssetId === asset.id" (click)="archive(asset)">{{ archivingAssetId === asset.id ? 'Eliminazione…' : 'Elimina' }}</button></div></div></div></section>
+  <section class="list" *ngIf="!editorWorkflow && !selectedCustomerGroup"><p *ngIf="loading">Caricamento…</p><p *ngIf="!loading && !assets.length">Nessun {{ singularLabel | lowercase }} registrato.</p><article class="customer-row" *ngFor="let group of customerGroups; trackBy: trackStableInteractiveItem"><div class="customer-summary"><div><h2>{{ group.label }}</h2><p>{{ group.assets.length }} elementi registrati</p></div><button type="button" class="primary customer-detail-button" appReliableTap (reliableTap)="openCustomerGroup(group)">Dettaglio</button></div></article></section>
+  <section class="list" *ngIf="displayedCustomerGroup as group"><div class="detail-head"><button type="button" class="back detail-back" appReliableTap (reliableTap)="closeCustomerGroup()">← Elenco clienti</button><h2>{{ group.label }}</h2><p>{{ group.assets.length }} elementi registrati</p></div><div class="customer-assets-detail"><div class="asset-row" *ngFor="let asset of group.assets"><div><h3>{{ assetLabel(asset) }}</h3><div class="asset-details" *ngIf="assetDetails(asset).length"><span *ngFor="let detail of assetDetails(asset)"><strong>{{ detail.label }}:</strong> {{ detail.value }}</span></div><small *ngIf="asset.description">{{ asset.description }}</small></div><div class="row-actions"><button type="button" class="primary" (click)="openDeadlines(asset)">Scadenze</button><button type="button" (click)="edit(asset)">Modifica</button><button type="button" class="danger" [disabled]="archivingAssetId === asset.id" (click)="archive(asset)">{{ archivingAssetId === asset.id ? 'Eliminazione…' : 'Elimina' }}</button></div></div></div></section>
 </main>

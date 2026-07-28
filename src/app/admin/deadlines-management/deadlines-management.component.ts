@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+import { AttachmentViewerService } from '../../shared/attachment-viewer/attachment-viewer.service';
 
 type DeadlineKind = 'employee' | 'vehicle' | 'equipment' | 'customer' | 'customerAsset' | 'internal';
 type DeadlineStatus = 'ok' | 'warning' | 'expired' | 'planned';
@@ -16,6 +17,7 @@ interface DeadlineAttachment {
   documentFolder?: string;
   documentFilename?: string;
   documentManagedBy?: string;
+  fieldKey?: string | null;
 }
 
 interface EmployeeTarget {
@@ -56,6 +58,7 @@ interface DeadlineRecord {
   vehicleId?: number;
   targetKey?: string;
   targetLabel?: string;
+  sourceFieldKey?: string | null;
   folder?: string;
   title: string;
   description: string;
@@ -81,14 +84,46 @@ interface DeadlineGroup {
   deadlines: DeadlineRecord[];
   summary: DeadlineSummary;
   auditHistory?: CustomerAssetAuditEntry[];
+  typeKey?: string;
+  assetDetails?: CustomerAssetDetail[];
+}
+
+interface CustomerAssetDetail {
+  key: string;
+  label: string;
+  type: string;
+  value: string;
+  attachments: DeadlineAttachment[];
 }
 
 interface CustomerAssetAuditEntry {
   action: string;
   summary: string;
+  changes?: Record<string, any>;
   snapshot: Record<string, any>;
   actorEmail?: string | null;
   createdAt: string;
+  attachmentItems?: CustomerAssetAuditAttachmentItem[];
+}
+
+interface CustomerAssetAuditAttachmentItem {
+  attachment: DeadlineAttachment;
+  label: string;
+}
+
+interface CustomerAssetDeadlineAction {
+  fieldKey: string;
+  label: string;
+  totalCount: number;
+  alertCount: number;
+}
+
+interface CustomerAssetTypeGroup {
+  key: string;
+  label: string;
+  assets: DeadlineGroup[];
+  summary: DeadlineSummary;
+  actions: CustomerAssetDeadlineAction[];
 }
 
 interface DeadlineFolderGroup {
@@ -109,6 +144,10 @@ interface DeadlineHistoryEntry {
   createdAt: string;
 }
 
+interface DeadlineHistoryDayGroup {
+  key: string;
+  entries: DeadlineHistoryEntry[];
+}
 
 @Component({
   selector: 'app-deadlines-management',
@@ -141,12 +180,50 @@ export class DeadlinesManagementComponent implements OnInit {
   historyByDeadlineId: Record<number, DeadlineHistoryEntry[]> = {};
   historyOpenByDeadlineId: Record<number, boolean> = {};
   historyLoadingByDeadlineId: Record<number, boolean> = {};
+  expandedHistoryDayKeys = new Set<string>();
   searchText = '';
   showCustomersWithoutDeadlines = false;
   internalDeadlineCategories: Array<{ id: number; name: string; certifications: any[] }> = [];
   selectedInternalCategoryIds: number[] = [];
-  private deadlinePointerActionPending = false;
   selectedDeadlineIds = new Set<number>();
+  selectedMonth = new Date().toISOString().slice(0, 7);
+  exportingPdf = false;
+  showPdfExport = false;
+  pdfExportMode: 'customers' | 'assets' = 'customers';
+  pdfCustomers: Array<{ id: string; label: string; assetCount: number; deadlineCount: number }> = [];
+  selectedPdfCustomerIds = new Set<string>();
+  pdfCustomersLoading = false;
+  pdfCustomersError = '';
+  showDeadlineDateFilter = false;
+  deadlineFilterDraftStart = '';
+  deadlineFilterDraftEnd = '';
+  deadlineFilterStart = '';
+  deadlineFilterEnd = '';
+  selectedCustomerAssetIds = new Set<string>();
+  showBulkCustomerAssetForm = false;
+  bulkInterventionDate = '';
+  bulkSaving = false;
+  quickAssetTypeKey = '';
+  quickDeadlineFieldKey = '';
+  quickDeadlineScope: 'alerts' | 'all' = 'alerts';
+  customerAssetSortMode: 'type' | 'status' | 'dueDate' | 'asset' = 'type';
+  expandedCustomerAssetTypeKeys = new Set<string>();
+  expandedCustomerAssetIds = new Set<string>();
+  bulkRows: Array<{
+    typeKey: string;
+    typeLabel: string;
+    fieldKey: string;
+    label: string;
+    type: string;
+    mode: string;
+    sourceField: string;
+    offsetValue: number;
+    offsetUnit: 'days' | 'months';
+    calculationHint: string;
+    options: string[];
+    included: boolean;
+    value: any;
+  }> = [];
 
   form: {
     entityId: string | number | null;
@@ -173,6 +250,7 @@ export class DeadlinesManagementComponent implements OnInit {
     private host: ElementRef<HTMLElement>,
     public globalService: GlobalService,
     private popup: PopupServiceService,
+    private globalAttachmentViewer: AttachmentViewerService,
   ) {}
 
   ngOnInit(): void {
@@ -245,15 +323,15 @@ export class DeadlinesManagementComponent implements OnInit {
   }
 
   get totalExpired(): number {
-    return this.groups.reduce((acc, group) => acc + group.summary.expiredCount, 0);
+    return this.summaryGroups.reduce((acc, group) => acc + group.summary.expiredCount, 0);
   }
 
   get totalWarning(): number {
-    return this.groups.reduce((acc, group) => acc + group.summary.warningCount, 0);
+    return this.summaryGroups.reduce((acc, group) => acc + group.summary.warningCount, 0);
   }
 
   get totalPending(): number {
-    return this.groups.reduce((acc, group) => acc + group.summary.pendingCount, 0);
+    return this.summaryGroups.reduce((acc, group) => acc + group.summary.pendingCount, 0);
   }
 
   get totalAlerts(): number {
@@ -262,6 +340,21 @@ export class DeadlinesManagementComponent implements OnInit {
 
   get hasActiveSearch(): boolean {
     return !!this.normalizeSearch(this.searchText);
+  }
+
+  get hasActiveDeadlineDateFilter(): boolean {
+    return this.kind === 'customerAsset' && !!this.deadlineFilterStart && !!this.deadlineFilterEnd;
+  }
+
+  get hasActiveListFilter(): boolean {
+    return this.hasActiveSearch || this.hasActiveDeadlineDateFilter;
+  }
+
+  private get summaryGroups(): DeadlineGroup[] {
+    if (!this.hasActiveDeadlineDateFilter) return this.groups;
+    return this.groups
+      .map((group) => this.filterCustomerGroupForDeadlineRange(group))
+      .filter((group): group is DeadlineGroup => !!group);
   }
 
   get searchPlaceholder(): string {
@@ -322,10 +415,15 @@ export class DeadlinesManagementComponent implements OnInit {
 
   get filteredGroups(): DeadlineGroup[] {
     const query = this.normalizeSearch(this.searchText);
-    const visibleGroups =
+    let visibleGroups =
       this.kind === 'customer' && !this.showCustomersWithoutDeadlines && !query
         ? this.groups.filter((group) => group.summary.totalCount > 0)
         : this.groups;
+    if (this.hasActiveDeadlineDateFilter) {
+      visibleGroups = visibleGroups
+        .map((group) => this.filterCustomerGroupForDeadlineRange(group))
+        .filter((group): group is DeadlineGroup => !!group);
+    }
     if (!query) return visibleGroups;
 
     return visibleGroups
@@ -341,9 +439,16 @@ export class DeadlinesManagementComponent implements OnInit {
   get selectedGroupView(): DeadlineGroup | null {
     if (!this.selectedGroup) return null;
 
-    const currentGroup =
+    let currentGroup =
       this.groups.find((group) => String(group.id) === String(this.selectedGroup?.id)) ||
       this.selectedGroup;
+    if (this.hasActiveDeadlineDateFilter) {
+      currentGroup = this.filterCustomerGroupForDeadlineRange(currentGroup) || {
+        ...currentGroup,
+        deadlines: [],
+        summary: this.summarize([]),
+      };
+    }
     const query = this.normalizeSearch(this.searchText);
     if (!query) return currentGroup;
 
@@ -367,12 +472,97 @@ export class DeadlinesManagementComponent implements OnInit {
   /** Nei presidi la lista principale è per cliente; qui recuperiamo i presidi del cliente aperto. */
   get selectedCustomerAssetGroups(): DeadlineGroup[] {
     if (this.kind !== 'customerAsset' || !this.selectedGroupView) return [];
-    const assets = this.customerAssetGroupsByCustomer[String(this.selectedGroupView.id)] || [];
+    let assets = this.customerAssetGroupsByCustomer[String(this.selectedGroupView.id)] || [];
+    if (this.hasActiveDeadlineDateFilter) {
+      assets = assets
+        .map((asset) => this.filterDeadlineGroupForRange(asset))
+        .filter((asset): asset is DeadlineGroup => !!asset);
+    }
     const query = this.normalizeSearch(this.searchText);
     if (!query) return assets;
     return assets
       .map((asset) => this.filterGroupForSearch(asset, query))
       .filter((asset): asset is DeadlineGroup => !!asset);
+  }
+
+  get selectedCustomerAssetTypeGroups(): CustomerAssetTypeGroup[] {
+    const configTypes = this.globalService.getTenantCustomerAssetsConfig().types || [];
+    const typeLabels = new Map(configTypes.map((type) => [type.key, type.label]));
+    const grouped = new Map<string, DeadlineGroup[]>();
+    for (const asset of this.selectedCustomerAssetGroups) {
+      const key = String(asset.typeKey || 'altro');
+      const assets = grouped.get(key) || [];
+      assets.push(asset);
+      grouped.set(key, assets);
+    }
+    return [...grouped.entries()].map(([key, assets]) => {
+      const deadlines = assets.flatMap((asset) => asset.deadlines);
+      const configuredFields = (configTypes.find((type) => type.key === key)?.fields || [])
+        .filter((field) => field.type === 'date' && field.isDeadline);
+      const actions = configuredFields.map((field) => {
+        const matching = deadlines.filter((deadline) =>
+          deadline.sourceFieldKey === field.key ||
+          (!deadline.sourceFieldKey && deadline.title === field.label),
+        );
+        return {
+          fieldKey: field.key,
+          label: field.label,
+          totalCount: matching.length,
+          alertCount: matching.filter((deadline) => this.isDeadlineAlert(deadline)).length,
+        };
+      }).filter((action) => action.totalCount > 0);
+      return {
+        key,
+        label: typeLabels.get(key) || assets[0]?.label || 'Altri presidi',
+        assets: assets.slice().sort((a, b) => this.compareCustomerAssets(a, b)),
+        summary: this.summarize(deadlines),
+        actions,
+      };
+    }).sort((a, b) => {
+      if (this.customerAssetSortMode === 'status') {
+        const severityDiff = this.statusRank(a.summary.status) - this.statusRank(b.summary.status);
+        if (severityDiff) return severityDiff;
+      }
+      if (this.customerAssetSortMode === 'dueDate') {
+        const dateDiff = this.earliestDeadlineDate(a.assets).localeCompare(this.earliestDeadlineDate(b.assets));
+        if (dateDiff) return dateDiff;
+      }
+      if (this.customerAssetSortMode === 'asset') {
+        const assetDiff = String(a.assets[0]?.label || '').localeCompare(
+          String(b.assets[0]?.label || ''),
+          'it',
+          { numeric: true },
+        );
+        if (assetDiff) return assetDiff;
+      }
+      return a.label.localeCompare(b.label, 'it');
+    });
+  }
+
+  get quickCustomerAssetTypeGroup(): CustomerAssetTypeGroup | null {
+    return this.selectedCustomerAssetTypeGroups.find((group) => group.key === this.quickAssetTypeKey)
+      || this.selectedCustomerAssetTypeGroups[0]
+      || null;
+  }
+
+  get quickDeadlineActions(): CustomerAssetDeadlineAction[] {
+    return this.quickCustomerAssetTypeGroup?.actions || [];
+  }
+
+  get quickDeadlineAction(): CustomerAssetDeadlineAction | null {
+    return this.quickDeadlineActions.find((action) => action.fieldKey === this.quickDeadlineFieldKey)
+      || this.quickDeadlineActions[0]
+      || null;
+  }
+
+  get quickSelectionCount(): number {
+    const action = this.quickDeadlineAction;
+    if (!action) return 0;
+    return this.quickDeadlineScope === 'alerts' ? action.alertCount : action.totalCount;
+  }
+
+  get selectedCustomerAssetDeadlineCount(): number {
+    return this.selectedDeadlines.filter((deadline) => deadline.entityType === 'customerAsset').length;
   }
 
   get detailListLabel(): string {
@@ -463,6 +653,162 @@ export class DeadlinesManagementComponent implements OnInit {
     this.router.navigateByUrl('/homeAdmin');
   }
 
+  get allPdfCustomersSelected(): boolean {
+    return this.pdfCustomers.length > 0 &&
+      this.pdfCustomers.every((customer) => this.selectedPdfCustomerIds.has(customer.id));
+  }
+
+  get somePdfCustomersSelected(): boolean {
+    return this.selectedPdfCustomerIds.size > 0 && !this.allPdfCustomersSelected;
+  }
+
+  openMonthlyPdfExport(): void {
+    if (this.exportingPdf || !/^\d{4}-\d{2}$/.test(this.selectedMonth)) return;
+    if (this.kind !== 'customerAsset') {
+      this.exportMonthlyPdf('deadlines');
+      return;
+    }
+    this.showPdfExport = true;
+    this.pdfExportMode = 'customers';
+    this.pdfCustomers = [];
+    this.selectedPdfCustomerIds = new Set();
+    this.loadPdfCustomers();
+  }
+
+  openDeadlineDateFilter(): void {
+    const month = /^\d{4}-\d{2}$/.test(this.selectedMonth)
+      ? this.selectedMonth
+      : this.todayDateOnly().slice(0, 7);
+    const [year, monthNumber] = month.split('-').map(Number);
+    this.deadlineFilterDraftStart = this.deadlineFilterStart || `${month}-01`;
+    this.deadlineFilterDraftEnd = this.deadlineFilterEnd ||
+      new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
+    this.showDeadlineDateFilter = true;
+  }
+
+  closeDeadlineDateFilter(): void {
+    this.showDeadlineDateFilter = false;
+  }
+
+  applyDeadlineDateFilter(): void {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(this.deadlineFilterDraftStart) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(this.deadlineFilterDraftEnd)) {
+      this.popup.showError('Inserisci una data iniziale e una data finale valide.');
+      return;
+    }
+    if (this.deadlineFilterDraftStart > this.deadlineFilterDraftEnd) {
+      this.popup.showError('La data iniziale non può essere successiva alla data finale.');
+      return;
+    }
+    this.deadlineFilterStart = this.deadlineFilterDraftStart;
+    this.deadlineFilterEnd = this.deadlineFilterDraftEnd;
+    this.selectedGroup = null;
+    this.selectedDeadlineIds = new Set();
+    this.selectedCustomerAssetIds = new Set();
+    this.showDeadlineDateFilter = false;
+  }
+
+  clearDeadlineDateFilter(): void {
+    this.deadlineFilterStart = '';
+    this.deadlineFilterEnd = '';
+    this.deadlineFilterDraftStart = '';
+    this.deadlineFilterDraftEnd = '';
+    this.selectedGroup = null;
+    this.showDeadlineDateFilter = false;
+  }
+
+  onSelectedMonthChange(): void {
+    if (this.showPdfExport && this.kind === 'customerAsset' && /^\d{4}-\d{2}$/.test(this.selectedMonth)) {
+      this.pdfCustomers = [];
+      this.selectedPdfCustomerIds = new Set();
+      this.loadPdfCustomers();
+    }
+  }
+
+  closeMonthlyPdfExport(): void {
+    if (this.exportingPdf) return;
+    this.showPdfExport = false;
+  }
+
+  onPdfExportModeChange(mode: 'customers' | 'assets'): void {
+    this.pdfExportMode = mode;
+    if (mode === 'assets' && !this.selectedPdfCustomerIds.size) {
+      this.selectedPdfCustomerIds = new Set(this.pdfCustomers.map((customer) => customer.id));
+    }
+  }
+
+  togglePdfCustomer(customerId: string, checked: boolean): void {
+    const selected = new Set(this.selectedPdfCustomerIds);
+    if (checked) selected.add(customerId);
+    else selected.delete(customerId);
+    this.selectedPdfCustomerIds = selected;
+  }
+
+  toggleAllPdfCustomers(checked: boolean): void {
+    this.selectedPdfCustomerIds = checked
+      ? new Set(this.pdfCustomers.map((customer) => customer.id))
+      : new Set();
+  }
+
+  confirmMonthlyPdfExport(): void {
+    if (this.pdfExportMode === 'assets' && !this.selectedPdfCustomerIds.size) {
+      this.popup.showError('Seleziona almeno un cliente da includere nel PDF.');
+      return;
+    }
+    this.exportMonthlyPdf(this.pdfExportMode);
+  }
+
+  private loadPdfCustomers(): void {
+    this.pdfCustomersLoading = true;
+    this.pdfCustomersError = '';
+    const endpoint = `admin/deadlines/export-pdf-customers?month=${encodeURIComponent(this.selectedMonth)}`;
+    this.http.get<any[]>(this.globalService.url + endpoint).subscribe({
+      next: (customers) => {
+        this.pdfCustomers = (Array.isArray(customers) ? customers : []).map((customer) => ({
+          id: String(customer.id || ''),
+          label: String(customer.label || customer.id || ''),
+          assetCount: Number(customer.assetCount || 0),
+          deadlineCount: Number(customer.deadlineCount || 0),
+        })).filter((customer) => customer.id);
+        if (this.pdfExportMode === 'assets') {
+          this.selectedPdfCustomerIds = new Set(this.pdfCustomers.map((customer) => customer.id));
+        }
+        this.pdfCustomersLoading = false;
+      },
+      error: (err) => {
+        this.pdfCustomersLoading = false;
+        this.pdfCustomersError = this.parseServerError(err);
+      },
+    });
+  }
+
+  exportMonthlyPdf(mode: 'customers' | 'assets' | 'deadlines' = 'deadlines'): void {
+    if (this.exportingPdf || !/^\d{4}-\d{2}$/.test(this.selectedMonth)) return;
+    this.exportingPdf = true;
+    const customerIds = mode === 'assets' ? [...this.selectedPdfCustomerIds].join(',') : '';
+    const endpoint = `admin/deadlines/export-pdf?kind=${encodeURIComponent(this.kind)}&month=${encodeURIComponent(this.selectedMonth)}&mode=${encodeURIComponent(mode)}${customerIds ? `&customerIds=${encodeURIComponent(customerIds)}` : ''}`;
+    this.http.get(this.globalService.url + endpoint, { responseType: 'blob' }).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        const suffix = this.kind === 'customerAsset'
+          ? (mode === 'customers' ? 'clienti' : 'presidi')
+          : this.kind;
+        anchor.download = `scadenze_${suffix}_${this.selectedMonth}.pdf`;
+        anchor.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.exportingPdf = false;
+        this.showPdfExport = false;
+      },
+      error: (err) => {
+        this.exportingPdf = false;
+        this.error = this.parseServerError(err);
+        this.popup.showError(this.error);
+      },
+    });
+  }
+
   openPrimaryCreate(): void {
     if (!this.canCreate) return;
     if (this.kind === 'customerAsset') {
@@ -472,14 +818,247 @@ export class DeadlinesManagementComponent implements OnInit {
     this.openAddForm();
   }
 
+  openGuidedCustomerAssetUpdate(): void {
+    this.router.navigateByUrl(this.responsiveAdminPath('customer-asset-deadlines/guided-update'));
+  }
+
+  private responsiveAdminPath(path: string): string {
+    const normalized = String(path || '').replace(/^\/+/, '');
+    const usesDesktopShell = typeof window !== 'undefined' &&
+      window.matchMedia('(min-width: 992px)').matches;
+    return usesDesktopShell ? `/homeAdmin/${normalized}` : `/${normalized}`;
+  }
+
   loadAll(): void {
     this.error = '';
     this.loading = true;
     this.entitiesLoading = true;
     this.selectedGroup = null;
     this.selectedDeadlineIds.clear();
+    this.selectedCustomerAssetIds.clear();
+    this.expandedCustomerAssetIds.clear();
+    this.showBulkCustomerAssetForm = false;
     this.loadEntities();
     this.loadDeadlines();
+  }
+
+  isCustomerAssetSelected(asset: DeadlineGroup): boolean {
+    return this.selectedCustomerAssetIds.has(String(asset.id));
+  }
+
+  isCustomerAssetSelectionPartial(asset: DeadlineGroup): boolean {
+    if (this.isCustomerAssetSelected(asset)) return false;
+    return this.selectableCustomerAssetDeadlines(asset)
+      .some((deadline) => this.isDeadlineSelected(deadline));
+  }
+
+  toggleCustomerAssetSelection(asset: DeadlineGroup, selected: boolean): void {
+    const assetIds = new Set(this.selectedCustomerAssetIds);
+    const deadlineIds = new Set(this.selectedDeadlineIds);
+    const assetId = String(asset.id);
+
+    if (selected) assetIds.add(assetId);
+    else assetIds.delete(assetId);
+
+    for (const deadline of this.selectableCustomerAssetDeadlines(asset)) {
+      const deadlineId = Number(deadline.id);
+      if (!Number.isFinite(deadlineId)) continue;
+      if (selected) deadlineIds.add(deadlineId);
+      else deadlineIds.delete(deadlineId);
+    }
+
+    this.selectedCustomerAssetIds = assetIds;
+    this.selectedDeadlineIds = deadlineIds;
+  }
+
+  selectAllCustomerAssetsForCurrentCustomer(): void {
+    const assets = this.selectedCustomerAssetGroups;
+    const allSelected = assets.length > 0 && assets.every((asset) => this.isCustomerAssetSelected(asset));
+    const assetIds = new Set(this.selectedCustomerAssetIds);
+    const deadlineIds = new Set(this.selectedDeadlineIds);
+
+    for (const asset of assets) {
+      if (allSelected) assetIds.delete(String(asset.id));
+      else assetIds.add(String(asset.id));
+
+      for (const deadline of this.selectableCustomerAssetDeadlines(asset)) {
+        const deadlineId = Number(deadline.id);
+        if (!Number.isFinite(deadlineId)) continue;
+        if (allSelected) deadlineIds.delete(deadlineId);
+        else deadlineIds.add(deadlineId);
+      }
+    }
+
+    this.selectedCustomerAssetIds = assetIds;
+    this.selectedDeadlineIds = deadlineIds;
+  }
+
+  openBulkCustomerAssetUpdate(): void {
+    if (!this.selectedCustomerAssetIds.size) return;
+    this.bulkInterventionDate = this.todayDateOnly();
+    this.buildBulkRows();
+    this.showBulkCustomerAssetForm = true;
+  }
+
+  openBulkSelectedCustomerAssetDeadlinesUpdate(): void {
+    if (this.kind !== 'customerAsset' || !this.selectedDeadlineIds.size) return;
+    const selectedDeadlines = this.deadlines.filter((deadline) => this.selectedDeadlineIds.has(deadline.id));
+    const selectedAssetIds = new Set(
+      selectedDeadlines.map((deadline) => String(deadline.targetKey || '')).filter(Boolean),
+    );
+    const selectedEntities = this.entities.filter((entity: any) =>
+      selectedAssetIds.has(String(entity?.id || entity?.targetKey || '')),
+    ) as any[];
+    const typeByAssetId = new Map(
+      selectedEntities.map((entity) => [
+        String(entity?.id || entity?.targetKey || ''),
+        String(entity?.typeKey || ''),
+      ]),
+    );
+    const configTypes = this.globalService.getTenantCustomerAssetsConfig().types || [];
+    const allowedFields = new Set<string>();
+    for (const deadline of selectedDeadlines) {
+      const typeKey = typeByAssetId.get(String(deadline.targetKey || '')) || '';
+      const type = configTypes.find((item) => item.key === typeKey);
+      const field = (type?.fields || []).find((item) =>
+        item.key === deadline.sourceFieldKey ||
+        (!deadline.sourceFieldKey && item.label === deadline.title),
+      );
+      if (field) allowedFields.add(`${typeKey}:${field.key}`);
+    }
+    this.selectedCustomerAssetIds = selectedAssetIds;
+    this.bulkInterventionDate = this.todayDateOnly();
+    this.buildBulkRows(allowedFields);
+    this.showBulkCustomerAssetForm = true;
+  }
+
+  closeBulkCustomerAssetUpdate(): void {
+    if (this.bulkSaving) return;
+    this.showBulkCustomerAssetForm = false;
+    this.bulkRows = [];
+  }
+
+  onBulkInterventionDateChange(): void {
+    // Conservato come no-op per non interrompere eventuali viste già aperte durante un aggiornamento frontend.
+  }
+
+  resetBulkRowSuggestion(row: any): void {
+    if (row.mode === 'today') row.value = this.bulkInterventionDate;
+    if (row.mode === 'date_offset') row.value = '';
+  }
+
+  get bulkRequiresInterventionDate(): boolean {
+    return false;
+  }
+
+  bulkRowInputType(row: any): string {
+    if (row.type === 'date') return 'date';
+    if (row.type === 'number') return 'number';
+    return 'text';
+  }
+
+  submitBulkCustomerAssetUpdate(): void {
+    if (this.bulkSaving) return;
+    const updates = this.bulkRows.map((row) => ({
+      typeKey: row.typeKey,
+      fieldKey: row.fieldKey,
+      included: row.included,
+      value: row.value,
+    }));
+    if (!updates.some((row) => row.included)) {
+      this.popup.showError('Seleziona almeno un campo da aggiornare.');
+      return;
+    }
+    this.bulkSaving = true;
+    this.http.post<any>(
+      this.globalService.url + 'admin/deadlines/customer-assets/registry/bulk-update',
+      {
+        assetIds: [...this.selectedCustomerAssetIds],
+        interventionDate: this.bulkInterventionDate,
+        updates,
+      },
+    ).subscribe({
+      next: (result) => {
+        this.bulkSaving = false;
+        this.success = `${Number(result?.updatedCount || 0)} presidi aggiornati correttamente.`;
+        this.showBulkCustomerAssetForm = false;
+        this.loadAll();
+      },
+      error: (err) => {
+        this.bulkSaving = false;
+        this.error = this.parseServerError(err);
+        this.popup.showError(this.error);
+      },
+    });
+  }
+
+  private buildBulkRows(allowedFields?: Set<string>): void {
+    const configTypes = this.globalService.getTenantCustomerAssetsConfig().types || [];
+    const selectedEntities = this.entities.filter((entity: any) =>
+      this.selectedCustomerAssetIds.has(String(entity?.id || entity?.targetKey || '')),
+    ) as any[];
+    const selectedTypeKeys = new Set(selectedEntities.map((entity) => String(entity.typeKey || '')));
+    this.bulkRows = configTypes
+      .filter((type) => selectedTypeKeys.has(type.key))
+      .flatMap((type) => (type.fields || [])
+        .filter((field) => field.bulkUpdateMode && field.bulkUpdateMode !== 'none' && field.type !== 'attachment')
+        .filter((field) => !allowedFields || allowedFields.has(`${type.key}:${field.key}`))
+        .map((field) => {
+          const mode = field.bulkUpdateMode || 'none';
+          const sourceField = String(field.bulkUpdateSourceField || '');
+          const offsetValue = Number(field.bulkUpdateOffsetValue) || 0;
+          const offsetUnit = field.bulkUpdateOffsetUnit === 'days' ? 'days' : 'months';
+          const sourceLabel = (type.fields || []).find((item) => item.key === sourceField)?.label || sourceField;
+          const calculationHint = mode === 'today'
+            ? 'Data odierna'
+            : `${sourceLabel} + ${offsetValue} ${offsetUnit === 'days' ? 'giorni' : 'mesi'}`;
+          const value = mode === 'today' ? this.bulkInterventionDate : '';
+          return {
+            typeKey: type.key,
+            typeLabel: type.label,
+            fieldKey: field.key,
+            label: field.label,
+            type: field.type,
+            mode,
+            sourceField,
+            offsetValue,
+            offsetUnit,
+            calculationHint,
+            options: field.options || [],
+            included: true,
+            value,
+          };
+        }));
+  }
+
+  private addBulkDateOffset(value: string, amount: number, unit: 'days' | 'months'): string {
+    if (unit === 'days') {
+      const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!match) return '';
+      const result = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + amount));
+      return result.toISOString().slice(0, 10);
+    }
+    return this.addMonthsToDate(value, amount);
+  }
+
+  private todayDateOnly(): string {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private addMonthsToDate(value: string, months: number): string {
+    const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return '';
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const result = new Date(Date.UTC(year, month + Number(months || 0), 1));
+    const lastDay = new Date(Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0)).getUTCDate();
+    result.setUTCDate(Math.min(day, lastDay));
+    return result.toISOString().slice(0, 10);
   }
 
   isDeadlineSelected(deadline: DeadlineRecord): boolean {
@@ -494,49 +1073,81 @@ export class DeadlinesManagementComponent implements OnInit {
     if (selected) nextSelection.add(deadlineId);
     else nextSelection.delete(deadlineId);
     this.selectedDeadlineIds = nextSelection;
+    this.syncCustomerAssetSelectionForDeadline(deadline);
   }
 
-  onDeadlineSelectionPointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
-    this.runDeadlinePointerAction(event, () => {
-      this.toggleDeadlineSelection(deadline, !this.isDeadlineSelected(deadline));
-    });
+  private selectableCustomerAssetDeadlines(asset: DeadlineGroup): DeadlineRecord[] {
+    return (asset.deadlines || []).filter((deadline) => !deadline.plannedAppointmentId);
   }
 
-  onDeadlineSelectionClick(event: Event, deadline: DeadlineRecord): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (this.consumePointerActionClick()) return;
-    this.toggleDeadlineSelection(deadline, !this.isDeadlineSelected(deadline));
+  private syncCustomerAssetSelectionForDeadline(deadline: DeadlineRecord): void {
+    if (this.kind !== 'customerAsset') return;
+    const asset = this.selectedCustomerAssetGroups.find((candidate) =>
+      (candidate.deadlines || []).some((item) => Number(item.id) === Number(deadline.id)),
+    );
+    if (!asset) return;
+
+    const selectable = this.selectableCustomerAssetDeadlines(asset);
+    const allSelected = selectable.length > 0 &&
+      selectable.every((item) => this.selectedDeadlineIds.has(Number(item.id)));
+    const assetIds = new Set(this.selectedCustomerAssetIds);
+    if (allSelected) assetIds.add(String(asset.id));
+    else assetIds.delete(String(asset.id));
+    this.selectedCustomerAssetIds = assetIds;
+  }
+
+  onQuickAssetTypeChange(): void {
+    const group = this.quickCustomerAssetTypeGroup;
+    const preferredAction = group?.actions.find((action) => action.alertCount > 0) || group?.actions[0];
+    this.quickDeadlineFieldKey = preferredAction?.fieldKey || '';
+  }
+
+  selectQuickCustomerAssetDeadlines(): void {
+    const group = this.quickCustomerAssetTypeGroup;
+    const action = this.quickDeadlineAction;
+    if (!group || !action) return;
+    this.selectCustomerAssetDeadlineAction(group, action, this.quickDeadlineScope);
+  }
+
+  prepareQuickCustomerAssetDeadlineUpdate(): void {
+    this.selectQuickCustomerAssetDeadlines();
+    if (this.selectedDeadlineIds.size) this.openBulkSelectedCustomerAssetDeadlinesUpdate();
+  }
+
+  selectCustomerAssetDeadlineAction(
+    group: CustomerAssetTypeGroup,
+    action: CustomerAssetDeadlineAction,
+    scope: 'alerts' | 'all' = 'alerts',
+  ): void {
+    const matching = group.assets
+      .flatMap((asset) => asset.deadlines)
+      .filter((deadline) => (
+        deadline.sourceFieldKey === action.fieldKey ||
+        (!deadline.sourceFieldKey && deadline.title === action.label)
+      ))
+      .filter((deadline) => scope === 'all' || this.isDeadlineAlert(deadline));
+    this.selectedDeadlineIds = new Set(matching.map((deadline) => Number(deadline.id)));
+  }
+
+  selectedDeadlineCountForType(group: CustomerAssetTypeGroup): number {
+    return group.assets
+      .flatMap((asset) => asset.deadlines)
+      .filter((deadline) => this.selectedDeadlineIds.has(Number(deadline.id)))
+      .length;
+  }
+
+  selectedDeadlineCountForAsset(asset: DeadlineGroup): number {
+    return (asset.deadlines || [])
+      .filter((deadline) => this.selectedDeadlineIds.has(Number(deadline.id)))
+      .length;
   }
 
   planDeadline(deadline: DeadlineRecord): void {
     this.navigateToDeadlinePlanning([deadline]);
   }
 
-  onPlanDeadlinePointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
-    this.runDeadlinePointerAction(event, () => this.planDeadline(deadline));
-  }
-
-  onPlanDeadlineClick(event: Event, deadline: DeadlineRecord): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (this.consumePointerActionClick()) return;
-    this.planDeadline(deadline);
-  }
-
   planSelectedDeadlines(): void {
     this.navigateToDeadlinePlanning(this.selectedDeadlines);
-  }
-
-  onPlanSelectedDeadlinesPointerDown(event: PointerEvent): void {
-    this.runDeadlinePointerAction(event, () => this.planSelectedDeadlines());
-  }
-
-  onPlanSelectedDeadlinesClick(event: Event): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (this.consumePointerActionClick()) return;
-    this.planSelectedDeadlines();
   }
 
   openPlannedEvent(deadline: DeadlineRecord): void {
@@ -544,17 +1155,6 @@ export class DeadlinesManagementComponent implements OnInit {
     this.router.navigate(['/homeAdmin/calendarHome'], {
       queryParams: { appointmentId: deadline.plannedAppointmentId },
     });
-  }
-
-  onOpenPlannedEventPointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
-    this.runDeadlinePointerAction(event, () => this.openPlannedEvent(deadline));
-  }
-
-  onOpenPlannedEventClick(event: Event, deadline: DeadlineRecord): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (this.consumePointerActionClick()) return;
-    this.openPlannedEvent(deadline);
   }
 
   private navigateToDeadlinePlanning(deadlines: DeadlineRecord[]): void {
@@ -657,9 +1257,9 @@ export class DeadlinesManagementComponent implements OnInit {
     this.router.navigate(['/homeAdmin/customer-assets'], { queryParams: { edit: asset.id } });
   }
 
-  deleteCustomerAsset(asset: DeadlineGroup): void {
+  async deleteCustomerAsset(asset: DeadlineGroup): Promise<void> {
     if (this.kind !== 'customerAsset' || this.showArchivedCustomerAssets) return;
-    if (!confirm(`Eliminare ${asset.label}? Il presidio e le sue scadenze passeranno nello storico eliminati.`)) return;
+    if (!await this.popup.confirm(`Eliminare ${asset.label}? Il presidio e le sue scadenze passeranno nello storico eliminati.`)) return;
     this.http.delete(this.globalService.url + `admin/deadlines/customer-assets/registry/${asset.id}`).subscribe({
       next: () => {
         this.success = `${asset.label} spostato nello storico eliminati.`;
@@ -740,6 +1340,7 @@ export class DeadlinesManagementComponent implements OnInit {
           edit: assetId,
           deadlineId: deadline.id,
           deadlineTitle: deadline.title,
+          deadlineFieldKey: deadline.sourceFieldKey || null,
         },
       });
       return;
@@ -764,17 +1365,6 @@ export class DeadlinesManagementComponent implements OnInit {
           : String(deadline.remindDays),
     };
     this.scrollToDeadlineForm();
-  }
-
-  onEditDeadlineClick(event: Event, deadline: DeadlineRecord): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (this.consumePointerActionClick()) return;
-    this.openEditForm(deadline);
-  }
-
-  onEditDeadlinePointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
-    this.runDeadlinePointerAction(event, () => this.openEditForm(deadline));
   }
 
   cancelForm(): void {
@@ -933,10 +1523,10 @@ export class DeadlinesManagementComponent implements OnInit {
     });
   }
 
-  deleteDeadline(deadline: DeadlineRecord): void {
+  async deleteDeadline(deadline: DeadlineRecord): Promise<void> {
     if (!this.canDelete) return;
 
-    const confirmed = confirm(
+    const confirmed = await this.popup.confirm(
       `Eliminare la scadenza "${deadline.title}"?`,
     );
     if (!confirmed) return;
@@ -960,21 +1550,10 @@ export class DeadlinesManagementComponent implements OnInit {
       });
   }
 
-  onDeleteDeadlineClick(event: Event, deadline: DeadlineRecord): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (this.consumePointerActionClick()) return;
-    this.deleteDeadline(deadline);
-  }
-
-  onDeleteDeadlinePointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
-    this.runDeadlinePointerAction(event, () => this.deleteDeadline(deadline));
-  }
-
-  deleteExistingAttachment(attachment: DeadlineAttachment): void {
+  async deleteExistingAttachment(attachment: DeadlineAttachment): Promise<void> {
     if (!this.editingDeadline || !this.canEdit) return;
 
-    const confirmed = confirm(
+    const confirmed = await this.popup.confirm(
       `Eliminare l'allegato "${attachment.originalName}"?`,
     );
     if (!confirmed) return;
@@ -1010,10 +1589,15 @@ export class DeadlinesManagementComponent implements OnInit {
       });
   }
 
-  renameExistingAttachment(attachment: DeadlineAttachment): void {
+  async renameExistingAttachment(attachment: DeadlineAttachment): Promise<void> {
     if (!this.editingDeadline || !this.canEdit) return;
 
-    const requestedName = prompt('Nuovo nome allegato', attachment.originalName);
+    const requestedName = await this.popup.prompt(
+      'Scegli il nuovo nome da mostrare per questo allegato.',
+      attachment.originalName,
+      'Rinomina allegato',
+      { inputLabel: 'Nome allegato', confirmLabel: 'Rinomina' },
+    );
     if (requestedName === null) return;
 
     const newName = requestedName.trim();
@@ -1061,6 +1645,10 @@ export class DeadlinesManagementComponent implements OnInit {
     const isOpen = !!this.historyOpenByDeadlineId[deadline.id];
     this.historyOpenByDeadlineId[deadline.id] = !isOpen;
 
+    if (isOpen) {
+      this.clearExpandedHistoryDays(deadline.id);
+    }
+
     if (!isOpen && !this.historyByDeadlineId[deadline.id]) {
       this.loadHistory(deadline);
     }
@@ -1068,34 +1656,6 @@ export class DeadlinesManagementComponent implements OnInit {
     if (!isOpen) {
       this.scrollDeadlineHistoryIntoView(deadline.id);
     }
-  }
-
-  onToggleHistoryClick(event: Event, deadline: DeadlineRecord): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (this.consumePointerActionClick()) return;
-    this.toggleHistory(deadline);
-  }
-
-  onToggleHistoryPointerDown(event: PointerEvent, deadline: DeadlineRecord): void {
-    this.runDeadlinePointerAction(event, () => this.toggleHistory(deadline));
-  }
-
-  private runDeadlinePointerAction(event: PointerEvent, action: () => void): void {
-    if (event.button !== 0) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    this.deadlinePointerActionPending = true;
-    window.setTimeout(() => {
-      this.deadlinePointerActionPending = false;
-    }, 500);
-    action();
-  }
-
-  private consumePointerActionClick(): boolean {
-    if (!this.deadlinePointerActionPending) return false;
-    return true;
   }
 
   loadHistory(deadline: DeadlineRecord): void {
@@ -1120,6 +1680,95 @@ export class DeadlinesManagementComponent implements OnInit {
           this.popup.showError(this.error);
         },
       });
+  }
+
+  historyDayGroups(deadlineId: number): DeadlineHistoryDayGroup[] {
+    const grouped = new Map<string, DeadlineHistoryEntry[]>();
+    const entries = [...(this.historyByDeadlineId[deadlineId] || [])].sort(
+      (left, right) => this.historyTimestamp(right.createdAt) - this.historyTimestamp(left.createdAt),
+    );
+
+    for (const entry of entries) {
+      const key = this.historyDayKey(entry.createdAt);
+      const dayEntries = grouped.get(key) || [];
+      dayEntries.push(entry);
+      grouped.set(key, dayEntries);
+    }
+
+    return Array.from(grouped.entries())
+      .map(([key, dayEntries]) => ({ key, entries: dayEntries }))
+      .sort(
+        (left, right) =>
+          this.historyTimestamp(right.entries[0]?.createdAt) -
+          this.historyTimestamp(left.entries[0]?.createdAt),
+      );
+  }
+
+  toggleHistoryDay(deadlineId: number, dayKey: string): void {
+    const stateKey = this.historyDayStateKey(deadlineId, dayKey);
+    const next = new Set(this.expandedHistoryDayKeys);
+    if (next.has(stateKey)) {
+      next.delete(stateKey);
+    } else {
+      next.add(stateKey);
+    }
+    this.expandedHistoryDayKeys = next;
+  }
+
+  isHistoryDayExpanded(deadlineId: number, dayKey: string): boolean {
+    return this.expandedHistoryDayKeys.has(this.historyDayStateKey(deadlineId, dayKey));
+  }
+
+  historyDayLabel(dayKey: string): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dayKey);
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : dayKey;
+  }
+
+  historyDayCountLabel(count: number): string {
+    return count === 1 ? '1 aggiornamento' : `${count} aggiornamenti`;
+  }
+
+  formatHistoryTime(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value || '—';
+    return date.toLocaleTimeString('it-IT', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  trackHistoryDayGroup(_index: number, group: DeadlineHistoryDayGroup): string {
+    return group.key;
+  }
+
+  trackHistoryEntry(_index: number, entry: DeadlineHistoryEntry): number {
+    return entry.id;
+  }
+
+  private historyDayKey(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value || 'Data non disponibile';
+
+    const year = String(date.getFullYear());
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private historyTimestamp(value?: string): number {
+    const timestamp = value ? new Date(value).getTime() : Number.NaN;
+    return Number.isNaN(timestamp) ? 0 : timestamp;
+  }
+
+  private historyDayStateKey(deadlineId: number, dayKey: string): string {
+    return `${deadlineId}:${dayKey}`;
+  }
+
+  private clearExpandedHistoryDays(deadlineId: number): void {
+    const prefix = `${deadlineId}:`;
+    this.expandedHistoryDayKeys = new Set(
+      Array.from(this.expandedHistoryDayKeys).filter((key) => !key.startsWith(prefix)),
+    );
   }
 
   historyActionLabel(action: string): string {
@@ -1268,27 +1917,7 @@ export class DeadlinesManagementComponent implements OnInit {
     deadline: DeadlineRecord,
     attachment: DeadlineAttachment,
   ): void {
-    if (this.consumePointerActionClick()) return;
-    this.downloadAttachment(deadline, attachment);
-  }
-
-  onOpenAttachmentPointerDown(
-    event: PointerEvent,
-    deadline: DeadlineRecord,
-    attachment: DeadlineAttachment,
-  ): void {
-    this.runDeadlinePointerAction(event, () =>
-      this.downloadAttachment(deadline, attachment),
-    );
-  }
-
-  private downloadAttachment(
-    deadline: DeadlineRecord,
-    attachment: DeadlineAttachment,
-  ): void {
-    const attachmentWindow = this.openAttachmentWindow('Caricamento documento...');
-
-    this.http
+    const request = this.http
       .post(
         this.globalService.url + 'admin/deadlines/download-attachment',
         {
@@ -1296,18 +1925,8 @@ export class DeadlinesManagementComponent implements OnInit {
           attachmentId: attachment.id,
         },
         { responseType: 'blob' },
-      )
-      .subscribe({
-        next: (blob) => {
-          const namedBlob = this.namedAttachmentBlob(blob, attachment);
-          this.openDownloadedBlob(namedBlob, attachmentWindow);
-        },
-        error: (err) => {
-          attachmentWindow?.close();
-          console.error('Errore apertura allegato:', err);
-          this.showDownloadError(err);
-        },
-      });
+      );
+    this.globalAttachmentViewer.open(attachment, request);
   }
 
   openHistoryAttachment(
@@ -1315,29 +1934,7 @@ export class DeadlinesManagementComponent implements OnInit {
     entry: DeadlineHistoryEntry,
     attachment: DeadlineAttachment,
   ): void {
-    if (this.consumePointerActionClick()) return;
-    this.downloadHistoryAttachment(deadline, entry, attachment);
-  }
-
-  onOpenHistoryAttachmentPointerDown(
-    event: PointerEvent,
-    deadline: DeadlineRecord,
-    entry: DeadlineHistoryEntry,
-    attachment: DeadlineAttachment,
-  ): void {
-    this.runDeadlinePointerAction(event, () =>
-      this.downloadHistoryAttachment(deadline, entry, attachment),
-    );
-  }
-
-  private downloadHistoryAttachment(
-    deadline: DeadlineRecord,
-    entry: DeadlineHistoryEntry,
-    attachment: DeadlineAttachment,
-  ): void {
-    const attachmentWindow = this.openAttachmentWindow('Caricamento documento storico...');
-
-    this.http
+    const request = this.http
       .post(
         this.globalService.url + 'admin/deadlines/download-history-attachment',
         {
@@ -1346,66 +1943,8 @@ export class DeadlinesManagementComponent implements OnInit {
           attachmentId: attachment.id,
         },
         { responseType: 'blob' },
-      )
-      .subscribe({
-        next: (blob) => {
-          const namedBlob = this.namedAttachmentBlob(blob, attachment);
-          this.openDownloadedBlob(namedBlob, attachmentWindow);
-        },
-        error: (err) => {
-          attachmentWindow?.close();
-          console.error('Errore apertura allegato storico:', err);
-          this.showDownloadError(err);
-        },
-      });
-  }
-
-  private openAttachmentWindow(title: string): Window | null {
-    const attachmentWindow = window.open('', '_blank');
-    if (!attachmentWindow) return null;
-
-    attachmentWindow.document.write(
-      `<!doctype html><title>${title}</title><body style="font-family:Arial,sans-serif;padding:24px">${title}</body>`,
-    );
-    return attachmentWindow;
-  }
-
-  private openDownloadedBlob(blob: Blob, attachmentWindow: Window | null): void {
-    const url = window.URL.createObjectURL(blob);
-    if (attachmentWindow) {
-      attachmentWindow.location.href = url;
-      window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
-      return;
-    }
-
-    window.location.href = url;
-  }
-
-  private showDownloadError(err: any): void {
-    this.parseDownloadError(err).then((message) => {
-      this.error = message;
-      this.popup.showError(message);
-    });
-  }
-
-  private async parseDownloadError(err: any): Promise<string> {
-    const errorBody = err?.error;
-    if (errorBody instanceof Blob) {
-      try {
-        const text = await errorBody.text();
-        const parsed = text ? JSON.parse(text) : null;
-        if (parsed?.error) return parsed.error;
-      } catch {}
-    }
-
-    return this.parseServerError(err);
-  }
-
-  private namedAttachmentBlob(blob: Blob, attachment: DeadlineAttachment): Blob {
-    const filename = (attachment.originalName || attachment.storedName || 'documento').trim();
-    return new File([blob], filename, {
-      type: blob.type || 'application/octet-stream',
-    });
+      );
+    this.globalAttachmentViewer.open(attachment, request);
   }
 
   getEntityLabel(entity: any): string {
@@ -1510,9 +2049,25 @@ export class DeadlinesManagementComponent implements OnInit {
     return 'status-ok';
   }
 
+  trackDeadlineGroup(_index: number, group: DeadlineGroup): string {
+    return String(group.id);
+  }
+
+  trackStableInteractiveItem(index: number, item: any): string | number {
+    return item?.id ?? item?.key ?? item?.numeroCliente ?? item?.code ?? item?.name ?? index;
+  }
+
+  openGroupById(groupId: string | number): void {
+    const group = this.groups.find((item) => String(item.id) === String(groupId));
+    if (group) this.openGroup(group);
+  }
+
   openGroup(group: DeadlineGroup): void {
-    this.selectedDeadlineIds.clear();
+    this.selectedDeadlineIds = new Set();
+    this.expandedCustomerAssetTypeKeys = new Set();
+    this.expandedCustomerAssetIds = new Set();
     this.selectedGroup = group;
+    if (this.kind === 'customerAsset') this.initializeCustomerAssetQuickSelection();
     if (this.kind === 'internal') this.loadInternalCategories();
     this.showForm = false;
     this.error = '';
@@ -1542,9 +2097,41 @@ export class DeadlinesManagementComponent implements OnInit {
 
   closeGroup(): void {
     this.selectedDeadlineIds.clear();
+    this.expandedCustomerAssetTypeKeys.clear();
+    this.expandedCustomerAssetIds.clear();
+    this.quickAssetTypeKey = '';
+    this.quickDeadlineFieldKey = '';
+    this.quickDeadlineScope = 'alerts';
     this.selectedGroup = null;
     this.showForm = false;
     this.error = '';
+  }
+
+  isCustomerAssetTypeExpanded(typeKey: string): boolean {
+    return this.expandedCustomerAssetTypeKeys.has(typeKey);
+  }
+
+  toggleCustomerAssetType(typeKey: string): void {
+    const next = new Set(this.expandedCustomerAssetTypeKeys);
+    if (next.has(typeKey)) next.delete(typeKey);
+    else next.add(typeKey);
+    this.expandedCustomerAssetTypeKeys = next;
+  }
+
+  trackCustomerAssetTypeGroup(_index: number, typeGroup: CustomerAssetTypeGroup): string {
+    return typeGroup.key;
+  }
+
+  isCustomerAssetExpanded(asset: DeadlineGroup): boolean {
+    return this.expandedCustomerAssetIds.has(String(asset.id));
+  }
+
+  toggleCustomerAsset(asset: DeadlineGroup): void {
+    const assetId = String(asset.id);
+    const next = new Set(this.expandedCustomerAssetIds);
+    if (next.has(assetId)) next.delete(assetId);
+    else next.add(assetId);
+    this.expandedCustomerAssetIds = next;
   }
 
   clearSearch(): void {
@@ -1654,7 +2241,11 @@ export class DeadlinesManagementComponent implements OnInit {
         subtitle: this.getEntitySubtitle(entity),
         deadlines,
         summary: this.summarize(deadlines),
-        auditHistory: Array.isArray((entity as any)?.auditHistory) ? (entity as any).auditHistory : [],
+        auditHistory: this.normalizeCustomerAssetAuditHistory((entity as any)?.auditHistory),
+        typeKey: String((entity as any)?.typeKey || ''),
+        assetDetails: this.kind === 'customerAsset'
+          ? this.buildCustomerAssetDetails(entity)
+          : [],
       });
     }
 
@@ -1704,6 +2295,7 @@ export class DeadlinesManagementComponent implements OnInit {
           ? assetGroup.label.slice(0, -customerSuffix.length)
           : assetGroup.label,
         subtitle: this.getEntitySubtitle(entity),
+        typeKey: String(entity?.typeKey || ''),
       });
       grouped.set(customerId, entry);
     }
@@ -1731,6 +2323,111 @@ export class DeadlinesManagementComponent implements OnInit {
     }
   }
 
+  private buildCustomerAssetDetails(entity: any): CustomerAssetDetail[] {
+    const typeKey = String(entity?.typeKey || '');
+    const type = (this.globalService.getTenantCustomerAssetsConfig().types || [])
+      .find((item) => item.key === typeKey);
+    const fields = Array.isArray(type?.fields) ? type.fields : [];
+    const identityField = fields.find((field) => field.unique === true && field.type !== 'attachment');
+    const values = entity?.customFields && typeof entity.customFields === 'object'
+      ? entity.customFields
+      : {};
+    const attachments = Array.isArray(entity?.attachments) ? entity.attachments : [];
+
+    return fields
+      // Le scadenze hanno già una scheda operativa completa subito sotto.
+      .filter((field) => !(field.type === 'date' && field.isDeadline === true))
+      // Il primo campo univoco è già l'identificativo mostrato nel titolo.
+      .filter((field) => field.key !== identityField?.key)
+      .map((field) => {
+        if (field.type === 'attachment') {
+          const matchingAttachments = attachments.filter(
+            (attachment: DeadlineAttachment) => String(attachment?.fieldKey || '') === String(field.key),
+          );
+          return {
+            key: field.key,
+            label: field.label || field.key,
+            type: field.type,
+            value: matchingAttachments.length === 1
+              ? '1 allegato'
+              : `${matchingAttachments.length} allegati`,
+            attachments: matchingAttachments,
+          };
+        }
+
+        const rawValue = values[field.key];
+        return {
+          key: field.key,
+          label: field.label || field.key,
+          type: field.type,
+          value: this.formatCustomerAssetDetailValue(field.type, rawValue),
+          attachments: [],
+        };
+      })
+      .filter((detail) => detail.type === 'attachment'
+        ? detail.attachments.length > 0
+        : detail.value !== '');
+  }
+
+  private formatCustomerAssetDetailValue(type: string, value: any): string {
+    if (value === null || value === undefined || value === '') return '';
+    if (type === 'boolean') return value === true || value === 'true' || value === 1 ? 'Sì' : 'No';
+    if (type === 'date') {
+      const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+    }
+    if (Array.isArray(value)) return value.filter(Boolean).join(', ');
+    return String(value);
+  }
+
+  downloadCustomerAssetAttachment(asset: DeadlineGroup, attachment: DeadlineAttachment): void {
+    if (!asset?.id || !attachment?.id) return;
+    const request = this.http.get(
+      this.globalService.url +
+        `admin/deadlines/customer-assets/registry/${encodeURIComponent(String(asset.id))}` +
+        `/attachments/${encodeURIComponent(String(attachment.id))}`,
+      { responseType: 'blob' },
+    );
+    this.globalAttachmentViewer.open(attachment, request);
+  }
+
+  customerAssetAuditAttachments(
+    entry: CustomerAssetAuditEntry,
+  ): CustomerAssetAuditAttachmentItem[] {
+    const result: CustomerAssetAuditAttachmentItem[] = [];
+    const seen = new Set<string>();
+    const add = (value: any, label: string) => {
+      if (!value?.id) return;
+      const id = String(value.id);
+      if (seen.has(id)) return;
+      seen.add(id);
+      result.push({
+        label,
+        attachment: {
+          id,
+          originalName: value.originalName || value.storedName || 'Allegato',
+          storedName: value.storedName || '',
+          size: Number(value.size || 0),
+          uploadedAt: value.uploadedAt || '',
+        },
+      });
+    };
+    const changes = entry?.changes || {};
+    (Array.isArray(changes['attachmentsAddedDetails']) ? changes['attachmentsAddedDetails'] : [])
+      .forEach((attachment: any) => add(attachment, 'Allegato salvato'));
+    (Array.isArray(changes['attachmentsDeleted']) ? changes['attachmentsDeleted'] : [])
+      .forEach((attachment: any) => add(attachment, 'Versione precedente'));
+    return result;
+  }
+
+  private normalizeCustomerAssetAuditHistory(value: unknown): CustomerAssetAuditEntry[] {
+    if (!Array.isArray(value)) return [];
+    return value.map((entry: CustomerAssetAuditEntry) => ({
+      ...entry,
+      attachmentItems: this.customerAssetAuditAttachments(entry),
+    }));
+  }
+
   private summarize(deadlines: DeadlineRecord[]): DeadlineSummary {
     const summary: DeadlineSummary = {
       expiredCount: 0,
@@ -1756,6 +2453,65 @@ export class DeadlinesManagementComponent implements OnInit {
           : 'ok';
 
     return summary;
+  }
+
+  private initializeCustomerAssetQuickSelection(): void {
+    const groups = this.selectedCustomerAssetTypeGroups;
+    const preferredGroup = groups.find((group) => group.summary.alertCount > 0) || groups[0];
+    this.quickAssetTypeKey = preferredGroup?.key || '';
+    const preferredAction = preferredGroup?.actions.find((action) => action.alertCount > 0)
+      || preferredGroup?.actions[0];
+    this.quickDeadlineFieldKey = preferredAction?.fieldKey || '';
+    this.quickDeadlineScope = 'alerts';
+  }
+
+  private isDeadlineAlert(deadline: DeadlineRecord): boolean {
+    return deadline.status === 'expired' || deadline.status === 'warning' || deadline.planningDue === true;
+  }
+
+  private isDeadlineInAppliedRange(deadline: DeadlineRecord): boolean {
+    const dueDate = String(deadline.dueDate || '').slice(0, 10);
+    return !!dueDate && dueDate >= this.deadlineFilterStart && dueDate <= this.deadlineFilterEnd;
+  }
+
+  private filterDeadlineGroupForRange(group: DeadlineGroup): DeadlineGroup | null {
+    const deadlines = group.deadlines.filter((deadline) => this.isDeadlineInAppliedRange(deadline));
+    if (!deadlines.length) return null;
+    return { ...group, deadlines, summary: this.summarize(deadlines) };
+  }
+
+  private filterCustomerGroupForDeadlineRange(group: DeadlineGroup): DeadlineGroup | null {
+    const assets = (this.customerAssetGroupsByCustomer[String(group.id)] || [])
+      .map((asset) => this.filterDeadlineGroupForRange(asset))
+      .filter((asset): asset is DeadlineGroup => !!asset);
+    if (!assets.length) return null;
+    const deadlines = assets.flatMap((asset) => asset.deadlines);
+    return {
+      ...group,
+      subtitle: `${assets.length} ${assets.length === 1 ? 'presidio in scadenza' : 'presidi in scadenza'}`,
+      deadlines,
+      summary: this.summarize(deadlines),
+    };
+  }
+
+  private compareCustomerAssets(a: DeadlineGroup, b: DeadlineGroup): number {
+    if (this.customerAssetSortMode === 'status') {
+      const severityDiff = this.statusRank(a.summary.status) - this.statusRank(b.summary.status);
+      if (severityDiff) return severityDiff;
+    }
+    if (this.customerAssetSortMode === 'dueDate') {
+      const dateDiff = this.earliestDeadlineDate([a]).localeCompare(this.earliestDeadlineDate([b]));
+      if (dateDiff) return dateDiff;
+    }
+    return a.label.localeCompare(b.label, 'it', { numeric: true });
+  }
+
+  private earliestDeadlineDate(assets: DeadlineGroup[]): string {
+    return assets
+      .flatMap((asset) => asset.deadlines)
+      .map((deadline) => String(deadline.dueDate || ''))
+      .filter(Boolean)
+      .sort()[0] || '9999-12-31';
   }
 
   private getEntityIdFromDeadline(deadline: DeadlineRecord): string {

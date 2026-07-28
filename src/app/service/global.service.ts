@@ -36,6 +36,22 @@ interface TenantBackendConfig {
   invoiceConfig?: TenantInvoiceConfig;
   mapsConfig?: TenantMapsConfig;
   billingAccess?: TenantBillingAccess;
+  workCompletionConfig?: TenantWorkCompletionConfig;
+}
+
+export interface TenantWorkCompletionConfig {
+  title?: string;
+  introText?: string;
+  noteLabel?: string;
+  noteEnabled?: boolean;
+  signatureRequired?: boolean;
+  questions?: Array<{
+    key: string;
+    label: string;
+    type: 'rating' | 'choice';
+    required?: boolean;
+    options: Array<{ value: string; label: string; score?: number }>;
+  }>;
 }
 
 export interface TenantBillingAccess {
@@ -62,9 +78,16 @@ export interface TenantCustomerAssetsConfig {
       label: string;
       type: string;
       required?: boolean;
+      attachmentMultiple?: boolean;
       unique?: boolean;
+      uniqueScope?: 'type' | 'customer';
       isDeadline?: boolean;
       options?: string[];
+      bulkUpdateMode?: 'none' | 'prompt' | 'today' | 'date_offset';
+      bulkUpdateSourceField?: string;
+      bulkUpdateOffsetValue?: number;
+      bulkUpdateOffsetUnit?: 'days' | 'months';
+      defaultRemindDays?: number | null;
     }>;
   }>;
 }
@@ -286,7 +309,7 @@ export class GlobalService {
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '5.6';
+  version = '5.7';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -598,6 +621,17 @@ export class GlobalService {
 
   getTenantCustomerAssetsConfig(): TenantCustomerAssetsConfig {
     return this.tenantConfig?.customerAssetsConfig || {};
+  }
+
+  getWorkCompletionConfig(): TenantWorkCompletionConfig {
+    return this.tenantConfig?.workCompletionConfig || {};
+  }
+
+  getWorkCompletionQuestions(): NonNullable<
+    TenantWorkCompletionConfig['questions']
+  > {
+    const questions = this.getWorkCompletionConfig().questions;
+    return Array.isArray(questions) ? questions : [];
   }
 
   getContractFields(): TenantFieldMappingFieldConfig[] {

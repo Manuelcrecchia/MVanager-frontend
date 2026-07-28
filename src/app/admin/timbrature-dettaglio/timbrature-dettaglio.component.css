@@ -153,6 +153,56 @@ html, body{
   color:#000 !important;
 }
 
+@media (max-width: 1099.98px) {
+  .responsive-data-table .table,
+  .responsive-data-table .table tbody,
+  .responsive-data-table .table tr,
+  .responsive-data-table .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .responsive-data-table .table thead {
+    display: none;
+  }
+
+  .responsive-data-table .table {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .responsive-data-table .table tr {
+    margin-bottom: 14px;
+    padding: 12px;
+    border: 1px solid rgba(0, 0, 0, .1);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, .94);
+    box-shadow: var(--shadow-card);
+  }
+
+  .responsive-data-table .table td {
+    display: grid;
+    grid-template-columns: minmax(125px, .42fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, .08);
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .responsive-data-table .table td:last-child {
+    border-bottom: 0;
+  }
+
+  .responsive-data-table .table td::before {
+    content: attr(data-label);
+    color: rgba(0, 0, 0, .58);
+    font-size: .74rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+}
+
 /* Diff colors */
 .text-success{ color: #1e7e34 !important; font-weight: 950; }
 .text-danger{ color: #b02a37 !important; font-weight: 950; }

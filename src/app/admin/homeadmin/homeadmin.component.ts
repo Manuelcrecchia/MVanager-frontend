@@ -218,6 +218,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       clearInterval(this.emailUnreadIntervalId);
     }
     this.renderer.removeClass(document.body, 'is-desktop');
+    this.renderer.removeStyle(document.documentElement, '--admin-sidebar-width');
   }
 
   checkPermessiInAttesa(): void {
@@ -269,6 +270,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     if (this.sidebarCollapsed) {
       this.settingsMenuOpen = false;
     }
+    this.syncAdminSidebarWidth();
   }
 
   toggleSettingsMenu(): void {
@@ -1222,6 +1224,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     if (this.isDesktopHome) {
       if (this.sidebarCollapsed) {
         this.sidebarCollapsed = false;
+        this.syncAdminSidebarWidth();
         this.settingsMenuOpen = false;
         this.expandedHomeCategoryId = categoryId;
         this.selectedHomeCategoryId = categoryId;
@@ -1234,10 +1237,12 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     }
 
     this.selectedHomeCategoryId = categoryId;
+    this.scrollMobileHomeToTop();
   }
 
   clearHomeCategory(): void {
     this.selectedHomeCategoryId = '';
+    if (!this.isDesktopHome) this.scrollMobileHomeToTop();
   }
 
   activateHomeButton(button: HomeButton): void {
@@ -1644,12 +1649,6 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     return button.badgeClass?.() || 'badge bg-danger ms-1';
   }
 
-  @HostListener('window:popstate', ['$event'])
-  onPopState(event: PopStateEvent) {
-    console.log('[AppComponent] Freccia indietro rilevata');
-    this.global.logout();
-  }
-
   deadlineBadgeClass(summary: DeadlineSummary): string {
     return this.deadlineBadgeClassFromCounts(summary.expiredCount, summary.warningCount, summary.pendingCount);
   }
@@ -1693,14 +1692,35 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   private updateDesktopHomeState(): void {
-    this.isDesktopHome =
+    const wasDesktopHome = this.isDesktopHome;
+    const nextIsDesktopHome =
       typeof window !== 'undefined' && window.matchMedia('(min-width: 992px)').matches;
+    this.isDesktopHome = nextIsDesktopHome;
     if (this.isDesktopHome) {
       this.renderer.addClass(document.body, 'is-desktop');
     } else {
       this.renderer.removeClass(document.body, 'is-desktop');
     }
-    this.syncDesktopRouteState();
+    this.syncAdminSidebarWidth();
+
+    // I browser mobile emettono resize anche durante un normale scroll,
+    // quando mostrano o nascondono la barra degli indirizzi. In quel caso non
+    // va risincronizzato il menu: azzererebbe il sottomenu attualmente aperto.
+    if (wasDesktopHome !== nextIsDesktopHome) {
+      this.syncDesktopRouteState();
+    }
+  }
+
+  private syncAdminSidebarWidth(): void {
+    if (!this.isDesktopHome) {
+      this.renderer.removeStyle(document.documentElement, '--admin-sidebar-width');
+      return;
+    }
+    this.renderer.setStyle(
+      document.documentElement,
+      '--admin-sidebar-width',
+      this.sidebarCollapsed ? '60px' : '260px',
+    );
   }
 
   private bindRouterState(): void {
@@ -1712,6 +1732,9 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   private syncDesktopRouteState(): void {
+    if (this.redirectEmbeddedRouteOutOfMobileHome()) {
+      return;
+    }
     if (this.redirectStandaloneRouteIntoDesktopHome()) {
       return;
     }
@@ -1758,6 +1781,18 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     );
     this.expandedHomeCategoryId = owner?.id || '';
     this.selectedHomeCategoryId = owner?.id || '';
+  }
+
+  private scrollMobileHomeToTop(): void {
+    if (typeof window === 'undefined') return;
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      const mobileLayout = this.el?.nativeElement?.querySelector?.(
+        '.mobile-layout',
+      ) as HTMLElement | null;
+      mobileLayout?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    });
   }
 
   private activeDesktopChildPath(): string {
@@ -1825,6 +1860,35 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       `/homeAdmin${cleanPath}` +
       (query ? `?${query}` : '') +
       (fragment ? `#${fragment}` : '');
+    this.router.navigateByUrl(target, { replaceUrl: true });
+    return true;
+  }
+
+  /**
+   * Le pagine amministrative hanno una rotta incorporata nel guscio desktop
+   * e una rotta autonoma per telefono. Diversi flussi storici puntano ancora
+   * a /homeAdmin/...: sul mobile li normalizziamo qui in un solo punto, così
+   * ogni pulsante apre davvero la pagina invece di lasciare visibile la home.
+   */
+  private redirectEmbeddedRouteOutOfMobileHome(): boolean {
+    if (this.isDesktopHome) return false;
+
+    const url = this.router.url;
+    const [pathAndQuery, fragment] = url.split('#');
+    const [cleanPath, query] = pathAndQuery.split('?');
+    if (!cleanPath.startsWith('/homeAdmin/')) {
+      return false;
+    }
+
+    const childPath = cleanPath.slice('/homeAdmin/'.length);
+    const standalonePath = childPath === 'shifts' || childPath.startsWith('shifts/')
+      ? `/admin/${childPath}`
+      : `/${childPath}`;
+    const target =
+      standalonePath +
+      (query ? `?${query}` : '') +
+      (fragment ? `#${fragment}` : '');
+
     this.router.navigateByUrl(target, { replaceUrl: true });
     return true;
   }

@@ -133,7 +133,7 @@
 
   <!-- Selettore data -->
   <div class="d-flex justify-content-center align-items-center mb-3 gap-3">
-    <button class="btn btn-outline-secondary" (click)="changeDate(-1)">
+    <button type="button" class="btn btn-outline-secondary" (click)="changeDate(-1)">
       <i class="fas fa-chevron-left"></i>
     </button>
 
@@ -144,7 +144,7 @@
       class="form-control w-auto text-center"
     />
 
-    <button class="btn btn-outline-secondary" (click)="changeDate(1)">
+    <button type="button" class="btn btn-outline-secondary" (click)="changeDate(1)">
       <i class="fas fa-chevron-right"></i>
     </button>
   </div>
@@ -176,11 +176,11 @@
           *ngFor="let emp of filteredEmployees"
           [ngClass]="{ 'table-danger': emp.hasError }"
         >
-          <td>{{ emp.nome }} {{ emp.cognome }}</td>
-          <td>{{ emp.email }}</td>
-          <td>{{ emp.cellulare }}</td>
+          <td data-label="Nome">{{ emp.nome }} {{ emp.cognome }}</td>
+          <td data-label="Email">{{ emp.email }}</td>
+          <td data-label="Cellulare">{{ emp.cellulare }}</td>
 
-          <td>
+          <td data-label="Errori">
             <span
               *ngIf="emp.hasError"
               class="badge bg-danger"
@@ -191,10 +191,11 @@
             <span *ngIf="!emp.hasError" class="badge bg-success">OK</span>
           </td>
 
-          <td>
-            <button
+          <td data-label="Azioni">
+            <button type="button"
               class="btn btn-sm btn-outline-primary"
-              (click)="openDetail(emp)"
+              appReliableTap
+              (reliableTap)="openDetail(emp)"
             >
               <i class="fas fa-eye"></i> Dettaglio
             </button>

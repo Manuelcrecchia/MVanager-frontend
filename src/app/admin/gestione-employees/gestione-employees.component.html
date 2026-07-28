@@ -3,13 +3,13 @@
 <div class="container py-4 page-wrap">
   <!-- TOP BAR -->
   <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <button class="btn btn-back-glass" (click)="back()">
+    <button type="button" class="btn btn-back-glass" (click)="back()">
       ⬅ Torna Indietro
     </button>
 
     <!-- AZIONI SELEZIONE + INVIO -->
     <div class="selection-actions d-flex align-items-center gap-2 flex-wrap" *ngIf="globalService.hasPermission('NOTIFICATIONS_MANAGE')">
-      <button
+      <button type="button"
         class="btn btn-glass btn-round"
         (click)="toggleSelectAll()"
         [disabled]="employees.length === 0"
@@ -21,7 +21,7 @@
         Selezionati: {{ selectedCount }}
       </span>
 
-      <button
+      <button type="button"
         class="btn btn-primary btn-round"
         (click)="openNotifyModal(notifyModal)"
         [disabled]="selectedCount === 0"
@@ -35,21 +35,21 @@
 
   <div class="employee-card-list" *ngIf="employees.length > 0">
     <article class="employee-card" *ngFor="let emp of employees">
-      <button
-        type="button"
-        class="employee-header-btn"
-        (click)="toggleEmployeeOpen(emp.id)"
-      >
+      <div class="employee-header-layout">
+        <label class="employee-selector">
+          <input
+            type="checkbox"
+            class="form-check-input"
+            [checked]="isSelected(emp.id)"
+            (change)="toggleEmployee(emp.id)"
+          />
+        </label>
+        <button
+          type="button"
+          class="employee-header-btn"
+          (click)="toggleEmployeeOpen(emp.id)"
+        >
         <span class="employee-main">
-          <label class="employee-selector" (click)="$event.stopPropagation()">
-            <input
-              type="checkbox"
-              class="form-check-input"
-              [checked]="isSelected(emp.id)"
-              (change)="toggleEmployee(emp.id)"
-            />
-          </label>
-
           <span class="employee-identity">
             <span class="employee-name">{{ emp.nome }} {{ emp.cognome }}</span>
             <span class="employee-id">#{{ emp.id }}</span>
@@ -57,7 +57,8 @@
         </span>
 
         <span class="chev" [class.chev--open]="isEmployeeOpen(emp.id)">▾</span>
-      </button>
+        </button>
+      </div>
 
       <div class="employee-meta-row">
         <span *ngIf="emp.email" class="meta-item">
@@ -70,7 +71,7 @@
 
       <div class="employee-actions" *ngIf="isEmployeeOpen(emp.id)">
         <div class="employee-actions-inner">
-          <button
+          <button type="button"
             *ngIf="globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE')"
             class="btn btn-employee-action btn-employee-permits action-with-tooltip"
             (click)="goToPermessiAssenze(emp.id)"
@@ -81,7 +82,7 @@
             <i class="fas fa-calendar-check"></i>
           </button>
 
-          <button
+          <button type="button"
             *ngIf="globalService.hasPermission('EMPLOYEE_DOCS_MANAGE')"
             class="btn btn-employee-action btn-employee-docs action-with-tooltip"
             (click)="goToDocument(emp.id)"
@@ -92,7 +93,7 @@
             <i class="fas fa-folder-open"></i>
           </button>
 
-          <button
+          <button type="button"
             *ngIf="globalService.hasPermission('NOTIFICATIONS_VIEW')"
             class="btn btn-employee-action btn-employee-notifications action-with-tooltip"
             (click)="openEmpNotifications(emp, empNotifModal)"
@@ -103,7 +104,7 @@
             <i class="fas fa-bell"></i>
           </button>
 
-          <button
+          <button type="button"
             class="btn btn-employee-action btn-employee-whatsapp action-with-tooltip"
             (click)="openEmployeeWhatsApp(emp)"
             title="Apri la chat WhatsApp del dipendente senza messaggio precompilato"
@@ -113,7 +114,7 @@
             <i class="fab fa-whatsapp"></i>
           </button>
 
-          <button
+          <button type="button"
             *ngIf="globalService.hasPermission('EMAIL_VIEW')"
             class="btn btn-employee-action btn-employee-email action-with-tooltip"
             (click)="composeEmployeeEmail(emp)"
@@ -186,7 +187,7 @@
     </div>
 
     <div class="modal-footer">
-      <button
+      <button type="button"
         class="btn btn-glass btn-round"
         (click)="modal.dismiss()"
         [disabled]="sending"
@@ -194,7 +195,7 @@
         Annulla
       </button>
 
-      <button
+      <button type="button"
         class="btn btn-brand-primary btn-round"
         (click)="sendNotification(modal)"
         [disabled]="sending || !notifyTitle.trim() || !notifyBody.trim()"
@@ -254,7 +255,7 @@
   </div>
 
   <div class="modal-footer">
-    <button class="btn btn-glass btn-round" (click)="modal.dismiss()">
+    <button type="button" class="btn btn-glass btn-round" (click)="modal.dismiss()">
       Chiudi
     </button>
   </div>

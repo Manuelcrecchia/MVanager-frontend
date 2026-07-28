@@ -71,8 +71,9 @@ export class AppComponent {
     this.subscriptionNoticeDismissed = true;
   }
 
-  isHomeAdminRoute(): boolean {
-    return this.router.url.split('?')[0] === '/homeAdmin';
+  isAdminShellRoute(): boolean {
+    const path = this.router.url.split('?')[0].split('#')[0];
+    return path === '/homeAdmin' || path.startsWith('/homeAdmin/');
   }
 
   constructor(

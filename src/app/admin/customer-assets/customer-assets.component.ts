@@ -1,11 +1,13 @@
-import { Component, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { GlobalService } from '../../service/global.service';
 
 interface CustomerOption { numeroCliente: string; label: string; }
-interface CustomerAsset { id: number; numeroCliente: string; customerLabel?: string; typeKey?: string; customFields?: string | Record<string, any>; code?: string; name: string; serialNumber?: string | null; location?: string | null; description?: string | null; active: boolean; }
+interface CustomerAssetAttachment { id: string; originalName: string; storedName?: string; size?: number; uploadedAt?: string; fieldKey?: string | null; }
+interface CustomerAsset { id: number; numeroCliente: string; customerLabel?: string; typeKey?: string; customFields?: string | Record<string, any>; code?: string; displayIdentifier?: string; name: string; serialNumber?: string | null; location?: string | null; description?: string | null; attachments?: CustomerAssetAttachment[] | string; active: boolean; }
 interface CustomerAssetGroup { id: string; label: string; assets: CustomerAsset[]; }
 
 @Component({
@@ -13,7 +15,7 @@ interface CustomerAssetGroup { id: string; label: string; assets: CustomerAsset[
   templateUrl: './customer-assets.component.html',
   styleUrls: ['./customer-assets.component.css'],
 })
-export class CustomerAssetsComponent implements OnInit, OnDestroy {
+export class CustomerAssetsComponent implements OnInit {
   assets: CustomerAsset[] = [];
   customers: CustomerOption[] = [];
   editing: CustomerAsset | null = null;
@@ -32,21 +34,12 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
   editingFromDeadline = false;
   editorWorkflow = false;
   deadlineFieldTitle = '';
+  deadlineFieldKey = '';
   private requestedEditId: number | null = null;
   private returnToDeadlineTargetKey: number | null = null;
   form: any = this.emptyForm();
 
-  private readonly customerDetailPointerHandler = (event: PointerEvent): void => {
-    const trigger = (event.target as Element | null)?.closest<HTMLButtonElement>('[data-customer-detail]');
-    if (!trigger) return;
-    const group = this.customerGroups.find((item) => item.id === trigger.dataset['customerDetail']);
-    if (!group) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    this.zone.run(() => this.openCustomerGroup(group));
-  };
-
-  constructor(private http: HttpClient, public global: GlobalService, private router: Router, private route: ActivatedRoute, private zone: NgZone) {}
+  constructor(private http: HttpClient, public global: GlobalService, private router: Router, private route: ActivatedRoute, private appDialog: PopupServiceService) {}
   get config() { return this.global.getTenantCustomerAssetsConfig(); }
   get moduleLabel(): string { return this.config.moduleLabel || 'Presidi presso clienti'; }
   get singularLabel(): string { return this.config.singularLabel || 'Presidio'; }
@@ -56,6 +49,19 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
   }
   get types() { return this.config.types || []; }
   get selectedType() { return this.types.find((type) => type.key === this.form.typeKey) || null; }
+  get generalFields(): any[] {
+    return (this.selectedType?.fields || []).filter((field: any) => !(field.type === 'date' && field.isDeadline));
+  }
+  get deadlineFields(): any[] {
+    const fields = (this.selectedType?.fields || []).filter((field: any) => field.type === 'date' && field.isDeadline);
+    if (!this.editingFromDeadline) return fields;
+    const fieldByKey = this.deadlineFieldKey
+      ? fields.find((field: any) => field.key === this.deadlineFieldKey)
+      : null;
+    return fieldByKey
+      ? [fieldByKey]
+      : fields.filter((field: any) => field.label === this.deadlineFieldTitle);
+  }
   get customerGroups(): CustomerAssetGroup[] {
     const groups = new Map<string, CustomerAssetGroup>();
     for (const asset of this.assets) {
@@ -71,11 +77,24 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
   get displayedCustomerGroup(): CustomerAssetGroup | null {
     return this.editorWorkflow ? null : this.selectedCustomerGroup;
   }
+  trackStableInteractiveItem(index: number, item: any): string | number {
+    return item?.id ?? item?.key ?? item?.numeroCliente ?? item?.name ?? index;
+  }
   get hasDraftAsset(): boolean {
     return Boolean(this.form.typeKey || Object.keys(this.form.customFields || {}).some((key) => {
       const value = this.form.customFields[key];
       return value !== null && value !== undefined && String(value).trim() !== '';
-    }) || this.form.attachments?.length);
+    }) || this.form.attachments?.length || this.form.removedAttachmentIds?.length);
+  }
+  get batchSaveBlockReason(): string {
+    if (this.editing) return '';
+    if (this.hasDraftAsset) {
+      return 'Il presidio compilato non è ancora nella lista: premi “Aggiungi alla lista”.';
+    }
+    if (!this.pendingAssets.length) {
+      return 'Aggiungi almeno un presidio alla lista prima di salvare.';
+    }
+    return '';
   }
   get filteredCustomers(): CustomerOption[] {
     const query = this.customerSearch.trim().toLocaleLowerCase();
@@ -93,17 +112,29 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
     this.editorWorkflow = createMode || Boolean(this.requestedEditId);
     this.editingFromDeadline = Boolean(this.route.snapshot.queryParamMap.get('deadlineId'));
     this.deadlineFieldTitle = this.route.snapshot.queryParamMap.get('deadlineTitle') || '';
+    this.deadlineFieldKey = this.route.snapshot.queryParamMap.get('deadlineFieldKey') || '';
     this.returnToDeadlineTargetKey = this.editingFromDeadline ? this.requestedEditId : null;
     this.global.loadTenantConfig(true, { showError: false }).finally(() => {
       this.load();
       if (createMode && !this.showArchived) this.startNew();
     });
-    document.addEventListener('pointerdown', this.customerDetailPointerHandler, true);
   }
 
-  ngOnDestroy(): void { document.removeEventListener('pointerdown', this.customerDetailPointerHandler, true); }
-
-  emptyForm() { return { numeroCliente: '', typeKey: '', name: 'Presidio', customFields: {} as Record<string, any>, remindDays: {} as Record<string, number | null>, attachments: [] as File[] }; }
+  emptyForm() {
+    return {
+      numeroCliente: '',
+      typeKey: '',
+      name: 'Presidio',
+      interventionDate: this.todayDateOnly(),
+      customFields: {} as Record<string, any>,
+      remindDays: {} as Record<string, number | null>,
+      manualFieldKeys: {} as Record<string, boolean>,
+      attachments: [] as File[],
+      attachmentFiles: {} as Record<string, File[]>,
+      existingAttachments: [] as CustomerAssetAttachment[],
+      removedAttachmentIds: [] as string[],
+    };
+  }
   load(): void {
     this.loading = true; this.error = '';
     const archiveQuery = this.showArchived ? '?archived=1' : '';
@@ -127,8 +158,12 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
     this.editing = asset;
     this.editingPendingIndex = null;
     this.pendingAssets = [];
-    this.form = { ...this.emptyForm(), ...asset, attachments: [], customFields: typeof asset.customFields === 'string' ? JSON.parse(asset.customFields || '{}') : (asset.customFields || {}) };
+    const existingAttachments = typeof asset.attachments === 'string'
+      ? JSON.parse(asset.attachments || '[]')
+      : (asset.attachments || []);
+    this.form = { ...this.emptyForm(), ...asset, attachments: [], attachmentFiles: {}, existingAttachments, removedAttachmentIds: [], customFields: typeof asset.customFields === 'string' ? JSON.parse(asset.customFields || '{}') : (asset.customFields || {}) };
     this.customerSearch = asset.customerLabel ? `${asset.customerLabel} · ${asset.numeroCliente}` : asset.numeroCliente;
+    this.applyInterventionSuggestions();
     this.showForm = true;
   }
   onCustomerSearch(): void { this.form.numeroCliente = ''; this.customerMenuOpen = true; }
@@ -137,13 +172,156 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
     this.customerSearch = `${customer.label} · ${customer.numeroCliente}`;
     this.customerMenuOpen = false;
   }
+  selectCustomerByNumber(numeroCliente: string): void {
+    const selected = this.customers.find(
+      (customer) => String(customer.numeroCliente) === String(numeroCliente || ''),
+    );
+    if (selected) {
+      this.selectCustomer(selected);
+      return;
+    }
+    this.form.numeroCliente = '';
+    this.customerSearch = '';
+    this.customerMenuOpen = false;
+  }
   closeCustomerMenu(): void { setTimeout(() => this.customerMenuOpen = false, 150); }
-  changeType(): void { this.form.customFields = {}; this.form.name = this.selectedType?.label || this.singularLabel; }
-  onAttachmentChange(event: Event): void { this.form.attachments = Array.from((event.target as HTMLInputElement).files || []); }
-  onConfiguredAttachmentChange(fieldKey: string, event: Event): void {
+  changeType(): void {
+    const oldAttachmentIds = (this.form.existingAttachments || []).map((item: CustomerAssetAttachment) => item.id);
+    this.form.customFields = {};
+    this.form.remindDays = {};
+    this.form.manualFieldKeys = {};
+    this.form.attachments = [];
+    this.form.attachmentFiles = {};
+    this.form.existingAttachments = [];
+    this.form.removedAttachmentIds = [...new Set([...(this.form.removedAttachmentIds || []), ...oldAttachmentIds])];
+    this.form.name = this.selectedType?.label || this.singularLabel;
+    for (const field of this.selectedType?.fields || []) {
+      if (field.isDeadline && field.defaultRemindDays !== null && field.defaultRemindDays !== undefined) {
+        this.form.remindDays[field.key] = Number(field.defaultRemindDays);
+      }
+    }
+    this.applyInterventionSuggestions();
+  }
+
+  onConfiguredFieldChange(field: any, value: any): void {
+    this.form.customFields[field.key] = value;
+    this.form.manualFieldKeys[field.key] = true;
+    for (const dependent of this.selectedType?.fields || []) {
+      if (dependent.bulkUpdateMode !== 'date_offset') continue;
+      if (String(dependent.bulkUpdateSourceField || '') !== field.key) continue;
+      if (this.form.manualFieldKeys[dependent.key]) continue;
+      const suggested = this.suggestedFieldValue(dependent);
+      if (suggested !== null) this.form.customFields[dependent.key] = suggested;
+    }
+  }
+
+  resetConfiguredFieldSuggestion(field: any): void {
+    delete this.form.manualFieldKeys[field.key];
+    const suggested = this.suggestedFieldValue(field);
+    if (suggested !== null) this.form.customFields[field.key] = suggested;
+  }
+
+  isCalculatedField(field: any): boolean {
+    return field?.bulkUpdateMode === 'today' || field?.bulkUpdateMode === 'date_offset';
+  }
+
+  calculationHint(field: any): string {
+    if (field?.bulkUpdateMode === 'today') return 'Data odierna';
+    if (field?.bulkUpdateMode === 'date_offset') {
+      const sourceKey = String(field.bulkUpdateSourceField || '');
+      const sourceLabel = (this.selectedType?.fields || []).find((item: any) => item.key === sourceKey)?.label || sourceKey;
+      const offset = Number(field.bulkUpdateOffsetValue) || 0;
+      const unit = field.bulkUpdateOffsetUnit === 'days' ? 'giorni' : 'mesi';
+      return `${sourceLabel} + ${offset} ${unit}`;
+    }
+    return '';
+  }
+
+  private applyInterventionSuggestions(fields?: any[]): void {
+    const configuredFields = fields || this.selectedType?.fields || [];
+    for (let pass = 0; pass < 2; pass += 1) {
+      for (const field of configuredFields) {
+        if (this.form.manualFieldKeys[field.key]) continue;
+        const suggested = this.suggestedFieldValue(field);
+        if (suggested !== null) this.form.customFields[field.key] = suggested;
+      }
+    }
+  }
+
+  private suggestedFieldValue(field: any): string | null {
+    if (field?.type !== 'date') return null;
+    if (field.bulkUpdateMode === 'today') return this.todayDateOnly();
+    if (field.bulkUpdateMode === 'date_offset') {
+      const sourceKey = String(field.bulkUpdateSourceField || '');
+      const sourceValue = String(this.form.customFields[sourceKey] || '');
+      const offset = Number(field.bulkUpdateOffsetValue) || 0;
+      return field.bulkUpdateOffsetUnit === 'days'
+        ? this.addDaysToDate(sourceValue, offset)
+        : this.addMonthsToDate(sourceValue, offset);
+    }
+    return null;
+  }
+
+  private todayDateOnly(): string {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private addDaysToDate(value: string, days: number): string {
+    const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return '';
+    const result = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + days));
+    return result.toISOString().slice(0, 10);
+  }
+
+  private addMonthsToDate(value: string, months: number): string {
+    const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return '';
+    const result = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1 + months, 1));
+    const lastDay = new Date(Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0)).getUTCDate();
+    result.setUTCDate(Math.min(Number(match[3]), lastDay));
+    return result.toISOString().slice(0, 10);
+  }
+  onConfiguredAttachmentChange(field: any, event: Event): void {
     const files = Array.from((event.target as HTMLInputElement).files || []);
-    this.form.customFields[fieldKey] = files.map((file) => file.name).join(', ');
-    this.form.attachments = [...this.form.attachments, ...files];
+    if (!files.length) return;
+    const current = this.form.attachmentFiles[field.key] || [];
+    this.form.attachmentFiles[field.key] = field.attachmentMultiple === true ? [...current, ...files] : [files[0]];
+    this.syncAttachmentFiles();
+    (event.target as HTMLInputElement).value = '';
+  }
+  configuredExistingAttachments(fieldKey: string): CustomerAssetAttachment[] {
+    const removed = new Set(this.form.removedAttachmentIds || []);
+    return (this.form.existingAttachments || []).filter((item: CustomerAssetAttachment) => item.fieldKey === fieldKey && !removed.has(item.id));
+  }
+  configuredNewAttachments(fieldKey: string): File[] { return this.form.attachmentFiles?.[fieldKey] || []; }
+  removeExistingAttachment(attachment: CustomerAssetAttachment): void {
+    this.form.removedAttachmentIds = [...new Set([...(this.form.removedAttachmentIds || []), attachment.id])];
+  }
+  removeNewAttachment(fieldKey: string, index: number): void {
+    this.form.attachmentFiles[fieldKey] = (this.form.attachmentFiles[fieldKey] || []).filter((_: File, itemIndex: number) => itemIndex !== index);
+    this.syncAttachmentFiles();
+  }
+  attachmentCount(fieldKey: string): number {
+    return this.configuredExistingAttachments(fieldKey).length + this.configuredNewAttachments(fieldKey).length;
+  }
+  downloadAttachment(attachment: CustomerAssetAttachment): void {
+    if (!this.editing) return;
+    this.http.get(
+      this.global.url + `admin/deadlines/customer-assets/registry/${this.editing.id}/attachments/${attachment.id}`,
+      { responseType: 'blob' },
+    ).subscribe((blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = attachment.originalName; link.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+  private syncAttachmentFiles(): void {
+    this.form.attachments = Object.values(this.form.attachmentFiles || {}).flat() as File[];
   }
   cancel(): void {
     if (this.editorWorkflow) {
@@ -156,6 +334,19 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
     }
     this.editing = null; this.pendingAssets = []; this.editingPendingIndex = null; this.customerSearch = ''; this.customerMenuOpen = false; this.form = this.emptyForm(); this.showForm = false;
   }
+  discardDraft(): void {
+    if (this.editing) return;
+    const customer = this.form.numeroCliente;
+    this.form = {
+      ...this.emptyForm(),
+      numeroCliente: customer,
+      name: this.singularLabel,
+    };
+    this.editingPendingIndex = null;
+    this.customerMenuOpen = false;
+    if (!customer) this.customerSearch = '';
+    this.error = '';
+  }
   private assetValues(asset: CustomerAsset): Record<string, any> {
     if (asset.customFields && typeof asset.customFields === 'object') return asset.customFields;
     try { return JSON.parse(asset.customFields || '{}'); } catch { return {}; }
@@ -163,7 +354,10 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
 
   assetLabel(asset: CustomerAsset): string {
     const values = this.assetValues(asset);
-    const identifier = asset.code || values['codice'] || values['code'] || asset.serialNumber || values['matricola'] || values['serialNumber'];
+    const type = this.types.find((item: any) => item.key === asset.typeKey);
+    const identityField = (type?.fields || []).find((field: any) => field.unique === true && field.type !== 'attachment');
+    const configuredIdentifier = identityField ? String(values[identityField.key] ?? '').trim() : '';
+    const identifier = asset.displayIdentifier || configuredIdentifier || asset.code || `PR-${String(asset.id).padStart(6, '0')}`;
     return [identifier, asset.name].filter(Boolean).join(' · ') || this.singularLabel;
   }
 
@@ -190,7 +384,12 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
   validateForm(): string {
     if (!this.form.numeroCliente) return 'Seleziona un cliente dall’elenco.';
     if (!this.form.typeKey) return 'Il tipo è obbligatorio.';
-    for (const field of this.selectedType?.fields || []) if (field.required && !this.form.customFields[field.key]) return `Campo obbligatorio: ${field.label}`;
+    for (const field of this.selectedType?.fields || []) {
+      if (!field.required) continue;
+      if (field.type === 'attachment') {
+        if (!this.attachmentCount(field.key)) return `Campo obbligatorio: ${field.label}`;
+      } else if (!this.form.customFields[field.key]) return `Campo obbligatorio: ${field.label}`;
+    }
     return '';
   }
   private pendingUniqueValidation(): string {
@@ -200,7 +399,9 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
       if (value === null || value === undefined || String(value).trim() === '') continue;
       const duplicateIndex = this.pendingAssets.findIndex((asset, index) => (
         index !== this.editingPendingIndex &&
-        asset.typeKey === this.form.typeKey &&
+        (field.uniqueScope === 'customer'
+          ? String(asset.numeroCliente) === String(this.form.numeroCliente)
+          : asset.typeKey === this.form.typeKey) &&
         asset.customFields?.[field.key] === value
       ));
       if (duplicateIndex >= 0) {
@@ -209,26 +410,42 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
     }
     return '';
   }
+  private showBatchValidationError(message: string): void {
+    this.error = message;
+    setTimeout(() => {
+      document.getElementById('customer-asset-error')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+  }
   async addToBatch(): Promise<boolean> {
     const validation = this.validateForm() || this.pendingUniqueValidation();
-    if (validation) { this.error = validation; return false; }
+    if (validation) {
+      this.showBatchValidationError(validation);
+      return false;
+    }
     this.addingToBatch = true;
     this.error = '';
     try {
-      const validationPayload = { ...this.form, attachments: [] };
+      const validationPayload = { ...this.form, attachments: [], attachmentCounts: this.attachmentCounts() };
       const validationResult: any = await firstValueFrom(this.http.post(
         this.global.url + 'admin/deadlines/customer-assets/registry/validate',
         validationPayload,
       ));
       if (validationResult?.valid !== true) {
-        this.error = validationResult?.error || 'I dati del presidio non sono validi.';
+        this.showBatchValidationError(validationResult?.error || 'I dati del presidio non sono validi.');
         return false;
       }
       const pendingAsset = {
         ...this.form,
         customFields: { ...this.form.customFields },
         remindDays: { ...this.form.remindDays },
+        manualFieldKeys: { ...this.form.manualFieldKeys },
         attachments: [...this.form.attachments],
+        attachmentFiles: Object.fromEntries(Object.entries(this.form.attachmentFiles || {}).map(([key, files]) => [key, [...(files as File[])]])),
+        existingAttachments: [...(this.form.existingAttachments || [])],
+        removedAttachmentIds: [...(this.form.removedAttachmentIds || [])],
       };
       if (this.editingPendingIndex === null) this.pendingAssets.push(pendingAsset);
       else this.pendingAssets[this.editingPendingIndex] = pendingAsset;
@@ -237,7 +454,7 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
       this.editingPendingIndex = null;
       return true;
     } catch (e: any) {
-      this.error = e?.error?.error || 'Impossibile verificare i dati del presidio.';
+      this.showBatchValidationError(e?.error?.error || 'Impossibile verificare i dati del presidio.');
       return false;
     } finally {
       this.addingToBatch = false;
@@ -253,6 +470,9 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
       customFields: { ...(asset.customFields || {}) },
       remindDays: { ...(asset.remindDays || {}) },
       attachments: [...(asset.attachments || [])],
+      attachmentFiles: Object.fromEntries(Object.entries(asset.attachmentFiles || {}).map(([key, files]) => [key, [...(files as File[])]])),
+      existingAttachments: [...(asset.existingAttachments || [])],
+      removedAttachmentIds: [...(asset.removedAttachmentIds || [])],
     };
     const customer = this.customers.find((item) => String(item.numeroCliente) === String(asset.numeroCliente));
     this.customerSearch = customer ? `${customer.label} · ${customer.numeroCliente}` : String(asset.numeroCliente || '');
@@ -260,7 +480,9 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
   }
   pendingAssetLabel(asset: any): string {
     const values = asset.customFields || {};
-    const identifier = asset.code || values['codice'] || values['code'] || values['matricola'] || values['serialNumber'];
+    const type = this.types.find((item: any) => item.key === asset.typeKey);
+    const identityField = (type?.fields || []).find((field: any) => field.unique === true && field.type !== 'attachment');
+    const identifier = identityField ? values[identityField.key] : asset.code;
     return [identifier, asset.name].filter(Boolean).join(' · ') || this.singularLabel;
   }
   pendingAssetDetails(asset: any): string {
@@ -280,18 +502,40 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
       this.editingPendingIndex -= 1;
     }
   }
-  private createRequest(payload: any) {
-    if (!payload.attachments?.length) return this.http.post(this.global.url + 'admin/deadlines/customer-assets/registry', payload);
+  private attachmentCounts(payload = this.form): Record<string, number> {
+    return Object.fromEntries(Object.entries(payload.attachmentFiles || {}).map(([key, files]) => [key, (files as File[]).length]));
+  }
+  private buildAttachmentRequest(payload: any): { body: any; multipart: boolean } {
+    const { manualFieldKeys, interventionDate, attachments = [], attachmentFiles = {}, existingAttachments, removedAttachmentIds = [], ...requestPayload } = payload;
+    if (!attachments.length) {
+      return { body: { ...requestPayload, removedAttachmentIds: removedAttachmentIds.join(','), attachmentCounts: this.attachmentCounts(payload) }, multipart: false };
+    }
     const data = new FormData();
-    Object.entries(payload).forEach(([key, value]) => {
-      if (key === 'attachments') return;
+    Object.entries(requestPayload).forEach(([key, value]) => {
       data.append(key, key === 'customFields' || key === 'remindDays' ? JSON.stringify(value || {}) : String(value ?? ''));
     });
-    payload.attachments.forEach((file: File) => data.append('attachments', file));
-    return this.http.post(this.global.url + 'admin/deadlines/customer-assets/registry', data);
+    const manifest: Array<{ fieldKey: string }> = [];
+    for (const [fieldKey, files] of Object.entries(attachmentFiles)) {
+      for (const file of files as File[]) {
+        data.append('attachments', file);
+        manifest.push({ fieldKey });
+      }
+    }
+    data.append('attachmentManifest', JSON.stringify(manifest));
+    data.append('attachmentCounts', JSON.stringify(this.attachmentCounts(payload)));
+    data.append('removedAttachmentIds', removedAttachmentIds.join(','));
+    return { body: data, multipart: true };
+  }
+  private createRequest(payload: any) {
+    const request = this.buildAttachmentRequest(payload);
+    return this.http.post(this.global.url + 'admin/deadlines/customer-assets/registry', request.body);
   }
   async saveBatch(): Promise<void> {
-    if (!this.pendingAssets.length) { this.error = 'Aggiungi almeno un presidio alla lista.'; return; }
+    const blockReason = this.batchSaveBlockReason;
+    if (blockReason) {
+      this.error = blockReason;
+      return;
+    }
     this.saving = true; this.error = '';
     try {
       let savedCount = 0;
@@ -315,7 +559,8 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
     if (!this.editing) { if (await this.addToBatch()) await this.saveBatch(); return; }
     const validation = this.validateForm(); if (validation) { this.error = validation; return; }
     this.saving = true; this.error = '';
-    const request = this.http.put(this.global.url + `admin/deadlines/customer-assets/registry/${this.editing.id}`, this.form);
+    const updateRequest = this.buildAttachmentRequest(this.form);
+    const request = this.http.put(this.global.url + `admin/deadlines/customer-assets/registry/${this.editing.id}`, updateRequest.body);
     request.subscribe({
       next: () => {
         this.saving = false;
@@ -333,8 +578,8 @@ export class CustomerAssetsComponent implements OnInit, OnDestroy {
       error: (e: any) => { this.saving = false; this.error = e?.error?.error || 'Salvataggio non riuscito.'; },
     });
   }
-  archive(asset: CustomerAsset): void {
-    if (!confirm(`Eliminare ${this.assetLabel(asset)}? Verrà rimosso dall'elenco, mentre le scadenze resteranno nello storico.`)) return;
+  async archive(asset: CustomerAsset): Promise<void> {
+    if (!await this.appDialog.confirm(`Eliminare ${this.assetLabel(asset)}? Verrà rimosso dall'elenco, mentre le scadenze resteranno nello storico.`)) return;
     this.archivingAssetId = asset.id;
     this.error = '';
     this.http.delete(this.global.url + `admin/deadlines/customer-assets/registry/${asset.id}`).subscribe({

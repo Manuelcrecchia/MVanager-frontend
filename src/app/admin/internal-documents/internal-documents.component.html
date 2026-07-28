@@ -81,7 +81,7 @@
           <input matInput [(ngModel)]="newFolderName" />
         </mat-form-field>
 
-        <button
+        <button type="button"
           mat-raised-button
           color="accent"
           (click)="createFolder()"
@@ -99,7 +99,7 @@
 
         <div class="file-upload">
           <input type="file" #fileInput multiple (change)="uploadFile($event)" hidden />
-          <button
+          <button type="button"
             mat-raised-button
             color="primary"
             (click)="fileInput.click()"
@@ -215,7 +215,7 @@
 
         <ng-template #customToolbar>
           <div class="pdf-toolbar">
-            <button
+            <button type="button"
               mat-raised-button
               color="accent"
               class="btn-brand"
@@ -224,7 +224,7 @@
               🖨️ Stampa
             </button>
 
-            <button
+            <button type="button"
               mat-raised-button
               color="accent"
               class="btn-brand"
@@ -239,7 +239,7 @@
       <div *ngIf="currentFilename && fileType === 'image' && imageUrl" class="image-viewer">
         <div class="image-toolbar">
           <strong>{{ displayFileName(currentFilename) }}</strong>
-          <button
+          <button type="button"
             mat-raised-button
             color="accent"
             class="btn-brand"
@@ -259,7 +259,7 @@
           I file .p7m non possono essere visualizzati come PDF direttamente nel
           browser. Scaricali e aprili con un verificatore di firma digitale.
         </p>
-        <button
+        <button type="button"
           mat-raised-button
           color="accent"
           class="btn-brand"
@@ -274,7 +274,7 @@
         <h3>Anteprima non disponibile</h3>
         <strong>{{ displayFileName(currentFilename) }}</strong>
         <p>Scarica il file per aprirlo con un’applicazione compatibile.</p>
-        <button
+        <button type="button"
           mat-raised-button
           color="accent"
           class="btn-brand"

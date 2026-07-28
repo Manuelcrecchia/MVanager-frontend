@@ -11,6 +11,7 @@ import { GlobalService } from '../../service/global.service';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { SocketService } from '../../service/soket.service';
 import { TenantService } from '../../service/tenant.service';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 interface RoutePlannerStop {
   id: string;
@@ -160,6 +161,14 @@ type RoutePlannerConflictAction = 'adjust_times_keep_assignments' | 'auto_compro
   styleUrls: ['./create-shift.component.css'],
 })
 export class CreateShiftComponent implements OnInit, OnDestroy {
+  trackCalendarWeek(index: number, week: Date[]): number {
+    return week?.[0]?.getTime() ?? index;
+  }
+
+  trackCalendarDay(index: number, day: Date): number {
+    return day?.getTime() ?? index;
+  }
+
   private destroy$ = new Subject<void>();
   selectedDate: Date = new Date();
 
@@ -266,6 +275,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     private globalService: GlobalService,
     private socketService: SocketService,
     public tenantService: TenantService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -667,7 +677,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
   async deleteRoutePlannerPreference(preference: RoutePlannerPreference): Promise<void> {
     if (this.routePlannerDeletingPreferences) return;
-    if (!window.confirm(`Togliere questa preferenza attiva?\n${this.routePlannerPreferenceLabel(preference)}`)) return;
+    if (!await this.appDialog.confirm(`Togliere questa preferenza attiva?\n${this.routePlannerPreferenceLabel(preference)}`)) return;
     await this.deleteRoutePlannerPreferences([preference]);
   }
 
@@ -675,14 +685,14 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     const selected = this.routePlannerActivePreferences
       .filter((preference) => this.routePlannerSelectedPreferenceKeys.has(this.getRoutePlannerPreferenceKey(preference)));
     if (!selected.length || this.routePlannerDeletingPreferences) return;
-    if (!window.confirm(`Togliere ${selected.length} preferenze attive?`)) return;
+    if (!await this.appDialog.confirm(`Togliere ${selected.length} preferenze attive?`)) return;
     await this.deleteRoutePlannerPreferences(selected);
   }
 
   async deleteAllRoutePlannerPreferences(confirm = true): Promise<void> {
     const preferences = this.visibleRoutePlannerPreferences;
     if (!preferences.length || this.routePlannerDeletingPreferences) return;
-    if (confirm && !window.confirm(`Togliere tutte le ${preferences.length} preferenze attive?`)) return;
+    if (confirm && !await this.appDialog.confirm(`Togliere tutte le ${preferences.length} preferenze attive?`)) return;
     await this.deleteRoutePlannerPreferences(preferences, true);
   }
 
@@ -4757,7 +4767,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
           this.postponeTarget = null;
           alert(`Lavoro posticipato al ${this.postponeForm.date} alle ${this.postponeForm.time}.`);
         },
-        error: (err) => {
+        error: async (err) => {
           console.error('Errore posticipo appuntamento:', err);
           this.postponing = false;
           this.postponeError = this.parseServerError(err);
@@ -4803,13 +4813,15 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
           alert('Turni salvati');
           this.router.navigate(['/homeAdmin/shifts'], { queryParams: { date: this.formatDate(this.selectedDate) } });
         },
-        error: (err) => {
+        error: async (err) => {
           console.error('Errore salvataggio turni:', err);
           if (err?.status === 409) {
             const issues = err?.error?.validationIssues || [];
             const message = this.formatShiftValidationIssues(issues);
-            const proceed = confirm(
+            const proceed = await this.appDialog.confirm(
               `${message}\n\nVuoi salvare comunque i turni con queste incongruenze?`,
+              'Incongruenze nei turni',
+              { confirmLabel: 'Salva comunque' },
             );
             if (proceed) {
               this.finalSave(true);

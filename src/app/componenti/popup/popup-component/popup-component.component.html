@@ -19,9 +19,29 @@
     <ng-template #singleMessage>
       <p>{{ text }}</p>
     </ng-template>
+
+    <label class="app-alert-input" *ngIf="data.mode === 'prompt'">
+      <span>{{ data.inputLabel }}</span>
+      <input
+        [(ngModel)]="inputValue"
+        [type]="data.inputType || 'text'"
+        (keydown.enter)="confirm()"
+      />
+    </label>
   </div>
 
   <div mat-dialog-actions align="end">
-    <button mat-button class="app-alert-button" (click)="closeDialog()">Ok</button>
+    <button
+      type="button"
+      mat-button
+      class="app-alert-cancel"
+      *ngIf="data.mode !== 'alert'"
+      (click)="cancel()"
+    >
+      {{ data.cancelLabel }}
+    </button>
+    <button type="button" mat-button class="app-alert-button" (click)="confirm()">
+      {{ data.confirmLabel }}
+    </button>
   </div>
 </div>

@@ -231,6 +231,15 @@ label {
   font-weight: 800;
 }
 
+.form-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #4d5c70;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .checkbox-field {
   min-height: 38px;
   flex-direction: row;
@@ -384,6 +393,14 @@ label {
   align-items: center;
   min-width: 1280px;
   margin-bottom: 8px;
+}
+
+.line-field {
+  display: contents;
+}
+
+.line-field > span {
+  display: none;
 }
 
 .line-row.header {
@@ -639,14 +656,14 @@ button:disabled {
 }
 
 .economics-table {
-  min-width: 840px;
+  min-width: 0;
 }
 
 .economics-chart {
   display: grid;
   gap: 10px;
   margin: 12px 0 16px;
-  min-width: 720px;
+  min-width: 0;
 }
 
 .chart-row {
@@ -843,6 +860,14 @@ button:disabled {
   justify-self: center;
 }
 
+.vat-field {
+  display: contents;
+}
+
+.vat-field > span {
+  display: none;
+}
+
 .ops-panel {
   padding: 18px;
   background: rgba(255, 255, 255, 0.9);
@@ -924,10 +949,144 @@ button:disabled {
 
 .schedule-table {
   width: 100%;
-  min-width: 1120px;
+  min-width: 0;
   border-collapse: separate;
   border-spacing: 0;
   color: #172033;
+}
+
+@media (max-width: 1799.98px) {
+  .line-table {
+    overflow-x: visible;
+  }
+
+  .line-row.header,
+  .ddt-line-row.header {
+    display: none;
+  }
+
+  .line-row,
+  .ddt-line-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid #dce4ef;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+
+  .line-field {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    color: #5c6b82;
+    font-size: .72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .line-field > span {
+    display: block;
+  }
+
+  .line-field > input,
+  .line-field > select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .line-row > .icon-btn,
+  .ddt-line-row > .icon-btn {
+    align-self: end;
+    width: 100%;
+  }
+
+  .vat-profile-table {
+    overflow-x: visible;
+  }
+
+  .vat-profile-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-width: 0;
+  }
+
+  .vat-profile-row--header {
+    display: none;
+  }
+
+  .vat-field {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    color: #5c6b82;
+    font-size: .72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .vat-field > span {
+    display: block;
+  }
+
+  .vat-field > input,
+  .vat-field > select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .vat-field--check {
+    align-content: end;
+  }
+}
+
+@media (max-width: 1100px) {
+  .schedule-table-wrap {
+    overflow-x: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .schedule-table,
+  .schedule-table tbody,
+  .schedule-table tr,
+  .schedule-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .schedule-table thead {
+    display: none;
+  }
+
+  .schedule-table tr {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid #dce4ef;
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .schedule-table td {
+    display: grid;
+    grid-template-columns: minmax(110px, .45fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid #edf1f6;
+    text-align: left !important;
+    overflow-wrap: anywhere;
+  }
+
+  .schedule-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .schedule-table td::before {
+    content: attr(data-label);
+    color: #68778c;
+    font-size: .74rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
 }
 
 .schedule-table th,
@@ -1034,8 +1193,15 @@ button:disabled {
 
 .supplier-row {
   display: grid;
+  width: 100%;
   gap: 3px;
+  border: 0;
   border-bottom: 1px solid #e1e7f0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   padding: 10px 0;
   cursor: pointer;
 }
@@ -1282,5 +1448,11 @@ pre {
     right: 12px;
     bottom: 12px;
     max-width: calc(100vw - 24px);
+  }
+
+  .line-row,
+  .ddt-line-row,
+  .vat-profile-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -172,7 +172,7 @@
           </div>
           <p class="request-note" *ngIf="request.note">{{ request.note }}</p>
           <div class="request-item-list">
-            <div class="request-item" *ngFor="let item of requestItems(request)" [class.done]="requestItemRemaining(item) <= 0">
+            <div class="request-item" *ngFor="let item of requestItems(request); trackBy: trackStableInteractiveItem" [class.done]="requestItemRemaining(item) <= 0">
               <span>
                 <strong>{{ item.product?.name || 'Prodotto' }}</strong>
                 <small>
@@ -359,7 +359,7 @@
       </main>
     </div>
 
-    <details class="settings-card supplier-editor-panel" *ngIf="canManageProducts">
+    <details appReliableDetails class="settings-card supplier-editor-panel" *ngIf="canManageProducts">
       <summary class="settings-summary">
         <span>
           <strong>{{ supplierForm.id ? 'Modifica fornitore' : 'Nuovo fornitore' }}</strong>
@@ -692,7 +692,7 @@
               <input class="form-control" [(ngModel)]="referenceSearch.customer" name="movementCustomerSearch" (ngModelChange)="onReferenceSearchChange('customer')" placeholder="Cerca cliente" />
             </label>
             <div class="quick-pick" *ngIf="quickReferenceResults('customer').length && referenceSearch.customer">
-              <button type="button" *ngFor="let customer of quickReferenceResults('customer')" (click)="selectMovementCustomer(customer)">
+              <button type="button" *ngFor="let customer of quickReferenceResults('customer'); trackBy: trackStableInteractiveItem" (click)="selectMovementCustomer(customer)">
                 {{ customerLabel(customer) }}
               </button>
             </div>
@@ -708,7 +708,7 @@
               <input class="form-control" [(ngModel)]="referenceSearch.employee" name="movementEmployeeSearch" (ngModelChange)="onReferenceSearchChange('employee')" placeholder="Cerca dipendente" />
             </label>
             <div class="quick-pick" *ngIf="quickReferenceResults('employee').length && referenceSearch.employee">
-              <button type="button" *ngFor="let employee of quickReferenceResults('employee')" (click)="selectMovementEmployee(employee)">
+              <button type="button" *ngFor="let employee of quickReferenceResults('employee'); trackBy: trackStableInteractiveItem" (click)="selectMovementEmployee(employee)">
                 {{ employeeLabel(employee) }}
               </button>
             </div>
@@ -773,7 +773,7 @@
             <input class="form-control" [(ngModel)]="referenceSearch.employee" (ngModelChange)="onReferenceSearchChange('employee')" placeholder="Cerca dipendente" />
           </label>
           <div class="quick-pick" *ngIf="quickReferenceResults('employee').length && referenceSearch.employee">
-            <button type="button" *ngFor="let employee of quickReferenceResults('employee')" (click)="selectReportEmployee(employee)">
+            <button type="button" *ngFor="let employee of quickReferenceResults('employee'); trackBy: trackStableInteractiveItem" (click)="selectReportEmployee(employee)">
               {{ employeeLabel(employee) }}
             </button>
           </div>
@@ -789,7 +789,7 @@
             <input class="form-control" [(ngModel)]="referenceSearch.customer" (ngModelChange)="onReferenceSearchChange('customer')" placeholder="Cerca cliente" />
           </label>
           <div class="quick-pick" *ngIf="quickReferenceResults('customer').length && referenceSearch.customer">
-            <button type="button" *ngFor="let customer of quickReferenceResults('customer')" (click)="selectReportCustomer(customer)">
+            <button type="button" *ngFor="let customer of quickReferenceResults('customer'); trackBy: trackStableInteractiveItem" (click)="selectReportCustomer(customer)">
               {{ customerLabel(customer) }}
             </button>
           </div>
@@ -958,7 +958,7 @@
         <button class="btn btn-outline-secondary" type="button" (click)="stopScanner()">Ferma</button>
       </div>
 
-      <details class="settings-card category-manager">
+      <details appReliableDetails class="settings-card category-manager">
         <summary class="settings-summary">
           <span>
             <strong>Categorie prodotto</strong>
@@ -1006,7 +1006,7 @@
         </div>
       </details>
 
-      <details class="settings-card adjust-details" *ngIf="canAdjust">
+      <details appReliableDetails class="settings-card adjust-details" *ngIf="canAdjust">
         <summary class="settings-summary">
           <span>
             <strong>Rettifica inventario</strong>

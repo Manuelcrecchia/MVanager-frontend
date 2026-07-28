@@ -28,17 +28,16 @@
               </div>
               <div class="smc-grid">
                 <div class="smc-dow" *ngFor="let d of DAYS_SHORT">{{ d }}</div>
-                <ng-container *ngFor="let week of miniCalGrid">
+                <ng-container *ngFor="let week of miniCalGrid; trackBy: trackCalendarWeek">
                   <button
                     type="button"
                     class="smc-day"
-                    *ngFor="let day of week"
+                    *ngFor="let day of week; trackBy: trackCalendarDay"
                     [class.smc-today]="isSameDay(day, selectedDate)"
                     [class.smc-other]="day.getMonth() !== miniCalDate.getMonth()"
                     [attr.aria-label]="'Seleziona ' + (day | date: 'dd/MM/yyyy')"
                     [attr.data-date]="formatCalendarDate(day)"
-                    (pointerdown)="miniSelectDay(day, $event)"
-                    (click)="miniSelectDay(day, $event)"
+                    (click)="miniSelectDay(day)"
                   >
                     {{ day.getDate() }}
                   </button>
@@ -103,7 +102,7 @@
   <!-- VISTA PER DIPENDENTE -->
   <div class="turni-list" *ngIf="shifts.length > 0 && viewMode === 'employee'">
     <ul class="list-group">
-      <div *ngFor="let empName of groupedKeys()">
+      <div *ngFor="let empName of groupedKeys(); trackBy: trackStableInteractiveItem">
         <div class="d-flex align-items-center mt-3 emp-header">
           <input
             type="checkbox"
@@ -123,7 +122,7 @@
             </small>
           </h4>
 
-          <button
+          <button type="button"
             class="btn btn-link p-0 ms-2 btn-wa"
             (click)="sendViaWhatsApp(empName)"
             title="Invia via WhatsApp"
@@ -180,14 +179,16 @@
               </small>
             </span>
 
-            <span
+            <button
+              type="button"
               *ngIf="canShowKeyTag() && turno.keyRequired"
               class="key-icon ms-2"
               (click)="handleClick($event, turno.appointmentId)"
+              aria-label="Mostra informazioni sulle chiavi"
               title="Chiavi disponibili"
             >
               🔑
-            </span>
+            </button>
           </li>
         </ul>
       </div>
@@ -197,7 +198,7 @@
   <!-- VISTA PER CLIENTE -->
   <div class="turni-list" *ngIf="shifts.length > 0 && viewMode === 'client'">
     <ul class="list-group">
-      <div *ngFor="let clientName of clientKeys()">
+      <div *ngFor="let clientName of clientKeys(); trackBy: trackStableInteractiveItem">
         <div class="d-flex align-items-center mt-3 client-header">
           <h4 class="mb-0 text-dark">
             🏢 {{ getClientDisplayName(clientName) }}
@@ -250,14 +251,16 @@
               </small>
             </span>
 
-            <span
+            <button
+              type="button"
               *ngIf="canShowKeyTag() && row.keyRequired"
               class="key-icon ms-2"
               (click)="handleClick($event, row.appointmentId)"
+              aria-label="Mostra informazioni sulle chiavi"
               title="Chiavi disponibili"
             >
               🔑
-            </span>
+            </button>
           </li>
         </ul>
       </div>

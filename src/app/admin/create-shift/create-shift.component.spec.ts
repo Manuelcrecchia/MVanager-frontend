@@ -17,6 +17,7 @@ describe('CreateShiftComponent', () => {
       } as any,
       {} as any,
       {} as any,
+      { confirm: jasmine.createSpy('confirm').and.resolveTo(true) } as any,
     );
   }
 
