@@ -1131,7 +1131,7 @@ export class GlobalService {
   }
 
   isCalculatedField(field: TenantFieldMappingFieldConfig): boolean {
-    return ['sum', 'sum_with_vat'].includes(
+    return ['sum', 'sum_minus', 'sum_with_vat', 'vat_amount'].includes(
       String(field?.calculation?.mode || '')
         .trim()
         .toLowerCase(),
@@ -1433,7 +1433,7 @@ export class GlobalService {
     const mode = String(calculation.mode || '')
       .trim()
       .toLowerCase();
-    if (!['sum', 'sum_with_vat'].includes(mode)) return undefined;
+    if (!['sum', 'sum_minus', 'sum_with_vat', 'vat_amount'].includes(mode)) return undefined;
 
     const sourceFields = this.parseCalculationSourceFields(
       calculation.sourceFields,
@@ -1450,9 +1450,18 @@ export class GlobalService {
     );
 
     let total = subtotal;
-    if (mode === 'sum_with_vat') {
+    if (mode === 'sum_minus') {
+      const lastSourceField = sourceFields.at(-1)!;
+      const lastValue = this.parseNumericValue(
+        this.readCalculationSourceValue(source, fields, lastSourceField),
+      );
+      total = subtotal - (2 * lastValue);
+    } else if (mode === 'sum_with_vat') {
       const vatRate = this.resolveVatRate(source, fields, calculation);
       total = subtotal * (1 + vatRate / 100);
+    } else if (mode === 'vat_amount') {
+      const vatRate = this.resolveVatRate(source, fields, calculation);
+      total = subtotal * (vatRate / 100);
     }
 
     const decimals = this.normalizeCalculationDecimals(calculation.decimals);
