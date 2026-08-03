@@ -12,6 +12,15 @@ import { PopupServiceService } from './componenti/popup/popup-service.service';
 import { ServiceAnnouncementService } from './service/service-announcement.service';
 import { RealtimeSyncService } from './service/realtime-sync.service';
 
+export function calendarDayDifference(fromDate: string, toDate: string): number {
+  const parse = (value: string): number => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return Number.NaN;
+    return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  };
+  return Math.round((parse(toDate) - parse(fromDate)) / 86400000);
+}
+
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -54,14 +63,14 @@ export class AppComponent {
         ? `L’accesso a MVanager è sospeso dal ${formatDate(suspensionDate)} per mancato pagamento. Contatta MVTechCore.`
         : 'L’accesso a MVanager è sospeso per mancato pagamento. Contatta MVTechCore.',
     };
-    const due = new Date(`${billing.dueDate}T12:00:00`);
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const days = Math.ceil((due.getTime() - today.getTime()) / 86400000);
+    const todayDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const days = calendarDayDifference(todayDate, billing.dueDate);
     const reminders = Array.isArray(billing.reminderDays) ? billing.reminderDays : [7, 3, 1];
     if (days < 0) {
       const overdue = `${Math.abs(days)} ${Math.abs(days) === 1 ? 'giorno' : 'giorni'}`;
       if (suspensionDate) {
-        const daysToBlock = Math.ceil((suspensionDate.getTime() - today.getTime()) / 86400000);
+        const daysToBlock = calendarDayDifference(todayDate, billing.suspensionDate || '');
         if (daysToBlock > 0) return {
           tone: 'urgent',
           message: `Il pagamento dell’abbonamento è scaduto da ${overdue}. MVanager verrà bloccato il ${formatDate(suspensionDate)} (tra ${daysToBlock} ${daysToBlock === 1 ? 'giorno' : 'giorni'}).`,

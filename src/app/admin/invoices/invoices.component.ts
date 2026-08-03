@@ -370,6 +370,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   private querySubscription?: Subscription;
   private pendingCustomerInvoiceId = '';
   private invoiceSettingsLoaded = false;
+  private draftSaveConfirmationTimeout?: ReturnType<typeof setTimeout>;
 
   invoices: Invoice[] = [];
   selected: Invoice = this.emptyInvoice();
@@ -395,6 +396,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   saving = false;
   error = '';
   success = '';
+  draftSaveConfirmation = '';
   search = '';
   statusFilter = '';
   directionFilter = 'outbound';
@@ -501,6 +503,30 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     { key: 'N7', label: 'N7 IVA assolta in altro Stato UE' },
   ];
 
+  readonly vatLegalReferences: Readonly<Record<string, string>> = {
+    N1: 'Art. 15 DPR 633/1972',
+    'N2.1': 'Artt. da 7 a 7-septies DPR 633/1972',
+    'N2.2': 'Operazione non soggetta ad IVA - altri casi',
+    'N3.1': 'Art. 8 DPR 633/1972',
+    'N3.2': 'Art. 41 DL 331/1993',
+    'N3.3': 'Art. 71 DPR 633/1972',
+    'N3.4': 'Art. 8-bis DPR 633/1972',
+    'N3.5': 'Art. 8, comma 1, lett. c), DPR 633/1972',
+    'N3.6': 'Operazione non imponibile - altri casi',
+    N4: 'Art. 10 DPR 633/1972',
+    N5: 'Art. 36 DL 41/1995',
+    'N6.1': 'Art. 74, commi 7 e 8, DPR 633/1972',
+    'N6.2': 'Art. 17, comma 5, DPR 633/1972',
+    'N6.3': 'Art. 17, comma 6, lett. a), DPR 633/1972',
+    'N6.4': 'Art. 17, comma 6, lett. a-bis), DPR 633/1972',
+    'N6.5': 'Art. 17, comma 6, lett. b), DPR 633/1972',
+    'N6.6': 'Art. 17, comma 6, lett. c), DPR 633/1972',
+    'N6.7': 'Art. 17, comma 6, lett. a-ter), DPR 633/1972',
+    'N6.8': 'Art. 17, comma 6, lett. d-bis), d-ter) e d-quater), DPR 633/1972',
+    'N6.9': 'Inversione contabile - altri casi',
+    N7: 'IVA assolta in altro Stato UE',
+  };
+
   constructor(
     private http: HttpClient,
     private route: ActivatedRoute,
@@ -541,6 +567,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.querySubscription?.unsubscribe();
+    if (this.draftSaveConfirmationTimeout) clearTimeout(this.draftSaveConfirmationTimeout);
   }
 
   back(): void {
@@ -658,11 +685,14 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     if (this.activeView === 'ddt') this.showDdtArchive = !this.showDdtArchive;
   }
 
-  private updatePageModeRoute(mode: EntityPageMode, entityId?: number): void {
-    this.router.navigate([], {
+  private updatePageModeRoute(mode: EntityPageMode, entityId?: number, preserveScrollY?: number): void {
+    void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { mode: mode === 'list' ? null : mode, entityId: entityId || null },
       queryParamsHandling: 'merge',
+    }).then(() => {
+      if (preserveScrollY === undefined || typeof window === 'undefined') return;
+      window.requestAnimationFrame(() => window.scrollTo({ top: preserveScrollY, behavior: 'auto' }));
     });
   }
 
@@ -1173,6 +1203,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   newInvoice(): void {
+    this.clearDraftSaveConfirmation();
     this.selected = this.emptyInvoice();
     this.syncInvoiceEmailRecipient();
     this.selectedCustomerCode = '';
@@ -1271,6 +1302,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   selectInvoice(invoice: Invoice): void {
     if (!invoice.id) return;
+    this.clearDraftSaveConfirmation();
     this.error = '';
     this.success = '';
 
@@ -1410,14 +1442,18 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   onCustomerCountryChange(): void {
     this.selected.customerCountry = this.stringValue(this.selected.customerCountry || 'IT').toUpperCase().slice(0, 2) || 'IT';
-    if (this.selected.customerRecipientType === 'private' || !this.stringValue(this.selected.customerSdiCode)) {
+    if (this.selected.customerRecipientType !== 'pa' && (this.selected.customerRecipientType === 'private' || !this.stringValue(this.selected.customerSdiCode))) {
       this.selected.customerSdiCode = this.defaultSdiForCountry(this.selected.customerCountry);
     }
   }
 
   onCustomerRecipientTypeChange(): void {
     this.selected.customerRecipientType = this.normalizeRecipientType(this.selected.customerRecipientType);
-    if (this.selected.customerRecipientType === 'private') {
+    if (this.selected.customerRecipientType === 'pa') {
+      if (['0000000', 'XXXXXXX'].includes(this.stringValue(this.selected.customerSdiCode).toUpperCase())) {
+        this.selected.customerSdiCode = '';
+      }
+    } else if (this.selected.customerRecipientType === 'private' || !this.stringValue(this.selected.customerSdiCode)) {
       this.selected.customerSdiCode = this.defaultSdiForCountry(this.selected.customerCountry);
     }
   }
@@ -1426,7 +1462,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.selected.customerRecipientType = this.normalizeRecipientType(this.selected.customerRecipientType);
     this.selected.customerCountry = this.stringValue(this.selected.customerCountry || 'IT').toUpperCase().slice(0, 2) || 'IT';
     this.selected.customerFiscalCode = this.stringValue(this.selected.customerFiscalCode).toUpperCase();
-    if (this.selected.customerRecipientType === 'private') {
+    if (this.selected.customerRecipientType !== 'pa' && !this.stringValue(this.selected.customerSdiCode)) {
       this.selected.customerSdiCode = this.defaultSdiForCountry(this.selected.customerCountry);
     }
   }
@@ -1457,6 +1493,18 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     if (Number(line.vatRate || 0) !== 0) {
       line.vatNature = '';
       line.vatLegalReference = '';
+    }
+  }
+
+  onLineVatNatureChange(line: InvoiceLine): void {
+    const nature = this.stringValue(line.vatNature).toUpperCase();
+    const currentReference = this.stringValue(line.vatLegalReference);
+    if (!nature) {
+      if (this.isDefaultVatLegalReference(currentReference)) line.vatLegalReference = '';
+      return;
+    }
+    if (!currentReference || this.isDefaultVatLegalReference(currentReference)) {
+      line.vatLegalReference = this.defaultVatLegalReference(nature);
     }
   }
 
@@ -1504,6 +1552,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     line.unitPrice = this.netUnitPrice(line);
     line.vatRate = Number(service.vatRate ?? line.vatRate ?? 22);
     line.vatNature = Number(line.vatRate || 0) === 0 ? (service.vatNature || line.vatNature || '') : '';
+    this.onLineVatNatureChange(line);
   }
 
   syncLinePriceMode(line: InvoiceLine): void {
@@ -1640,6 +1689,9 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   save(): void {
     this.prepareRecipientForSubmit();
+    this.clearDraftSaveConfirmation();
+    const wasNewInvoice = !this.selected.id;
+    const scrollYBeforeSave = typeof window === 'undefined' ? 0 : window.scrollY;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -1648,10 +1700,11 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.selected = this.withInvoiceDefaults(res);
         this.pageMode = 'detail';
-        this.updatePageModeRoute('detail', res.id);
+        if (wasNewInvoice) this.updatePageModeRoute('detail', res.id, scrollYBeforeSave);
         this.syncInvoiceEmailRecipient();
         this.saving = false;
-        this.success = 'Fattura salvata';
+        this.success = '';
+        this.showDraftSaveConfirmation();
         this.loadInvoices();
         this.loadPaymentSchedule();
         this.loadEvents();
@@ -1662,6 +1715,28 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         this.error = this.errorText(err);
       },
     });
+  }
+
+  private showDraftSaveConfirmation(): void {
+    const time = new Intl.DateTimeFormat('it-IT', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).format(new Date());
+    this.draftSaveConfirmation = `Bozza salvata alle ${time}`;
+    if (this.draftSaveConfirmationTimeout) clearTimeout(this.draftSaveConfirmationTimeout);
+    this.draftSaveConfirmationTimeout = setTimeout(() => {
+      this.draftSaveConfirmation = '';
+      this.draftSaveConfirmationTimeout = undefined;
+    }, 6000);
+  }
+
+  private clearDraftSaveConfirmation(): void {
+    this.draftSaveConfirmation = '';
+    if (this.draftSaveConfirmationTimeout) {
+      clearTimeout(this.draftSaveConfirmationTimeout);
+      this.draftSaveConfirmationTimeout = undefined;
+    }
   }
 
   saveAndValidate(): void {
@@ -2937,6 +3012,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     if (profile) {
       line.vatRate = Number(profile.vatRate || 0);
       line.vatNature = Number(line.vatRate || 0) === 0 ? profile.vatNature || '' : '';
+      this.onLineVatNatureChange(line);
       this.selected.splitPayment = !!profile.splitPayment;
       this.selected.vatExigibility = this.normalizeVatExigibility(profile.vatExigibility, profile.splitPayment ? 'S' : 'I');
     }
@@ -3038,7 +3114,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.selected.customerZip = this.onlyDigits(this.customerAddressPart(customer, 'billing', 'zip', 'customerZip'));
     this.selected.customerCountry = this.stringValue(this.customerAddressPart(customer, 'billing', 'country', 'customerCountry') || 'IT').toUpperCase();
     const sdiCode = this.stringValue(this.customerValue(customer, 'customerSdiCode')).toUpperCase();
-    this.selected.customerSdiCode = sdiCode || this.defaultSdiForCountry(this.selected.customerCountry);
+    this.selected.customerSdiCode = sdiCode || (recipientType === 'pa' ? '' : this.defaultSdiForCountry(this.selected.customerCountry));
     this.syncInvoiceEmailRecipient();
   }
 
@@ -3209,7 +3285,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     const unitPriceInput = line.unitPriceInput === undefined || line.unitPriceInput === null
       ? unitPrice
       : Number(line.unitPriceInput || 0);
-    return {
+    const normalizedLine: InvoiceLine = {
       ...this.emptyLine(),
       ...line,
       serviceCode: this.stringValue(line.serviceCode).toUpperCase(),
@@ -3220,6 +3296,18 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       vatNature: this.stringValue(line.vatNature).toUpperCase(),
       vatLegalReference: this.stringValue(line.vatLegalReference),
     };
+    this.onLineVatNatureChange(normalizedLine);
+    return normalizedLine;
+  }
+
+  private defaultVatLegalReference(vatNature: any): string {
+    return this.vatLegalReferences[this.stringValue(vatNature).toUpperCase()] || '';
+  }
+
+  private isDefaultVatLegalReference(value: any): boolean {
+    const normalized = this.stringValue(value).toLowerCase();
+    return !!normalized && Object.values(this.vatLegalReferences)
+      .some((reference) => reference.toLowerCase() === normalized);
   }
 
   private stringValue(value: any): string {

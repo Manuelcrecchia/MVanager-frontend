@@ -36,8 +36,8 @@
     </div>
   </header>
 
-  <div class="invoice-feedback error" *ngIf="error">{{ error }}</div>
-  <div class="invoice-feedback success" *ngIf="success && !error">{{ success }}</div>
+  <div class="invoice-feedback error" *ngIf="error" role="alert"><i class="fas fa-exclamation-circle"></i>{{ error }}</div>
+  <div class="invoice-feedback success" *ngIf="success && !error" role="status" aria-live="polite"><i class="fas fa-check-circle"></i>{{ success }}</div>
 
   <div class="invoice-layout" *ngIf="activeView === 'invoices'">
     <aside class="invoice-list" *ngIf="pageMode === 'list'">
@@ -234,13 +234,14 @@
             <input [(ngModel)]="selected.customerFiscalCode" name="customerFiscalCode" [readonly]="!canEdit()" />
           </label>
           <label *ngIf="!isSelfInvoice()">
-            {{ selected.customerRecipientType === 'pa' ? 'Codice ufficio PA' : 'Codice SDI' }}
+            {{ selected.customerRecipientType === 'pa' ? 'Codice ufficio PA' : 'Codice SDI (facoltativo)' }}
             <input [(ngModel)]="selected.customerSdiCode" name="customerSdiCode" [attr.maxlength]="selected.customerRecipientType === 'pa' ? 6 : 7" [readonly]="!canEdit() || selected.customerRecipientType === 'private'" />
             <small *ngIf="selected.customerRecipientType === 'private'">Impostato automaticamente per il consumatore finale</small>
+            <small *ngIf="selected.customerRecipientType === 'business'">Se vuoto, viene usato automaticamente 0000000</small>
             <small *ngIf="selected.customerRecipientType === 'pa'">Codice univoco dell'ufficio destinatario, 6 caratteri</small>
           </label>
           <label *ngIf="!isSelfInvoice()">
-            PEC{{ selected.customerRecipientType === 'private' ? ' (facoltativa)' : '' }}
+            PEC (facoltativa)
             <input type="email" [(ngModel)]="selected.customerPec" name="customerPec" [readonly]="!canEdit()" />
           </label>
           <label>
@@ -298,7 +299,7 @@
             </select></label>
             <label class="line-field"><span>Sconto %</span><input type="number" step="0.01" [(ngModel)]="line.discountPercent" [name]="'discount' + i" [readonly]="!canEdit()" /></label>
             <label class="line-field"><span>IVA %</span><input type="number" step="0.01" [(ngModel)]="line.vatRate" [name]="'vat' + i" [readonly]="!canEdit()" (ngModelChange)="onLineVatRateChange(line); syncLinePriceMode(line)" /></label>
-            <label class="line-field"><span>Natura IVA</span><select [(ngModel)]="line.vatNature" [name]="'nature' + i" [disabled]="!canEdit() || +line.vatRate !== 0">
+            <label class="line-field"><span>Natura IVA</span><select [(ngModel)]="line.vatNature" [name]="'nature' + i" [disabled]="!canEdit() || +line.vatRate !== 0" (ngModelChange)="onLineVatNatureChange(line)">
               <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
             </select></label>
             <label class="line-field" *ngIf="+line.vatRate === 0"><span>Riferimento normativo</span><input [(ngModel)]="line.vatLegalReference" [name]="'vatLegalReference' + i" maxlength="100" [readonly]="!canEdit()" placeholder="Es. Esente art. 10 DPR 633/72" /></label>
@@ -433,7 +434,13 @@
                 <input type="email" [(ngModel)]="sendEmailRecipient" name="sendEmailRecipient" placeholder="cliente@azienda.it" [disabled]="saving" />
               </label>
               <div class="action-group__buttons">
-                <button type="submit" class="primary-btn" [disabled]="saving || !canEdit()">Salva bozza</button>
+                <button type="submit" class="primary-btn draft-save-button" [class.draft-save-button--confirmed]="!!draftSaveConfirmation" [disabled]="saving || !canEdit()">
+                  <i class="fas" [ngClass]="saving ? 'fa-spinner fa-spin' : (draftSaveConfirmation ? 'fa-check' : 'fa-save')"></i>
+                  {{ saving ? 'Salvataggio...' : (draftSaveConfirmation ? 'Bozza salvata' : 'Salva bozza') }}
+                </button>
+                <span class="draft-save-confirmation" *ngIf="draftSaveConfirmation" role="status" aria-live="polite">
+                  <i class="fas fa-check-circle"></i>{{ draftSaveConfirmation }}
+                </span>
                 <button type="button" class="primary-btn action-primary-wide" (click)="saveValidateSend()" [disabled]="saving || isProforma(selected) || (selected.id && !canSendElectronic())">Invia SDI + email</button>
                 <button type="button" class="ghost-btn" (click)="downloadPdf()" [disabled]="saving || !selected.id">PDF</button>
               </div>

@@ -1,4 +1,4 @@
-import { AppComponent } from './app.component';
+import { AppComponent, calendarDayDifference } from './app.component';
 
 describe('AppComponent', () => {
   it('should be exported', () => {
@@ -13,5 +13,10 @@ describe('AppComponent', () => {
 
     (component as any).router.url = '/customer-asset-deadlines';
     expect(component.isAdminShellRoute()).toBeFalse();
+  });
+
+  it('counts calendar dates without turning tomorrow into two days', () => {
+    expect(calendarDayDifference('2026-08-03', '2026-08-04')).toBe(1);
+    expect(calendarDayDifference('2026-08-03', '2026-07-31')).toBe(-3);
   });
 });
