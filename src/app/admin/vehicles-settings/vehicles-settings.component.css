@@ -1,6 +1,6 @@
 .admin-card {
   background: rgba(255, 255, 255, 0.85);
-  border-radius: 22px;
+  border-radius: var(--mv-radius-surface);
   border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 14px 34px rgba(2, 6, 23, 0.08);
   overflow: hidden;
@@ -12,7 +12,7 @@
 }
 
 .table-wrapper {
-  border-radius: 22px;
+  border-radius: var(--mv-radius-surface);
   border: 1px solid rgba(255,255,255,0.16);
   background: rgba(255,255,255,0.08);
   backdrop-filter: blur(16px);
@@ -24,25 +24,25 @@
 
 .table-wrapper table {
   margin: 0;
-  background: rgba(255,255,255,0.95) !important;
-  color: #000 !important;
-  border-radius: 16px;
+  background: rgba(255,255,255,0.95);
+  color: var(--mv-ink);
+  border-radius: var(--mv-radius-surface);
   overflow: hidden;
 }
 
 .table-wrapper thead {
-  background: linear-gradient(135deg, #ff7a00, #2fb7ff) !important;
+  background: linear-gradient(135deg, var(--mv-orange-500), var(--mv-blue-500));
 }
 
 .table-wrapper thead th {
-  color: #000 !important;
+  color: var(--mv-ink);
   font-weight: 950;
-  border: 0 !important;
+  border: 0;
   padding: 12px 8px;
 }
 
 .table-wrapper tbody td {
-  color: #000 !important;
+  color: var(--mv-ink);
   padding: 10px 8px;
 }
 
@@ -52,19 +52,19 @@
 
 .table-wrapper .form-control.form-control-sm {
   background: rgba(255,255,255,0.92);
-  color: #000;
-  border-radius: 12px;
+  color: var(--mv-ink);
+  border-radius: var(--mv-radius-control);
   border: 1px solid rgba(0,0,0,0.12);
 }
 
 .plate-badge {
-  background: rgba(47,183,255,0.15) !important;
-  border: 1px solid rgba(47,183,255,0.25) !important;
-  color: #1a6fa8 !important;
-  font-weight: 700 !important;
-  font-size: 13px !important;
+  background: rgba(47,183,255,0.15);
+  border: 1px solid rgba(47,183,255,0.25);
+  color: var(--mv-blue-700);
+  font-weight: 700;
+  font-size: 13px;
   padding: 4px 12px !important;
-  border-radius: 20px !important;
+  border-radius: var(--mv-radius-surface);
 }
 
 .actions-cell {
@@ -80,7 +80,7 @@
   gap: 10px;
   padding: 8px 10px;
   border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   background: rgba(255,255,255,0.72);
 }
 
@@ -118,7 +118,7 @@
   justify-content: space-between;
   gap: 12px;
   border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 18px;
+  border-radius: var(--mv-radius-surface);
   padding: 12px;
   background: rgba(255,255,255,0.78);
 }
@@ -179,7 +179,7 @@
   align-items: flex-start;
   padding: 12px;
   border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 16px;
+  border-radius: var(--mv-radius-surface);
   background: rgba(255,255,255,0.82);
 }
 
@@ -235,7 +235,7 @@
 
 .employee-card {
   border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 22px;
+  border-radius: var(--mv-radius-surface);
   padding: 16px;
   background: rgba(255,255,255,0.92);
   box-shadow: 0 14px 34px rgba(2, 6, 23, 0.08);
@@ -245,7 +245,7 @@
   margin: 0 0 6px;
   font-size: 1.15rem;
   font-weight: 800;
-  color: #000;
+  color: var(--mv-ink);
 }
 
 .employee-card__identity p {

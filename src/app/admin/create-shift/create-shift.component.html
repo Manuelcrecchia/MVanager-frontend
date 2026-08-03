@@ -1,17 +1,17 @@
 <div class="create-shift-page">
-  <section class="create-shift-hero">
-    <button class="btn-back" type="button" (click)="goBack()">
-      <i class="fas fa-arrow-left"></i>
-      <span>Indietro</span>
-    </button>
-
-    <div class="create-shift-title">
-      <span>Turni</span>
-      <h2>Assegnazione Turni</h2>
+  <section class="create-shift-hero mv-entity-toolbar">
+    <div class="create-shift-title mv-entity-toolbar__title">
+      <div>
+      <h1>Assegnazione turni</h1>
       <p>{{ selectedDate | date : "EEEE d MMMM y" }}</p>
+      </div>
     </div>
 
-    <div class="create-shift-actions">
+    <div class="create-shift-actions mv-entity-toolbar__controls">
+      <button class="mv-toolbar-back" type="button" (click)="goBack()">
+        <i class="fas fa-arrow-left"></i>
+        <span>Torna indietro</span>
+      </button>
       <button
         class="route-primary-btn"
         type="button"
@@ -115,7 +115,7 @@
           <button
             *ngFor="let item of routePlannerConflictActionButtons"
             class="route-ai-delete-selected"
-            style="width: auto; margin-right: 6px; color: #1d4ed8; background: #dbeafe;"
+            style="width: auto; margin-right: 6px; color: var(--mv-blue-700); background: var(--mv-blue-100);"
             type="button"
             (click)="applyRoutePlannerConflictAction(item.action)"
             [disabled]="routePlannerAiLoading || routePlannerLoading"
@@ -505,21 +505,21 @@
 </div>
 
 <style>
-  :root{
+  .create-shift-page{
     --brand-black:#0b0f14;
-    --brand-orange:#ff8a00;
-    --brand-sky:#2fb7ff;
+    --brand-orange:var(--mv-orange-500);
+    --brand-sky:var(--mv-blue-500);
 
     --glass-border: rgba(255,255,255,0.18);
     --shadow-soft: 0 18px 60px rgba(0,0,0,0.30);
     --shadow-card: 0 10px 30px rgba(0,0,0,0.18);
 
-    --radius-lg: 22px;
-    --radius-md: 16px;
+    --radius-lg: var(--mv-radius-surface);
+    --radius-md: var(--mv-radius-control);
   }
 
   /* Background full screen */
-  html, body{
+  .create-shift-page{
     height:100%;
     margin:0;
     background:
@@ -530,23 +530,23 @@
   }
 
   /* Page */
-  .container-fluid.py-4{
+  .create-shift-page .container-fluid.py-4{
     min-height: 100vh;
     color: rgba(255,255,255,0.92);
   }
 
   /* Titoli */
-  .container-fluid.py-4 h2{
+  .create-shift-page .container-fluid.py-4 h2{
     font-weight: 950;
     letter-spacing: .2px;
   }
-  .container-fluid.py-4 h4,
-  .container-fluid.py-4 h5{
+  .create-shift-page .container-fluid.py-4 h4,
+  .create-shift-page .container-fluid.py-4 h5{
     font-weight: 900;
   }
 
   /* Back button */
-  .btn-back{
+  .create-shift-page .btn-back{
     display:inline-flex;
     align-items:center;
     gap:10px;
@@ -554,50 +554,50 @@
     border-radius:999px;
     border:1px solid rgba(255,255,255,0.22);
     background: linear-gradient(135deg, rgba(47,183,255,0.30), rgba(255,138,0,0.28));
-    color:#000 !important;
+    color:var(--mv-ink);
     font-weight: 950;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     box-shadow: 0 10px 26px rgba(0,0,0,0.22);
     transition: transform 140ms ease, box-shadow 140ms ease;
   }
-  .btn-back:hover{
+  .create-shift-page .btn-back:hover{
     transform: translateY(-1px);
     box-shadow: 0 14px 36px rgba(0,0,0,0.30);
   }
 
   /* Buttons: testo sempre nero */
-  .container-fluid.py-4 .btn{
-    color:#000 !important;
+  .create-shift-page .container-fluid.py-4 .btn{
+    color:var(--mv-ink);
     font-weight: 900;
-    border-radius: 999px !important;
-    border: 1px solid rgba(255,255,255,0.22) !important;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.22);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     box-shadow: 0 10px 24px rgba(0,0,0,0.22);
     transition: transform 140ms ease, box-shadow 140ms ease, background 160ms ease;
   }
-  .container-fluid.py-4 .btn:hover{
+  .create-shift-page .container-fluid.py-4 .btn:hover{
     transform: translateY(-1px);
     box-shadow: 0 14px 36px rgba(0,0,0,0.30);
   }
 
   /* Specific buttons */
-  .container-fluid.py-4 .btn.btn-secondary{
-    background: rgba(255,255,255,0.16) !important;
+  .create-shift-page .container-fluid.py-4 .btn.btn-secondary{
+    background: rgba(255,255,255,0.16);
   }
-  .container-fluid.py-4 .btn.btn-outline-primary{
-    background: linear-gradient(135deg, rgba(255,138,0,0.18), rgba(47,183,255,0.14)) !important;
+  .create-shift-page .container-fluid.py-4 .btn.btn-outline-primary{
+    background: linear-gradient(135deg, rgba(255,138,0,0.18), rgba(47,183,255,0.14));
   }
-  .container-fluid.py-4 .btn.btn-success{
-    background: linear-gradient(135deg, rgba(46,204,113,0.55), rgba(47,183,255,0.18)) !important;
+  .create-shift-page .container-fluid.py-4 .btn.btn-success{
+    background: linear-gradient(135deg, rgba(46,204,113,0.55), rgba(47,183,255,0.18));
   }
-  .container-fluid.py-4 .btn.btn-outline-danger{
-    background: linear-gradient(135deg, rgba(255,77,77,0.60), rgba(255,138,0,0.10)) !important;
+  .create-shift-page .container-fluid.py-4 .btn.btn-outline-danger{
+    background: linear-gradient(135deg, rgba(255,77,77,0.60), rgba(255,138,0,0.10));
   }
 
   /* Layout: colonne come pannelli glass */
-  .row[style*="height: calc(100vh - 150px)"]{
+  .create-shift-page .row[style*="height: calc(100vh - 150px)"]{
     border-radius: var(--radius-lg);
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.14);
@@ -607,73 +607,73 @@
     box-shadow: var(--shadow-soft);
   }
 
-  .col-md-8.border-end{
-    border-right: 1px solid rgba(255,255,255,0.14) !important;
+  .create-shift-page .col-md-8.border-end{
+    border-right: 1px solid rgba(255,255,255,0.14);
   }
 
   /* Alerts: chiari + testo nero (leggibili) */
-  .alert{
+  .create-shift-page .alert{
     border-radius: var(--radius-lg);
-    border: 1px solid rgba(0,0,0,0.10) !important;
-    background: rgba(255,255,255,0.92) !important;
-    color:#000 !important;
+    border: 1px solid rgba(0,0,0,0.10);
+    background: rgba(255,255,255,0.92);
+    color:var(--mv-ink);
     box-shadow: var(--shadow-card);
   }
 
   /* List group reset */
-  .list-group{
-    border: none !important;
+  .create-shift-page .list-group{
+    border: none;
     padding: 0 !important;
-    background: transparent !important;
+    background: transparent;
   }
 
   /* Appointments item -> card chiara */
-  .list-group-item{
+  .create-shift-page .list-group-item{
     display:flex;
     align-items:flex-start;
     justify-content:space-between;
     gap: 10px;
 
-    border: 1px solid rgba(0,0,0,0.10) !important;
-    border-radius: var(--radius-md) !important;
+    border: 1px solid rgba(0,0,0,0.10);
+    border-radius: var(--radius-md);
     margin-bottom: 10px;
     padding: 12px;
 
-    background: rgba(255,255,255,0.92) !important;
-    color:#000 !important;
+    background: rgba(255,255,255,0.92);
+    color:var(--mv-ink);
     box-shadow: 0 10px 24px rgba(0,0,0,0.14);
     transition: transform 140ms ease, box-shadow 140ms ease;
   }
-  .list-group-item:hover{
+  .create-shift-page .list-group-item:hover{
     transform: translateY(-1px);
     box-shadow: 0 14px 34px rgba(0,0,0,0.20);
   }
 
   /* Inputs/selects/textarea in items: chiari + testo nero */
-  .list-group-item input[type="text"],
-  .list-group-item textarea,
-  .list-group-item select,
-  .list-group-item .form-control,
-  .list-group-item .form-select{
-    border-radius: 14px !important;
-    border: 1px solid rgba(0,0,0,0.12) !important;
-    background: rgba(255,255,255,0.95) !important;
-    color:#000 !important;
+  .create-shift-page .list-group-item input[type="text"],
+  .create-shift-page .list-group-item textarea,
+  .create-shift-page .list-group-item select,
+  .create-shift-page .list-group-item .form-control,
+  .create-shift-page .list-group-item .form-select{
+    border-radius: var(--mv-radius-control);
+    border: 1px solid rgba(0,0,0,0.12);
+    background: rgba(255,255,255,0.95);
+    color:var(--mv-ink);
     font-size: 13px;
     box-shadow: 0 10px 22px rgba(0,0,0,0.10);
   }
-  .list-group-item textarea{
+  .create-shift-page .list-group-item textarea{
     resize: vertical;
     min-height: 48px;
   }
-  .list-group-item input::placeholder,
-  .list-group-item textarea::placeholder{
-    color: rgba(0,0,0,0.55) !important;
+  .create-shift-page .list-group-item input::placeholder,
+  .create-shift-page .list-group-item textarea::placeholder{
+    color: rgba(0,0,0,0.55);
   }
 
   /* Orario: più largo e centrato */
-  .list-group-item input[type="time"],
-  .list-group-item input[placeholder="HH:mm"]{
+  .create-shift-page .list-group-item input[type="time"],
+  .create-shift-page .list-group-item input[placeholder="HH:mm"]{
     width: 110px;
     min-width: 110px;
     text-align: center;
@@ -681,32 +681,32 @@
   }
 
   /* Colonna destra: card dipendente glass */
-  .card{
-    border-radius: var(--radius-lg) !important;
-    border: 1px solid rgba(255,255,255,0.14) !important;
-    background: rgba(255,255,255,0.06) !important;
+  .create-shift-page .card{
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.06);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    box-shadow: var(--shadow-card) !important;
+    box-shadow: var(--shadow-card);
     overflow: hidden;
   }
-  .card-header.bg-light{
-    background: rgba(255,255,255,0.92) !important;
-    border-bottom: 1px solid rgba(0,0,0,0.10) !important;
+  .create-shift-page .card-header.bg-light{
+    background: rgba(255,255,255,0.92);
+    border-bottom: 1px solid rgba(0,0,0,0.10);
   }
-  .card-body{
-    background: rgba(255,255,255,0.04) !important;
+  .create-shift-page .card-body{
+    background: rgba(255,255,255,0.04);
   }
 
   /* Drag items (bg-white) -> testo nero sicuro */
-  .bg-white{
-    background: rgba(255,255,255,0.92) !important;
+  .create-shift-page .bg-white{
+    background: rgba(255,255,255,0.92);
   }
 
   /* Previous week list items */
-  .col-md-4 .list-group-item{
-    background: rgba(255,255,255,0.92) !important;
-    color:#000 !important;
+  .create-shift-page .col-md-4 .list-group-item{
+    background: rgba(255,255,255,0.92);
+    color:var(--mv-ink);
   }
 
   /* =========================================================
@@ -715,53 +715,53 @@
   ========================================================= */
 
   /* Contenitori chiari principali */
-  .alert,
-  .list-group-item,
-  .card-header.bg-light,
-  .bg-white{
-    color:#000 !important;
+  .create-shift-page .alert,
+  .create-shift-page .list-group-item,
+  .create-shift-page .card-header.bg-light,
+  .create-shift-page .bg-white{
+    color:var(--mv-ink);
   }
 
   /* TUTTO dentro quei contenitori -> nero */
-  .alert *,
-  .list-group-item *,
-  .card-header.bg-light *,
-  .bg-white *{
-    color:#000 !important;
+  .create-shift-page .alert *,
+  .create-shift-page .list-group-item *,
+  .create-shift-page .card-header.bg-light *,
+  .create-shift-page .bg-white *{
+    color:var(--mv-ink);
   }
 
   /* “muted” dentro chiaro -> grigio scuro leggibile */
-  .alert .text-muted,
-  .list-group-item .text-muted,
-  .card-header.bg-light .text-muted,
-  .bg-white .text-muted,
-  .list-group-item small,
-  .list-group-item .small{
-    color: rgba(0,0,0,0.60) !important;
+  .create-shift-page .alert .text-muted,
+  .create-shift-page .list-group-item .text-muted,
+  .create-shift-page .card-header.bg-light .text-muted,
+  .create-shift-page .bg-white .text-muted,
+  .create-shift-page .list-group-item small,
+  .create-shift-page .list-group-item .small{
+    color: rgba(0,0,0,0.60);
   }
 
   /* Bootstrap che può sbiancare */
-  .alert .text-white,
-  .list-group-item .text-white,
-  .card-header.bg-light .text-white,
-  .bg-white .text-white{
-    color:#000 !important;
+  .create-shift-page .alert .text-white,
+  .create-shift-page .list-group-item .text-white,
+  .create-shift-page .card-header.bg-light .text-white,
+  .create-shift-page .bg-white .text-white{
+    color:var(--mv-ink);
   }
 
   /* Error marker: resta rosso visibile */
-  .text-danger{
-    color: #b02a37 !important;
+  .create-shift-page .text-danger{
+    color: #b02a37;
     font-weight: 950;
   }
 
   /* Mobile */
   @media (max-width: 767.98px){
-    .row[style*="height: calc(100vh - 150px)"]{
+    .create-shift-page .row[style*="height: calc(100vh - 150px)"]{
       height: auto !important;
     }
-    .col-md-8.border-end{
-      border-right: 0 !important;
-      border-bottom: 1px solid rgba(255,255,255,0.14) !important;
+    .create-shift-page .col-md-8.border-end{
+      border-right: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.14);
     }
   }
 </style>

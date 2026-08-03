@@ -1,9 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { ContactRequirementPromptService } from '../../service/contact-requirement-prompt.service';
+import { NoteUnreadService } from '../../service/note-unread.service';
 
 @Component({
   selector: 'app-gestione-employees',
@@ -12,6 +13,11 @@ import { ContactRequirementPromptService } from '../../service/contact-requireme
 })
 export class GestioneEmployeesComponent implements OnInit {
   employees: any[] = [];
+  employeeView: 'directory' | 'settings' = 'directory';
+  employeeSearch = '';
+  showArchived = false;
+  settingsAction: 'new' | 'edit' | 'categories' = 'new';
+  settingsEmployeeId: number | null = null;
   private openEmployees = new Set<number>();
 
   // ✅ selezione
@@ -31,18 +37,100 @@ export class GestioneEmployeesComponent implements OnInit {
     private http: HttpClient,
     public globalService: GlobalService,
     private router: Router,
+    private route: ActivatedRoute,
     private modalService: NgbModal,
     private contactPrompt: ContactRequirementPromptService,
+    public noteUnread: NoteUnreadService,
   ) {}
 
   ngOnInit(): void {
+    this.noteUnread.start();
+    this.applyRouteState();
     this.getEmployees();
+  }
+
+  setEmployeeView(view: 'directory' | 'settings'): void {
+    this.employeeView = view;
+    if (view === 'directory') {
+      this.settingsEmployeeId = null;
+      void this.router.navigate(['/homeAdmin/gestioneemployees']);
+      this.getEmployees();
+    }
+  }
+
+  get filteredEmployees(): any[] {
+    const query = this.normalize(this.employeeSearch);
+    if (!query) return this.employees;
+    return this.employees.filter((employee) => this.normalize([
+      employee?.id,
+      employee?.nome,
+      employee?.cognome,
+      employee?.email,
+      employee?.cellulare,
+    ].join(' ')).includes(query));
+  }
+
+  clearEmployeeSearch(): void {
+    this.employeeSearch = '';
+  }
+
+  get employeeViewTitle(): string {
+    if (this.employeeView === 'directory') return 'Dipendenti';
+    if (this.settingsAction === 'edit') return 'Modifica dipendente';
+    if (this.settingsAction === 'categories') return 'Categorie dipendente';
+    return 'Nuovo dipendente';
+  }
+
+  toggleShowArchived(): void {
+    this.showArchived = !this.showArchived;
+    this.selected.clear();
+    this.getEmployees();
+  }
+
+  openEmployeeSettings(action: 'new' | 'edit' | 'categories', employee?: any): void {
+    const employeeId = employee?.id ? Number(employee.id) : null;
+    if (action === 'new') {
+      void this.router.navigate(['/homeAdmin/gestioneemployees/nuovo']);
+      return;
+    }
+    if (!employeeId) return;
+    const segment = action === 'edit' ? 'modifica' : 'categorie';
+    void this.router.navigate(['/homeAdmin/gestioneemployees', segment, employeeId]);
+  }
+
+  private applyRouteState(): void {
+    const action = this.route.snapshot.data['employeeAction'];
+    const employeeId = Number(this.route.snapshot.paramMap.get('employeeId') || 0);
+    if (action !== 'new' && action !== 'edit' && action !== 'categories') return;
+    if ((action === 'edit' || action === 'categories') && !employeeId) return;
+    this.settingsAction = action;
+    this.settingsEmployeeId = employeeId || null;
+    this.employeeView = 'settings';
+  }
+
+  navigateToEmployeeNotes(employee: any): void {
+    this.router.navigate(['/homeAdmin/employeeNotes'], {
+      queryParams: {
+        entity: 'employee',
+        employeeId: employee.id,
+        displayName: `${employee.nome || ''} ${employee.cognome || ''}`.trim(),
+        returnTo: '/homeAdmin/gestioneemployees',
+      },
+    });
+  }
+
+  navigateToEmployeeProfile(employee: any): void {
+    this.router.navigate(['/homeAdmin/schedaDipendente', employee.id]);
+  }
+
+  private normalize(value: string): string {
+    return String(value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
   }
 
   // Carica lista dipendenti
   getEmployees(): void {
     this.http
-      .get(this.globalService.url + 'employees/getAll', {
+      .get(this.globalService.url + `employees/getAll${this.showArchived ? '?includeArchived=true' : ''}`, {
         headers: this.globalService.headers,
         responseType: 'text',
       })
@@ -87,12 +175,13 @@ export class GestioneEmployeesComponent implements OnInit {
 
   get allSelected(): boolean {
     return (
-      this.employees.length > 0 && this.selected.size === this.employees.length
+      this.filteredEmployees.length > 0 && this.filteredEmployees.every((employee) => this.selected.has(Number(employee.id)))
     );
   }
 
   get someSelected(): boolean {
-    return this.selected.size > 0 && this.selected.size < this.employees.length;
+    const visibleSelected = this.filteredEmployees.filter((employee) => this.selected.has(Number(employee.id))).length;
+    return visibleSelected > 0 && visibleSelected < this.filteredEmployees.length;
   }
 
   toggleSelectAll() {
@@ -101,7 +190,7 @@ export class GestioneEmployeesComponent implements OnInit {
       return;
     }
     this.selected.clear();
-    this.employees.forEach((e) => this.selected.add(Number(e.id)));
+    this.filteredEmployees.forEach((e) => this.selected.add(Number(e.id)));
   }
 
   // ---- MODAL ----

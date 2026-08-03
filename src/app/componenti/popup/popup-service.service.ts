@@ -6,12 +6,13 @@ import { firstValueFrom } from 'rxjs';
 export type AppDialogTone = 'error' | 'warning' | 'success' | 'info';
 
 export interface AppDialogData {
-  mode: 'alert' | 'confirm' | 'prompt';
+  mode: 'alert' | 'action' | 'confirm' | 'prompt' | 'choice' | 'evidence';
   title: string;
   message: string;
   type: AppDialogTone;
   confirmLabel: string;
   cancelLabel?: string;
+  secondaryLabel?: string;
   inputLabel?: string;
   inputValue?: string;
   inputType?: 'text' | 'number' | 'date' | 'email';
@@ -79,6 +80,24 @@ export class PopupServiceService {
     this.show(message, title, 'error');
   }
 
+  async action(
+    message: unknown,
+    title = 'Attenzione',
+    options: {
+      type?: AppDialogTone;
+      actionLabel?: string;
+    } = {},
+  ): Promise<void> {
+    const ref = this.openDialog({
+      mode: 'action',
+      title,
+      message: this.formatMessage(message),
+      type: options.type || 'warning',
+      confirmLabel: options.actionLabel || 'Continua',
+    });
+    await firstValueFrom(ref.afterClosed());
+  }
+
   async confirm(
     message: unknown,
     title = 'Conferma operazione',
@@ -97,6 +116,38 @@ export class PopupServiceService {
       cancelLabel: options.cancelLabel || 'Annulla',
     });
     return (await firstValueFrom(ref.afterClosed())) === true;
+  }
+
+  async choose(
+    message: unknown,
+    title: string,
+    options: { primaryLabel: string; secondaryLabel: string; cancelLabel?: string },
+  ): Promise<'primary' | 'secondary' | null> {
+    const ref = this.openDialog({
+      mode: 'choice',
+      title,
+      message: this.formatMessage(message),
+      type: 'info',
+      confirmLabel: options.primaryLabel,
+      secondaryLabel: options.secondaryLabel,
+      cancelLabel: options.cancelLabel || 'Annulla',
+    });
+    const result = await firstValueFrom(ref.afterClosed());
+    return result === 'primary' || result === 'secondary' ? result : null;
+  }
+
+  async evidence(message: unknown, title = 'Dati di prova della firma'): Promise<'save' | 'print' | null> {
+    const ref = this.openDialog({
+      mode: 'evidence',
+      title,
+      message: this.formatMessage(message),
+      type: 'info',
+      confirmLabel: 'Salva',
+      secondaryLabel: 'Stampa',
+      cancelLabel: 'Chiudi',
+    });
+    const result = await firstValueFrom(ref.afterClosed());
+    return result === 'save' || result === 'print' ? result : null;
   }
 
   async prompt(

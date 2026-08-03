@@ -4,16 +4,29 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { Location } from '@angular/common';
 import { DomSanitizer, SafeUrl, SafeResourceUrl } from '@angular/platform-browser';
+import { NoteUnreadService } from '../../service/note-unread.service';
 
 export interface AllegatoNota {
   nome: string;
-  base64: string;
+  base64?: string;
   mimeType: string;
+  size?: number;
+  storageName?: string;
+  previewName?: string;
+  previewMimeType?: string;
+  previewSize?: number;
+  file?: File;
+  blob?: Blob;
+  previewUrl?: string;
+  originalUrl?: string;
+  downloadUrl?: string;
+  previewDownloadUrl?: string;
 }
 
 export interface NotaCliente {
   id?: number;
-  numeroCliente: string;
+  numeroCliente?: string;
+  employeeId?: number;
   operatore: string;
   data: string;
   ora: string;
@@ -27,8 +40,9 @@ export interface NotaCliente {
   styleUrl: './customer-notes.component.css',
 })
 export class CustomerNotesComponent implements OnInit {
-  private readonly fallbackReturnUrl = '/homeAdmin/listCustomer';
+  private fallbackReturnUrl = '/homeAdmin/listCustomer';
   numeroCliente = '';
+  entityType: 'customer' | 'employee' = 'customer';
   displayName = '';
   returnTo = this.fallbackReturnUrl;
   note: NotaCliente[] = [];
@@ -99,6 +113,12 @@ export class CustomerNotesComponent implements OnInit {
     return n;
   }
 
+  get canManageNotes(): boolean {
+    return this.entityType === 'employee'
+      ? this.globalService.hasPermission('EMPLOYEE_EDIT')
+      : this.globalService.hasPermission('CUSTOMERS_NOTES_MANAGE');
+  }
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -106,11 +126,18 @@ export class CustomerNotesComponent implements OnInit {
     public globalService: GlobalService,
     private location: Location,
     private sanitizer: DomSanitizer,
+    private noteUnread: NoteUnreadService,
   ) {}
 
   ngOnInit() {
+    this.entityType = this.route.snapshot.queryParamMap.get('entity') === 'employee' ? 'employee' : 'customer';
+    this.fallbackReturnUrl = this.entityType === 'employee'
+      ? '/homeAdmin/gestioneemployees'
+      : '/homeAdmin/listCustomer';
     this.numeroCliente =
-      this.route.snapshot.queryParamMap.get('numeroCliente') || '';
+      (this.entityType === 'employee'
+        ? this.route.snapshot.queryParamMap.get('employeeId')
+        : this.route.snapshot.queryParamMap.get('numeroCliente')) || '';
     this.displayName =
       this.route.snapshot.queryParamMap.get('displayName') || '';
     this.returnTo = this.resolveReturnUrl(
@@ -124,13 +151,15 @@ export class CustomerNotesComponent implements OnInit {
     this.loading = true;
     this.http
       .post<NotaCliente[]>(
-        this.globalService.url + 'customers/notes/getAll',
-        { numeroCliente: this.numeroCliente },
+        this.globalService.url + (this.entityType === 'employee' ? 'employees/notes/getAll' : 'customers/notes/getAll'),
+        this.entityType === 'employee' ? { employeeId: Number(this.numeroCliente) } : { numeroCliente: this.numeroCliente },
         { headers: this.globalService.headers },
       )
       .subscribe({
         next: (res) => {
           this.note = Array.isArray(res) ? res : [];
+          this.prepareStoredAttachments();
+          this.noteUnread.markRead(this.entityType, this.numeroCliente);
           this.loading = false;
         },
         error: () => {
@@ -167,37 +196,46 @@ export class CustomerNotesComponent implements OnInit {
 
   private processFiles(files: File[]) {
     files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        this.nuoviAllegati.push({ nome: file.name, base64: result.split(',')[1], mimeType: file.type });
-      };
-      reader.readAsDataURL(file);
+      this.nuoviAllegati.push({
+        nome: file.name,
+        mimeType: file.type || this.mimeFromName(file.name),
+        size: file.size,
+        file,
+        blob: file,
+        previewUrl: URL.createObjectURL(file),
+      });
     });
   }
 
   removeAllegato(index: number) {
+    const attachment = this.nuoviAllegati[index];
+    if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
     this.nuoviAllegati.splice(index, 1);
   }
 
   addNota() {
     if (!this.nuovaNota.trim() && this.nuoviAllegati.length === 0) return;
     this.sending = true;
-    const body = {
-      numeroCliente: this.numeroCliente,
-      operatore: this.globalService.userCode,
-      testo: this.nuovaNota.trim(),
-      allegati: this.nuoviAllegati,
-    };
+    const body = new FormData();
+    body.append(this.entityType === 'employee' ? 'employeeId' : 'numeroCliente', this.numeroCliente);
+    body.append('operatore', this.globalService.userCode);
+    body.append('testo', this.nuovaNota.trim());
+    this.nuoviAllegati.forEach((attachment) => {
+      if (attachment.file) body.append('allegati', attachment.file, attachment.nome);
+    });
     this.http
       .post<NotaCliente>(
-        this.globalService.url + 'customers/notes/add',
+        this.globalService.url + (this.entityType === 'employee' ? 'employees/notes/add' : 'customers/notes/add'),
         body,
-        { headers: this.globalService.headers },
+        { headers: this.globalService.headers.delete('Content-Type') },
       )
       .subscribe({
         next: (res) => {
+          this.nuoviAllegati.forEach((attachment) => {
+            if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+          });
           this.note.push(res);
+          this.prepareStoredAttachments([res]);
           this.nuovaNota = '';
           this.nuoviAllegati = [];
           this.sending = false;
@@ -210,24 +248,19 @@ export class CustomerNotesComponent implements OnInit {
   }
 
   downloadAllegato(allegato: AllegatoNota) {
-    const link = document.createElement('a');
-    const url = this.createObjectUrl(allegato);
-    link.href = url;
-    link.download = allegato.nome;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    this.withObjectUrl(allegato, (url) => {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = allegato.nome;
+      link.click();
+    }, false, false);
   }
 
   viewAllegato(allegato: AllegatoNota) {
-    const url = this.createObjectUrl(allegato);
-    const newWindow = window.open(url, '_blank');
-    if (!newWindow) {
-      alert('⚠️ Popup bloccato dal browser. Consenti i popup per visualizzare l’allegato.');
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      return;
-    }
-
-    newWindow.onload = () => setTimeout(() => URL.revokeObjectURL(url), 5000);
+    this.withObjectUrl(allegato, (url) => {
+      const newWindow = window.open(url, '_blank');
+      if (!newWindow) alert('⚠️ Popup bloccato dal browser. Consenti i popup per visualizzare l’allegato.');
+    });
   }
 
   printAllegato(allegato: AllegatoNota) {
@@ -236,31 +269,30 @@ export class CustomerNotesComponent implements OnInit {
       return;
     }
 
-    const url = this.createObjectUrl(allegato);
-    const newWindow = window.open(url, '_blank');
-    if (!newWindow) {
-      alert('⚠️ Popup bloccato dal browser. Consenti i popup per stampare l’allegato.');
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      return;
-    }
-
-    newWindow.onload = () => {
-      newWindow.focus();
-      const tryPrint = setInterval(() => {
-        try {
-          newWindow.print();
-          clearInterval(tryPrint);
-          setTimeout(() => URL.revokeObjectURL(url), 5000);
-        } catch {}
-      }, 300);
-    };
+    this.withObjectUrl(allegato, (url) => {
+      const newWindow = window.open(url, '_blank');
+      if (!newWindow) {
+        alert('⚠️ Popup bloccato dal browser. Consenti i popup per stampare l’allegato.');
+        return;
+      }
+      newWindow.onload = () => { newWindow.focus(); newWindow.print(); };
+    });
   }
 
-  private createObjectUrl(allegato: AllegatoNota): string {
+  private createObjectUrl(allegato: AllegatoNota, usePreview = true): string {
+    if (usePreview && allegato.previewUrl) return allegato.previewUrl;
+    if (allegato.blob) {
+      if (!usePreview) {
+        allegato.originalUrl ||= URL.createObjectURL(allegato.blob);
+        return allegato.originalUrl;
+      }
+      allegato.previewUrl ||= URL.createObjectURL(allegato.blob);
+      return allegato.previewUrl;
+    }
     const mimeType = this.isP7m(allegato)
       ? 'application/pkcs7-mime'
       : allegato.mimeType || 'application/octet-stream';
-    const byteCharacters = atob(allegato.base64);
+    const byteCharacters = atob(allegato.base64 || '');
     const byteNumbers = new Array(byteCharacters.length);
 
     for (let i = 0; i < byteCharacters.length; i++) {
@@ -272,11 +304,58 @@ export class CustomerNotesComponent implements OnInit {
     return URL.createObjectURL(blob);
   }
 
+  private withObjectUrl(allegato: AllegatoNota, action: (url: string) => void, silent = false, usePreview = true) {
+    if (allegato.base64 || allegato.blob || (usePreview && allegato.previewUrl)) {
+      action(this.createObjectUrl(allegato, usePreview));
+      return;
+    }
+    if (!allegato.downloadUrl) return;
+    this.http.get(allegato.downloadUrl, {
+      headers: this.globalService.headers.delete('Content-Type'),
+      responseType: 'blob',
+    }).subscribe({
+      next: (blob) => { allegato.blob = blob; action(this.createObjectUrl(allegato, usePreview)); },
+      error: () => { if (!silent) alert('Impossibile aprire l’allegato'); },
+    });
+  }
+
+  private prepareStoredAttachments(notes: NotaCliente[] = this.note) {
+    notes.forEach((note) => note.allegati?.forEach((attachment) => {
+      if (!attachment.storageName || !note.id) return;
+      const scope = this.entityType === 'employee' ? 'employees' : 'customers';
+      attachment.downloadUrl = `${this.globalService.url}${scope}/notes/${note.id}/attachments/${encodeURIComponent(attachment.storageName)}`;
+      if (attachment.previewName) {
+        attachment.previewDownloadUrl = `${attachment.downloadUrl}/preview`;
+        this.loadPreview(attachment);
+      } else if (this.isImage(attachment) || this.isPdf(attachment)) {
+        this.withObjectUrl(attachment, () => {}, true);
+      }
+    }));
+  }
+
+  private loadPreview(allegato: AllegatoNota) {
+    if (!allegato.previewDownloadUrl) return;
+    this.http.get(allegato.previewDownloadUrl, {
+      headers: this.globalService.headers.delete('Content-Type'),
+      responseType: 'blob',
+    }).subscribe({
+      next: (preview) => { allegato.previewUrl = URL.createObjectURL(preview); },
+      error: () => {},
+    });
+  }
+
+  private mimeFromName(name: string): string {
+    if (/\.hei[cf]$/i.test(name)) return name.toLowerCase().endsWith('.heic') ? 'image/heic' : 'image/heif';
+    if (/\.png$/i.test(name)) return 'image/png';
+    if (/\.jpe?g$/i.test(name)) return 'image/jpeg';
+    if (/\.pdf$/i.test(name)) return 'application/pdf';
+    return 'application/octet-stream';
+  }
+
   isImage(allegato: AllegatoNota): boolean {
-    return (
-      allegato.mimeType?.startsWith('image/') ||
-      /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(allegato.nome)
-    );
+    if (allegato.previewName) return true;
+    return /^(image\/(png|jpeg|gif|webp|bmp|svg\+xml))$/i.test(allegato.mimeType || '') ||
+      /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(allegato.nome);
   }
 
   isPdf(allegato: AllegatoNota): boolean {
@@ -291,15 +370,17 @@ export class CustomerNotesComponent implements OnInit {
   }
 
   getDataUrl(allegato: AllegatoNota): SafeUrl {
+    if (allegato.previewUrl) return this.sanitizer.bypassSecurityTrustUrl(allegato.previewUrl);
     const mime = allegato.mimeType || 'application/octet-stream';
     return this.sanitizer.bypassSecurityTrustUrl(
-      `data:${mime};base64,${allegato.base64}`,
+      allegato.base64 ? `data:${mime};base64,${allegato.base64}` : '',
     );
   }
 
   getPdfResourceUrl(allegato: AllegatoNota): SafeResourceUrl {
+    if (allegato.previewUrl) return this.sanitizer.bypassSecurityTrustResourceUrl(allegato.previewUrl);
     return this.sanitizer.bypassSecurityTrustResourceUrl(
-      `data:application/pdf;base64,${allegato.base64}`,
+      allegato.base64 ? `data:application/pdf;base64,${allegato.base64}` : '',
     );
   }
 

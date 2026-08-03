@@ -14,6 +14,7 @@ import { jwtDecode } from 'jwt-decode';
 import { NotificationNavigationService } from '../../../service/notification-navigation.service';
 import { Capacitor } from '@capacitor/core';
 import { environment } from '../../../../environments/environment';
+import { ServiceAnnouncementService } from '../../../service/service-announcement.service';
 
 @Component({
   selector: 'app-private-area',
@@ -47,6 +48,7 @@ export class PrivateAreaComponent {
     private bio: BiometricService,
     private notificationNavigation: NotificationNavigationService,
     public tenantService: TenantService,
+    private serviceAnnouncements: ServiceAnnouncementService,
   ) {}
 
   async ngOnInit() {
@@ -176,6 +178,7 @@ export class PrivateAreaComponent {
             }
           }
 
+          await this.serviceAnnouncements.showAfterLogin();
           await this.notificationNavigation.consumePendingOrNavigate('/homeAdmin');
         },
         error: (err) => {
@@ -404,7 +407,9 @@ export class PrivateAreaComponent {
       const ok = await this.globalService.checkVersion();
       if (!ok) {
         this.clearAutoBiometricTimer();
-        this.globalService.logout();
+        if (this.isMobile) {
+          this.globalService.logout();
+        }
         return;
       }
 

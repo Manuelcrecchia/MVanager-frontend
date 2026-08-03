@@ -1,15 +1,6 @@
 <div class="quote-page">
-  <div class="quote-toolbar">
-    <button class="btn btn-outline-primary rounded-pill" type="button" (click)="back()">
-      Indietro
-    </button>
-  </div>
-
-  <header class="quote-header">
-    <div>
-      <span class="quote-kicker">Preventivi</span>
-      <h2>Nuovo preventivo</h2>
-    </div>
+  <header class="mv-entity-toolbar"><div class="mv-entity-toolbar__title"><h1>Nuovo preventivo</h1></div><div class="mv-entity-toolbar__controls"><button class="btn mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button></div></header>
+  <section class="quote-header quote-meta-panel">
     <div class="quote-meta-grid">
       <div class="quote-meta-item">
         <span>Numero</span>
@@ -24,7 +15,7 @@
         <strong>{{ getCurrentQuoteType() || '-' }}</strong>
       </div>
     </div>
-  </header>
+  </section>
 
   <form #form="ngForm" class="quote-form">
     <div

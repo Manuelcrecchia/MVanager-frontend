@@ -1,6 +1,6 @@
 .admin-card {
   background: rgba(255, 255, 255, 0.85);
-  border-radius: 22px;
+  border-radius: var(--mv-radius-surface);
   border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 14px 34px rgba(2, 6, 23, 0.08);
   overflow: hidden;
@@ -12,7 +12,7 @@
 }
 
 .table-wrapper {
-  border-radius: 22px;
+  border-radius: var(--mv-radius-surface);
   border: 1px solid rgba(255,255,255,0.16);
   background: rgba(255,255,255,0.08);
   backdrop-filter: blur(16px);
@@ -24,25 +24,25 @@
 
 .table-wrapper table {
   margin: 0;
-  background: rgba(255,255,255,0.95) !important;
-  color: #000 !important;
-  border-radius: 16px;
+  background: rgba(255,255,255,0.95);
+  color: var(--mv-ink);
+  border-radius: var(--mv-radius-surface);
   overflow: hidden;
 }
 
 .table-wrapper thead {
-  background: linear-gradient(135deg, #ff7a00, #2fb7ff) !important;
+  background: linear-gradient(135deg, var(--mv-orange-500), var(--mv-blue-500));
 }
 
 .table-wrapper thead th {
-  color: #000 !important;
+  color: var(--mv-ink);
   font-weight: 950;
-  border: 0 !important;
+  border: 0;
   padding: 12px 8px;
 }
 
 .table-wrapper tbody td {
-  color: #000 !important;
+  color: var(--mv-ink);
   padding: 10px 8px;
 }
 
@@ -52,16 +52,16 @@
 
 .table-wrapper .form-control.form-control-sm {
   background: rgba(255,255,255,0.92);
-  color: #000;
-  border-radius: 12px;
+  color: var(--mv-ink);
+  border-radius: var(--mv-radius-control);
   border: 1px solid rgba(0,0,0,0.12);
 }
 
 .form-select-glass {
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   border: 1px solid rgba(0,0,0,0.12);
   background: rgba(255,255,255,0.92);
-  color: #000;
+  color: var(--mv-ink);
   padding: 8px 12px;
   font-size: 14px;
 }
@@ -109,7 +109,7 @@
     margin-bottom: 12px;
     padding: 12px;
     border: 1px solid rgba(0,0,0,0.09);
-    border-radius: 16px;
+    border-radius: var(--mv-radius-surface);
     background: rgba(255,255,255,0.96);
     box-shadow: 0 8px 24px rgba(2,6,23,0.07);
   }
@@ -155,7 +155,7 @@
 
 .employee-card {
   border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 22px;
+  border-radius: var(--mv-radius-surface);
   padding: 16px;
   background: rgba(255,255,255,0.92);
   box-shadow: 0 14px 34px rgba(2, 6, 23, 0.08);
@@ -192,7 +192,7 @@
 
 .cdk-drag-preview {
   background: rgba(255,255,255,0.95);
-  border-radius: 8px;
+  border-radius: var(--mv-radius-control);
   box-shadow: 0 10px 30px rgba(2,6,23,0.2);
 }
 
@@ -213,15 +213,15 @@
 
 .accordion-item {
   border: 1px solid rgba(0,0,0,0.09);
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   overflow: hidden;
-  background: #fff;
+  background: var(--mv-surface);
 }
 
 .accordion-header {
   background: linear-gradient(135deg, rgba(47,183,255,0.06), rgba(255,138,0,0.04));
   border: none;
-  color: #000;
+  color: var(--mv-ink);
   padding: 12px 14px;
   width: 100%;
   text-align: left;

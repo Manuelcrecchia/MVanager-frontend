@@ -1,12 +1,9 @@
 <div class="clouds"></div>
 
-<div class="container py-4 page-wrap">
-  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <button type="button" class="btn btn-back-glass" (click)="back()">
-      ⬅ Torna Indietro
-    </button>
-
-    <div class="selection-actions d-flex align-items-center gap-2 flex-wrap" *ngIf="globalService.hasPermission('NOTIFICATIONS_MANAGE')">
+<div class="standard-management-page users-page">
+  <header class="mv-entity-toolbar users-toolbar">
+    <div class="mv-entity-toolbar__title"><h1>Gestione utenti</h1></div>
+    <div class="mv-entity-toolbar__controls selection-actions" *ngIf="globalService.hasPermission('NOTIFICATIONS_MANAGE')">
       <button type="button"
         class="btn btn-glass btn-round"
         (click)="toggleSelectAll()"
@@ -20,16 +17,16 @@
       </span>
 
       <button type="button"
-        class="btn btn-primary btn-round"
+        class="btn mv-toolbar-primary"
         (click)="openNotifyModal(notifyModal)"
         [disabled]="selectedCount === 0"
       >
         🔔 Invia notifica
       </button>
     </div>
-  </div>
-
-  <h2 class="text-center page-title mb-4 text-dark">Gestione Users</h2>
+    <button type="button" class="btn mv-toolbar-back" (click)="back()">← Torna indietro</button>
+  </header>
+  <div class="container">
 
   <div class="table-wrapper desktop-table">
     <table class="table align-middle text-center mb-0">
@@ -193,6 +190,7 @@
       </button>
     </div>
   </ng-template>
+</div>
 </div>
 
 <ng-template #adminNotifModal let-modal>

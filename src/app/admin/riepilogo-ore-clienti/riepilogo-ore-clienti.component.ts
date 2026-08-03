@@ -31,6 +31,12 @@ export class RiepilogoOreClientiComponent implements OnInit {
   giorni: string[] = [];
   loading = false;
   selectedDayIndex = 0;
+  search = '';
+  showArchived = false;
+  viewMode: 'day' | 'month' = 'day';
+  clientiSelezionati = new Set<string>();
+  errorMessage = '';
+  savingCells = new Set<string>();
 
   // Per tracciare quali dettagli sono espansi
   espanso: Set<string> = new Set();
@@ -38,8 +44,26 @@ export class RiepilogoOreClientiComponent implements OnInit {
   constructor(
     private http: HttpClient,
     public globalService: GlobalService,
-    private router: Router
+    private router: Router,
   ) {}
+
+  back(): void {
+    this.router.navigateByUrl('/homeAdmin');
+  }
+
+  get filteredClienti(): any[] {
+    const query = this.search.trim().toLowerCase();
+    if (!query) return this.clienti;
+    return this.clienti.filter((customer) =>
+      [customer.numeroCliente, customer.customerName]
+        .some((value) => String(value || '').toLowerCase().includes(query)),
+    );
+  }
+
+  get visibleTotalHours(): string {
+    const total = this.filteredClienti.reduce((sum, customer) => sum + (parseFloat(customer.totale) || 0), 0);
+    return total.toFixed(2);
+  }
 
   ngOnInit() {
     this.generaGiorni();
@@ -67,15 +91,17 @@ export class RiepilogoOreClientiComponent implements OnInit {
 
       const res: any = await this.http
         .get(
-          `${this.globalService.url}admin/attendance/getMonthlyByCustomer/${this.meseSelezionato}/${this.annoSelezionato}`
+          `${this.globalService.url}admin/attendance/getMonthlyByCustomer/${this.meseSelezionato}/${this.annoSelezionato}${this.showArchived ? '?includeArchived=true' : ''}`
         )
         .toPromise();
 
       this.clienti = res?.clienti || [];
+      this.clientiSelezionati = new Set(this.clienti.map((customer) => String(customer.numeroCliente)));
       this.espanso.clear();
+      this.errorMessage = '';
     } catch (err) {
       console.error('❌ Errore caricamento ore clienti:', err);
-      alert('Errore durante il caricamento dei dati');
+      this.errorMessage = 'Errore durante il caricamento dei dati.';
     } finally {
       this.loading = false;
     }
@@ -117,7 +143,7 @@ export class RiepilogoOreClientiComponent implements OnInit {
   }
 
   getClienteOre(cliente: any, index: number): string {
-    return cliente?.orePerGiorno?.[index] || '0.00';
+    return this.formatOreStr(cliente?.orePerGiorno?.[index]);
   }
 
   getClienteDettagli(cliente: any, index: number): any[] {
@@ -146,7 +172,78 @@ export class RiepilogoOreClientiComponent implements OnInit {
     return cliente.dettagliPerGiorno[giornoIdx]?.length > 0;
   }
 
-  back() {
-    this.router.navigate(['/homeAdmin']);
+  isManual(cliente: any, giornoIdx: number): boolean {
+    return Array.isArray(cliente?.manualDays) && cliente.manualDays.includes(giornoIdx + 1);
+  }
+
+  toggleCliente(numeroCliente: string) {
+    const key = String(numeroCliente);
+    if (this.clientiSelezionati.has(key)) this.clientiSelezionati.delete(key);
+    else this.clientiSelezionati.add(key);
+  }
+
+  toggleAllVisible() {
+    const ids = this.filteredClienti.map((customer) => String(customer.numeroCliente));
+    const allSelected = ids.length > 0 && ids.every((id) => this.clientiSelezionati.has(id));
+    ids.forEach((id) => allSelected ? this.clientiSelezionati.delete(id) : this.clientiSelezionati.add(id));
+  }
+
+  toggleShowArchived() {
+    this.showArchived = !this.showArchived;
+    this.caricaDati();
+  }
+
+  formatOreStr(value: any): string {
+    const number = Number(String(value ?? '').replace(',', '.'));
+    return Number.isFinite(number) && number >= 0 ? number.toFixed(2) : '0.00';
+  }
+
+  saveCustomerHours(cliente: any, giornoIdx: number) {
+    const hours = Number(String(cliente.orePerGiorno[giornoIdx] ?? '').replace(',', '.'));
+    if (!Number.isFinite(hours) || hours < 0 || hours > 24) {
+      this.errorMessage = 'Le ore devono essere comprese tra 0 e 24.';
+      return;
+    }
+    cliente.orePerGiorno[giornoIdx] = hours.toFixed(2);
+    cliente.totale = cliente.orePerGiorno
+      .reduce((sum: number, value: any) => sum + (parseFloat(value) || 0), 0)
+      .toFixed(2);
+    cliente.manualDays = Array.from(new Set([...(cliente.manualDays || []), giornoIdx + 1]));
+    const key = `${cliente.numeroCliente}:${giornoIdx}`;
+    this.savingCells.add(key);
+    this.http.post(`${this.globalService.url}admin/attendance/saveMonthlyCustomerCell`, {
+      numeroCliente: cliente.numeroCliente,
+      giorno: giornoIdx + 1,
+      mese: this.meseSelezionato,
+      anno: this.annoSelezionato,
+      ore: hours,
+    }).subscribe({
+      next: () => { this.savingCells.delete(key); this.errorMessage = ''; },
+      error: (error) => {
+        this.savingCells.delete(key);
+        this.errorMessage = error?.error?.error || 'Errore durante il salvataggio delle ore.';
+      },
+    });
+  }
+
+  exportCsv() {
+    const selected = this.clienti.filter((customer) => this.clientiSelezionati.has(String(customer.numeroCliente)));
+    const header = ['ID cliente', 'Cliente', ...this.giorni.map((_, index) => `Giorno ${index + 1}`), 'Totale'];
+    const rows = selected.map((customer) => [
+      customer.numeroCliente,
+      customer.customerName,
+      ...customer.orePerGiorno.map((value: any) => this.formatOreStr(value)),
+      this.formatOreStr(customer.totale),
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(';'))
+      .join('\n');
+    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Ore_clienti_${this.annoSelezionato}-${this.meseSelezionato}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
   }
 }

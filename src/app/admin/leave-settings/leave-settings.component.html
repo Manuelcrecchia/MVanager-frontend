@@ -1,11 +1,11 @@
-<div class="container py-4 page-wrap" style="max-width: 600px;">
-  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <button class="btn btn-back-glass" type="button" (click)="back()">
-      &larr; Torna Indietro
-    </button>
-  </div>
-
-  <h2 class="text-center page-title mb-4 text-dark">Impostazioni permessi e assenze</h2>
+<div class="standard-management-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title">
+      <h1>Impostazioni permessi e assenze</h1>
+    </div>
+    <div class="mv-entity-toolbar__controls"><button class="btn mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button></div>
+  </header>
+  <div class="container standard-management-page__narrow">
 
   <section class="admin-card">
     <div class="card-body p-4 text-center">
@@ -29,9 +29,10 @@
         💾 Salva impostazione
       </button>
 
-      <div *ngIf="message" class="mt-3" style="padding: 10px 14px; border-radius: 14px; background: rgba(47,183,255,0.15); border: 1px solid rgba(47,183,255,0.4); font-weight: 700; color: #111;">
+      <div *ngIf="message" class="mt-3" style="padding: 10px 14px; border-radius: var(--mv-radius-control); background: rgba(47,183,255,0.15); border: 1px solid rgba(47,183,255,0.4); font-weight: 700; color: var(--mv-ink);">
         {{ message }}
       </div>
     </div>
   </section>
+</div>
 </div>

@@ -1,23 +1,20 @@
 <div class="bg-light">
 
     <!-- TOOLBAR -->
-    <mat-toolbar
-      class="d-flex align-items-center justify-content-between px-3 py-2"
-      color="primary"
-    >
+    <header class="mv-entity-toolbar notes-toolbar">
       <!-- Sinistra: back + titolo -->
-      <div class="d-flex align-items-center gap-2 toolbar-left">
-        <button class="btn-back" type="button" (click)="back()">
+      <div class="mv-entity-toolbar__title toolbar-left">
+        <button class="btn mv-toolbar-back" type="button" (click)="back()">
           &larr; Torna Indietro
         </button>
         <div class="toolbar-title">
-          <span class="prev-num">Cliente {{ numeroCliente }}</span>
-          <span class="prev-nom ms-2">{{ displayName }}</span>
+          <h1>{{ entityType === 'employee' ? 'Note dipendente' : 'Note cliente' }}</h1>
+          <span class="prev-nom">#{{ numeroCliente }} · {{ displayName }}</span>
         </div>
       </div>
 
       <!-- Destra: pulsanti azione -->
-      <div class="d-flex align-items-center gap-2">
+      <div class="mv-entity-toolbar__controls">
 
         <!-- Solo allegati -->
         <button
@@ -65,7 +62,7 @@
         </button>
 
       </div>
-    </mat-toolbar>
+    </header>
 
     <!-- PANNELLO CERCA -->
     <div class="filter-panel" *ngIf="showSearch">
@@ -134,7 +131,7 @@
         <!-- Nessuna nota in archivio -->
         <div *ngIf="!loading && note.length === 0" class="empty-state">
           <mat-icon>notes</mat-icon>
-          <p>Nessuna nota presente per questo preventivo.</p>
+          <p>Nessuna nota presente per questo {{ entityType === 'employee' ? 'dipendente' : 'cliente' }}.</p>
         </div>
 
         <!-- Nessun risultato dai filtri -->
@@ -255,7 +252,7 @@
     </div>
 
     <!-- INPUT AREA FISSA IN BASSO -->
-    <div class="input-area" [class.drag-active]="isDragging">
+    <div class="input-area" *ngIf="canManageNotes" [class.drag-active]="isDragging">
       <div class="input-inner">
 
         <textarea
@@ -278,11 +275,6 @@
         </div>
 
         <div class="input-actions">
-          <button type="button" class="btn-return-inline" (click)="back()">
-            <mat-icon>arrow_back</mat-icon>
-            <span>Indietro</span>
-          </button>
-
           <label class="btn-allegato" title="Aggiungi allegato">
             <mat-icon>attach_file</mat-icon>
             <input type="file" multiple hidden (change)="onFileSelected($event)" />

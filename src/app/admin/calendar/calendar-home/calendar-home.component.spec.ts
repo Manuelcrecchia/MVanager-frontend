@@ -80,4 +80,26 @@ describe('CalendarHomeComponent', () => {
 
     expect(component.popupEndDate).toBe('2026-07-27T10:30');
   });
+
+  it('accepts a customer order progressive such as 454/1 in a linked calendar title', () => {
+    const component = new CalendarHomeComponent(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+    component.categories = [{
+      id: 'ordine-servizio',
+      text: 'Ordini di servizio',
+      color: '#008577',
+      source: 'customers',
+    }];
+    component.clientiArray = [{ numeroCliente: '454' }];
+
+    expect(component.validateCodice('454/1', 'ordine-servizio')).toBeTrue();
+  });
 });

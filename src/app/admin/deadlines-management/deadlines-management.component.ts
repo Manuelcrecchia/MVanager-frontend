@@ -209,6 +209,12 @@ export class DeadlinesManagementComponent implements OnInit {
   customerAssetSortMode: 'type' | 'status' | 'dueDate' | 'asset' = 'type';
   expandedCustomerAssetTypeKeys = new Set<string>();
   expandedCustomerAssetIds = new Set<string>();
+  private editPointerId: number | null = null;
+  private editPointerStartX = 0;
+  private editPointerStartY = 0;
+  private deadlineActionPointerId: number | null = null;
+  private deadlineActionPointerStartX = 0;
+  private deadlineActionPointerStartY = 0;
   bulkRows: Array<{
     typeKey: string;
     typeLabel: string;
@@ -1365,6 +1371,87 @@ export class DeadlinesManagementComponent implements OnInit {
           : String(deadline.remindDays),
     };
     this.scrollToDeadlineForm();
+  }
+
+  onEditDeadlinePointerDown(event: PointerEvent): void {
+    if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+    this.editPointerId = event.pointerId;
+    this.editPointerStartX = event.clientX;
+    this.editPointerStartY = event.clientY;
+  }
+
+  onEditDeadlinePointerUp(event: PointerEvent, deadline: DeadlineRecord): void {
+    if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+      if (this.editPointerId !== event.pointerId) return;
+      this.editPointerId = null;
+      const movement = Math.hypot(
+        event.clientX - this.editPointerStartX,
+        event.clientY - this.editPointerStartY,
+      );
+      if (movement > 14) return;
+    } else if (event.button !== 0) {
+      return;
+    }
+
+    this.openEditForm(deadline);
+  }
+
+  onEditDeadlinePointerCancel(): void {
+    this.editPointerId = null;
+  }
+
+  onDeadlineActionPointerDown(event: PointerEvent): void {
+    if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+    this.deadlineActionPointerId = event.pointerId;
+    this.deadlineActionPointerStartX = event.clientX;
+    this.deadlineActionPointerStartY = event.clientY;
+  }
+
+  onDeadlineActionPointerUp(
+    event: PointerEvent,
+    deadline: DeadlineRecord,
+    action: 'select' | 'plan' | 'open' | 'delete' | 'history',
+  ): void {
+    if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+      if (this.deadlineActionPointerId !== event.pointerId) return;
+      this.deadlineActionPointerId = null;
+      const movement = Math.hypot(
+        event.clientX - this.deadlineActionPointerStartX,
+        event.clientY - this.deadlineActionPointerStartY,
+      );
+      if (movement > 14) return;
+    } else if (event.button !== 0) {
+      return;
+    }
+
+    this.runDeadlineAction(deadline, action);
+  }
+
+  onDeadlineActionPointerCancel(): void {
+    this.deadlineActionPointerId = null;
+  }
+
+  runDeadlineAction(
+    deadline: DeadlineRecord,
+    action: 'select' | 'plan' | 'open' | 'delete' | 'history',
+  ): void {
+    if (action === 'select') {
+      this.toggleDeadlineSelection(deadline, !this.isDeadlineSelected(deadline));
+      return;
+    }
+    if (action === 'plan') {
+      this.planDeadline(deadline);
+      return;
+    }
+    if (action === 'open') {
+      this.openPlannedEvent(deadline);
+      return;
+    }
+    if (action === 'delete') {
+      void this.deleteDeadline(deadline);
+      return;
+    }
+    this.toggleHistory(deadline);
   }
 
   cancelForm(): void {

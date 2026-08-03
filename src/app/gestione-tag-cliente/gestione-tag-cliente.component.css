@@ -1,122 +1,30 @@
-:root{
-  --brand-black:#0b0f14;
-  --brand-orange:#ff8a00;
-  --brand-sky:#2fb7ff;
+:host { display: block; }
 
-  --glass-border: rgba(255,255,255,0.18);
-  --shadow-soft: 0 18px 60px rgba(0,0,0,0.30);
-  --shadow-card: 0 10px 30px rgba(0,0,0,0.18);
+.customer-tag-content { max-width: 760px; }
 
-  --radius-lg: 22px;
-  --radius-md: 16px;
-}
-
-/* ===============================
-   BACKGROUND
-================================= */
-html, body{
-  height:100%;
-  margin:0;
-  background:
-    radial-gradient(1100px 680px at 10% 10%, rgba(47,183,255,0.20), transparent 60%),
-    radial-gradient(1100px 680px at 90% 15%, rgba(255,138,0,0.20), transparent 65%),
-    linear-gradient(180deg, #0b0f14, #121c28);
-  background-attachment: fixed;
+.customer-tag-content .card {
+  border: 1px solid var(--mv-border);
+  border-radius: var(--mv-radius-surface);
+  background: var(--mv-surface);
+  box-shadow: var(--mv-shadow-md);
+  color: var(--mv-text);
 }
 
-/* Page */
-.container.py-4{
-  min-height:100vh;
-  color: rgba(255,255,255,0.92);
+.customer-tag-content .form-control {
+  min-height: 44px;
+  border: 1px solid var(--mv-border-strong);
+  border-radius: var(--mv-radius-control);
+  background: var(--mv-surface);
+  color: var(--mv-ink);
 }
 
-.container.py-4 h2{
-  font-weight: 950;
-  letter-spacing: .2px;
+.customer-tag-content .form-control:focus {
+  border-color: var(--mv-blue-500);
+  box-shadow: var(--mv-focus-ring);
 }
 
-/* ===============================
-   BUTTONS
-================================= */
-.container.py-4 .btn{
-  color:#000 !important;
-  font-weight:900;
-  border-radius:999px !important;
-  border:1px solid rgba(255,255,255,0.22) !important;
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow:0 10px 24px rgba(0,0,0,0.22);
-  transition:transform .14s ease, box-shadow .14s ease, background .16s ease;
-}
-.container.py-4 .btn:hover{
-  transform:translateY(-1px);
-  box-shadow:0 14px 36px rgba(0,0,0,0.30);
-}
-
-/* Back */
-.container.py-4 .btn.btn-outline-primary{
-  background: linear-gradient(135deg, rgba(47,183,255,0.30), rgba(255,138,0,0.25));
-}
-
-/* Save */
-.container.py-4 .btn.btn-success{
-  background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky)) !important;
-}
-
-/* ===============================
-   CARD GLASS
-================================= */
-.card{
-  border-radius: var(--radius-lg) !important;
-  border:1px solid var(--glass-border) !important;
-  background: rgba(255,255,255,0.08) !important;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  box-shadow: var(--shadow-soft) !important;
-  color: rgba(255,255,255,0.92);
-}
-
-/* Labels */
-.card .form-label{
-  font-weight:900;
-  margin-bottom:6px;
-}
-
-/* ===============================
-   INPUT / TEXTAREA
-================================= */
-.card .form-control{
-  border-radius: 16px !important;
-  border:1px solid rgba(0,0,0,0.12) !important;
-  background: rgba(255,255,255,0.92) !important;
-  color:#000 !important;
-  box-shadow:0 10px 22px rgba(0,0,0,0.12);
-}
-.card .form-control:focus{
-  border-color: rgba(47,183,255,0.6) !important;
-  box-shadow:0 0 0 0.18rem rgba(47,183,255,0.25) !important;
-  outline:none;
-}
-.card .form-control::placeholder{
-  color: rgba(0,0,0,0.55) !important;
-}
-
-/* File input */
-.card input[type="file"].form-control{
-  padding:6px 10px;
-}
-
-/* ===============================
-   IMAGE PREVIEW
-================================= */
-.card img{
-  border-radius: 16px;
-  border:1px solid rgba(255,255,255,0.18);
-  box-shadow:0 14px 36px rgba(0,0,0,0.35);
-  background:#fff;
-}
-
-/* Paragraph in card */
-.card p{
-  margin-bottom:8px;
+.customer-tag-content img {
+  border: 1px solid var(--mv-border);
+  border-radius: var(--mv-radius-control);
+  box-shadow: var(--mv-shadow-sm);
 }

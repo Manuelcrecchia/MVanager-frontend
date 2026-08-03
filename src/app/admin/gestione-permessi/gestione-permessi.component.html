@@ -1,534 +1,93 @@
-<style>
-  :root {
-    --brand-black: #0b0f14;
-    --brand-orange: #ff8a00;
-    --brand-sky: #2fb7ff;
+<div class="bg-light permissions-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title">
+      <h1>Permessi</h1>
+      <button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="goBack()">← Torna indietro</button>
+      <button type="button" class="btn mv-toolbar-primary" (click)="openCreaModal()">
+        <i class="fas fa-plus" aria-hidden="true"></i> Nuovo
+      </button>
+    </div>
+    <div class="mv-entity-toolbar__controls">
+      <label class="permission-search-field">
+        <span class="visually-hidden">Cerca permesso</span>
+        <i class="fas fa-search" aria-hidden="true"></i>
+        <input class="form-control" type="search" [(ngModel)]="search" placeholder="ID, dipendente, categoria o stato" />
+      </label>
+      <span class="mv-entity-toolbar__count">{{ filteredRequests.length }} / {{ leaveRequests.length }}</span>
+      <button type="button" class="btn btn-light btn-sm" *ngIf="search" (click)="search = ''">Pulisci</button>
+      <button type="button" class="btn btn-light btn-sm" (click)="toggleShowArchived()">
+        {{ showArchived ? 'Nascondi archivio' : 'Mostra archivio' }}
+      </button>
+    </div>
+  </header>
 
-    --glass-border: rgba(255, 255, 255, 0.18);
-    --shadow-soft: 0 18px 60px rgba(0, 0, 0, 0.22);
-    --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.18);
+  <div class="container">
+    <div *ngIf="loading" class="alert alert-info text-center">Caricamento...</div>
+    <div *ngIf="!loading && filteredRequests.length === 0" class="alert alert-light border">
+      {{ showArchived ? 'Nessun permesso trovato.' : 'Nessuna richiesta di permesso in attesa.' }}
+    </div>
 
-    --radius-lg: 22px;
-    --radius-md: 16px;
-  }
-
-  /* Background full screen */
-  html,
-  body {
-    height: 100%;
-    margin: 0;
-    background:
-      radial-gradient(
-        1000px 620px at 10% 10%,
-        rgba(47, 183, 255, 0.2),
-        transparent 60%
-      ),
-      radial-gradient(
-        1000px 620px at 90% 15%,
-        rgba(255, 138, 0, 0.2),
-        transparent 65%
-      ),
-      linear-gradient(180deg, #0b0f14, #121c28);
-    background-attachment: fixed;
-  }
-
-  /* Container page */
-  .container.mt-4 {
-    min-height: 100vh;
-    color: rgba(255, 255, 255, 0.92);
-    padding-bottom: 24px;
-  }
-
-  /* Titolo */
-  .container.mt-4 h2 {
-    font-weight: 950;
-    letter-spacing: 0.2px;
-    margin-bottom: 12px;
-  }
-
-  /* Buttons: testo sempre nero */
-  .container.mt-4 .btn,
-  .modal .btn {
-    color: #000 !important;
-    font-weight: 900;
-    border-radius: 999px !important;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
-    transition:
-      transform 140ms ease,
-      box-shadow 140ms ease,
-      background 160ms ease;
-  }
-  .container.mt-4 .btn:hover,
-  .modal .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.3);
-  }
-
-  /* Back button */
-  .container.mt-4 .btn.btn-outline-secondary {
-    background: linear-gradient(
-      135deg,
-      rgba(47, 183, 255, 0.24),
-      rgba(255, 138, 0, 0.22)
-    );
-  }
-
-  /* Accept / Reject NO rosa */
-  .container.mt-4 .btn.btn-success {
-    background: linear-gradient(
-      135deg,
-      rgba(46, 204, 113, 0.55),
-      rgba(47, 183, 255, 0.18)
-    );
-  }
-  .container.mt-4 .btn.btn-danger {
-    background: linear-gradient(
-      135deg,
-      rgba(255, 77, 77, 0.6),
-      rgba(255, 138, 0, 0.16)
-    );
-  }
-
-  /* Spinner */
-  .container.mt-4 .spinner-border {
-    width: 3rem;
-    height: 3rem;
-    color: var(--brand-sky) !important;
-  }
-
-  /* ✅ FIX: ALERT INFO visibile (testo nero) */
-  .container.mt-4 .alert.alert-info {
-    border-radius: var(--radius-lg);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    background: rgba(255, 255, 255, 0.92);
-    color: #000 !important;
-    box-shadow: var(--shadow-card);
-  }
-  .container.mt-4 .alert.alert-info * {
-    color: #000 !important; /* se ci fossero tag interni */
-  }
-
-  /* List group glass */
-  .container.mt-4 .list-group {
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    box-shadow: var(--shadow-soft);
-  }
-
-  /* Items */
-  .container.mt-4 .list-group-item {
-    background: rgba(255, 255, 255, 0.08) !important;
-    color: rgba(255, 255, 255, 0.92) !important;
-    border: 0 !important;
-    padding: 14px 14px;
-  }
-  .container.mt-4 .list-group-item + .list-group-item {
-    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
-  }
-
-  /* Modal glass */
-  .modal-content {
-    border-radius: var(--radius-lg);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(11, 15, 20, 0.86);
-    color: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    box-shadow: var(--shadow-soft);
-  }
-  .modal .btn-close {
-    filter: invert(1);
-    opacity: 0.9;
-  }
-
-  /* Modal inputs */
-  .modal .form-select,
-  .modal .form-control {
-    border-radius: 14px;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    background: rgba(255, 255, 255, 0.92);
-    color: #000;
-  }
-  .modal .form-select option {
-    color: #000;
-  }
-
-  /* Modal footer buttons */
-  .modal .btn.btn-secondary {
-    background: rgba(255, 255, 255, 0.16);
-  }
-  .modal .btn.btn-primary {
-    background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky));
-  }
-
-  /* Responsive: azioni full width su mobile */
-  @media (max-width: 575.98px) {
-    .container.mt-4 .d-flex.justify-content-between.align-items-center.mb-3.flex-wrap.gap-2 {
-      align-items: stretch !important;
-    }
-    .container.mt-4 .d-flex.justify-content-between.align-items-center.mb-3.flex-wrap.gap-2 > .btn {
-      width: 100%;
-    }
-    .container.mt-4 .btn-group {
-      display: flex !important;
-      flex-direction: column;
-      gap: 8px;
-      width: 100%;
-    }
-    .container.mt-4 .btn-group .btn {
-      width: 100%;
-      border-radius: 999px !important;
-    }
-    .container.mt-4 .permessi-item .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2 {
-      align-items: stretch !important;
-    }
-    .container.mt-4 .permessi-actions {
-      margin-top: 12px !important;
-    }
-    .modal-footer {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .modal-footer .btn {
-      width: 100%;
-    }
-  }
-</style>
-
-<div class="container mt-4 permessi-page">
-  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <button type="button" class="btn btn-outline-secondary btn-back-glass" (click)="goBack()">
-      &larr; Torna Indietro
-    </button>
-    <button type="button" class="btn btn-primary" (click)="openCreaModal()">
-      + Aggiungi permesso
-    </button>
-  </div>
-
-  <h2 class="permessi-title text-dark">Gestione permessi e assenze</h2>
-
-  <div *ngIf="loading" class="text-center my-3">
-    <div class="spinner-border" role="status"></div>
-  </div>
-
-  <div *ngIf="!loading && leaveRequests.length === 0" class="alert alert-info">
-    Nessuna richiesta di permesso in attesa.
-  </div>
-
-  <div class="list-group mt-3 permessi-list" *ngIf="leaveRequests.length > 0">
-    <div
-      class="list-group-item permessi-item"
-      *ngFor="let req of leaveRequests"
-    >
-      <div
-        class="d-flex justify-content-between align-items-center flex-wrap gap-2"
-      >
-        <div class="req-meta text-dark">
-          <strong>{{ req.employee?.nome }} {{ req.employee?.cognome }}</strong
-          ><br />
-          <span class="label">Email:</span> {{ req.employee?.email }}<br />
-          <span class="label">Tipo:</span>
-          <strong class="text-capitalize">{{ req.tipoPermesso }}</strong
-          ><br />
-
-          <ng-container *ngIf="req.fromDate === req.toDate">
-            <span class="label">Giorno:</span>
-            {{ req.fromDate | date: "mediumDate" }}
-          </ng-container>
-          <ng-container *ngIf="req.fromDate !== req.toDate">
-            <span class="label">Dal:</span>
-            {{ req.fromDate | date: "mediumDate" }}<br />
-            <span class="label">Al:</span> {{ req.toDate | date: "mediumDate" }}
-          </ng-container>
-
-          <ng-container *ngIf="req.tipoPermesso === 'parziale' && req.oraInizio && req.oraFine">
-            <br /><span class="label">Ore richieste:</span>
-            <strong>{{ req.oraInizio }} – {{ req.oraFine }}</strong>
-          </ng-container>
-        </div>
-
-        <div class="btn-group mt-2 mt-sm-0 permessi-actions">
-          <button type="button"
-            class="btn btn-info btn-accept-glass"
-            (click)="openModal(req)"
-          >
-            <i class="fas fa-eye me-1"></i> Visualizza
+    <div class="permission-card-list" *ngIf="!loading && filteredRequests.length > 0">
+      <article class="permission-card" [class.permission-card--open]="isRequestOpen(request.id)" *ngFor="let request of filteredRequests">
+        <div class="permission-header-layout">
+          <button type="button" class="permission-header-btn" (click)="toggleRequest(request.id)">
+            <span class="permission-title">
+              <span class="permission-id">#{{ request.displayId || (request.employeeId + '/' + request.id) }}</span>
+              <span class="permission-name">{{ employeeName(request) }}</span>
+              <span class="badge bg-warning text-dark" *ngIf="request.status === 'in attesa'">In attesa</span>
+              <span class="badge bg-success" *ngIf="request.status === 'accettato'">Accettato</span>
+              <span class="badge bg-danger" *ngIf="request.status === 'rifiutato'">Rifiutato</span>
+              <span class="badge bg-warning text-dark" *ngIf="request.status === 'modificato'">Da confermare</span>
+            </span>
+            <span class="chev" [class.chev--open]="isRequestOpen(request.id)">▾</span>
           </button>
-          <button type="button"
-            class="btn btn-success btn-accept-glass"
-            (click)="confirmAcceptDirect(req)"
-          >
-            Accetta
-          </button>
-          <button type="button"
-            class="btn btn-danger btn-reject-glass"
-            (click)="rifiuta(req.id)"
-          >
-            Rifiuta
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <div class="mt-4">
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-      <h4 class="text-dark mb-0">Storico</h4>
-      <select
-        class="form-select w-auto"
-        [(ngModel)]="selectedHistoryEmployeeId"
-        (change)="onHistoryEmployeeChange()"
-      >
-        <option value="">Tutti i dipendenti</option>
-        <option *ngFor="let emp of employees" [value]="emp.id">
-          {{ emp.nome }} {{ emp.cognome }}
-        </option>
-      </select>
-    </div>
-
-    <div *ngIf="historyRequests.length === 0" class="alert alert-light">
-      Nessuno storico disponibile.
-    </div>
-
-    <div class="table-responsive history-responsive-table" *ngIf="historyRequests.length > 0">
-      <table class="table table-sm table-striped bg-white text-dark align-middle">
-        <thead>
-          <tr>
-            <th>Dipendente</th>
-            <th>Categoria</th>
-            <th>Tipo</th>
-            <th>Periodo</th>
-            <th>Ore</th>
-            <th>Stato</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let req of historyRequests">
-            <td data-label="Dipendente">{{ req.employee?.nome }} {{ req.employee?.cognome }}</td>
-            <td data-label="Categoria">{{ req.categoria }}</td>
-            <td data-label="Tipo" class="text-capitalize">{{ req.tipoPermesso }}</td>
-            <td data-label="Periodo">
-              <span *ngIf="req.fromDate === req.toDate">{{ req.fromDate | date:'dd/MM/yyyy' }}</span>
-              <span *ngIf="req.fromDate !== req.toDate">
-                {{ req.fromDate | date:'dd/MM/yyyy' }} - {{ req.toDate | date:'dd/MM/yyyy' }}
-              </span>
-            </td>
-            <td data-label="Ore">
-              <span *ngIf="req.oraInizioModificata && req.oraFineModificata">
-                {{ req.oraInizioModificata }}-{{ req.oraFineModificata }}
-              </span>
-              <span *ngIf="!req.oraInizioModificata || !req.oraFineModificata">
-                {{ req.oreGiornaliere || '-' }}
-              </span>
-            </td>
-            <td data-label="Stato">
-              <span
-                class="badge"
-                [ngClass]="{
-                  'bg-success': req.status === 'accettato',
-                  'bg-danger': req.status === 'rifiutato',
-                  'bg-warning text-dark': req.status === 'modificato'
-                }"
-              >
-                {{ req.status === 'modificato' ? 'Da confermare' : req.status }}
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- 🔹 MODALE ACCETTAZIONE -->
-<div
-  #permessoModal
-  class="modal fade"
-  tabindex="-1"
-  aria-labelledby="permessoModalLabel"
-  aria-hidden="true"
->
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="permessoModalLabel">
-          Accetta richiesta permesso
-        </h5>
-        <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="modal"
-        ></button>
-      </div>
-
-      <div class="modal-body">
-        <p class="fw-semibold mb-3">
-          Stai accettando la richiesta di
-          <strong>
-            {{ selectedRequest?.employee?.nome }}
-            {{ selectedRequest?.employee?.cognome }} </strong
-          >.
-        </p>
-
-        <div class="mb-3">
-          <label class="form-label">Categoria</label>
-          <select class="form-select" [(ngModel)]="modalData.categoria">
-            <option *ngFor="let categoria of categoriePermesso" [value]="categoria.key">
-              {{ categoria.label }}
-            </option>
-          </select>
+          <span class="permission-quick-actions">
+            <button type="button" class="btn btn-sm permission-quick-button action-with-tooltip" (click)="openRequestSheet(request)" aria-label="Scheda permesso" data-tooltip="Scheda permesso">
+              <i class="fas fa-id-card"></i>
+            </button>
+          </span>
         </div>
 
-        <div class="mb-3">
-          <label class="form-label">Ore giornaliere (facoltativo)</label>
-          <input
-            type="number"
-            class="form-control"
-            min="0"
-            max="24"
-            step="0.5"
-            [(ngModel)]="modalData.oreGiornaliere"
-            placeholder="es. 8"
-          />
-        </div>
-
-        <!-- Sezione modifica ore per permessi parziali -->
-        <ng-container *ngIf="selectedRequest?.tipoPermesso === 'parziale'">
-          <hr style="border-color: rgba(255,255,255,0.15)" />
-          <p class="mb-2 text-warning fw-semibold">
-            Il dipendente ha richiesto dalle <strong>{{ selectedRequest?.oraInizio }}</strong>
-            alle <strong>{{ selectedRequest?.oraFine }}</strong>.
-          </p>
-          <p class="mb-2 small">Puoi accettare le ore così come richieste oppure modificarle.</p>
-          <div class="row g-2">
-            <div class="col-6">
-              <label class="form-label">Ora inizio accordata</label>
-              <input
-                type="time"
-                class="form-control"
-                [(ngModel)]="modalData.oraInizioModificata"
-              />
-            </div>
-            <div class="col-6">
-              <label class="form-label">Ora fine accordata</label>
-              <input
-                type="time"
-                class="form-control"
-                [(ngModel)]="modalData.oraFineModificata"
-              />
-            </div>
+        <div class="mv-record-actions" *ngIf="isRequestOpen(request.id) && request.status === 'in attesa'">
+          <div class="mv-record-actions__inner">
+            <button type="button" class="btn mv-record-action mv-record-action--success action-with-tooltip" (click)="confirmAcceptDirect(request)" aria-label="Accetta permesso" data-tooltip="Accetta permesso">
+              <i class="fas fa-check"></i>
+            </button>
+            <button type="button" class="btn mv-record-action mv-record-action--danger action-with-tooltip" (click)="rifiuta(request.id)" aria-label="Rifiuta permesso" data-tooltip="Rifiuta permesso">
+              <i class="fas fa-times"></i>
+            </button>
           </div>
-          <p class="small mt-2 text-muted">
-            Se lasci vuoto, verranno usate le ore richieste dal dipendente.
-          </p>
-        </ng-container>
-
-        <!-- ✅ SEZIONE ALLEGATI -->
-        <ng-container *ngIf="allegatiParsati.length > 0">
-          <hr style="border-color: rgba(255,255,255,0.15)" />
-          <p class="mb-2 fw-semibold">
-            <i class="fas fa-paperclip me-2"></i> Allegati del dipendente
-          </p>
-          <ul class="list-group list-group-flush">
-            <li
-              *ngFor="let file of allegatiParsati"
-              class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light"
-            >
-              <span>
-                <i class="fas fa-file me-2"></i> {{ file.filename }}
-                <small class="text-muted">({{ (file.size / 1024).toFixed(1) }} KB)</small>
-              </span>
-              <button
-                type="button"
-                class="btn btn-sm btn-info"
-                (click)="downloadAllegato(file.filepath, file.filename)"
-                title="Scarica allegato"
-              >
-                <i class="fas fa-download"></i> Visualizza
-              </button>
-            </li>
-          </ul>
-        </ng-container>
-      </div>
-
-      <div class="modal-footer">
-        <button
-          type="button"
-          class="btn btn-secondary btn-cancel-glass"
-          data-bs-dismiss="modal"
-        >
-          Annulla
-        </button>
-        <!-- ✅ Pulsante Salva allegati (appare solo se ci sono allegati) -->
-        <button
-          *ngIf="allegatiParsati.length > 0"
-          type="button"
-          class="btn btn-warning btn-confirm-glass"
-          (click)="saveAllegati()"
-          [disabled]="savingAllegati"
-        >
-          <span *ngIf="savingAllegati" class="spinner-border spinner-border-sm me-2"></span>
-          <i class="fas fa-save me-1" *ngIf="!savingAllegati"></i>
-          {{ savingAllegati ? 'Salvataggio...' : 'Salva allegati' }}
-        </button>
-        <button
-          type="button"
-          class="btn btn-primary btn-confirm-glass"
-          (click)="confirmAccept()"
-        >
-          Conferma
-        </button>
-      </div>
+        </div>
+      </article>
     </div>
   </div>
 </div>
 
-<!-- 🔹 MODALE CREA PERMESSO (ADMIN) -->
-<div
-  #creaModal
-  class="modal fade"
-  tabindex="-1"
-  aria-labelledby="creaModalLabel"
-  aria-hidden="true"
->
+<div #creaModal class="modal fade" tabindex="-1" aria-labelledby="creaModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="creaModalLabel">Aggiungi permesso a dipendente</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title" id="creaModalLabel">Nuovo permesso</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
       </div>
 
       <div class="modal-body">
-
-        <!-- Dipendente -->
         <div class="mb-3">
           <label class="form-label">Dipendente *</label>
           <select class="form-select" [(ngModel)]="creaData.employeeId">
             <option value="">Seleziona dipendente...</option>
-            <option *ngFor="let emp of employees" [value]="emp.id">
-              {{ emp.nome }} {{ emp.cognome }}
-            </option>
+            <option *ngFor="let emp of employees" [value]="emp.id">{{ emp.nome }} {{ emp.cognome }}</option>
           </select>
         </div>
 
-        <!-- Categoria -->
         <div class="mb-3">
           <label class="form-label">Categoria *</label>
           <select class="form-select" [(ngModel)]="creaData.categoria">
-            <option *ngFor="let categoria of categoriePermesso" [value]="categoria.key">
-              {{ categoria.label }}
-            </option>
+            <option *ngFor="let categoria of categoriePermesso" [value]="categoria.key">{{ categoria.label }}</option>
           </select>
         </div>
 
-        <!-- Tipo permesso -->
         <div class="mb-3">
           <label class="form-label">Tipo *</label>
           <select class="form-select" [(ngModel)]="creaData.tipoPermesso" (change)="onCreaTipoChange()">
@@ -538,18 +97,10 @@
           </select>
         </div>
 
-        <!-- Date -->
         <div class="row g-2 mb-3">
           <div [class]="creaData.tipoPermesso === 'settimanale' ? 'col-6' : 'col-12'">
-            <label class="form-label">
-              {{ creaData.tipoPermesso === 'settimanale' ? 'Data inizio *' : 'Data *' }}
-            </label>
-            <input
-              type="date"
-              class="form-control"
-              [(ngModel)]="creaData.fromDate"
-              (change)="onCreaFromDateChange()"
-            />
+            <label class="form-label">{{ creaData.tipoPermesso === 'settimanale' ? 'Data inizio *' : 'Data *' }}</label>
+            <input type="date" class="form-control" [(ngModel)]="creaData.fromDate" (change)="onCreaFromDateChange()" />
           </div>
           <div class="col-6" *ngIf="creaData.tipoPermesso === 'settimanale'">
             <label class="form-label">Data fine *</label>
@@ -557,78 +108,43 @@
           </div>
         </div>
 
-        <!-- Ore giornaliere (solo giornaliero/settimanale; per il parziale si calcolano dagli orari) -->
         <div class="mb-3" *ngIf="creaData.tipoPermesso !== 'parziale'">
           <label class="form-label">Ore giornaliere <span class="text-muted small">(facoltativo)</span></label>
-          <input
-            type="number"
-            class="form-control"
-            min="0" max="24" step="0.5"
-            [(ngModel)]="creaData.oreGiornaliere"
-            placeholder="es. 8"
-          />
+          <input type="number" class="form-control" min="0" max="24" step="0.5" [(ngModel)]="creaData.oreGiornaliere" placeholder="es. 8" />
         </div>
 
-        <!-- Orari (solo parziale) -->
-        <ng-container *ngIf="creaData.tipoPermesso === 'parziale'">
-          <div class="row g-2 mb-2">
-            <div class="col-6">
-              <label class="form-label">Ora inizio *</label>
-              <input type="time" class="form-control" [(ngModel)]="creaData.oraInizio" />
-            </div>
-            <div class="col-6">
-              <label class="form-label">Ora fine *</label>
-              <input type="time" class="form-control" [(ngModel)]="creaData.oraFine" />
-            </div>
+        <div class="row g-2 mb-2" *ngIf="creaData.tipoPermesso === 'parziale'">
+          <div class="col-6">
+            <label class="form-label">Ora inizio *</label>
+            <input type="time" class="form-control" [(ngModel)]="creaData.oraInizio" />
           </div>
-        </ng-container>
+          <div class="col-6">
+            <label class="form-label">Ora fine *</label>
+            <input type="time" class="form-control" [(ngModel)]="creaData.oraFine" />
+          </div>
+        </div>
 
-        <p class="small text-muted mt-2 mb-0">
-          Puoi salvare subito senza notifica oppure inviare al dipendente per conferma.
-        </p>
+        <p class="small text-muted mt-2 mb-0">Puoi salvare subito oppure inviare il permesso al dipendente per conferma.</p>
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary btn-cancel-glass" data-bs-dismiss="modal">
-          Annulla
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn btn-light" (click)="savePermessoNoSend()" [disabled]="creaLoading">
+          <span *ngIf="creaLoading" class="spinner-border spinner-border-sm me-1"></span> Salva
         </button>
-        <button
-          type="button"
-          class="btn btn-primary btn-confirm-glass"
-          (click)="savePermessoNoSend()"
-          [disabled]="creaLoading"
-        >
-          <span *ngIf="creaLoading" class="spinner-border spinner-border-sm me-1"></span>
-          Salva
-        </button>
-        <button
-          type="button"
-          class="btn btn-primary btn-confirm-glass"
-          (click)="submitCreaPermesso()"
-          [disabled]="creaLoading"
-        >
-          <span *ngIf="creaLoading" class="spinner-border spinner-border-sm me-1"></span>
-          Invia al dipendente
+        <button type="button" class="btn btn-primary" (click)="submitCreaPermesso()" [disabled]="creaLoading">
+          <span *ngIf="creaLoading" class="spinner-border spinner-border-sm me-1"></span> Invia al dipendente
         </button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- 🔹 TOAST -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
-  <div
-    id="liveToast"
-    class="toast align-items-center text-bg-success border-0"
-    role="alert"
-  >
+  <div id="liveToast" class="toast align-items-center text-bg-success border-0" role="alert">
     <div class="d-flex">
       <div class="toast-body" id="toastBody">Operazione completata.</div>
-      <button
-        type="button"
-        class="btn-close btn-close-white me-2 m-auto"
-        data-bs-dismiss="toast"
-      ></button>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Chiudi"></button>
     </div>
   </div>
 </div>

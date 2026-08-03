@@ -1,13 +1,36 @@
 {
 	"appId": "it.mvtechcore.mvanager",
-	"appName": "mvanager",
+	"appName": "MVanager",
 	"webDir": "dist/y/browser",
 	"server": {
 		"androidScheme": "http"
 	},
+	"android": {
+		"includePlugins": [
+			"@capacitor/app",
+			"@capacitor/app-launcher",
+			"@capacitor/barcode-scanner",
+			"@capacitor/preferences",
+			"@capacitor/push-notifications",
+			"capacitor-native-biometric",
+			"mvanager-inspection-alarm-kit",
+			"@capacitor-firebase/messaging"
+		]
+	},
+	"ios": {
+		"includePlugins": [
+			"@capacitor/app",
+			"@capacitor/app-launcher",
+			"@capacitor/barcode-scanner",
+			"@capacitor/preferences",
+			"@capacitor/push-notifications",
+			"capacitor-native-biometric",
+			"mvanager-inspection-alarm-kit"
+		]
+	},
 	"packageClassList": [
-		"FirebaseMessagingPlugin",
 		"AppPlugin",
+		"AppLauncherPlugin",
 		"CapacitorBarcodeScannerPlugin",
 		"PreferencesPlugin",
 		"PushNotificationsPlugin",

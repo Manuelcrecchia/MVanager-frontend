@@ -1,7 +1,8 @@
 .stats-page {
   min-height: 100%;
-  padding: 24px;
-  color: #0f172a;
+  padding: 16px 24px 32px;
+  background: var(--mv-canvas);
+  color: var(--mv-ink);
 }
 
 .stats-topbar,
@@ -23,10 +24,10 @@
 .btn-back {
   width: max-content;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   padding: 10px 14px;
   background: rgba(255, 255, 255, 0.72);
-  color: #0f172a;
+  color: var(--mv-ink);
   font-weight: 900;
 }
 
@@ -35,16 +36,17 @@
 .panel,
 .score-card,
 .kpi {
-  border: 1px solid rgba(255, 255, 255, 0.76);
-  background: rgba(255, 255, 255, 0.74);
-  box-shadow: 0 18px 42px rgba(2, 6, 23, 0.09);
+  border: 1px solid var(--mv-border);
+  background: var(--mv-surface);
+  box-shadow: var(--mv-shadow-sm);
 }
 
 .stats-hero {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  border-radius: 22px;
-  padding: 24px;
+  border-radius: var(--mv-radius-surface);
+  padding: 20px;
+  margin-top: 18px;
 }
 
 .eyebrow {
@@ -77,7 +79,7 @@
 
 .kpi {
   min-width: 130px;
-  border-radius: 16px;
+  border-radius: var(--mv-radius-surface);
   padding: 14px 16px;
 }
 
@@ -99,7 +101,7 @@
   grid-template-columns: repeat(4, minmax(150px, 1fr));
   align-items: end;
   margin-top: 16px;
-  border-radius: 18px;
+  border-radius: var(--mv-radius-surface);
   padding: 16px;
 }
 
@@ -124,7 +126,7 @@
 
 .score-card,
 .panel {
-  border-radius: 18px;
+  border-radius: var(--mv-radius-surface);
   padding: 18px;
 }
 
@@ -157,7 +159,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #0d6efd, #ff7a00);
+  background: linear-gradient(90deg, var(--mv-blue-600), var(--mv-orange-500));
 }
 
 .distribution-grid,
@@ -205,9 +207,9 @@
   min-width: 42px;
   height: 34px;
   place-items: center;
-  border-radius: 12px;
+  border-radius: var(--mv-radius-control);
   background: rgba(13, 110, 253, 0.12);
-  color: #0d6efd;
+  color: var(--mv-blue-600);
 }
 
 .rank-row-low b {
@@ -221,14 +223,14 @@
 
 .note-row p {
   margin: 8px 0 0;
-  color: #0f172a;
+  color: var(--mv-ink);
   font-weight: 750;
 }
 
 .empty-state,
 .empty-line {
   margin-top: 16px;
-  border-radius: 16px;
+  border-radius: var(--mv-radius-surface);
   padding: 18px;
   background: rgba(255, 255, 255, 0.68);
   color: rgba(15, 23, 42, 0.62);

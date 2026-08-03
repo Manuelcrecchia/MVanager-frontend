@@ -220,7 +220,7 @@ describe('CustomerAssetsGuidedUpdateComponent', () => {
     component.selectCustomer('C2');
 
     expect(component.selectedCustomer).toBe('C2');
-    expect(component.selectedCustomerLabel).toBe('Cliente Due');
+    expect(component.selectedCustomerLabel).toBe('#C2 · Cliente Due');
     expect(component.customerPickerOpen).toBeFalse();
     expect(component.selectedPairs.size).toBe(0);
   });
@@ -341,5 +341,16 @@ describe('CustomerAssetsGuidedUpdateComponent', () => {
     expect(component.currentIndex).toBe(2);
     expect(component.mobileQueueOpen).toBeFalse();
     expect(scrollSpy).toHaveBeenCalled();
+  });
+
+  it('shows the customer number in the guided customer picker', () => {
+    const component = createComponent();
+    component.assets = [
+      { id: 1, numeroCliente: '1042', customerLabel: 'Alessio Veratti', typeKey: 'water' },
+    ] as any;
+    component.selectedCustomer = '1042';
+
+    expect(component.customerOptionLabel(component.customers[0])).toBe('#1042 · Alessio Veratti');
+    expect(component.selectedCustomerLabel).toBe('#1042 · Alessio Veratti');
   });
 });

@@ -32,6 +32,9 @@ interface ContractAcceptancePayload {
   acceptedByName?: string;
   acceptedByEmail?: string;
   acceptedByPhone?: string;
+  recipientEmail?: string;
+  otpVerified?: boolean;
+  otpSentAt?: string | null;
   acceptanceText: string;
   contractHashSha256: string;
   signaturePresent?: boolean;
@@ -63,10 +66,12 @@ export class ContractAcceptComponent implements OnInit {
   submitting = false;
   errorMessage = '';
   successMessage = '';
-  acceptedByName = '';
-  acceptedByEmail = '';
-  acceptedByPhone = '';
   acceptTerms = false;
+  privacyAcknowledged = false;
+  otp = '';
+  otpRequested = false;
+  otpVerified = false;
+  otpBusy = false;
   showSignaturePad = false;
   hasSignature = false;
   pdfUrl = '';
@@ -89,6 +94,7 @@ export class ContractAcceptComponent implements OnInit {
       this.errorMessage = '';
       this.successMessage = '';
       this.acceptTerms = false;
+      this.privacyAcknowledged = false;
       this.showSignaturePad = false;
       this.hasSignature = false;
 
@@ -229,10 +235,8 @@ export class ContractAcceptComponent implements OnInit {
       .post<{ message: string; contract: ContractAcceptancePayload }>(
         this.buildApiUrl('/confirmJson'),
         {
-          acceptedByName: this.acceptedByName,
-          acceptedByEmail: this.acceptedByEmail,
-          acceptedByPhone: this.acceptedByPhone,
           acceptTerms: this.acceptTerms ? 'yes' : 'no',
+          privacyAcknowledged: this.privacyAcknowledged ? 'yes' : 'no',
           signatureDataUrl,
           tenantId: this.getPublicTenant(),
         },
@@ -252,6 +256,33 @@ export class ContractAcceptComponent implements OnInit {
           this.submitting = false;
         },
       });
+  }
+
+  startVerification(): void {
+    if (!this.acceptTerms || !this.privacyAcknowledged) {
+      this.errorMessage = 'Per continuare, conferma prima il contratto e la presa visione dell’informativa privacy.';
+      return;
+    }
+    this.requestOtp();
+  }
+
+  requestOtp(): void {
+    if (this.otpBusy || !this.isPending) return;
+    this.otpBusy = true;
+    this.errorMessage = '';
+    this.http.post<{ message: string }>(this.buildApiUrl('/requestOtp'), { tenantId: this.getPublicTenant() }, { params: this.getTenantParams() }).subscribe({
+      next: (response) => { this.otpRequested = true; this.otpBusy = false; this.successMessage = response.message; },
+      error: (err) => { this.otpBusy = false; this.otpRequested = err?.status === 429; this.errorMessage = err?.status === 429 ? 'Hai già ricevuto un codice: inseriscilo qui sotto. Il reinvio sarà disponibile tra un minuto.' : this.parseServerError(err); },
+    });
+  }
+
+  verifyOtp(): void {
+    if (this.otpBusy || !/^\d{6}$/.test(this.otp)) { this.errorMessage = 'Inserisci il codice di 6 cifre ricevuto via email.'; return; }
+    this.otpBusy = true;
+    this.http.post<{ message: string }>(this.buildApiUrl('/verifyOtp'), { otp: this.otp, tenantId: this.getPublicTenant() }, { params: this.getTenantParams() }).subscribe({
+      next: (response) => { this.otpBusy = false; this.otpVerified = true; this.successMessage = response.message; },
+      error: (err) => { this.otpBusy = false; this.errorMessage = this.parseServerError(err); },
+    });
   }
 
   startSignature(event: PointerEvent): void {
@@ -313,9 +344,8 @@ export class ContractAcceptComponent implements OnInit {
     if (!contract) return;
 
     this.contract = contract;
-    this.acceptedByName = contract.acceptedByName || this.candidateName;
-    this.acceptedByEmail = contract.acceptedByEmail || contract.email || '';
-    this.acceptedByPhone = contract.acceptedByPhone || contract.cellulare || '';
+    this.otpVerified = Boolean(contract.otpVerified);
+    this.otpRequested = Boolean(contract.otpSentAt) && !this.otpVerified;
     this.hasSignature = !!contract.signaturePresent;
     this.showSignaturePad = false;
     this.drawing = false;
@@ -366,12 +396,11 @@ export class ContractAcceptComponent implements OnInit {
   }
 
   private validateForm(): string {
-    if (!this.acceptedByName.trim()) {
-      return 'Inserisci nome e cognome prima di firmare.';
-    }
     if (!this.acceptTerms) {
       return 'Per procedere devi confermare l\'accettazione del contratto.';
     }
+    if (!this.privacyAcknowledged) return 'Per procedere devi prendere visione dell’informativa privacy.';
+    if (!this.otpVerified) return 'Verifica prima il codice inviato via email.';
     return '';
   }
 

@@ -1,8 +1,9 @@
 .accounting-page {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 28px;
+  padding: 0 0 32px;
   color: #182238;
   width: 100%;
   max-width: 100%;
@@ -11,23 +12,31 @@
 }
 
 .accounting-toolbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(320px, 1fr);
+  justify-content: normal;
+  gap: 18px;
+  align-items: center;
+  min-height: 104px;
+  height: 104px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--mv-radius-surface);
+  background: linear-gradient(135deg, var(--mv-orange-500), var(--mv-blue-600));
+  box-shadow: var(--mv-shadow-md);
+  color: #fff;
 }
 
 .toolbar-title-group {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
 
 .back-btn {
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--mv-radius-control);
   min-height: 42px;
   padding: 0 14px;
   display: inline-flex;
@@ -57,7 +66,9 @@ h1, h2 {
 }
 
 h1 {
-  font-size: 32px;
+  color: #fff;
+  font-size: clamp(1.65rem, 2.1vw, 2.15rem);
+  font-weight: 950;
 }
 
 h2 {
@@ -88,7 +99,7 @@ h2 {
 .danger-btn,
 .icon-btn {
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--mv-radius-control);
   min-height: 42px;
   padding: 0 16px;
   font-weight: 800;
@@ -102,12 +113,12 @@ h2 {
 
 .accounting-tabs button.active {
   background: #0f6fff;
-  color: #fff;
+  color: var(--mv-surface);
 }
 
 .primary-btn {
-  background: #0f6fff;
-  color: #fff;
+  background: var(--mv-orange-500);
+  color: var(--mv-ink);
 }
 
 .ghost-btn {
@@ -133,7 +144,7 @@ button:disabled {
 }
 
 .feedback {
-  border-radius: 8px;
+  border-radius: var(--mv-radius-control);
   padding: 12px 14px;
   font-weight: 700;
 }
@@ -164,10 +175,10 @@ select,
 textarea {
   width: 100%;
   border: 1px solid #ccd6e4;
-  border-radius: 8px;
+  border-radius: var(--mv-radius-control);
   min-height: 44px;
   padding: 8px 12px;
-  background: #fff;
+  background: var(--mv-surface);
   color: #101828;
   font: inherit;
 }
@@ -190,8 +201,8 @@ textarea {
 .metric-card,
 .panel {
   border: 1px solid #e1e7f0;
-  border-radius: 8px;
-  background: #fff;
+  border-radius: var(--mv-radius-surface);
+  background: var(--mv-surface);
   box-shadow: 0 10px 28px rgba(18, 33, 62, .06);
 }
 
@@ -202,7 +213,7 @@ textarea {
 .metric-card span {
   display: block;
   margin-bottom: 8px;
-  color: #64748b;
+  color: var(--mv-muted);
   font-weight: 800;
 }
 
@@ -231,7 +242,7 @@ textarea {
 }
 
 .panel {
-  padding: 18px;
+  padding: clamp(14px, 1.5vw, 22px);
 }
 
 .panel-head {
@@ -257,10 +268,121 @@ textarea {
   color: inherit;
 }
 
+.accounting-toolbar .ghost-btn,
+.accounting-toolbar .back-btn {
+  border: 1px solid rgba(23, 32, 51, 0.14);
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--mv-ink);
+}
+
+.accounting-toolbar .primary-btn {
+  border: 0;
+  background: linear-gradient(135deg, var(--mv-orange-500), var(--mv-orange-300));
+  color: var(--mv-ink);
+  box-shadow: 0 14px 34px rgba(255, 122, 0, 0.28);
+}
+
+.accounting-toolbar-search {
+  width: clamp(280px, 35vw, 620px);
+  min-height: 46px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid rgba(23, 32, 51, 0.2);
+  border-radius: var(--mv-radius-control);
+  background: #fff;
+  color: #607089;
+}
+
+.accounting-toolbar-search input {
+  min-height: 42px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+}
+
+.compact-toolbar-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 10px;
+  border: 1px solid rgba(23, 32, 51, 0.2);
+  border-radius: var(--mv-radius-control);
+  background: #fff;
+  color: var(--mv-ink);
+  font-size: 0.86rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.compact-toolbar-field input {
+  width: 142px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+}
+
+.mv-entity-toolbar__count {
+  padding: 11px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--mv-ink);
+  font-weight: 950;
+}
+
+.split-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.list-row {
+  min-height: 76px;
+  margin-bottom: 10px;
+  padding: 14px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: var(--mv-radius-control);
+  background: linear-gradient(105deg, rgba(71, 137, 255, 0.28), rgba(255, 123, 0, 0.17));
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.list-row:hover {
+  border-color: var(--mv-blue-500);
+  box-shadow: 0 8px 20px rgba(23, 32, 51, 0.1);
+}
+
+.list-row strong {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.list-row strong em {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(36, 112, 210, 0.13);
+  font-style: normal;
+}
+
+.entity-row-action {
+  flex: 0 0 auto;
+  padding: 10px 13px;
+  border-radius: var(--mv-radius-control);
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--mv-ink);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
 .list-row small,
 .entry-row small,
 .subtle {
-  color: #64748b;
+  color: var(--mv-muted);
 }
 
 .list-row span,
@@ -271,7 +393,7 @@ textarea {
 }
 
 .list-row em {
-  color: #64748b;
+  color: var(--mv-muted);
   font-style: normal;
   font-weight: 800;
 }
@@ -341,7 +463,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-radius: 8px;
+  border-radius: var(--mv-radius-control);
   padding: 10px 12px;
   background: #f4f7fb;
   color: #475569;
@@ -379,8 +501,8 @@ textarea {
   gap: 10px 12px;
   min-height: 0;
   border: 1px solid #e5ebf4;
-  border-radius: 8px;
-  background: #fff;
+  border-radius: var(--mv-radius-control);
+  background: var(--mv-surface);
   padding: 12px;
   overflow: hidden;
 }
@@ -450,7 +572,7 @@ textarea {
 }
 
 .entry-amounts small {
-  color: #64748b;
+  color: var(--mv-muted);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -459,7 +581,7 @@ textarea {
   margin: 12px 0 16px;
   padding: 12px;
   background: #f4f7fb;
-  border-radius: 8px;
+  border-radius: var(--mv-radius-control);
   justify-content: space-between;
   font-weight: 800;
 }
@@ -491,8 +613,59 @@ th {
 }
 
 .loading {
-  color: #64748b;
+  color: var(--mv-muted);
   font-weight: 800;
+}
+
+/* The admin sidebar reduces the real workspace without reducing the browser
+ * viewport. Container queries keep the toolbar inside that actual space. */
+@container (max-width: 1180px) {
+  .accounting-toolbar {
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .accounting-toolbar .toolbar-title-group h1 {
+    font-size: 1.9rem;
+  }
+
+  .accounting-toolbar .toolbar-period-actions {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .accounting-toolbar .compact-toolbar-field {
+    gap: 6px;
+    padding-right: 8px;
+    padding-left: 8px;
+    font-size: 0.82rem;
+  }
+
+  .accounting-toolbar .compact-toolbar-field input {
+    width: 110px;
+  }
+
+  .accounting-toolbar .toolbar-period-actions button {
+    padding-right: 12px;
+    padding-left: 12px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+}
+
+@container (max-width: 960px) {
+  .accounting-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    min-height: 104px;
+    align-items: stretch;
+  }
+
+  .accounting-toolbar .toolbar-period-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 1280px) {
@@ -517,6 +690,21 @@ th {
     flex-direction: column;
   }
 
+  .accounting-toolbar {
+    height: auto;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .toolbar-actions,
+  .accounting-toolbar-search {
+    width: 100%;
+  }
+
+  .entity-row-action {
+    align-self: flex-start;
+  }
+
   .journal-line {
     grid-template-columns: 1fr 1fr;
   }
@@ -532,7 +720,7 @@ th {
   }
 
   .accounting-page {
-    padding: 16px;
+    padding: 0 0 24px;
   }
 
   table {
@@ -542,5 +730,33 @@ th {
   th,
   td {
     padding: 8px 5px;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 900px) {
+  .accounting-page > :not(.accounting-toolbar) {
+    margin-right: 24px;
+    margin-left: 24px;
+  }
+}
+
+@media (max-width: 575px) {
+  .toolbar-period-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .toolbar-period-actions .compact-toolbar-field,
+  .toolbar-period-actions button {
+    width: 100%;
+  }
+
+  .toolbar-period-actions .compact-toolbar-field input {
+    width: 100%;
+  }
+
+  .accounting-page > :not(.accounting-toolbar) {
+    margin-right: 12px;
+    margin-left: 12px;
   }
 }

@@ -1,7 +1,7 @@
 import { HomeAdminComponent } from './homeadmin.component';
 
 describe('HomeAdminComponent', () => {
-  function createComponent(router: any = {}): HomeAdminComponent {
+  function createComponent(router: any = {}, global: any = {}): HomeAdminComponent {
     const renderer = {
       addClass: jasmine.createSpy('addClass'),
       removeClass: jasmine.createSpy('removeClass'),
@@ -11,7 +11,7 @@ describe('HomeAdminComponent', () => {
     return new HomeAdminComponent(
       { nativeElement: document.createElement('div') } as any,
       router,
-      {} as any,
+      global,
       {} as any,
       {} as any,
       {} as any,
@@ -21,6 +21,7 @@ describe('HomeAdminComponent', () => {
       {} as any,
       {} as any,
       renderer as any,
+      {} as any,
     );
   }
 
@@ -94,5 +95,22 @@ describe('HomeAdminComponent', () => {
       '/admin/shifts/create?date=2026-07-28',
       { replaceUrl: true },
     );
+  });
+
+  it('keeps billing and accounting visible when invoices are enabled for the tenant', () => {
+    const component = createComponent({}, {
+      hasPermission: () => true,
+      isFeatureAvailableInApp: () => true,
+      getTenantCustomerAssetsConfig: () => ({}),
+    });
+
+    const categoryIds = component.visibleHomeCategories.map((category) => category.id);
+
+    expect(categoryIds).toContain('billing');
+    expect(categoryIds).toContain('accounting');
+    expect(component.visibleHomeCategories.find((category) => category.id === 'billing')?.buttons.length)
+      .toBeGreaterThan(0);
+    expect(component.visibleHomeCategories.find((category) => category.id === 'accounting')?.buttons.length)
+      .toBeGreaterThan(0);
   });
 });

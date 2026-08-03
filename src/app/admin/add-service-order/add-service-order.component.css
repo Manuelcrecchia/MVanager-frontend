@@ -2,29 +2,34 @@
   max-width: 980px;
 }
 
+.add-service-order-management-page {
+  padding-bottom: 32px;
+  background: var(--mv-canvas);
+}
+
 .page-title h2 {
-  color: #1f2937;
+  color: var(--mv-text);
   font-weight: 800;
 }
 
 .form-section {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--mv-border);
+  border-radius: var(--mv-radius-surface);
+  background: var(--mv-surface);
   padding: 18px;
   margin-bottom: 16px;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--mv-shadow-sm);
 }
 
 .form-section h5 {
   margin-bottom: 14px;
-  color: #111827;
+  color: var(--mv-ink);
   font-weight: 800;
 }
 
 .section-note {
   margin: 0 0 14px;
-  color: #6b7280;
+  color: var(--mv-muted);
   font-size: 14px;
 }
 
@@ -40,20 +45,20 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--mv-border);
   padding-top: 14px;
 }
 
 .customer-card span,
 .schedule-grid label {
-  color: #6b7280;
+  color: var(--mv-muted);
   font-size: 13px;
   font-weight: 700;
 }
 
 .customer-card strong {
   display: block;
-  color: #111827;
+  color: var(--mv-ink);
   font-weight: 700;
 }
 

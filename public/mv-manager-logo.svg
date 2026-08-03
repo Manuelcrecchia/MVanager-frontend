@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">MV Manager by MVTechCore</title>
+  <desc id="desc">Logo MV Manager: ecosistema aziendale connesso.</desc>
+  <defs>
+    <style>
+      .navy{stroke:#082d73;fill:none;stroke-width:38;stroke-linecap:round;stroke-linejoin:round}
+      .cyan{stroke:#10bcd0;fill:none;stroke-width:38;stroke-linecap:round;stroke-linejoin:round}
+      .orange{stroke:#ff6400;fill:none;stroke-width:38;stroke-linecap:round;stroke-linejoin:round}
+      .word{font-family:Arial,Helvetica,sans-serif;font-weight:700;letter-spacing:-3px}
+      .sub{font-family:Arial,Helvetica,sans-serif;font-weight:500;letter-spacing:0}
+    </style>
+  </defs>
+
+  <!-- Connected company ecosystem -->
+  <circle cx="600" cy="165" r="46" fill="#082d73"/>
+  <circle cx="335" cy="480" r="46" fill="#ff6400"/>
+  <circle cx="865" cy="480" r="46" fill="#10bcd0"/>
+  <path class="navy" d="M558 182 390 280Q350 304 350 350v126M642 182l168 98q40 24 40 70v126"/>
+  <path class="orange" d="M374 520 560 628q40 23 80 0l186-108"/>
+  <path class="cyan" d="M600 250 452 336v172l148 86 148-86V336z"/>
+  <path class="orange" d="M452 414v94l148 86"/>
+  <path class="navy" d="M674 550l74-42"/>
+
+  <!-- Product name -->
+  <text x="145" y="825" class="word" font-size="128" fill="#10bcd0">M</text>
+  <text x="285" y="825" class="word" font-size="128" fill="#ff6400">V</text>
+  <text x="410" y="825" class="word" font-size="128" fill="#082d73">Manager</text>
+  <text x="600" y="895" text-anchor="middle" class="sub" font-size="48" fill="#082d73">by MVTechCore</text>
+</svg>

@@ -72,6 +72,7 @@ interface VatRegister {
 }
 
 type EntryDirection = 'incoming' | 'outgoing' | 'neutral';
+type AccountingPageMode = 'list' | 'new' | 'detail';
 
 @Component({
   selector: 'app-accounting',
@@ -84,6 +85,8 @@ export class AccountingComponent implements OnInit, OnDestroy {
   }
 
   activeTab = 'dashboard';
+  pageMode: AccountingPageMode = 'list';
+  accountSearch = '';
   loading = false;
   saving = false;
   error = '';
@@ -135,6 +138,7 @@ export class AccountingComponent implements OnInit, OnDestroy {
       if (this.tabs.some((tab) => tab.key === view)) {
         this.activeTab = view;
       }
+      this.pageMode = 'list';
       this.loadCurrentTab();
     });
   }
@@ -149,6 +153,31 @@ export class AccountingComponent implements OnInit, OnDestroy {
       queryParams: { view: tab },
       queryParamsHandling: 'merge',
     });
+  }
+
+  get viewTitle(): string {
+    const titles: Record<string, string> = {
+      dashboard: 'Cruscotto contabile',
+      accounts: this.pageMode === 'new' ? 'Nuovo conto' : this.pageMode === 'detail' ? 'Scheda conto' : 'Piano dei conti',
+      entries: 'Prima nota',
+      ledger: 'Mastri',
+      vat: 'Registro IVA',
+      reports: 'Report contabili',
+    };
+    return titles[this.activeTab] || 'Contabilita\'';
+  }
+
+  filteredAccounts(): AccountingAccount[] {
+    const query = this.accountSearch.trim().toLocaleLowerCase('it-IT');
+    if (!query) return this.accounts;
+    return this.accounts.filter((account) =>
+      `${account.code} ${account.name} ${this.typeLabel(account.type)}`.toLocaleLowerCase('it-IT').includes(query),
+    );
+  }
+
+  closeAccountPage(): void {
+    this.pageMode = 'list';
+    this.selectedAccount = this.emptyAccount();
   }
 
   back(): void {
@@ -274,20 +303,23 @@ export class AccountingComponent implements OnInit, OnDestroy {
 
   newAccount(): void {
     this.selectedAccount = this.emptyAccount();
+    this.pageMode = 'new';
   }
 
   editAccount(account: AccountingAccount): void {
     this.selectedAccount = { ...account };
+    this.pageMode = 'detail';
   }
 
   saveAccount(): void {
     this.saving = true;
     this.clearMessages();
     this.http.post<AccountingAccount>(this.api('accounts/save'), this.selectedAccount).subscribe({
-      next: () => {
+      next: (account) => {
         this.success = 'Conto salvato';
         this.saving = false;
-        this.newAccount();
+        this.selectedAccount = { ...account };
+        this.pageMode = 'detail';
         this.loadAccounts();
       },
       error: (err) => {

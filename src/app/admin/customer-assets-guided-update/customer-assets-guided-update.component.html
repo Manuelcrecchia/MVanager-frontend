@@ -1,13 +1,13 @@
-<main class="guided-page">
-  <header class="guided-header">
-    <button type="button" class="guided-back" (click)="cancelGuidedUpdate()">← Torna alle scadenze</button>
-    <div>
+<main class="standard-management-page guided-page">
+  <header class="mv-entity-toolbar guided-header">
+    <div class="mv-entity-toolbar__title guided-header__copy">
       <span class="eyebrow">Procedura assistita</span>
       <h1>Modifica guidata dei presidi</h1>
       <p *ngIf="phase === 'prepare'">Prepara liberamente la combinazione di presidi e valori da aggiornare.</p>
       <p *ngIf="phase === 'edit'">{{ completedCount }} di {{ steps.length }} presidi compilati</p>
       <p *ngIf="phase === 'complete'">Operazione completata.</p>
     </div>
+    <div class="mv-entity-toolbar__controls"><button type="button" class="mv-toolbar-back" (click)="cancelGuidedUpdate()">← Torna alle scadenze</button></div>
   </header>
 
   <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
@@ -36,7 +36,7 @@
               [attr.aria-selected]="selectedCustomer === customer.id"
               (click)="selectCustomer(customer.id)"
             >
-              <span>{{ customer.label }}</span>
+              <span>{{ customerOptionLabel(customer) }}</span>
               <small>{{ customer.count }} {{ customer.count === 1 ? 'presidio' : 'presidi' }}</small>
             </button>
             <p *ngIf="!customers.length">Nessun cliente disponibile.</p>
@@ -56,7 +56,7 @@
               [value]="customer.id"
               [selected]="selectedCustomer === customer.id"
             >
-              {{ customer.label }} · {{ customer.count }}
+              {{ customerOptionLabel(customer) }} · {{ customer.count }}
               {{ customer.count === 1 ? 'presidio' : 'presidi' }}
             </option>
           </select>
@@ -167,7 +167,7 @@
     </aside>
 
     <section class="guided-editor" *ngIf="currentStep as step">
-      <header><div><span class="step-number">Presidio {{ currentIndex + 1 }} di {{ steps.length }}</span><h2>{{ assetDisplayLabel(step.asset) }}</h2><p>{{ step.asset.customerLabel }}</p></div><span class="draft-status" [class.done]="step.done">{{ step.done ? 'Bozza pronta' : 'Da compilare' }}</span></header>
+      <header><div><span class="step-number">Presidio {{ currentIndex + 1 }} di {{ steps.length }}</span><h2>{{ assetDisplayLabel(step.asset) }}</h2><p>#{{ step.asset.numeroCliente }} · {{ step.asset.customerLabel }}</p></div><span class="draft-status" [class.done]="step.done">{{ step.done ? 'Bozza pronta' : 'Da compilare' }}</span></header>
       <div class="readonly-grid">
         <span *ngIf="step.asset.code && !isStepField(step, '__base_code')"><small>Codice</small><strong>{{ step.asset.code }}</strong></span>
         <span *ngIf="step.asset.serialNumber && !isStepField(step, '__base_serialNumber')"><small>Matricola</small><strong>{{ step.asset.serialNumber }}</strong></span>

@@ -4,7 +4,7 @@
 
 .admin-card {
   background: rgba(255, 255, 255, 0.85);
-  border-radius: 22px;
+  border-radius: var(--mv-radius-surface);
   border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 14px 34px rgba(2, 6, 23, 0.08);
 }

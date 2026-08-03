@@ -1,9 +1,9 @@
 <style>
-      :root {
-        --brand-black: #0f172a;
-        --brand-orange: #ff7a00;
-        --brand-blue: #0d6efd;
-        --brand-sky: #8ec5ff;
+      .homeadmin-root {
+        --brand-black: var(--mv-ink);
+        --brand-orange: var(--mv-orange-500);
+        --brand-blue: var(--mv-blue-600);
+        --brand-sky: var(--mv-blue-300);
 
         --glass-bg: rgba(255, 255, 255, 0.18);
         --glass-border: rgba(255, 255, 255, 0.35);
@@ -19,13 +19,7 @@
         margin: 0;
         overflow-x: clip;
         overscroll-behavior-x: none;
-        font-family:
-          system-ui,
-          -apple-system,
-          Segoe UI,
-          Roboto,
-          Arial,
-          sans-serif;
+        font-family: inherit;
         background:
           radial-gradient(
             1200px 520px at 50% 0%,
@@ -41,7 +35,7 @@
         background-attachment: fixed;
       }
 
-      .clouds {
+      .homeadmin-root .clouds {
         position: fixed;
         inset: 0;
         pointer-events: none;
@@ -66,12 +60,12 @@
         filter: blur(2px);
       }
 
-      .logo {
+      .homeadmin-root .logo {
         width: 150px;
         height: auto;
       }
 
-      .page {
+      .homeadmin-root .page {
         position: relative;
         z-index: 1;
         width: 100%;
@@ -80,7 +74,7 @@
       }
 
       /* ===== MOBILE TOP BAR ===== */
-      .mobile-top-bar {
+      .homeadmin-root .mobile-top-bar {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -88,40 +82,40 @@
         padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
       }
 
-      .mobile-top-bar .menu-toggle {
+      .homeadmin-root .mobile-top-bar .menu-toggle {
         width: 46px;
         height: 46px;
-        border-radius: 16px;
+        border-radius: var(--mv-radius-surface);
         border: 0;
-        background: linear-gradient(135deg, var(--brand-orange), #ff9a3c);
+        background: linear-gradient(135deg, var(--brand-orange), var(--mv-orange-300));
         box-shadow: 0 14px 34px rgba(255, 122, 0, 0.35);
-        color: #fff;
+        color: var(--mv-surface);
         display: grid;
         place-items: center;
         font-size: 20px;
         transition: transform 0.2s ease, filter 0.2s ease;
       }
 
-      .mobile-top-bar .menu-toggle:hover {
+      .homeadmin-root .mobile-top-bar .menu-toggle:hover {
         transform: translateY(-2px);
         filter: brightness(1.02);
       }
 
-      .mobile-top-bar .menu-toggle .fallback-cog {
+      .homeadmin-root .mobile-top-bar .menu-toggle .fallback-cog {
         font-size: 22px;
         display: none;
       }
 
-      .no-fa .mobile-top-bar .menu-toggle i {
+      .homeadmin-root .no-fa .mobile-top-bar .menu-toggle i {
         display: none;
       }
 
-      .no-fa .mobile-top-bar .menu-toggle .fallback-cog {
+      .homeadmin-root .no-fa .mobile-top-bar .menu-toggle .fallback-cog {
         display: inline;
       }
 
       /* Mobile dropdown menu */
-      .mobile-menu {
+      .homeadmin-root .mobile-menu {
         position: fixed;
         top: calc(env(safe-area-inset-top, 0px) + 70px);
         right: 16px;
@@ -129,7 +123,7 @@
         width: min(320px, calc(100vw - 36px));
         background: rgba(255, 255, 255, 0.78);
         border: 1px solid rgba(255, 255, 255, 0.85);
-        border-radius: 18px;
+        border-radius: var(--mv-radius-surface);
         padding: 14px;
         box-shadow: var(--shadow);
         backdrop-filter: blur(14px);
@@ -139,7 +133,7 @@
         gap: 10px;
       }
 
-      .mobile-menu button {
+      .homeadmin-root .mobile-menu button {
         width: 100%;
         cursor: pointer;
         text-decoration: none;
@@ -148,29 +142,29 @@
         text-align: left;
         color: var(--brand-black);
         padding: 10px 12px;
-        border-radius: 12px;
+        border-radius: var(--mv-radius-control);
         background: rgba(255, 255, 255, 0.5);
         border: 1px solid rgba(15, 23, 42, 0.06);
         transition: transform 0.18s ease, background 0.18s ease;
       }
 
-      .mobile-menu button:hover {
+      .homeadmin-root .mobile-menu button:hover {
         transform: translateY(-1px);
         background: rgba(255, 122, 0, 0.15);
       }
 
-      .mobile-menu .menu-logout {
+      .homeadmin-root .mobile-menu .menu-logout {
         color: #dc3545;
         border-top: 1px solid rgba(15, 23, 42, 0.1);
         margin-top: 4px;
         padding-top: 14px;
       }
 
-      .mobile-menu .menu-logout:hover {
+      .homeadmin-root .mobile-menu .menu-logout:hover {
         background: rgba(220, 53, 69, 0.12);
       }
 
-      .mobile-logout-btn {
+      .homeadmin-root .mobile-logout-btn {
         border: 1px solid rgba(220, 53, 69, 0.18);
         background: rgba(255, 255, 255, 0.82);
         color: #dc3545;
@@ -184,17 +178,17 @@
         box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
       }
 
-      .mobile-logout-btn:hover {
+      .homeadmin-root .mobile-logout-btn:hover {
         background: rgba(220, 53, 69, 0.12);
       }
 
       /* ===== LOGO ===== */
-      .logo-container {
+      .homeadmin-root .logo-container {
         margin-top: calc(env(safe-area-inset-top, 0px) + 20px);
         margin-bottom: 26px;
       }
 
-      .logo-container .logo {
+      .homeadmin-root .logo-container .logo {
         max-height: 120px;
         width: auto;
         display: block;
@@ -204,7 +198,7 @@
       }
 
       /* ===== DESKTOP SIDEBAR ===== */
-      .home-desktop-sidebar {
+      .homeadmin-root .home-desktop-sidebar {
         position: fixed;
         top: 0;
         left: 0;
@@ -220,7 +214,7 @@
         transition: width 0.25s ease;
       }
 
-      .home-desktop-content {
+      .homeadmin-root .home-desktop-content {
         min-height: 100vh;
         padding: 18px 24px 32px 32px;
         transition: margin-left 0.25s ease;
@@ -228,7 +222,7 @@
         overflow-x: clip;
       }
 
-      .sidebar-toggle-btn {
+      .homeadmin-root .sidebar-toggle-btn {
         position: absolute;
         top: 50%;
         right: -22px;
@@ -249,73 +243,73 @@
         transition: right 0.25s ease, background 0.18s ease;
       }
 
-      .sidebar-toggle-btn:hover {
-        background: #fff;
+      .homeadmin-root .sidebar-toggle-btn:hover {
+        background: var(--mv-surface);
         color: var(--brand-orange);
         border-color: var(--brand-orange);
       }
 
-      .sidebar-collapsed .sidebar-toggle-btn {
+      .homeadmin-root .sidebar-collapsed .sidebar-toggle-btn {
         right: -22px;
       }
 
-      .sidebar-toggle-btn i {
+      .homeadmin-root .sidebar-toggle-btn i {
         transition: transform 0.25s ease;
       }
 
-      .sidebar-collapsed .sidebar-btn-text { display: none !important; }
-      .sidebar-collapsed .home-category-item__text { display: none !important; }
-      .sidebar-collapsed .home-category-item__chevron { display: none !important; }
-      .sidebar-collapsed .sidebar-bottom-label { display: none !important; }
-      .sidebar-collapsed .home-panel-title { display: none !important; }
-      .sidebar-collapsed .home-panel-back span:last-child { display: none !important; }
-      .sidebar-collapsed .home-category-panel__eyebrow { display: none !important; }
-      .sidebar-collapsed .sidebar-logo img { display: none !important; }
-      .sidebar-collapsed .sidebar-nav .home-category-item__count { display: none !important; }
+      .homeadmin-root .sidebar-collapsed .sidebar-btn-text { display: none !important; }
+      .homeadmin-root .sidebar-collapsed .home-category-item__text { display: none !important; }
+      .homeadmin-root .sidebar-collapsed .home-category-item__chevron { display: none !important; }
+      .homeadmin-root .sidebar-collapsed .sidebar-bottom-label { display: none !important; }
+      .homeadmin-root .sidebar-collapsed .home-panel-title { display: none !important; }
+      .homeadmin-root .sidebar-collapsed .home-panel-back span:last-child { display: none !important; }
+      .homeadmin-root .sidebar-collapsed .home-category-panel__eyebrow { display: none !important; }
+      .homeadmin-root .sidebar-collapsed .sidebar-logo img { display: none !important; }
+      .homeadmin-root .sidebar-collapsed .sidebar-nav .home-category-item__count { display: none !important; }
 
-      .sidebar-collapsed .home-category-item,
-      .sidebar-collapsed .sidebar-nav .home-sidebar-button {
+      .homeadmin-root .sidebar-collapsed .home-category-item,
+      .homeadmin-root .sidebar-collapsed .sidebar-nav .home-sidebar-button {
         width: 44px !important;
         min-height: 44px !important;
         padding: 0 !important;
         margin: 0 auto 8px !important;
-        border-radius: 12px !important;
+        border-radius: var(--mv-radius-control);
         justify-content: center !important;
       }
 
-      .sidebar-collapsed .home-category-item__icon {
+      .homeadmin-root .sidebar-collapsed .home-category-item__icon {
         width: 36px !important;
         height: 36px !important;
         margin: 0 !important;
       }
 
-      .sidebar-collapsed .sidebar-bottom-btn,
-      .sidebar-collapsed .sidebar-logout {
+      .homeadmin-root .sidebar-collapsed .sidebar-bottom-btn,
+      .homeadmin-root .sidebar-collapsed .sidebar-logout {
         width: 44px !important;
         padding: 10px !important;
         margin: 0 auto 4px !important;
         justify-content: center !important;
-        border-radius: 12px !important;
+        border-radius: var(--mv-radius-control);
       }
 
-      .sidebar-collapsed .sidebar-bottom {
+      .homeadmin-root .sidebar-collapsed .sidebar-bottom {
         padding: 10px 5px 8px !important;
         align-items: center !important;
       }
 
-      .sidebar-collapsed .sidebar-nav {
+      .homeadmin-root .sidebar-collapsed .sidebar-nav {
         padding: 12px 5px !important;
       }
 
-      .sidebar-collapsed .sidebar-nav .home-panel-back {
+      .homeadmin-root .sidebar-collapsed .sidebar-nav .home-panel-back {
         width: 44px !important;
         padding: 10px !important;
         margin: 0 auto 6px !important;
         justify-content: center !important;
-        border-radius: 12px !important;
+        border-radius: var(--mv-radius-control);
       }
 
-      .sidebar-logo {
+      .homeadmin-root .sidebar-logo {
         flex-shrink: 0;
         display: flex;
         align-items: center;
@@ -325,7 +319,7 @@
         border-bottom: 1px solid rgba(15, 23, 42, 0.06);
       }
 
-      .sidebar-logo .logo {
+      .homeadmin-root .sidebar-logo .logo {
         max-height: min(9vh, 68px);
         max-width: clamp(88px, 50%, 130px);
         width: auto;
@@ -333,18 +327,18 @@
         filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.1));
       }
 
-      .sidebar-logo-actions {
+      .homeadmin-root .sidebar-logo-actions {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         flex: 0 0 auto;
       }
 
-      .sidebar-icon-btn {
+      .homeadmin-root .sidebar-icon-btn {
         width: 34px;
         height: 34px;
         border: 1px solid rgba(15, 23, 42, 0.08);
-        border-radius: 10px;
+        border-radius: var(--mv-radius-control);
         display: inline-grid;
         place-items: center;
         background: rgba(255, 255, 255, 0.66);
@@ -353,38 +347,38 @@
         transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
       }
 
-      .sidebar-icon-btn:hover,
-      .sidebar-icon-btn.is-open {
+      .homeadmin-root .sidebar-icon-btn:hover,
+      .homeadmin-root .sidebar-icon-btn.is-open {
         transform: translateY(-1px);
         background: rgba(255, 122, 0, 0.14);
         color: var(--brand-orange);
       }
 
-      .sidebar-icon-btn--logout {
+      .homeadmin-root .sidebar-icon-btn--logout {
         border-color: rgba(220, 53, 69, 0.22);
         background: rgba(220, 53, 69, 0.08);
         color: #dc3545;
       }
 
-      .sidebar-icon-btn--logout:hover {
+      .homeadmin-root .sidebar-icon-btn--logout:hover {
         background: rgba(220, 53, 69, 0.16);
         color: #b42318;
       }
 
       @media (max-height: 760px) {
-        .sidebar-logo .logo {
+        .homeadmin-root .sidebar-logo .logo {
           max-height: 74px;
           max-width: 145px;
         }
       }
 
-      .sidebar-nav {
+      .homeadmin-root .sidebar-nav {
         flex: 1;
         overflow-y: auto;
         padding: 8px 12px 12px;
       }
 
-      .sidebar-nav .home-category-panel__eyebrow {
+      .homeadmin-root .sidebar-nav .home-category-panel__eyebrow {
         width: calc(100% - 10px);
         margin: 0 5px 8px;
         padding: 2px 5px 6px;
@@ -398,19 +392,19 @@
         text-align: left;
       }
 
-      .sidebar-nav button.home-category-panel__eyebrow {
+      .homeadmin-root .sidebar-nav button.home-category-panel__eyebrow {
         cursor: pointer;
-        border-radius: 10px;
+        border-radius: var(--mv-radius-control);
         transition: background 0.18s ease, color 0.18s ease;
       }
 
-      .sidebar-nav button.home-category-panel__eyebrow:hover,
-      .sidebar-nav button.home-category-panel__eyebrow.is-active {
+      .homeadmin-root .sidebar-nav button.home-category-panel__eyebrow:hover,
+      .homeadmin-root .sidebar-nav button.home-category-panel__eyebrow.is-active {
         background: rgba(255, 122, 0, 0.12);
         color: var(--brand-orange);
       }
 
-      .sidebar-nav .home-category-item {
+      .homeadmin-root .sidebar-nav .home-category-item {
         width: calc(100% - 10px);
         min-height: 48px;
         display: flex;
@@ -419,7 +413,7 @@
         padding: 9px 12px;
         margin: 0 5px 6px 5px;
         border: 1px solid rgba(15, 23, 42, 0.08);
-        border-radius: 12px;
+        border-radius: var(--mv-radius-control);
         background: rgba(255, 255, 255, 0.62);
         color: var(--brand-black);
         text-align: left;
@@ -427,7 +421,7 @@
         transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
       }
 
-      .sidebar-nav .home-category-item__label {
+      .homeadmin-root .sidebar-nav .home-category-item__label {
         display: block;
         font-size: 0.86rem;
         font-weight: 900;
@@ -436,46 +430,46 @@
         text-overflow: ellipsis;
       }
 
-      .sidebar-nav .home-category-item:hover,
-      .sidebar-nav .home-category-item--active {
+      .homeadmin-root .sidebar-nav .home-category-item:hover,
+      .homeadmin-root .sidebar-nav .home-category-item--active {
         transform: translateY(-2px);
         background: linear-gradient(135deg, rgba(255, 122, 0, 0.95), rgba(13, 110, 253, 0.82));
         border-color: rgba(255, 255, 255, 0.42);
-        color: #fff;
+        color: var(--mv-surface);
         box-shadow: 0 12px 28px rgba(13, 110, 253, 0.18);
       }
 
-      .sidebar-nav .home-category-item__icon {
+      .homeadmin-root .sidebar-nav .home-category-item__icon {
         flex: 0 0 auto;
         display: inline-grid;
         place-items: center;
         width: 34px;
         height: 34px;
-        border-radius: 10px;
+        border-radius: var(--mv-radius-control);
         background: rgba(13, 110, 253, 0.11);
         color: var(--brand-blue);
         font-size: 14px;
       }
 
-      .sidebar-nav .home-category-item:hover .home-category-item__icon,
-      .sidebar-nav .home-category-item--active .home-category-item__icon {
+      .homeadmin-root .sidebar-nav .home-category-item:hover .home-category-item__icon,
+      .homeadmin-root .sidebar-nav .home-category-item--active .home-category-item__icon {
         background: rgba(255, 255, 255, 0.2);
-        color: #fff;
+        color: var(--mv-surface);
       }
 
-      .sidebar-nav .home-category-item__text {
+      .homeadmin-root .sidebar-nav .home-category-item__text {
         min-width: 0;
         flex: 1 1 auto;
       }
 
-      .sidebar-nav .home-category-item__label {
+      .homeadmin-root .sidebar-nav .home-category-item__label {
         display: block;
         font-size: 0.86rem;
         font-weight: 900;
         line-height: 1.2;
       }
 
-      .sidebar-nav .home-category-item__count {
+      .homeadmin-root .sidebar-nav .home-category-item__count {
         display: block;
         margin-top: 2px;
         font-size: 0.68rem;
@@ -483,19 +477,19 @@
         opacity: 0.72;
       }
 
-      .sidebar-nav .home-category-item__chevron {
+      .homeadmin-root .sidebar-nav .home-category-item__chevron {
         margin-left: auto;
         color: rgba(15, 23, 42, 0.42);
         font-size: 0.8rem;
         transition: transform 0.18s ease, color 0.18s ease;
       }
 
-      .sidebar-nav .home-category-item--active .home-category-item__chevron,
-      .sidebar-nav .home-category-item:hover .home-category-item__chevron {
-        color: #fff;
+      .homeadmin-root .sidebar-nav .home-category-item--active .home-category-item__chevron,
+      .homeadmin-root .sidebar-nav .home-category-item:hover .home-category-item__chevron {
+        color: var(--mv-surface);
       }
 
-      .home-sidebar-dropdown {
+      .homeadmin-root .home-sidebar-dropdown {
         display: grid;
         gap: 5px;
         width: calc(100% - 22px);
@@ -507,7 +501,7 @@
         animation: homeButtonCascade 0.2s ease both;
       }
 
-      .home-sidebar-subitem {
+      .homeadmin-root .home-sidebar-subitem {
         min-height: 34px;
         display: flex;
         align-items: center;
@@ -515,7 +509,7 @@
         width: 100%;
         padding: 7px 9px;
         border: 1px solid rgba(15, 23, 42, 0.06);
-        border-radius: 9px;
+        border-radius: var(--mv-radius-control);
         background: rgba(255, 255, 255, 0.68);
         color: var(--brand-black);
         font-size: 0.76rem;
@@ -525,25 +519,52 @@
         transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease;
       }
 
-      .home-sidebar-subitem i {
+      .homeadmin-root .home-sidebar-subitem i {
         width: 15px;
         color: var(--brand-blue);
         text-align: center;
       }
 
-      .home-sidebar-subitem:hover,
-      .home-sidebar-subitem--active {
+      .homeadmin-root .home-sidebar-subitem > span {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      .homeadmin-root .home-sidebar-subitem .home-sidebar-subitem__chevron {
+        width: auto;
+        margin-left: auto;
+        color: rgba(15, 23, 42, 0.48);
+        font-size: 0.68rem;
+      }
+
+      .homeadmin-root .home-sidebar-nested {
+        display: grid;
+        gap: 4px;
+        margin: -1px 0 3px 15px;
+        padding: 4px 0 4px 8px;
+        border-left: 2px solid rgba(13, 110, 253, 0.3);
+      }
+
+      .homeadmin-root .home-sidebar-subitem--nested {
+        min-height: 31px;
+        padding: 6px 8px;
+        background: rgba(255, 255, 255, 0.82);
+        font-size: 0.7rem;
+      }
+
+      .homeadmin-root .home-sidebar-subitem:hover,
+      .homeadmin-root .home-sidebar-subitem--active {
         transform: translateX(2px);
         background: linear-gradient(135deg, rgba(255, 122, 0, 0.92), rgba(13, 110, 253, 0.72));
-        color: #fff;
+        color: var(--mv-surface);
       }
 
-      .home-sidebar-subitem:hover i,
-      .home-sidebar-subitem--active i {
-        color: #fff;
+      .homeadmin-root .home-sidebar-subitem:hover i,
+      .homeadmin-root .home-sidebar-subitem--active i {
+        color: var(--mv-surface);
       }
 
-      .sidebar-nav .home-panel-back {
+      .homeadmin-root .sidebar-nav .home-panel-back {
         width: calc(100% - 10px);
         display: inline-flex;
         align-items: center;
@@ -551,7 +572,7 @@
         padding: 12px 16px;
         margin: 0 5px 6px 5px;
         border: 1px solid rgba(15, 23, 42, 0.08);
-        border-radius: 14px;
+        border-radius: var(--mv-radius-control);
         background: rgba(255, 255, 255, 0.68);
         color: var(--brand-black);
         font-weight: 950;
@@ -560,7 +581,7 @@
         transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
       }
 
-      .sidebar-bottom-label {
+      .homeadmin-root .sidebar-bottom-label {
         font-size: 0.75rem;
         font-weight: 950;
         letter-spacing: 0.1em;
@@ -569,7 +590,7 @@
         padding: 4px 6px 4px;
       }
 
-      .sidebar-bottom-btn {
+      .homeadmin-root .sidebar-bottom-btn {
         display: flex;
         align-items: center;
         gap: 8px;
@@ -577,7 +598,7 @@
         padding: 8px 10px;
         margin: 0 5px;
         border: 1px solid rgba(15, 23, 42, 0.06);
-        border-radius: 10px;
+        border-radius: var(--mv-radius-control);
         background: rgba(255, 255, 255, 0.5);
         color: var(--brand-black);
         font-size: 0.78rem;
@@ -587,12 +608,12 @@
         cursor: pointer;
       }
 
-      .sidebar-bottom-btn:hover {
+      .homeadmin-root .sidebar-bottom-btn:hover {
         transform: translateY(-1px);
         background: rgba(255, 122, 0, 0.12);
       }
 
-      .sidebar-top-actions {
+      .homeadmin-root .sidebar-top-actions {
         flex-shrink: 0;
         display: grid;
         gap: 6px;
@@ -600,28 +621,28 @@
         border-bottom: 1px solid rgba(15, 23, 42, 0.06);
       }
 
-      .sidebar-collapsed .sidebar-top-actions {
+      .homeadmin-root .sidebar-collapsed .sidebar-top-actions {
         padding: 10px 5px 8px !important;
         align-items: center !important;
       }
 
-      .sidebar-collapsed .sidebar-logo {
+      .homeadmin-root .sidebar-collapsed .sidebar-logo {
         justify-content: center;
         padding: 10px 5px 8px;
       }
 
-      .sidebar-collapsed .sidebar-logo-actions {
+      .homeadmin-root .sidebar-collapsed .sidebar-logo-actions {
         flex-direction: column;
         gap: 6px;
       }
 
-      .sidebar-collapsed .sidebar-icon-btn {
+      .homeadmin-root .sidebar-collapsed .sidebar-icon-btn {
         width: 44px;
         height: 44px;
-        border-radius: 12px;
+        border-radius: var(--mv-radius-control);
       }
 
-      .sidebar-settings-menu {
+      .homeadmin-root .sidebar-settings-menu {
         display: grid;
         gap: 6px;
         max-height: min(44vh, 360px);
@@ -629,26 +650,26 @@
         padding: 0;
       }
 
-      .sidebar-settings-toggle {
+      .homeadmin-root .sidebar-settings-toggle {
         background: rgba(15, 23, 42, 0.08);
       }
 
-      .sidebar-settings-toggle .settings-chevron {
+      .homeadmin-root .sidebar-settings-toggle .settings-chevron {
         margin-left: auto;
         transition: transform 0.18s ease;
       }
 
-      .sidebar-settings-toggle.is-open .settings-chevron {
+      .homeadmin-root .sidebar-settings-toggle.is-open .settings-chevron {
         transform: rotate(180deg);
       }
 
-      .sidebar-bottom-btn i {
+      .homeadmin-root .sidebar-bottom-btn i {
         width: 16px;
         text-align: center;
         font-size: 0.8rem;
       }
 
-      .sidebar-logout {
+      .homeadmin-root .sidebar-logout {
         display: flex;
         align-items: center;
         gap: 8px;
@@ -656,7 +677,7 @@
         padding: 9px 10px;
         margin: 6px 5px 0 5px;
         border: 2px solid rgba(220, 53, 69, 0.25);
-        border-radius: 10px;
+        border-radius: var(--mv-radius-control);
         background: rgba(220, 53, 69, 0.08);
         color: #dc3545;
         font-size: 0.8rem;
@@ -666,19 +687,19 @@
         cursor: pointer;
       }
 
-      .sidebar-logout:hover {
+      .homeadmin-root .sidebar-logout:hover {
         transform: translateY(-1px);
         background: rgba(220, 53, 69, 0.18);
       }
 
-      .sidebar-logout i {
+      .homeadmin-root .sidebar-logout i {
         width: 16px;
         text-align: center;
         font-size: 0.82rem;
       }
 
       /* ===== DESKTOP CONTENT ===== */
-      .home-desktop-content {
+      .homeadmin-root .home-desktop-content {
         margin-left: var(--sidebar-width);
         min-height: 100vh;
         padding: 18px 22px 32px 30px;
@@ -687,7 +708,7 @@
         overflow-x: clip;
       }
 
-      .desktop-workspace-grid {
+      .homeadmin-root .desktop-workspace-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
         gap: 24px;
@@ -695,15 +716,15 @@
         min-height: calc(100vh - 64px);
       }
 
-      .desktop-workspace-grid--no-todo {
+      .homeadmin-root .desktop-workspace-grid--no-todo {
         grid-template-columns: minmax(0, 1fr);
       }
 
-      .desktop-workspace-main {
+      .homeadmin-root .desktop-workspace-main {
         min-width: 0;
       }
 
-      .desktop-todo-rail {
+      .homeadmin-root .desktop-todo-rail {
         position: sticky;
         top: 24px;
         display: grid;
@@ -713,40 +734,40 @@
         padding-bottom: 6px;
       }
 
-      .desktop-todo-rail .admin-home-stats {
+      .homeadmin-root .desktop-todo-rail .admin-home-stats {
         justify-content: stretch;
       }
 
-      .desktop-todo-rail .admin-home-stat {
+      .homeadmin-root .desktop-todo-rail .admin-home-stat {
         flex: 1 1 130px;
         min-width: 0;
       }
 
-      .desktop-todo-rail .todo-panel {
+      .homeadmin-root .desktop-todo-rail .todo-panel {
         max-height: calc(100vh - 170px);
         display: grid;
         grid-template-rows: auto auto auto 1fr;
       }
 
-      .desktop-todo-rail .todo-list {
+      .homeadmin-root .desktop-todo-rail .todo-list {
         overflow: auto;
       }
 
-      .desktop-main-todo {
+      .homeadmin-root .desktop-main-todo {
         max-width: 900px;
       }
 
-      .desktop-workspace-grid:has(.desktop-main-todo) {
+      .homeadmin-root .desktop-workspace-grid:has(.desktop-main-todo) {
         grid-template-columns: minmax(0, 1fr);
       }
 
-      .desktop-workspace-grid:has(.desktop-main-todo) .desktop-todo-rail {
+      .homeadmin-root .desktop-workspace-grid:has(.desktop-main-todo) .desktop-todo-rail {
         display: none;
       }
 
-      .home-desktop-content .home-embedded-content {
+      .homeadmin-root .home-desktop-content .home-embedded-content {
         min-height: calc(100vh - 120px);
-        border-radius: 14px;
+        border-radius: var(--mv-radius-control);
         overflow: auto;
         background: rgba(255, 255, 255, 0.72);
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
@@ -754,11 +775,11 @@
         animation: homeSlideFromRight 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
-      .home-desktop-content .home-embedded-content:hover {
+      .homeadmin-root .home-desktop-content .home-embedded-content:hover {
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 18px 42px rgba(2, 6, 23, 0.09);
       }
 
-      .home-desktop-content .home-section-title {
+      .homeadmin-root .home-desktop-content .home-section-title {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -767,13 +788,13 @@
         color: var(--brand-black);
       }
 
-      .home-desktop-content .home-section-title h2 {
+      .homeadmin-root .home-desktop-content .home-section-title h2 {
         margin: 0;
         font-size: 1.8rem;
         font-weight: 950;
       }
 
-      .home-desktop-content .home-section-kicker {
+      .homeadmin-root .home-desktop-content .home-section-kicker {
         display: block;
         color: rgba(15, 23, 42, 0.56);
         font-size: 0.74rem;
@@ -783,7 +804,7 @@
         margin-bottom: 3px;
       }
 
-      .home-desktop-content .home-submenu-grid {
+      .homeadmin-root .home-desktop-content .home-submenu-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
         gap: 24px;
@@ -793,11 +814,11 @@
         animation: homeSlideFromRight 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
-      .home-desktop-content .dash-btn {
+      .homeadmin-root .home-desktop-content .dash-btn {
         width: 100%;
         min-height: 190px;
         padding: 24px 20px;
-        border-radius: 24px;
+        border-radius: var(--mv-radius-surface);
         border: 1px solid rgba(255, 255, 255, 0.85);
         background: rgba(255, 255, 255, 0.55);
         backdrop-filter: blur(12px);
@@ -816,13 +837,13 @@
         justify-content: center;
       }
 
-      .home-desktop-content .dash-btn .icon {
+      .homeadmin-root .home-desktop-content .dash-btn .icon {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         width: 64px;
         height: 64px;
-        border-radius: 18px;
+        border-radius: var(--mv-radius-surface);
         margin-bottom: 12px;
         background: rgba(13, 110, 253, 0.12);
         border: 1px solid rgba(13, 110, 253, 0.18);
@@ -830,26 +851,26 @@
         font-size: 26px;
       }
 
-      .home-desktop-content .dash-btn:hover {
+      .homeadmin-root .home-desktop-content .dash-btn:hover {
         transform: translateY(-6px);
         filter: brightness(1.02);
         background: linear-gradient(135deg, rgba(255, 122, 0, 0.85), rgba(13, 110, 253, 0.65));
-        color: #fff;
+        color: var(--mv-surface);
       }
 
-      .home-desktop-content .dash-btn:hover .icon {
+      .homeadmin-root .home-desktop-content .dash-btn:hover .icon {
         background: rgba(255, 255, 255, 0.22);
         border: 1px solid rgba(255, 255, 255, 0.35);
-        color: #fff;
+        color: var(--mv-surface);
       }
 
-      .home-desktop-content .dash-btn .label {
+      .homeadmin-root .home-desktop-content .dash-btn .label {
         font-size: 1.1rem;
         line-height: 1.3;
         max-width: 260px;
       }
 
-      .admin-home-panel {
+      .homeadmin-root .admin-home-panel {
         min-height: calc(100vh - 88px);
         display: grid;
         align-content: start;
@@ -857,7 +878,7 @@
         animation: homeSlideFromRight 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
-      .admin-home-header {
+      .homeadmin-root .admin-home-header {
         display: flex;
         align-items: flex-end;
         justify-content: space-between;
@@ -865,7 +886,7 @@
         padding: 10px 0 4px;
       }
 
-      .admin-home-kicker {
+      .homeadmin-root .admin-home-kicker {
         margin: 0 0 6px;
         color: rgba(15, 23, 42, 0.58);
         font-size: 0.76rem;
@@ -874,7 +895,7 @@
         text-transform: uppercase;
       }
 
-      .admin-home-title {
+      .homeadmin-root .admin-home-title {
         margin: 0;
         color: var(--brand-black);
         font-size: clamp(1.8rem, 3vw, 2.6rem);
@@ -882,30 +903,30 @@
         letter-spacing: 0;
       }
 
-      .admin-home-stats {
+      .homeadmin-root .admin-home-stats {
         display: flex;
         gap: 12px;
         flex-wrap: wrap;
         justify-content: flex-end;
       }
 
-      .admin-home-stat {
+      .homeadmin-root .admin-home-stat {
         min-width: 130px;
         padding: 14px 16px;
-        border-radius: 16px;
+        border-radius: var(--mv-radius-surface);
         background: rgba(255, 255, 255, 0.64);
         border: 1px solid rgba(255, 255, 255, 0.72);
         box-shadow: 0 12px 30px rgba(2, 6, 23, 0.08);
       }
 
-      .admin-home-stat strong {
+      .homeadmin-root .admin-home-stat strong {
         display: block;
         color: var(--brand-black);
         font-size: 1.45rem;
         line-height: 1;
       }
 
-      .admin-home-stat span {
+      .homeadmin-root .admin-home-stat span {
         display: block;
         margin-top: 5px;
         color: rgba(15, 23, 42, 0.62);
@@ -913,50 +934,50 @@
         font-weight: 850;
       }
 
-      .deadline-permission-notice {
+      .homeadmin-root .deadline-permission-notice {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 18px;
         padding: 18px 20px;
-        border-radius: 18px;
+        border-radius: var(--mv-radius-surface);
         background: rgba(255, 244, 214, 0.9);
         border: 1px solid rgba(217, 119, 6, 0.22);
         box-shadow: 0 14px 34px rgba(146, 64, 14, 0.1);
       }
 
-      .deadline-permission-notice h3 {
+      .homeadmin-root .deadline-permission-notice h3 {
         margin: 0 0 4px;
         color: #7c3b00;
         font-size: 1rem;
         font-weight: 950;
       }
 
-      .deadline-permission-notice p {
+      .homeadmin-root .deadline-permission-notice p {
         margin: 0;
         color: rgba(124, 59, 0, 0.82);
         font-weight: 750;
       }
 
-      .deadline-permission-notice button {
+      .homeadmin-root .deadline-permission-notice button {
         border: 0;
-        border-radius: 12px;
+        border-radius: var(--mv-radius-control);
         padding: 10px 14px;
         background: #11355d;
-        color: #fff;
+        color: var(--mv-surface);
         font-weight: 900;
         white-space: nowrap;
       }
 
-      .todo-panel {
+      .homeadmin-root .todo-panel {
         overflow: hidden;
-        border-radius: 22px;
+        border-radius: var(--mv-radius-surface);
         background: rgba(255, 255, 255, 0.72);
         border: 1px solid rgba(255, 255, 255, 0.78);
         box-shadow: 0 18px 48px rgba(2, 6, 23, 0.1);
       }
 
-      .todo-panel-header {
+      .homeadmin-root .todo-panel-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -965,42 +986,42 @@
         border-bottom: 1px solid rgba(15, 23, 42, 0.08);
       }
 
-      .todo-panel-header h3 {
+      .homeadmin-root .todo-panel-header h3 {
         margin: 0;
         color: var(--brand-black);
         font-size: 1.2rem;
         font-weight: 950;
       }
 
-      .todo-refresh-btn,
-      .todo-delete-btn {
+      .homeadmin-root .todo-refresh-btn,
+      .homeadmin-root .todo-delete-btn {
         border: 0;
-        border-radius: 12px;
+        border-radius: var(--mv-radius-control);
         display: inline-grid;
         place-items: center;
         cursor: pointer;
       }
 
-      .todo-refresh-btn {
+      .homeadmin-root .todo-refresh-btn {
         width: 40px;
         height: 40px;
         background: rgba(13, 110, 253, 0.12);
         color: var(--brand-blue);
       }
 
-      .todo-form {
+      .homeadmin-root .todo-form {
         display: flex;
         gap: 10px;
         padding: 18px 22px;
         border-bottom: 1px solid rgba(15, 23, 42, 0.07);
       }
 
-      .todo-input {
+      .homeadmin-root .todo-input {
         flex: 1;
         min-width: 0;
         height: 46px;
         border: 1px solid rgba(15, 23, 42, 0.12);
-        border-radius: 14px;
+        border-radius: var(--mv-radius-control);
         padding: 0 14px;
         background: rgba(255, 255, 255, 0.86);
         color: var(--brand-black);
@@ -1008,31 +1029,31 @@
         outline: none;
       }
 
-      .todo-input:focus {
+      .homeadmin-root .todo-input:focus {
         border-color: rgba(13, 110, 253, 0.5);
         box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.12);
       }
 
-      .todo-add-btn {
+      .homeadmin-root .todo-add-btn {
         min-width: 46px;
         height: 46px;
         border: 0;
-        border-radius: 14px;
+        border-radius: var(--mv-radius-control);
         background: linear-gradient(135deg, var(--brand-orange), var(--brand-blue));
-        color: #fff;
+        color: var(--mv-surface);
         font-weight: 950;
         display: inline-grid;
         place-items: center;
         box-shadow: 0 12px 24px rgba(13, 110, 253, 0.18);
       }
 
-      .todo-add-btn:disabled {
+      .homeadmin-root .todo-add-btn:disabled {
         cursor: not-allowed;
         opacity: 0.55;
         box-shadow: none;
       }
 
-      .todo-list {
+      .homeadmin-root .todo-list {
         list-style: none;
         margin: 0;
         padding: 8px 14px 14px;
@@ -1040,85 +1061,85 @@
         gap: 8px;
       }
 
-      .todo-item {
+      .homeadmin-root .todo-item {
         display: grid;
         grid-template-columns: 42px 1fr 38px;
         align-items: center;
         gap: 10px;
         min-height: 56px;
         padding: 8px 8px;
-        border-radius: 16px;
+        border-radius: var(--mv-radius-surface);
         background: rgba(255, 255, 255, 0.54);
       }
 
-      .todo-check {
+      .homeadmin-root .todo-check {
         width: 34px;
         height: 34px;
-        border-radius: 12px;
+        border-radius: var(--mv-radius-control);
         border: 2px solid rgba(13, 110, 253, 0.28);
-        background: #fff;
+        background: var(--mv-surface);
         color: transparent;
         display: grid;
         place-items: center;
       }
 
-      .todo-item.is-completed .todo-check {
+      .homeadmin-root .todo-item.is-completed .todo-check {
         background: var(--brand-blue);
-        color: #fff;
+        color: var(--mv-surface);
         border-color: var(--brand-blue);
       }
 
-      .todo-title {
+      .homeadmin-root .todo-title {
         min-width: 0;
         overflow-wrap: anywhere;
         color: var(--brand-black);
         font-weight: 850;
       }
 
-      .todo-item.is-completed .todo-title {
+      .homeadmin-root .todo-item.is-completed .todo-title {
         color: rgba(15, 23, 42, 0.48);
         text-decoration: line-through;
       }
 
-      .todo-delete-btn {
+      .homeadmin-root .todo-delete-btn {
         width: 36px;
         height: 36px;
         background: rgba(220, 53, 69, 0.1);
         color: #dc3545;
       }
 
-      .todo-empty,
-      .todo-error {
+      .homeadmin-root .todo-empty,
+      .homeadmin-root .todo-error {
         margin: 0;
         padding: 18px 22px 22px;
         color: rgba(15, 23, 42, 0.62);
         font-weight: 800;
       }
 
-      .todo-error {
+      .homeadmin-root .todo-error {
         color: #b42318;
       }
 
-      .mobile-todo-panel {
+      .homeadmin-root .mobile-todo-panel {
         margin-bottom: 22px;
       }
 
       /* ===== MOBILE BODY (categories / submenus as cards) ===== */
-      .home-mobile-body {
+      .homeadmin-root .home-mobile-body {
         padding: 0 16px 40px;
       }
 
-      .home-mobile-category-grid {
+      .homeadmin-root .home-mobile-category-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
         gap: 24px;
       }
 
-      .home-mobile-body .dash-btn {
+      .homeadmin-root .home-mobile-body .dash-btn {
         width: 100%;
         height: 100%;
         padding: 26px 18px;
-        border-radius: 22px;
+        border-radius: var(--mv-radius-surface);
         border: 1px solid rgba(255, 255, 255, 0.85);
         background: rgba(255, 255, 255, 0.55);
         backdrop-filter: blur(12px);
@@ -1133,13 +1154,13 @@
         text-align: center;
       }
 
-      .home-mobile-body .dash-btn .icon {
+      .homeadmin-root .home-mobile-body .dash-btn .icon {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         width: 56px;
         height: 56px;
-        border-radius: 18px;
+        border-radius: var(--mv-radius-surface);
         margin-bottom: 10px;
         background: rgba(13, 110, 253, 0.12);
         border: 1px solid rgba(13, 110, 253, 0.18);
@@ -1147,26 +1168,26 @@
         font-size: 22px;
       }
 
-      .home-mobile-body .dash-btn:hover {
+      .homeadmin-root .home-mobile-body .dash-btn:hover {
         transform: translateY(-6px);
         filter: brightness(1.02);
         background: linear-gradient(135deg, rgba(255, 122, 0, 0.85), rgba(13, 110, 253, 0.65));
-        color: #fff;
+        color: var(--mv-surface);
       }
 
-      .home-mobile-body .dash-btn:hover .icon {
+      .homeadmin-root .home-mobile-body .dash-btn:hover .icon {
         background: rgba(255, 255, 255, 0.22);
         border: 1px solid rgba(255, 255, 255, 0.35);
-        color: #fff;
+        color: var(--mv-surface);
       }
 
-      .home-mobile-body .dash-btn .label {
+      .homeadmin-root .home-mobile-body .dash-btn .label {
         display: block;
         font-size: 1.02rem;
         line-height: 1.25;
       }
 
-      .home-mobile-body .home-section-title {
+      .homeadmin-root .home-mobile-body .home-section-title {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1175,19 +1196,19 @@
         color: var(--brand-black);
       }
 
-      .home-mobile-body .home-section-title h2 {
+      .homeadmin-root .home-mobile-body .home-section-title h2 {
         margin: 0;
         font-size: 1.35rem;
         font-weight: 950;
       }
 
-      .home-mobile-body .home-section-kicker {
+      .homeadmin-root .home-mobile-body .home-section-kicker {
         display: none;
       }
 
-      .home-mobile-body .home-category-back {
+      .homeadmin-root .home-mobile-body .home-category-back {
         border: 0;
-        border-radius: 14px;
+        border-radius: var(--mv-radius-control);
         padding: 9px 13px;
         background: rgba(255, 255, 255, 0.68);
         color: var(--brand-black);
@@ -1195,13 +1216,28 @@
         box-shadow: 0 10px 25px rgba(2, 6, 23, 0.1);
       }
 
-      .home-mobile-body .home-submenu-grid {
+      .homeadmin-root .home-mobile-body .home-submenu-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
         gap: 24px;
       }
 
-      .home-mobile-body .category-count {
+      .homeadmin-root .home-mobile-nested {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid rgba(13, 110, 253, 0.16);
+        border-radius: var(--mv-radius-surface);
+        background: rgba(255, 255, 255, 0.48);
+      }
+
+      .homeadmin-root .home-submenu-button--nested {
+        min-height: 78px;
+      }
+
+      .homeadmin-root .home-mobile-body .category-count {
         display: block;
         margin-top: 8px;
         font-size: 0.82rem;
@@ -1210,18 +1246,18 @@
       }
 
       /* ===== DESKTOP HIDE BACK BUTTONS ===== */
-      .is-desktop .btn-back,
-      .is-desktop .btn-back-glass,
-      .is-desktop .btn-back-brand,
-      .is-desktop .btn-nav-glass,
-      .is-desktop .mv-back-btn,
-      .is-desktop .btn-back-light,
-      .is-desktop .mv-back-btn-light {
+      .homeadmin-root .is-desktop .btn-back,
+      .homeadmin-root .is-desktop .btn-back-glass,
+      .homeadmin-root .is-desktop .btn-back-brand,
+      .homeadmin-root .is-desktop .btn-nav-glass,
+      .homeadmin-root .is-desktop .mv-back-btn,
+      .homeadmin-root .is-desktop .btn-back-light,
+      .homeadmin-root .is-desktop .mv-back-btn-light {
         display: none !important;
       }
 
       /* ===== BADGES ===== */
-      .alert-badge {
+      .homeadmin-root .alert-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1233,23 +1269,23 @@
         font-weight: 900;
       }
 
-      .alert-badge-warning {
+      .homeadmin-root .alert-badge-warning {
         background: #ffcf85;
         color: #6a3a00;
       }
 
-      .alert-badge-expired {
+      .homeadmin-root .alert-badge-expired {
         background: #dc3545;
-        color: #fff;
+        color: var(--mv-surface);
       }
 
-      .alert-badge-pending {
+      .homeadmin-root .alert-badge-pending {
         background: #dcecff;
         color: #174a7a;
       }
 
       /* ===== EMAIL HEALTH NOTICE ===== */
-      .email-health-modal-backdrop {
+      .homeadmin-root .email-health-modal-backdrop {
         position: fixed;
         inset: 0;
         z-index: 2000;
@@ -1261,17 +1297,17 @@
         -webkit-backdrop-filter: blur(8px);
       }
 
-      .email-health-modal {
+      .homeadmin-root .email-health-modal {
         width: min(620px, 100%);
-        border-radius: 8px;
+        border-radius: var(--mv-radius-control);
         border: 1px solid rgba(220, 53, 69, 0.2);
-        background: #fff;
+        background: var(--mv-surface);
         box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
-        color: #111827;
+        color: var(--mv-ink);
         overflow: hidden;
       }
 
-      .email-health-modal-header {
+      .homeadmin-root .email-health-modal-header {
         display: grid;
         grid-template-columns: 42px 1fr;
         gap: 12px;
@@ -1280,29 +1316,29 @@
         border-bottom: 1px solid rgba(220, 53, 69, 0.12);
       }
 
-      .email-health-modal-icon {
+      .homeadmin-root .email-health-modal-icon {
         width: 42px;
         height: 42px;
-        border-radius: 8px;
+        border-radius: var(--mv-radius-control);
         display: inline-grid;
         place-items: center;
         background: #dc3545;
-        color: #fff;
+        color: var(--mv-surface);
       }
 
-      .email-health-modal h2 {
+      .homeadmin-root .email-health-modal h2 {
         margin: 0;
         font-size: 1.18rem;
         font-weight: 950;
       }
 
-      .email-health-modal p {
+      .homeadmin-root .email-health-modal p {
         margin: 5px 0 0;
         color: #4b5563;
         font-weight: 700;
       }
 
-      .email-health-list {
+      .homeadmin-root .email-health-list {
         display: grid;
         gap: 10px;
         max-height: min(320px, 48vh);
@@ -1310,31 +1346,31 @@
         padding: 16px 18px;
       }
 
-      .email-health-item {
+      .homeadmin-root .email-health-item {
         border: 1px solid rgba(220, 53, 69, 0.16);
-        border-radius: 8px;
+        border-radius: var(--mv-radius-control);
         padding: 12px;
         background: #fffafa;
       }
 
-      .email-health-item strong,
-      .email-health-item span,
-      .email-health-item small {
+      .homeadmin-root .email-health-item strong,
+      .homeadmin-root .email-health-item span,
+      .homeadmin-root .email-health-item small {
         display: block;
       }
 
-      .email-health-item span {
+      .homeadmin-root .email-health-item span {
         color: #991b1b;
         font-weight: 900;
       }
 
-      .email-health-item small {
+      .homeadmin-root .email-health-item small {
         margin-top: 4px;
         color: #4b5563;
         line-height: 1.35;
       }
 
-      .email-health-modal-actions {
+      .homeadmin-root .email-health-modal-actions {
         display: flex;
         flex-wrap: wrap;
         justify-content: flex-end;
@@ -1342,23 +1378,23 @@
         padding: 14px 18px 18px;
       }
 
-      .email-health-settings-btn,
-      .email-health-close-btn {
+      .homeadmin-root .email-health-settings-btn,
+      .homeadmin-root .email-health-close-btn {
         border: 0;
-        border-radius: 8px;
+        border-radius: var(--mv-radius-control);
         min-height: 42px;
         padding: 0 14px;
         font-weight: 900;
       }
 
-      .email-health-settings-btn {
-        background: #0d6efd;
-        color: #fff;
+      .homeadmin-root .email-health-settings-btn {
+        background: var(--mv-blue-600);
+        color: var(--mv-surface);
       }
 
-      .email-health-close-btn {
+      .homeadmin-root .email-health-close-btn {
         background: #eef2f7;
-        color: #111827;
+        color: var(--mv-ink);
       }
 
       /* ===== ANIMATIONS ===== */
@@ -1388,14 +1424,14 @@
 
       /* ===== DESKTOP MEDIA QUERY (>= 992px) ===== */
       @media (min-width: 992px) {
-        .mobile-layout {
+        .homeadmin-root .mobile-layout {
           display: none !important;
         }
       }
 
       /* ===== MOBILE MEDIA QUERY (< 992px) ===== */
       @media (max-width: 991.98px) {
-        .mobile-layout {
+        .homeadmin-root .mobile-layout {
           width: 100%;
           max-width: 100%;
           min-width: 0;
@@ -1403,19 +1439,19 @@
           touch-action: pan-y;
         }
 
-        .home-desktop-sidebar {
+        .homeadmin-root .home-desktop-sidebar {
           display: none !important;
         }
 
-        .home-desktop-content {
+        .homeadmin-root .home-desktop-content {
           display: none !important;
         }
 
-        .mobile-top-bar {
+        .homeadmin-root .mobile-top-bar {
           display: flex !important;
         }
 
-        .home-mobile-body {
+        .homeadmin-root .home-mobile-body {
           display: block !important;
           width: 100%;
           max-width: 100%;
@@ -1423,111 +1459,111 @@
           overflow-x: clip;
         }
 
-        .home-mobile-category-grid,
-        .home-mobile-body .home-submenu-grid {
+        .homeadmin-root .home-mobile-category-grid,
+        .homeadmin-root .home-mobile-body .home-submenu-grid {
           grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
           width: 100%;
           min-width: 0;
         }
 
-        .home-mobile-body .dash-btn {
+        .homeadmin-root .home-mobile-body .dash-btn {
           min-width: 0;
           max-width: 100%;
           touch-action: pan-y;
         }
 
-        .home-mobile-body .dash-btn:hover {
+        .homeadmin-root .home-mobile-body .dash-btn:hover {
           transform: none;
         }
       }
 
       /* ===== MOBILE TWEAKS ===== */
       @media (max-width: 768px) {
-        .home-ios .mobile-top-bar {
+        .homeadmin-root .home-ios .mobile-top-bar {
           padding-top: calc(var(--home-safe-top) + 12px) !important;
         }
 
-        .home-ios .mobile-top-bar .menu-toggle {
+        .homeadmin-root .home-ios .mobile-top-bar .menu-toggle {
           top: calc(var(--home-safe-top) + 22px) !important;
         }
 
-        .home-ios .mobile-menu {
+        .homeadmin-root .home-ios .mobile-menu {
           top: calc(var(--home-safe-top) + 88px) !important;
         }
 
-        .home-ios .logo-container {
+        .homeadmin-root .home-ios .logo-container {
           margin-top: calc(var(--home-safe-top) + 20px);
         }
 
-        .home-mobile-body .dash-btn {
+        .homeadmin-root .home-mobile-body .dash-btn {
           padding: 20px 14px;
         }
 
-        .home-mobile-body .dash-btn .icon {
+        .homeadmin-root .home-mobile-body .dash-btn .icon {
           width: 48px;
           height: 48px;
           font-size: 18px;
         }
 
-        .home-mobile-body .dash-btn .label {
+        .homeadmin-root .home-mobile-body .dash-btn .label {
           font-size: 0.9rem;
         }
 
-        .todo-form,
-        .todo-panel-header,
-        .admin-home-header {
+        .homeadmin-root .todo-form,
+        .homeadmin-root .todo-panel-header,
+        .homeadmin-root .admin-home-header {
           flex-direction: column;
           align-items: stretch;
         }
 
-        .mobile-todo-panel {
-          border-radius: 18px;
+        .homeadmin-root .mobile-todo-panel {
+          border-radius: var(--mv-radius-surface);
         }
 
-        .mobile-todo-panel .todo-panel-header {
+        .homeadmin-root .mobile-todo-panel .todo-panel-header {
           flex-direction: row;
           align-items: center;
           padding: 16px;
         }
 
-        .mobile-todo-panel .todo-panel-header h3 {
+        .homeadmin-root .mobile-todo-panel .todo-panel-header h3 {
           font-size: 1rem;
         }
 
-        .mobile-todo-panel .todo-form {
+        .homeadmin-root .mobile-todo-panel .todo-form {
           flex-direction: row;
           align-items: center;
           padding: 14px 16px;
         }
 
-        .mobile-todo-panel .todo-list {
+        .homeadmin-root .mobile-todo-panel .todo-list {
           padding: 8px 10px 12px;
         }
 
-        .mobile-todo-panel .todo-item {
+        .homeadmin-root .mobile-todo-panel .todo-item {
           grid-template-columns: 38px 1fr 34px;
           min-height: 52px;
           gap: 8px;
         }
 
-        .admin-home-stats {
+        .homeadmin-root .admin-home-stats {
           justify-content: stretch;
         }
 
-        .admin-home-stat {
+        .homeadmin-root .admin-home-stat {
           flex: 1 1 120px;
         }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .home-category-item,
-        .home-panel-back,
-        .home-panel-title,
-        .home-sidebar-button,
-        .home-submenu-grid,
-        .home-submenu-button,
-        .home-embedded-content,
-        .home-desktop-content .home-embedded-content {
+        .homeadmin-root .home-category-item,
+        .homeadmin-root .home-panel-back,
+        .homeadmin-root .home-panel-title,
+        .homeadmin-root .home-sidebar-button,
+        .homeadmin-root .home-submenu-grid,
+        .homeadmin-root .home-submenu-button,
+        .homeadmin-root .home-embedded-content,
+        .homeadmin-root .home-desktop-content .home-embedded-content {
           animation: none !important;
           transition: none !important;
         }
@@ -1615,12 +1651,6 @@
             <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">
               <i class="fas fa-user-plus"></i> <span class="sidebar-btn-text">Aggiungi utenti</span>
             </button>
-            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToGestioneUsers()">
-              <i class="fas fa-users-cog"></i> <span class="sidebar-btn-text">Invio notifiche dipendenti</span>
-            </button>
-            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">
-              <i class="fas fa-user-tie"></i> <span class="sidebar-btn-text">Aggiungi dipendenti</span>
-            </button>
             <button class="sidebar-bottom-btn" type="button" (click)="navigateToCambiapassword()">
               <i class="fas fa-key"></i> <span class="sidebar-btn-text">Cambia password</span>
             </button>
@@ -1656,78 +1686,91 @@
             Menu principale
           </button>
 
-          <button
-            class="home-category-item home-sidebar-button"
-            *ngFor="let button of standaloneHomeButtons; trackBy: trackByHomeButton"
-            [class.home-category-item--active]="isStandaloneButtonActive(button)"
-            type="button"
-            (click)="activateHomeButton(button)"
-          >
-            <span class="home-category-item__icon">
-              <i [class]="button.icon"></i>
-            </span>
-            <span class="home-category-item__text">
-              <span class="home-category-item__label">
-                {{ button.label }}
-                <span
-                  *ngIf="buttonBadgeCount(button) > 0"
-                  [ngClass]="buttonBadgeClass(button)"
-                >
-                  {{ buttonBadgeCount(button) }}
-                </span>
-              </span>
-            </span>
-          </button>
-
-          <ng-container *ngFor="let category of visibleHomeCategories; trackBy: trackByHomeCategory">
+          <ng-container *ngFor="let item of orderedHomeNavigationItems; trackBy: trackByHomeNavigationItem">
             <button
-              class="home-category-item"
-              [class.home-category-item--active]="isCategoryExpanded(category)"
+              *ngIf="item.type === 'button'"
+              class="home-category-item home-sidebar-button"
+              [class.home-category-item--active]="isStandaloneButtonActive(item.button)"
               type="button"
-              (click)="selectHomeCategory(category.id)"
+              (click)="activateHomeButton(item.button)"
             >
-              <span class="home-category-item__icon">
-                <i [class]="category.icon"></i>
-              </span>
+              <span class="home-category-item__icon"><i [class]="item.button.icon"></i></span>
               <span class="home-category-item__text">
                 <span class="home-category-item__label">
-                  {{ category.label }}
-                  <span
-                    *ngIf="categoryBadgeCount(category) > 0"
-                    [ngClass]="categoryBadgeClass(category)"
-                  >
-                    {{ categoryBadgeCount(category) }}
-                  </span>
+                  {{ item.button.label }}
+                  <span *ngIf="buttonBadgeCount(item.button) > 0" [ngClass]="buttonBadgeClass(item.button)">{{ buttonBadgeCount(item.button) }}</span>
                 </span>
-                <span class="home-category-item__count">
-                  {{ visibleHomeButtons(category).length }} sezioni
-                </span>
-              </span>
-              <span class="home-category-item__chevron">
-                <i class="fas" [class.fa-chevron-up]="isCategoryExpanded(category)" [class.fa-chevron-down]="!isCategoryExpanded(category)"></i>
               </span>
             </button>
 
-            <div class="home-sidebar-dropdown" *ngIf="isCategoryExpanded(category) && !sidebarCollapsed">
-              <button
-                class="home-sidebar-subitem"
-                *ngFor="let button of visibleHomeButtons(category); trackBy: trackByHomeButton"
-                [class.home-sidebar-subitem--active]="isHomeButtonActive(button)"
-                type="button"
-                (click)="activateHomeButton(button)"
-              >
-                <i [class]="button.icon"></i>
-                <span>
-                  {{ button.label }}
+            <ng-container *ngIf="item.type === 'category'">
+            <button
+              class="home-category-item"
+              [class.home-category-item--active]="isCategoryExpanded(item.category)"
+              type="button"
+              (click)="selectHomeCategory(item.category.id)"
+            >
+              <span class="home-category-item__icon">
+                <i [class]="item.category.icon"></i>
+              </span>
+              <span class="home-category-item__text">
+                <span class="home-category-item__label">
+                  {{ item.category.label }}
                   <span
-                    *ngIf="buttonBadgeCount(button) > 0"
-                    [ngClass]="buttonBadgeClass(button)"
+                    *ngIf="categoryBadgeCount(item.category) > 0"
+                    [ngClass]="categoryBadgeClass(item.category)"
                   >
-                    {{ buttonBadgeCount(button) }}
+                    {{ categoryBadgeCount(item.category) }}
                   </span>
                 </span>
-              </button>
+                <span class="home-category-item__count">
+                  {{ visibleHomeButtons(item.category).length }} sezioni
+                </span>
+              </span>
+              <span class="home-category-item__chevron">
+                <i class="fas" [class.fa-chevron-up]="isCategoryExpanded(item.category)" [class.fa-chevron-down]="!isCategoryExpanded(item.category)"></i>
+              </span>
+            </button>
+
+            <div class="home-sidebar-dropdown" *ngIf="isCategoryExpanded(item.category) && !sidebarCollapsed">
+              <ng-container *ngFor="let button of visibleHomeButtons(item.category); trackBy: trackByHomeButton">
+                <button
+                  class="home-sidebar-subitem"
+                  [class.home-sidebar-subitem--active]="isHomeButtonActive(button)"
+                  [class.home-sidebar-subitem--group]="visibleHomeButtonChildren(button).length"
+                  type="button"
+                  (click)="activateHomeButton(button)"
+                >
+                  <i [class]="button.icon"></i>
+                  <span>
+                    {{ button.label }}
+                    <span *ngIf="buttonBadgeCount(button) > 0" [ngClass]="buttonBadgeClass(button)">{{ buttonBadgeCount(button) }}</span>
+                  </span>
+                  <i
+                    *ngIf="visibleHomeButtonChildren(button).length"
+                    class="fas home-sidebar-subitem__chevron"
+                    [class.fa-chevron-up]="isHomeButtonGroupExpanded(button)"
+                    [class.fa-chevron-down]="!isHomeButtonGroupExpanded(button)"
+                  ></i>
+                </button>
+                <div class="home-sidebar-nested" *ngIf="visibleHomeButtonChildren(button).length && isHomeButtonGroupExpanded(button)">
+                  <button
+                    class="home-sidebar-subitem home-sidebar-subitem--nested"
+                    *ngFor="let child of visibleHomeButtonChildren(button); trackBy: trackByHomeButton"
+                    [class.home-sidebar-subitem--active]="isHomeButtonActive(child)"
+                    type="button"
+                    (click)="activateHomeButton(child)"
+                  >
+                    <i [class]="child.icon"></i>
+                    <span>
+                      {{ child.label }}
+                      <span *ngIf="buttonBadgeCount(child) > 0" [ngClass]="buttonBadgeClass(child)">{{ buttonBadgeCount(child) }}</span>
+                    </span>
+                  </button>
+                </div>
+              </ng-container>
             </div>
+            </ng-container>
           </ng-container>
         </nav>
 
@@ -1886,8 +1929,6 @@
 
         <div *ngIf="isMenuOpen" class="mobile-menu">
           <button type="button" *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">Aggiungi utenti</button>
-          <button type="button" *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToGestioneUsers()">Invio notifiche dipendenti</button>
-          <button type="button" *ngIf="canUsePermission('EMPLOYEE_CREATE', 'employees')" (click)="navigateToSettingsEmployees()">Aggiungi dipendenti</button>
           <button type="button" (click)="navigateToCambiapassword()">Cambia password</button>
           <button type="button" *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</button>
           <button type="button" *ngIf="canUsePermission('CUSTOMER_DEADLINES_VIEW', 'customerDeadlines') || canUsePermission('EMPLOYEE_EDIT', 'employees') || canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines') || canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToCategorySettings()">Impostazioni categorie</button>
@@ -1895,7 +1936,7 @@
           <button type="button" *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToEquipmentSettings()">Gestione attrezzature</button>
           <button type="button" *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</button>
           <button type="button" *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSettings()">Impostazioni email</button>
-          <button type="button" *ngIf="global.forMobile && canUsePermission('NOTIFICATIONS_VIEW', 'notifications')" (click)="navigateToNotificationSettings()">Notifiche mobile</button>
+          <button type="button" *ngIf="global.forMobile && canUsePermission('NOTIFICATIONS_VIEW', 'notifications')" (click)="navigateToNotificationSettings()">Preferenze notifiche amministratore</button>
           <button type="button" (click)="changeTenant()">Cambia azienda</button>
           <button type="button" class="menu-logout" (click)="back()">Logout</button>
         </div>
@@ -1979,64 +2020,75 @@
             </section>
 
             <div class="home-mobile-category-grid" *ngIf="shouldShowHomeCategories">
-              <button
-                class="dash-btn"
-                type="button"
-                *ngFor="let button of standaloneHomeButtons; trackBy: trackByHomeButton"
-                (click)="activateHomeButton(button)"
-              >
-                <span class="icon"><i [class]="button.icon"></i></span>
-                <span class="label">
-                  {{ button.label }}
-                  <span
-                    *ngIf="buttonBadgeCount(button) > 0"
-                    [ngClass]="buttonBadgeClass(button)"
-                  >
-                    {{ buttonBadgeCount(button) }}
+              <ng-container *ngFor="let item of orderedHomeNavigationItems; trackBy: trackByHomeNavigationItem">
+                <button
+                  *ngIf="item.type === 'button'"
+                  class="dash-btn"
+                  type="button"
+                  appReliableTap
+                  (reliableTap)="activateHomeButton(item.button)"
+                >
+                  <span class="icon"><i [class]="item.button.icon"></i></span>
+                  <span class="label">
+                    {{ item.button.label }}
+                    <span *ngIf="buttonBadgeCount(item.button) > 0" [ngClass]="buttonBadgeClass(item.button)">{{ buttonBadgeCount(item.button) }}</span>
                   </span>
-                </span>
-              </button>
+                </button>
 
-              <button
-                class="dash-btn"
-                type="button"
-                *ngFor="let category of visibleHomeCategories; trackBy: trackByHomeCategory"
-                (click)="selectHomeCategory(category.id)"
-              >
-                <span class="icon"><i [class]="category.icon"></i></span>
-                <span class="label">
-                  {{ category.label }}
-                  <span
-                    *ngIf="categoryBadgeCount(category) > 0"
-                    class="badge bg-danger ms-1"
-                  >
-                    {{ categoryBadgeCount(category) }}
+                <button
+                  *ngIf="item.type === 'category'"
+                  class="dash-btn"
+                  type="button"
+                  appReliableTap
+                  (reliableTap)="selectHomeCategory(item.category.id)"
+                >
+                  <span class="icon"><i [class]="item.category.icon"></i></span>
+                  <span class="label">
+                    {{ item.category.label }}
+                    <span *ngIf="categoryBadgeCount(item.category) > 0" class="badge bg-danger ms-1">{{ categoryBadgeCount(item.category) }}</span>
                   </span>
-                </span>
-                <span class="category-count">
-                  {{ visibleHomeButtons(category).length }} sezioni
-                </span>
-              </button>
+                  <span class="category-count">{{ visibleHomeButtons(item.category).length }} sezioni</span>
+                </button>
+              </ng-container>
             </div>
 
             <div class="home-submenu-grid" *ngIf="!shouldShowHomeCategories">
-              <button
-                class="dash-btn home-submenu-button"
-                type="button"
-                *ngFor="let button of currentHomeButtons; trackBy: trackByHomeButton"
-                (click)="activateHomeButton(button)"
-              >
-                <span class="icon"><i [class]="button.icon"></i></span>
-                <span class="label">
-                  {{ button.label }}
-                  <span
-                    *ngIf="buttonBadgeCount(button) > 0"
-                    [ngClass]="buttonBadgeClass(button)"
-                  >
-                    {{ buttonBadgeCount(button) }}
+              <ng-container *ngFor="let button of currentHomeButtons; trackBy: trackByHomeButton">
+                <button
+                  class="dash-btn home-submenu-button"
+                  [class.home-submenu-button--group]="visibleHomeButtonChildren(button).length"
+                  type="button"
+                  appReliableTap
+                  (reliableTap)="activateHomeButton(button)"
+                >
+                  <span class="icon"><i [class]="button.icon"></i></span>
+                  <span class="label">
+                    {{ button.label }}
+                    <span *ngIf="buttonBadgeCount(button) > 0" [ngClass]="buttonBadgeClass(button)">{{ buttonBadgeCount(button) }}</span>
                   </span>
-                </span>
-              </button>
+                  <i
+                    *ngIf="visibleHomeButtonChildren(button).length"
+                    class="fas"
+                    [class.fa-chevron-up]="isHomeButtonGroupExpanded(button)"
+                    [class.fa-chevron-down]="!isHomeButtonGroupExpanded(button)"
+                  ></i>
+                </button>
+                <div class="home-mobile-nested" *ngIf="visibleHomeButtonChildren(button).length && isHomeButtonGroupExpanded(button)">
+                  <button
+                    class="dash-btn home-submenu-button home-submenu-button--nested"
+                    type="button"
+                    *ngFor="let child of visibleHomeButtonChildren(button); trackBy: trackByHomeButton"
+                    appReliableTap
+                    (reliableTap)="activateHomeButton(child)"
+                  >
+                    <span class="icon"><i [class]="child.icon"></i></span>
+                    <span class="label">
+                      {{ child.label }}
+                      <span *ngIf="buttonBadgeCount(child) > 0" [ngClass]="buttonBadgeClass(child)">{{ buttonBadgeCount(child) }}</span>
+                    </span>
+                  </button>
+                </div>
+              </ng-container>
             </div>
           </div>
         </ng-template>

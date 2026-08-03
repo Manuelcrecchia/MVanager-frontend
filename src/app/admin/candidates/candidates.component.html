@@ -1,6 +1,7 @@
-<div class="container-fluid py-4 candidates-page">
-  <div class="candidate-toolbar">
-    <div class="candidate-toolbar__left">
+<div class="candidates-page standard-management-page">
+  <header class="candidate-toolbar mv-entity-toolbar">
+    <div class="candidate-toolbar__left mv-entity-toolbar__title">
+      <h1>Candidati e colloqui</h1>
       <button class="btn btn-back-glass" type="button" (click)="back()">
         &larr; Torna Indietro
       </button>
@@ -9,7 +10,7 @@
       </button>
     </div>
 
-    <div class="candidate-toolbar__right">
+    <div class="candidate-toolbar__right mv-entity-toolbar__controls">
       <div class="btn-group candidate-tabs" role="group">
         <button
           type="button"
@@ -43,9 +44,8 @@
         [(ngModel)]="search"
       />
     </div>
-  </div>
-
-  <h2 class="page-title text-center text-dark mb-4">Candidati e colloqui</h2>
+  </header>
+  <div class="container-fluid">
 
   <div class="notice error" *ngIf="errorMessage">{{ errorMessage }}</div>
   <div class="notice success" *ngIf="successMessage">{{ successMessage }}</div>
@@ -84,7 +84,7 @@
       </div>
 
       <button
-        class="candidate-row"
+        class="candidate-row mv-note-badge-anchor"
         type="button"
         *ngFor="let candidate of filteredCandidates; trackBy: trackByCandidate"
         [class.active]="selectedCandidate?.id === candidate.id"
@@ -98,6 +98,7 @@
         <span class="candidate-row__contact">
           {{ candidate.email || candidate.phone || candidate.fiscalCode || '-' }}
         </span>
+        <span class="mv-note-unread-badge" *ngIf="noteUnread.count('candidate', candidate.id) as unread">{{ unread > 99 ? '99+' : unread }}</span>
       </button>
 
       <div class="empty-state" *ngIf="!loading && !filteredCandidates.length">
@@ -358,4 +359,5 @@
       </section>
     </aside>
   </div>
+</div>
 </div>

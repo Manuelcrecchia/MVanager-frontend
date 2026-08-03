@@ -1,7 +1,8 @@
 .notification-settings-page {
   min-height: 100vh;
-  padding: 24px;
-  color: #111827;
+  padding: 0 0 28px;
+  background: var(--mv-canvas);
+  color: var(--mv-ink);
 }
 
 .top-actions,
@@ -21,8 +22,8 @@
 .settings-panel {
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(0, 0, 0, 0.07);
-  border-radius: 8px;
-  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.08);
+  border-radius: var(--mv-radius-surface);
+  box-shadow: var(--mv-shadow-sm);
   padding: 18px;
 }
 
@@ -41,7 +42,7 @@
 
 .panel-header p {
   margin: 4px 0 0;
-  color: #6b7280;
+  color: var(--mv-muted);
 }
 
 .category-list {
@@ -55,14 +56,14 @@
   gap: 12px;
   align-items: center;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
+  border-radius: var(--mv-radius-control);
   padding: 12px;
-  background: #fff;
+  background: var(--mv-surface);
   font-weight: 700;
 }
 
 .category-row.is-selected {
-  border-color: #2fb7ff;
+  border-color: var(--mv-blue-500);
   background: rgba(47, 183, 255, 0.08);
 }
 
@@ -73,12 +74,12 @@
 
 .category-main small {
   margin-top: 2px;
-  color: #6b7280;
+  color: var(--mv-muted);
   font-weight: 600;
 }
 
 .state-message {
-  color: #6b7280;
+  color: var(--mv-muted);
   padding: 16px 0;
   text-align: center;
 }
@@ -95,7 +96,7 @@
 @media (max-width: 560px) {
   .notification-settings-page {
     min-height: 100svh;
-    padding: 16px 12px;
+    padding: 0 0 20px;
   }
 
   .page-title {
@@ -105,7 +106,7 @@
 
   .settings-panel {
     padding: 14px;
-    border-radius: 16px;
+    border-radius: var(--mv-radius-surface);
   }
 
   .panel-header {

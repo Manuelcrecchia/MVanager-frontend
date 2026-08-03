@@ -1,38 +1,38 @@
 :root{
   --brand-black:#0b0f14;
-  --brand-orange:#ff8a00;
-  --brand-sky:#2fb7ff;
+  --brand-orange:var(--mv-orange-500);
+  --brand-sky:var(--mv-blue-500);
 
   --glass-border: rgba(255,255,255,0.18);
   --shadow-soft: 0 18px 60px rgba(0,0,0,0.35);
 
-  --radius-lg: 22px;
-  --radius-md: 16px;
+  --radius-lg: var(--mv-radius-surface);
+  --radius-md: var(--mv-radius-control);
 }
 
 /* ===============================
    MAT DIALOG - GLASS CONTAINER
 ================================= */
 .mat-mdc-dialog-container .mdc-dialog__surface{
-  border-radius: var(--radius-lg) !important;
-  border: 1px solid var(--glass-border) !important;
-  background: #ffffff !important;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  background: var(--mv-surface);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  box-shadow: var(--shadow-soft) !important;
-  color: #000000;
+  box-shadow: var(--shadow-soft);
+  color: var(--mv-ink);
 }
 
 /* Padding container interno */
 .container.py-3{
-  color: #000000;
+  color: var(--mv-ink);
 }
 
 /* Title */
 [mat-dialog-title]{
   font-weight: 950;
   letter-spacing: .2px;
-  color: #000000 !important;
+  color: var(--mv-ink);
 }
 
 /* Paragrafi */
@@ -41,14 +41,14 @@ mat-dialog-content p{
   color: #333333;
 }
 mat-dialog-content strong{
-  color: #000000;
+  color: var(--mv-ink);
   font-weight: 950;
 }
 
 .requirements-panel {
   margin: 12px 0 16px;
   padding: 12px;
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   border: 1px solid rgba(15,23,42,0.1);
   background: rgba(13,110,253,0.06);
 }
@@ -57,7 +57,7 @@ mat-dialog-content strong{
   margin: 0 0 10px;
   font-size: 1rem;
   font-weight: 900;
-  color: #111827;
+  color: var(--mv-ink);
 }
 
 .requirement-list {
@@ -73,8 +73,8 @@ mat-dialog-content strong{
   min-height: 32px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: #fff;
-  color: #111827;
+  background: var(--mv-surface);
+  color: var(--mv-ink);
   border: 1px solid rgba(15,23,42,0.08);
 }
 
@@ -85,8 +85,8 @@ mat-dialog-content strong{
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #0d6efd;
-  color: #fff;
+  background: var(--mv-blue-600);
+  color: var(--mv-surface);
   font-size: 12px;
 }
 
@@ -111,7 +111,7 @@ mat-selection-list{
 
 /* Option row */
 mat-list-option{
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   margin: 6px 0;
   padding: 12px 10px;
   min-height: 70px;
@@ -119,36 +119,36 @@ mat-list-option{
 
 /* Testo riga */
 mat-list-option .mdc-list-item__primary-text{
-  color: rgba(255,255,255,0.92) !important;
+  color: rgba(255,255,255,0.92);
   font-weight: 800;
 }
 
 /* Hover */
 mat-list-option:hover{
-  background: rgba(47,183,255,0.10) !important;
+  background: rgba(47,183,255,0.10);
 }
 
 /* Selected -> gradient soft */
 mat-list-option.mdc-list-item--selected{
-  background: linear-gradient(135deg, rgba(255,138,0,0.20), rgba(47,183,255,0.16)) !important;
+  background: linear-gradient(135deg, rgba(255,138,0,0.20), rgba(47,183,255,0.16));
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.10);
 }
 
 /* Busy state (class busy) */
 mat-list-option.busy{
-  background: rgba(255,193,7,0.22) !important;
+  background: rgba(255,193,7,0.22);
   box-shadow: inset 0 0 0 1px rgba(255,193,7,0.36);
 }
 
 mat-list-option.on-leave{
-  background: rgba(239,68,68,0.14) !important;
+  background: rgba(239,68,68,0.14);
   box-shadow: inset 0 0 0 1px rgba(239,68,68,0.28);
   opacity: 0.72;
   text-decoration: line-through;
 }
 
 mat-list-option.not-qualified{
-  background: rgba(107,114,128,0.12) !important;
+  background: rgba(107,114,128,0.12);
   box-shadow: inset 0 0 0 1px rgba(107,114,128,0.18);
 }
 
@@ -156,7 +156,7 @@ mat-list-option.not-qualified{
   display: grid;
   gap: 6px;
   width: 100%;
-  color: #000;
+  color: var(--mv-ink);
 }
 
 .employee-option__main {
@@ -168,11 +168,11 @@ mat-list-option.not-qualified{
 
 .employee-option__name {
   font-weight: 900;
-  color: #111827 !important;
+  color: var(--mv-ink);
 }
 
 .employee-option__status {
-  color: rgba(17,24,39,0.68) !important;
+  color: rgba(17,24,39,0.68);
   font-size: 12px;
   font-weight: 800;
   text-align: right;
@@ -191,18 +191,18 @@ mat-list-option.not-qualified{
   padding: 2px 8px;
   border-radius: 999px;
   background: rgba(13,110,253,0.12);
-  color: #0b4cb8 !important;
+  color: #0b4cb8;
   font-size: 11px;
   font-weight: 900;
 }
 
 /* Checkbox accent color */
 mat-list-option .mdc-checkbox .mdc-checkbox__background{
-  border-color: rgba(255,255,255,0.50) !important;
+  border-color: rgba(255,255,255,0.50);
 }
 mat-list-option.mdc-list-item--selected .mdc-checkbox .mdc-checkbox__background{
-  background-color: rgba(47,183,255,0.80) !important;
-  border-color: rgba(47,183,255,0.95) !important;
+  background-color: rgba(47,183,255,0.80);
+  border-color: rgba(47,183,255,0.95);
 }
 
 /* ===============================
@@ -216,11 +216,11 @@ mat-dialog-actions{
 /* Buttons: testo nero sempre */
 mat-dialog-actions .mat-mdc-button,
 mat-dialog-actions button[mat-button]{
-  color: #000 !important;
+  color: var(--mv-ink);
   font-weight: 950;
-  border-radius: 999px !important;
-  border: 1px solid rgba(255,255,255,0.22) !important;
-  background: rgba(255,255,255,0.16) !important;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.16);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 10px 24px rgba(0,0,0,0.22);
@@ -234,38 +234,38 @@ mat-dialog-actions button[mat-button]:hover{
 
 /* Save button (color="primary") -> brand gradient */
 mat-dialog-actions button[color="primary"]{
-  background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky)) !important;
+  background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky));
 }
 
 /* ===============================
    SEZIONE CAPOSQUADRA
 ================================= */
 mat-dialog-content > div {
-  color: #000000;
+  color: var(--mv-ink);
 }
 
 mat-dialog-content > div p {
-  color: #000000 !important;
+  color: var(--mv-ink);
 }
 
 mat-dialog-content > div span {
-  color: #000000 !important;
+  color: var(--mv-ink);
 }
 
 mat-dialog-content .employee-option__status {
-  color: rgba(17,24,39,0.68) !important;
+  color: rgba(17,24,39,0.68);
 }
 
 mat-dialog-content .category-badge {
-  color: #0b4cb8 !important;
+  color: #0b4cb8;
 }
 
 mat-checkbox {
-  color: #000000 !important;
+  color: var(--mv-ink);
 }
 
 mat-checkbox .mdc-label {
-  color: #000000 !important;
+  color: var(--mv-ink);
 }
 
 /* Mobile */

@@ -49,10 +49,6 @@
           <strong>{{ acceptance.recipientPhone || 'Non indicato' }}</strong>
         </div>
         <div class="meta-item">
-          <span>Importo</span>
-          <strong>{{ acceptance.quoteMeta.totalAmountLabel || 'Come da PDF' }}</strong>
-        </div>
-        <div class="meta-item">
           <span>Scadenza link</span>
           <strong>
             {{
@@ -82,36 +78,10 @@
       </div>
 
       <form class="acceptance-form" *ngIf="isPending" (ngSubmit)="submitAcceptance()">
-        <label>
-          Nome e cognome del referente
-          <input
-            type="text"
-            name="acceptedByName"
-            [(ngModel)]="acceptedByName"
-            maxlength="255"
-            required
-          />
-        </label>
-
-        <label>
-          Telefono referente (opzionale)
-          <input
-            type="tel"
-            name="acceptedByPhone"
-            [(ngModel)]="acceptedByPhone"
-            maxlength="50"
-          />
-        </label>
-
-        <label>
-          Email referente (opzionale)
-          <input
-            type="email"
-            name="acceptedByEmail"
-            [(ngModel)]="acceptedByEmail"
-            maxlength="255"
-          />
-        </label>
+        <div class="notice">
+          I dati del preventivo sono bloccati. Prima confermate le dichiarazioni qui sotto,
+          poi verificherete l'accesso alla casella <strong>{{ acceptance.recipientEmail }}</strong>.
+        </div>
 
         <label class="check-row">
           <input
@@ -123,17 +93,55 @@
           <span>{{ acceptance.acceptanceText }}</span>
         </label>
 
+        <label class="check-row">
+          <input
+            type="checkbox"
+            name="privacyAcknowledged"
+            [(ngModel)]="privacyAcknowledged"
+            required
+          />
+          <span>
+            Ho preso visione dell'
+            <a href="https://mvtechcore.it/privacy/mvanager" target="_blank" rel="noopener noreferrer">informativa privacy</a>.
+          </span>
+        </label>
+
+        <button
+          *ngIf="!otpRequested && !otpVerified"
+          class="btn btn-primary"
+          type="button"
+          (click)="startVerification()"
+          [disabled]="otpBusy"
+        >
+          Procedi alla verifica via email
+        </button>
+
+        <div class="otp-panel" *ngIf="otpRequested && !otpVerified">
+          <label>
+            Codice di verifica inviato via email
+            <input type="text" name="otp" [(ngModel)]="otp" inputmode="numeric" maxlength="6" autocomplete="one-time-code" />
+          </label>
+          <button class="btn btn-secondary" type="button" (click)="verifyOtp()" [disabled]="otpBusy">
+            Verifica codice
+          </button>
+          <button class="btn btn-secondary" type="button" (click)="requestOtp()" [disabled]="otpBusy">
+            Invia un nuovo codice
+          </button>
+        </div>
+        <div class="notice success" *ngIf="otpVerified">Email verificata correttamente. Ora potete apporre la firma.</div>
+
         <p class="helper">
-          La conferma registra la data, l'orario, il dispositivo usato e la copia
-          esatta del PDF accettato.
+          La conferma registra data e ora, email verificata, indirizzo IP, dispositivo
+          usato e impronta SHA-256 della copia esatta del PDF accettato. I dettagli
+          saranno disponibili alla vostra azienda per fini di prova e tutela del rapporto contrattuale.
         </p>
 
         <button
-          *ngIf="!showSignaturePad"
+          *ngIf="!showSignaturePad && otpVerified"
           class="btn btn-primary"
           type="button"
           (click)="openSignatureStep()"
-          [disabled]="submitting"
+          [disabled]="submitting || !otpVerified"
         >
           Procedi alla firma
         </button>
@@ -208,7 +216,7 @@
       </div>
     </section>
 
-    <section class="card preview-card" *ngIf="safePdfUrl">
+    <section class="card preview-card" *ngIf="pdfUrl">
       <div class="preview-head">
         <div>
           <h2>Anteprima PDF</h2>
@@ -222,10 +230,17 @@
         </div>
         <span class="hash">SHA-256: {{ acceptance.quoteHashSha256 }}</span>
       </div>
-      <iframe
-        [src]="safePdfUrl"
-        [title]="'Preventivo ' + acceptance.numeroPreventivo"
-      ></iframe>
+      <div class="pdf-viewer-wrap">
+        <ngx-extended-pdf-viewer
+          class="public-pdf-viewer"
+          [src]="pdfUrl"
+          useBrowserLocale="true"
+          backgroundColor="var(--mv-surface)"
+          [showToolbar]="false"
+          [height]="'100%'"
+          [filenameForDownload]="'preventivo-' + acceptance.numeroPreventivo + '.pdf'"
+        ></ngx-extended-pdf-viewer>
+      </div>
     </section>
   </div>
 </div>

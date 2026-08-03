@@ -1,14 +1,6 @@
-<div class="container py-4">
-  <!-- 🔙 Torna indietro -->
-  <div class="d-flex justify-content-start align-items-center mb-3">
-    <button type="button" class="btn btn-outline-primary rounded-pill" (click)="goBack()">
-      ⬅ Torna Indietro
-    </button>
-  </div>
-
-  <!-- Titolo -->
-  <h2 class="text-center mb-4 text-dark">Gestione Assenze</h2>
-
+<div class="standard-management-page">
+  <header class="mv-entity-toolbar"><div class="mv-entity-toolbar__title"><h1>Gestione assenze</h1></div><div class="mv-entity-toolbar__controls"><button type="button" class="btn mv-toolbar-back" (click)="goBack()">← Torna indietro</button></div></header>
+  <div class="container">
   <!-- Nessun dipendente selezionato -->
   <div *ngIf="!employeeId" class="alert alert-warning text-center text-dark">
     Nessun dipendente selezionato.
@@ -132,4 +124,5 @@
       Nessuna assenza registrata per questo dipendente.
     </div>
   </div>
+</div>
 </div>

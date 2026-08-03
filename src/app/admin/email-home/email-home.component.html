@@ -1,15 +1,7 @@
+<div class="email-management-page">
+  <header class="mv-entity-toolbar"><div class="mv-entity-toolbar__title"><h1>Email</h1><button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="back()">← Torna indietro</button><button class="btn mv-toolbar-primary" type="button" (click)="newEmail()" [disabled]="accounts.length === 0"><i class="fas fa-pen"></i> Nuova email</button></div></header>
 <div class="mail-shell" [class.detail-open]="detailOpen">
   <aside class="mail-sidebar">
-    <div class="sidebar-top">
-      <button class="icon-btn" type="button" (click)="back()" title="Indietro">
-        <i class="fas fa-chevron-left"></i>
-      </button>
-      <button class="compose-btn" type="button" (click)="newEmail()" [disabled]="accounts.length === 0">
-        <i class="fas fa-pen"></i>
-        Nuova email
-      </button>
-    </div>
-
     <div class="sidebar-section">
       <h3>Caselle</h3>
       <button
@@ -293,9 +285,13 @@
             <i class="fas fa-share"></i>
             <span>Inoltra</span>
           </button>
-          <button class="detail-action-btn" type="button" (click)="markUnread(selectedMessage)" title="Segna come non letto" *ngIf="!isDraftMessage(selectedMessage)">
+          <button class="detail-action-btn" type="button" (click)="markUnread(selectedMessage)" title="Segna come da leggere" *ngIf="!isDraftMessage(selectedMessage)">
             <i class="fas fa-envelope"></i>
-            <span>Non letto</span>
+            <span>Segna come da leggere</span>
+          </button>
+          <button class="detail-action-btn" type="button" (click)="printMessage(selectedMessage)" title="Stampa email">
+            <i class="fas fa-print"></i>
+            <span>Stampa</span>
           </button>
           <button class="icon-btn" type="button" (click)="trash(selectedMessage)" title="Cestino">
             <i class="fas fa-trash"></i>
@@ -339,4 +335,5 @@
       <div class="message-body" [innerHTML]="safeHtml"></div>
     </article>
   </section>
+</div>
 </div>

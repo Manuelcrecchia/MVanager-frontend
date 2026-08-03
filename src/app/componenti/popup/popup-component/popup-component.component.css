@@ -1,6 +1,6 @@
 .app-alert {
   padding: 24px;
-  color: #172033;
+  color: var(--mv-ink);
   text-align: center;
 }
 
@@ -11,9 +11,11 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
+  overflow: hidden;
 }
 
 .app-alert-icon mat-icon {
+  flex: 0 0 32px;
   width: 32px;
   height: 32px;
   font-size: 32px;
@@ -42,7 +44,7 @@
 }
 
 .app-alert .app-alert-lead {
-  color: #172033;
+  color: var(--mv-ink);
   font-size: 1.12rem;
   line-height: 1.25;
   font-weight: 800;
@@ -67,17 +69,76 @@
   height: 42px;
   border-radius: 999px;
   font-weight: 700;
-  color: #fff !important;
+  color: var(--mv-surface);
 }
 
-.app-alert-cancel {
+.app-alert-cancel,
+.app-alert-secondary {
   min-width: 112px;
   height: 42px;
   border: 1px solid #cbd5e1;
   border-radius: 999px;
-  background: #fff;
-  color: #334155 !important;
+  background: var(--mv-surface);
+  color: var(--mv-text);
   font-weight: 700;
+}
+
+.app-alert-secondary {
+  border-color: var(--mv-blue-600);
+  color: var(--mv-blue-700);
+}
+
+.app-alert-choice {
+  padding: 28px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 32px);
+  box-sizing: border-box;
+}
+
+.app-alert-choice .app-alert-icon,
+.app-alert-choice h2 {
+  text-align: center;
+}
+
+.app-alert-choice [mat-dialog-actions] {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.app-alert-choice [mat-dialog-content] {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.app-alert-choice .app-alert-button,
+.app-alert-choice .app-alert-secondary,
+.app-alert-choice .app-alert-cancel {
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+}
+
+.app-alert-choice .app-alert-button {
+  grid-row: 1;
+}
+
+.app-alert-choice .app-alert-secondary {
+  grid-row: 2;
+  background: #eff6ff;
+}
+
+.app-alert-choice .app-alert-cancel {
+  grid-row: 3;
+  border: 0;
+  background: transparent;
+  color: var(--mv-muted);
+  font-size: .9rem;
 }
 
 .app-alert-input {
@@ -95,22 +156,25 @@
   min-height: 46px;
   padding: 10px 12px;
   border: 1px solid #b8c7d9;
-  border-radius: 10px;
-  background: #fff;
-  color: #172033;
+  border-radius: var(--mv-radius-control);
+  background: var(--mv-surface);
+  color: var(--mv-ink);
   font: inherit;
   font-weight: 600;
 }
 
 .app-alert-input input:focus {
-  border-color: #2563eb;
+  border-color: var(--mv-blue-600);
   outline: 3px solid rgba(37, 99, 235, .16);
 }
 
 @media (max-width: 480px) {
   .app-alert { padding: 20px 16px; }
+  .app-alert-choice { padding: 22px 20px; }
+  .app-alert-choice h2 { font-size: 1.2rem; }
+  .app-alert-choice [mat-dialog-actions] { margin-top: 14px; }
   .app-alert [mat-dialog-actions] { align-items: stretch; flex-direction: column-reverse; }
-  .app-alert-button, .app-alert-cancel { width: 100%; }
+  .app-alert-button, .app-alert-cancel, .app-alert-secondary { width: 100%; }
 }
 
 .app-alert-error .app-alert-icon {
@@ -142,9 +206,9 @@
 
 .app-alert-info .app-alert-icon {
   color: #175cd3;
-  background: #dbeafe;
+  background: var(--mv-blue-100);
 }
 
 .app-alert-info .app-alert-button {
-  background: #2563eb;
+  background: var(--mv-blue-600);
 }

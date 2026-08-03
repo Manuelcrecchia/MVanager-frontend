@@ -361,6 +361,137 @@ export class EmailHomeComponent implements OnInit {
     });
   }
 
+  printMessage(message: EmailMessage): void {
+    const printWindow = window.open('', '_blank', 'width=900,height=720');
+    if (!printWindow) {
+      alert('Pop-up bloccato dal browser. Abilita i pop-up per stampare l’email.');
+      return;
+    }
+
+    printWindow.opener = null;
+    const printDocument = printWindow.document;
+    printDocument.title = message.subject || 'Email';
+
+    const style = printDocument.createElement('style');
+    style.textContent = `
+      @page { margin: 16mm; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: #111827;
+        background: #fff;
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      }
+      h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+      .mail-meta {
+        margin: 0 0 24px;
+        padding: 0 0 18px;
+        border-bottom: 1px solid #d1d5db;
+      }
+      .mail-meta-row {
+        display: grid;
+        grid-template-columns: 82px minmax(0, 1fr);
+        gap: 10px;
+        margin: 4px 0;
+      }
+      .mail-meta-label { color: #6b7280; font-weight: 700; }
+      .mail-meta-value { overflow-wrap: anywhere; }
+      .mail-attachments {
+        margin: 0 0 22px;
+        padding: 14px 16px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        break-inside: avoid;
+      }
+      .mail-attachments strong { display: block; margin-bottom: 6px; }
+      .mail-attachments ul { margin: 0; padding-left: 20px; }
+      .mail-body { overflow-wrap: anywhere; }
+      .mail-body img { max-width: 100% !important; height: auto !important; }
+      .mail-body table { max-width: 100% !important; }
+      .mail-body pre { white-space: pre-wrap; }
+      @media print {
+        a { color: inherit; text-decoration: none; }
+      }
+    `;
+    printDocument.head.appendChild(style);
+
+    const title = printDocument.createElement('h1');
+    title.textContent = message.subject || '(Senza oggetto)';
+    printDocument.body.appendChild(title);
+
+    const meta = printDocument.createElement('section');
+    meta.className = 'mail-meta';
+    const recipients = (message.to || [])
+      .map((item) => item.name ? `${item.name} <${item.email}>` : item.email)
+      .filter(Boolean)
+      .join(', ');
+    const copies = (message.cc || [])
+      .map((item) => item.name ? `${item.name} <${item.email}>` : item.email)
+      .filter(Boolean)
+      .join(', ');
+    const sender = message.fromName
+      ? `${message.fromName} <${message.fromEmail}>`
+      : message.fromEmail;
+    const metaRows = [
+      ['Account', message.accountLabel || message.accountEmail],
+      ['Da', sender],
+      ['A', recipients],
+      ['Cc', copies],
+      ['Data', this.formatMailDate(message)],
+    ].filter(([, value]) => Boolean(value));
+
+    for (const [label, value] of metaRows) {
+      const row = printDocument.createElement('div');
+      row.className = 'mail-meta-row';
+      const labelElement = printDocument.createElement('span');
+      labelElement.className = 'mail-meta-label';
+      labelElement.textContent = label;
+      const valueElement = printDocument.createElement('span');
+      valueElement.className = 'mail-meta-value';
+      valueElement.textContent = value;
+      row.append(labelElement, valueElement);
+      meta.appendChild(row);
+    }
+    printDocument.body.appendChild(meta);
+
+    if (message.attachments?.length) {
+      const attachments = printDocument.createElement('section');
+      attachments.className = 'mail-attachments';
+      const heading = printDocument.createElement('strong');
+      heading.textContent = 'Allegati';
+      const list = printDocument.createElement('ul');
+      for (const attachment of message.attachments) {
+        const item = printDocument.createElement('li');
+        item.textContent = this.attachmentLabel(attachment);
+        list.appendChild(item);
+      }
+      attachments.append(heading, list);
+      printDocument.body.appendChild(attachments);
+    }
+
+    const renderedBody = document.querySelector('.detail-card .message-body');
+    const body = renderedBody
+      ? renderedBody.cloneNode(true) as HTMLElement
+      : printDocument.createElement('div');
+    body.className = 'mail-body';
+    if (!renderedBody) body.textContent = message.textBody || '';
+    printDocument.body.appendChild(printDocument.adoptNode(body));
+    printDocument.close();
+
+    printWindow.addEventListener('afterprint', () => printWindow.close(), {
+      once: true,
+    });
+    window.setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 300);
+  }
+
   closeCompose() {
     this.composeOpen = false;
   }

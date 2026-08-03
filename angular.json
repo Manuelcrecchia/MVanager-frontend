@@ -41,7 +41,9 @@
               "@angular/material/prebuilt-themes/indigo-pink.css",
               "node_modules/devextreme/dist/css/dx.light.css",
               "src/styles.css",
-              "src/bootstrap.scss"
+              "src/bootstrap.scss",
+              "src/mv-design-system.css",
+              "src/internal-warehouse-requests.css"
             ],
             "scripts": [
               "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"
@@ -170,7 +172,8 @@
             "assets": ["src/favicon.ico", "src/assets"],
             "styles": [
               "@angular/material/prebuilt-themes/indigo-pink.css",
-              "src/styles.css"
+              "src/styles.css",
+              "src/mv-design-system.css"
             ],
             "scripts": []
           }

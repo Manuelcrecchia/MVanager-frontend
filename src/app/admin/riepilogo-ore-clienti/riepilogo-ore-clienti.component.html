@@ -1,380 +1,50 @@
-<style>
-:root{
-  --brand-black:#0b0f14;
-  --brand-orange:#ff8a00;
-  --brand-sky:#2fb7ff;
-
-  --glass-border: rgba(255,255,255,0.18);
-  --shadow-soft: 0 18px 60px rgba(0,0,0,0.18);
-  --shadow-card: 0 10px 30px rgba(0,0,0,0.16);
-
-  --radius-lg: 22px;
-  --radius-md: 16px;
-}
-
-html, body{
-  height:100%;
-  margin:0;
-  background:
-    radial-gradient(1000px 620px at 10% 10%, rgba(47,183,255,0.20), transparent 60%),
-    radial-gradient(1000px 620px at 90% 15%, rgba(255,138,0,0.20), transparent 65%),
-    linear-gradient(180deg, #0b0f14, #121c28);
-  background-attachment: fixed;
-}
-
-.container-fluid.py-4{
-  min-height: 100vh;
-  color: rgba(255,255,255,0.92);
-  padding-left: 12px;
-  padding-right: 12px;
-}
-
-.btn-back{
-  display:inline-flex;
-  align-items:center;
-  gap:10px;
-  padding:10px 14px;
-  border-radius:999px;
-  border:1px solid var(--glass-border);
-  background: linear-gradient(135deg, rgba(47,183,255,0.26), rgba(255,138,0,0.22));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 10px 26px rgba(0,0,0,0.20);
-  color:#000;
-  font-weight:900;
-}
-.btn-back:hover{ transform: translateY(-1px); box-shadow: 0 14px 36px rgba(0,0,0,0.26); }
-
-.d-flex.justify-content-center.align-items-center.gap-3.mb-3{
-  padding: 12px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--glass-border);
-  background: rgba(255,255,255,0.10);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: var(--shadow-card);
-}
-
-.form-select,
-.form-control{
-  border-radius: 14px;
-  border: 1px solid rgba(0,0,0,0.12);
-  background: rgba(255,255,255,0.92);
-  color: #000;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.12);
-}
-.form-select:focus,
-.form-control:focus{
-  border-color: rgba(47,183,255,0.55);
-  box-shadow: 0 0 0 0.18rem rgba(47,183,255,0.20);
-  outline: none;
-}
-.form-select option{ color:#000; }
-
-.scroll-wrapper{
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(255,255,255,0.16);
-  background: rgba(255,255,255,0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: var(--shadow-soft);
-  overflow: auto;
-  max-height: calc(100vh - 280px);
-}
-
-.presenze-table{
-  margin: 0;
-  min-width: 1200px;
-  background: rgba(255,255,255,0.92);
-  color: #000;
-}
-
-.presenze-table thead th{
-  background: rgba(255,255,255,0.96) !important;
-  color: #000 !important;
-  border-color: rgba(0,0,0,0.08) !important;
-  font-weight: 950;
-  letter-spacing: .15px;
-}
-
-.presenze-table td,
-.presenze-table th{
-  border-color: rgba(0,0,0,0.08) !important;
-  vertical-align: top;
-}
-.presenze-table tbody td{
-  background: rgba(255,255,255,0.94) !important;
-  color: #000 !important;
-}
-.presenze-table tbody tr:hover td{
-  background: rgba(47,183,255,0.06) !important;
-}
-
-.sticky-top{
-  position: sticky;
-  top: 0;
-  z-index: 3;
-}
-
-.day-header{
-  white-space: pre-line;
-  line-height: 1.3;
-}
-
-.sticky-col{
-  position: sticky;
-  left: 0;
-  z-index: 4;
-  background: rgba(255,255,255,0.98) !important;
-  color: #000 !important;
-}
-
-.corner{
-  z-index: 6 !important;
-  background: rgba(255,255,255,0.98) !important;
-  color: #000 !important;
-}
-
-/* Cella ore con possibile freccia espandibile */
-.ore-cell{
-  position: relative;
-  cursor: pointer;
-  user-select: none;
-}
-
-.ore-cell:hover{
-  background: rgba(255,138,0,0.1) !important;
-}
-
-.ore-value{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.expand-arrow{
-  display: inline-block;
-  font-size: 14px;
-  transition: transform 0.2s ease;
-}
-
-.expand-arrow.open{
-  transform: rotate(180deg);
-}
-
-/* Dettagli espansi (popover sotto la cella) */
-.dettagli-container{
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: rgba(255,255,255,0.98);
-  border: 1px solid rgba(47,183,255,0.3);
-  border-radius: 8px;
-  padding: 8px;
-  margin-top: 2px;
-  z-index: 10;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-  min-width: 200px;
-}
-
-.dettagli-list{
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.dettagli-list li{
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
-  font-size: 0.9rem;
-  display: flex;
-  justify-content: space-between;
-}
-
-.dettagli-list li:last-child{
-  border-bottom: none;
-}
-
-.dettagli-list .emp-name{
-  font-weight: 600;
-  flex: 1;
-}
-
-.dettagli-list .emp-ore{
-  font-weight: 700;
-  color: var(--brand-orange);
-}
-
-@media (max-width: 575.98px){
-  .d-flex.justify-content-center.align-items-center.gap-3.mb-3{
-    flex-direction: column;
-    align-items: stretch !important;
-  }
-  .d-flex.justify-content-center.align-items-center.gap-3.mb-3 .form-select,
-  .d-flex.justify-content-center.align-items-center.gap-3.mb-3 .form-control{
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-  .scroll-wrapper{
-    max-height: calc(100vh - 320px);
-  }
-}
-
-.summary-wide-matrix {
-  display: none;
-}
-
-@media (min-width: 1600px) {
-  .summary-compact-view {
-    display: none;
-  }
-
-  .summary-wide-matrix {
-    display: block;
-  }
-}
-</style>
-
-<div class="container-fluid py-4 presenze-page">
-  <div class="d-flex justify-content-start align-items-center mb-3">
-    <button class="btn-back me-3" type="button" (click)="back()">
-      &larr; Torna Indietro
-    </button>
-  </div>
-
-  <h4 class="text-center fw-bold mb-4 presenze-title text-dark">Riepilogo Ore Clienti</h4>
-
-  <!-- Filtri -->
-  <div class="d-flex justify-content-center align-items-center gap-3 mb-3 filters-panel filters-row">
-    <select
-      [(ngModel)]="meseSelezionato"
-      (change)="cambiaMeseAnno()"
-      class="form-select w-auto"
-    >
-      <option *ngFor="let m of mesi" [value]="m.valore">{{ m.nome }}</option>
-    </select>
-
-    <input
-      type="number"
-      [(ngModel)]="annoSelezionato"
-      (change)="cambiaMeseAnno()"
-      class="form-control w-auto"
-      style="max-width: 100px"
-    />
-  </div>
-
-  <!-- Spinner -->
-  <div *ngIf="loading" class="text-center my-5">
-    <div class="spinner-border text-primary"></div>
-  </div>
-
-  <!-- Tabella -->
-  <div *ngIf="!loading" class="mobile-day-view summary-compact-view">
-    <div class="mobile-day-toolbar">
-      <button type="button" class="mobile-day-nav" (click)="prevDay()" [disabled]="selectedDayIndex === 0">‹</button>
-      <div class="mobile-day-current">{{ selectedDayLabel }}</div>
-      <button
-        type="button"
-        class="mobile-day-nav"
-        (click)="nextDay()"
-        [disabled]="selectedDayIndex === giorni.length - 1"
-      >›</button>
+<div class="bg-light hours-summary-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title"><h1>Ore clienti</h1><button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="back()">← Torna indietro</button></div>
+    <div class="mv-entity-toolbar__controls">
+      <label class="hours-search-field"><span class="visually-hidden">Cerca cliente</span><i class="fas fa-search" aria-hidden="true"></i><input class="form-control" type="search" [(ngModel)]="search" placeholder="Numero o nominativo cliente" /></label>
+      <span class="mv-entity-toolbar__count">{{ filteredClienti.length }} / {{ clienti.length }}</span>
+      <button type="button" class="btn btn-light btn-sm" *ngIf="search" (click)="search = ''">Pulisci</button>
+      <button type="button" class="btn btn-light btn-sm" (click)="toggleShowArchived()">{{ showArchived ? 'Nascondi archiviati' : 'Mostra archivio' }}</button>
     </div>
+  </header>
 
-    <div class="mobile-day-chips">
-      <button
-        *ngFor="let g of giorni; let i = index"
-        type="button"
-        class="mobile-day-chip"
-        [class.mobile-day-chip--active]="i === selectedDayIndex"
-        (click)="selectDay(i)"
-      >
-        {{ getDayShortLabel(i) }}
-      </button>
-    </div>
+  <div class="container hours-summary-content">
+    <section class="hours-period-panel">
+      <div class="hours-period-fields">
+        <label><span>Mese</span><select class="form-select" [(ngModel)]="meseSelezionato" (change)="cambiaMeseAnno()"><option *ngFor="let month of mesi" [value]="month.valore">{{ month.nome }}</option></select></label>
+        <label><span>Anno</span><input class="form-control" type="number" [(ngModel)]="annoSelezionato" (change)="cambiaMeseAnno()" /></label>
+      </div>
+      <div class="hours-view-switch" aria-label="Modalità visualizzazione"><button type="button" [class.active]="viewMode === 'day'" (click)="viewMode = 'day'"><i class="fas fa-calendar-day"></i> Giorno</button><button type="button" [class.active]="viewMode === 'month'" (click)="viewMode = 'month'"><i class="fas fa-calendar-alt"></i> Mese</button></div>
+    </section>
 
-    <div class="mobile-hours-list">
-      <article class="mobile-hours-card" *ngFor="let cliente of clienti">
-        <div class="mobile-hours-card__head">
-          <h5>{{ cliente.customerName }}</h5>
-          <span class="mobile-hours-card__value">{{ getClienteOre(cliente, selectedDayIndex) }}</span>
-        </div>
+    <section class="hours-metrics" *ngIf="!loading"><div><span>Ore del mese</span><strong>{{ visibleTotalHours }}</strong></div><div><span>Clienti mostrati</span><strong>{{ filteredClienti.length }}</strong></div><div><span>Selezionati</span><strong>{{ clientiSelezionati.size }}</strong></div></section>
+    <section class="hours-selection-bar" *ngIf="!loading && filteredClienti.length"><button type="button" class="btn btn-light" (click)="toggleAllVisible()">Seleziona/deseleziona visibili</button><button type="button" class="btn mv-toolbar-primary" (click)="exportCsv()" [disabled]="clientiSelezionati.size === 0"><i class="fas fa-file-csv"></i> Esporta selezionati</button></section>
+    <div class="alert alert-danger" *ngIf="errorMessage">{{ errorMessage }}</div>
+    <div *ngIf="loading" class="alert alert-info text-center">Caricamento in corso...</div>
 
-        <div class="mobile-hours-card__details" *ngIf="getClienteDettagli(cliente, selectedDayIndex).length > 0; else noDettagli">
-          <div class="mobile-hours-detail" *ngFor="let dip of getClienteDettagli(cliente, selectedDayIndex)">
-            <span>{{ dip.nome }}</span>
-            <strong>{{ dip.ore }}</strong>
+    <div class="summary-compact-view" *ngIf="!loading && viewMode === 'day'">
+      <nav class="hours-day-nav" aria-label="Selezione giorno"><button type="button" (click)="prevDay()" [disabled]="selectedDayIndex === 0">‹</button><strong>{{ selectedDayLabel }}</strong><button type="button" (click)="nextDay()" [disabled]="selectedDayIndex === giorni.length - 1">›</button></nav>
+      <div class="hours-day-chips"><button type="button" *ngFor="let day of giorni; let index = index" [class.active]="index === selectedDayIndex" (click)="selectDay(index)">{{ getDayShortLabel(index) }}</button></div>
+
+      <div class="hours-card-list">
+        <article class="hours-card" *ngFor="let customer of filteredClienti">
+          <header class="hours-card__header">
+            <label class="hours-entity-title"><input type="checkbox" [checked]="clientiSelezionati.has(customer.numeroCliente.toString())" (change)="toggleCliente(customer.numeroCliente)" /><span class="hours-id-pill">#{{ customer.numeroCliente }}</span><strong>{{ customer.customerName }}</strong><span class="badge bg-secondary" *ngIf="customer.active === false">Archiviato</span></label>
+            <span class="hours-total-pill">{{ customer.totale || '0.00' }} h</span>
+          </header>
+          <div class="hours-card__body hours-customer-body">
+            <label class="hours-customer-editor"><span>Ore del giorno</span><input *ngIf="globalService.hasPermission('ATTENDANCE_MANAGE'); else readonlyHours" class="form-control" type="number" min="0" max="24" step="0.25" [(ngModel)]="customer.orePerGiorno[selectedDayIndex]" (change)="saveCustomerHours(customer, selectedDayIndex)" /><ng-template #readonlyHours><strong>{{ getClienteOre(customer, selectedDayIndex) }}</strong></ng-template><small *ngIf="isManual(customer, selectedDayIndex)">Rettifica manuale</small></label>
+            <div class="hours-customer-details"><h3>Dettaglio dipendenti</h3><div class="hours-detail-row" *ngFor="let employee of getClienteDettagli(customer, selectedDayIndex)"><span>{{ employee.nome }}</span><strong>{{ employee.ore }} h</strong></div><p *ngIf="getClienteDettagli(customer, selectedDayIndex).length === 0">Nessun dettaglio per il giorno selezionato.</p></div>
           </div>
-        </div>
-
-        <ng-template #noDettagli>
-          <p class="mobile-hours-card__empty">Nessun dettaglio per il giorno selezionato.</p>
-        </ng-template>
-      </article>
+        </article>
+      </div>
     </div>
-  </div>
 
-  <div *ngIf="!loading" class="scroll-wrapper summary-wide-matrix">
-    <table class="presenze-table table table-bordered align-middle">
-      <thead class="table-light">
-        <tr>
-          <th class="sticky-col sticky-top corner">Cliente</th>
-          <th *ngFor="let g of giorni" class="sticky-top text-center day-header">
-            {{ g }}
-          </th>
-          <th class="sticky-top text-center">Totale</th>
-        </tr>
-      </thead>
+    <div class="hours-month-table" *ngIf="!loading && viewMode === 'month'">
+      <table><thead><tr><th class="sticky-col">Cliente</th><th *ngFor="let day of giorni">{{ day }}</th><th>Totale</th></tr></thead><tbody><tr *ngFor="let customer of filteredClienti"><td class="sticky-col"><label class="hours-entity-title"><input type="checkbox" [checked]="clientiSelezionati.has(customer.numeroCliente.toString())" (change)="toggleCliente(customer.numeroCliente)" /><span class="hours-id-pill">#{{ customer.numeroCliente }}</span><strong>{{ customer.customerName }}</strong></label></td><td *ngFor="let day of giorni; let dayIndex = index"><input *ngIf="globalService.hasPermission('ATTENDANCE_MANAGE'); else readCell" class="form-control hours-customer-cell" type="number" min="0" max="24" step="0.25" [(ngModel)]="customer.orePerGiorno[dayIndex]" (change)="saveCustomerHours(customer, dayIndex)" [class.manual]="isManual(customer, dayIndex)" /><ng-template #readCell>{{ getClienteOre(customer, dayIndex) }}</ng-template></td><td class="hours-table-total">{{ customer.totale || '0.00' }}</td></tr></tbody></table>
+    </div>
 
-      <tbody>
-        <tr *ngFor="let cliente of clienti">
-          <td class="sticky-col emp-name">
-            {{ cliente.customerName }}
-          </td>
-
-          <td *ngFor="let g of giorni; let i = index" class="text-center ore-cell"
-              (click)="haDettagli(cliente, i) ? toggleDettaglio(cliente.numeroCliente, i) : null"
-              (keydown.enter)="haDettagli(cliente, i) ? toggleDettaglio(cliente.numeroCliente, i) : null"
-              (keydown.space)="haDettagli(cliente, i) ? toggleDettaglio(cliente.numeroCliente, i) : null; $event.preventDefault()"
-              [attr.role]="haDettagli(cliente, i) ? 'button' : null"
-              [attr.tabindex]="haDettagli(cliente, i) ? 0 : null"
-              [style.cursor]="haDettagli(cliente, i) ? 'pointer' : 'default'"
-          >
-            <div class="ore-value">
-              <span>{{ cliente.orePerGiorno[i] }}</span>
-              <span *ngIf="haDettagli(cliente, i)"
-                    class="expand-arrow"
-                    [class.open]="isEspanso(cliente.numeroCliente, i)">▼</span>
-            </div>
-
-            <!-- Dettagli espansi -->
-            <div *ngIf="isEspanso(cliente.numeroCliente, i) && haDettagli(cliente, i)"
-                 class="dettagli-container"
-                 (click)="$event.stopPropagation()">
-              <ul class="dettagli-list" *ngIf="cliente.dettagliPerGiorno[i].length > 0">
-                <li *ngFor="let dip of cliente.dettagliPerGiorno[i]">
-                  <span class="emp-name">{{ dip.nome }}</span>
-                  <span class="emp-ore">{{ dip.ore }}</span>
-                </li>
-              </ul>
-              <div *ngIf="cliente.dettagliPerGiorno[i].length === 0" class="text-muted" style="font-size: 0.9rem; padding: 6px 0;">
-                Nessun dettaglio
-              </div>
-            </div>
-          </td>
-
-          <td class="text-center total-col">{{ cliente.totale }}</td>
-        </tr>
-
-        <!-- Riga vuota se non ci sono clienti -->
-        <tr *ngIf="clienti.length === 0">
-          <td [attr.colspan]="giorni.length + 2" class="text-center text-muted py-4">
-            Nessun dato disponibile
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="alert alert-light border" *ngIf="!loading && filteredClienti.length === 0">Nessun cliente trovato.</div>
   </div>
 </div>

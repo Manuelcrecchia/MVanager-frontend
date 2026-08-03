@@ -1,11 +1,11 @@
-<div class="container py-4 page-wrap">
-  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <button class="btn btn-back-glass" type="button" (click)="back()">
-      &larr; Torna indietro
-    </button>
-  </div>
-
-  <h2 class="text-center page-title mb-4 text-dark">Impostazioni preventivi</h2>
+<div class="standard-management-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title">
+      <h1>Impostazioni preventivi</h1>
+    </div>
+    <div class="mv-entity-toolbar__controls"><button class="btn mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button></div>
+  </header>
+  <div class="container">
 
   <section class="admin-card mb-4">
     <div class="card-header py-3 px-4">
@@ -107,7 +107,7 @@
               <td data-label="Frasi associate">
                 <small class="text-muted" *ngIf="getPhrasesForRoom(room.id).length === 0">(nessuna)</small>
                 <div *ngFor="let p of getPhrasesForRoom(room.id)" class="mb-1">
-                  <span class="badge" style="background: rgba(47,183,255,0.12); color: #1a6fa8; font-weight: 600;">{{ p.testo }}</span>
+                  <span class="badge" style="background: rgba(47,183,255,0.12); color: var(--mv-blue-700); font-weight: 600;">{{ p.testo }}</span>
                 </div>
               </td>
               <td class="actions-cell" data-label="Azioni">
@@ -269,4 +269,5 @@
       </div>
     </div>
   </section>
+</div>
 </div>

@@ -1,0 +1,35 @@
+<div class="standard-management-page employee-profile-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title">
+      <h1>Scheda dipendente</h1>
+    </div>
+    <div class="mv-entity-toolbar__controls">
+      <button type="button" class="btn mv-toolbar-back" (click)="back()">&larr; Torna indietro</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div *ngIf="loading" class="alert alert-info text-center">Caricamento in corso...</div>
+    <div *ngIf="!loading && !employee" class="alert alert-warning text-center">Dipendente non trovato.</div>
+
+    <article *ngIf="employee" class="employee-profile-card">
+      <div class="employee-profile-card__heading">
+        <span class="entity-id-pill">#{{ employee.id }}</span>
+        <div>
+          <h2>{{ displayName }}</h2>
+          <span class="badge bg-warning text-dark" *ngIf="employee.active === false">Archiviato</span>
+        </div>
+      </div>
+
+      <div class="employee-profile-grid">
+        <div class="employee-profile-field"><span>Email</span><strong>{{ employee.email || '-' }}</strong></div>
+        <div class="employee-profile-field"><span>Telefono</span><strong>{{ employee.cellulare || '-' }}</strong></div>
+        <div class="employee-profile-field"><span>Ore giornaliere predefinite</span><strong>{{ employee.oreGiornaliereDefault || '-' }}</strong></div>
+        <div class="employee-profile-field" *ngFor="let field of visibleExtraFields">
+          <span>{{ field.label || field.dbColumn || field.key }}</span>
+          <strong>{{ fieldValue(field) }}</strong>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>

@@ -151,22 +151,22 @@ textarea {
 
 .btn-pink,
 .btn-success {
-  background-color: #ec407a !important;
+  background-color: var(--mv-orange-500) !important;
   color: white !important;
 }
 
 .btn-pink:hover,
 .btn-success:hover {
-  background-color: #d81b60 !important;
+  background-color: var(--mv-orange-600) !important;
 }
 
 .btn-outline-primary {
-  border: 1px solid #81d4fa;
-  color: #0288d1;
+  border: 1px solid var(--mv-blue-300);
+  color: var(--mv-blue-600);
 }
 
 .btn-outline-primary:hover {
-  background-color: #81d4fa;
+  background-color: var(--mv-blue-300);
   color: white;
 }
 
@@ -211,12 +211,12 @@ textarea {
   background: transparent;
   border: none;
   font-size: 1.5rem;
-  color: #ec407a;
+  color: var(--mv-orange-500);
   z-index: 1000;
 }
 
 .menu-toggle:hover {
-  color: #d81b60;
+  color: var(--mv-orange-600);
 }
 
 .menu {
@@ -236,24 +236,24 @@ textarea {
 
 .menu a {
   text-decoration: none;
-  color: #ec407a;
+  color: var(--mv-orange-500);
   font-weight: 500;
 }
 
 .menu a:hover {
-  color: #d81b60;
+  color: var(--mv-orange-600);
 }
 
 /* =====================================
      ANGULAR MATERIAL + FORM
   ====================================== */
 .mat-form-field-appearance-fill .mat-form-field-flex {
-  background-color: #fce4ec;
+  background-color: var(--mv-orange-50);
 }
 
 .mat-select-value,
 .mat-form-field-label {
-  color: #ec407a !important;
+  color: var(--mv-orange-500) !important;
 }
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
@@ -299,17 +299,17 @@ input:invalid {
 }
 
 .table-pink {
-  background-color: #ec407a;
+  background-color: var(--mv-orange-500);
   color: white;
 }
 
 .table-bordered th,
 .table-bordered td {
-  border: 1px solid #f8bbd0;
+  border: 1px solid var(--mv-orange-100);
 }
 
 .table-striped tbody tr:nth-of-type(odd) {
-  background-color: #fce4ec;
+  background-color: var(--mv-orange-50);
 }
 
 /* =====================================
@@ -323,7 +323,7 @@ input:invalid {
 }
 
 .badge-success {
-  background-color: #81d4fa;
+  background-color: var(--mv-blue-300);
   color: white;
 }
 
@@ -368,7 +368,7 @@ input:invalid {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  border: 2px solid #0288d1;
+  border: 2px solid var(--mv-blue-600);
   border-radius: 5px;
   padding: 5px;
   gap: 10px;
@@ -376,10 +376,10 @@ input:invalid {
 
 .item {
   text-align: center;
-  border: 2px solid #0288d1;
+  border: 2px solid var(--mv-blue-600);
   padding: 5px;
   border-radius: 8px;
-  background-color: #e1f5fe;
+  background-color: var(--mv-blue-50);
   flex: 1 1 calc(14.28% - 10px);
   box-sizing: border-box;
 }
@@ -392,7 +392,7 @@ input:invalid {
 }
 
 .inno {
-  border: 2px solid #0288d1;
+  border: 2px solid var(--mv-blue-600);
   border-radius: 10px;
   padding: 10px;
   text-align: center;
@@ -407,7 +407,7 @@ input:invalid {
 
 /* categoryi calendario per categorie */
 .category-sopralluogo {
-  background-color: #81d4fa !important; /* azzurro */
+  background-color: var(--mv-blue-300) !important; /* azzurro */
   color: #000 !important;
 }
 
@@ -553,4 +553,29 @@ td {
 td input {
   position: relative;
   z-index: 10;
+}
+.mv-note-badge-anchor {
+  position: relative;
+}
+
+.mv-note-unread-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #dc3545;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(18, 31, 53, 0.24);
+  pointer-events: none;
 }

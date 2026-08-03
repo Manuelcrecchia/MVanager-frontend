@@ -51,3 +51,4 @@ Thumbs.db
 /certs/
 
 .codegpt
+src/app/shared/generated-responsive-page-fixtures.ts

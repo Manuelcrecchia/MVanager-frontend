@@ -4,7 +4,7 @@
   background:
     radial-gradient(circle at top left, rgba(245, 158, 11, 0.18), transparent 28%),
     linear-gradient(180deg, #f7f4ef 0%, #efe8de 100%);
-  color: #1f2937;
+  color: var(--mv-text);
 }
 
 .quote-accept-page {
@@ -61,7 +61,7 @@ h1 {
 .state-card {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 28px;
+  border-radius: var(--mv-radius-surface);
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(12px);
 }
@@ -113,7 +113,7 @@ h1 {
   padding: 8px 14px;
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.08);
-  color: #0f172a;
+  color: var(--mv-ink);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -139,20 +139,20 @@ h1 {
 
 .meta-item {
   padding: 14px 16px;
-  border-radius: 18px;
-  background: #f8fafc;
+  border-radius: var(--mv-radius-surface);
+  background: var(--mv-surface-soft);
   border: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .meta-item span {
   display: block;
   margin-bottom: 6px;
-  color: #6b7280;
+  color: var(--mv-muted);
   font-size: 13px;
 }
 
 .meta-item strong {
-  color: #111827;
+  color: var(--mv-ink);
   font-size: 15px;
   line-height: 1.45;
 }
@@ -190,13 +190,13 @@ h1 {
 
 .btn-primary {
   background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
-  color: #ffffff;
+  color: var(--mv-surface);
   box-shadow: 0 12px 30px rgba(15, 118, 110, 0.28);
 }
 
 .btn-secondary {
-  background: #ffffff;
-  color: #0f172a;
+  background: var(--mv-surface);
+  color: var(--mv-ink);
   border: 1px solid rgba(15, 23, 42, 0.12);
 }
 
@@ -204,7 +204,7 @@ h1 {
 .status-box {
   margin-top: 16px;
   padding: 16px 18px;
-  border-radius: 18px;
+  border-radius: var(--mv-radius-surface);
 }
 
 .notice.success,
@@ -235,7 +235,7 @@ h1 {
 .acceptance-form label {
   display: grid;
   gap: 8px;
-  color: #334155;
+  color: var(--mv-text);
   font-weight: 600;
 }
 
@@ -244,9 +244,9 @@ h1 {
 .acceptance-form input[type='email'] {
   min-height: 50px;
   padding: 0 16px;
-  border-radius: 16px;
+  border-radius: var(--mv-radius-surface);
   border: 1px solid rgba(148, 163, 184, 0.32);
-  background: #ffffff;
+  background: var(--mv-surface);
   font-size: 16px;
 }
 
@@ -261,8 +261,8 @@ h1 {
   align-items: start;
   gap: 12px;
   padding: 16px;
-  border-radius: 18px;
-  background: #f8fafc;
+  border-radius: var(--mv-radius-surface);
+  background: var(--mv-surface-soft);
   border: 1px solid rgba(148, 163, 184, 0.18);
 }
 
@@ -272,7 +272,7 @@ h1 {
 
 .helper {
   margin: -4px 0 0;
-  color: #64748b;
+  color: var(--mv-muted);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -281,8 +281,8 @@ h1 {
   display: grid;
   gap: 14px;
   padding: 18px;
-  border-radius: 22px;
-  background: linear-gradient(180deg, #fffefb 0%, #f8fafc 100%);
+  border-radius: var(--mv-radius-surface);
+  background: linear-gradient(180deg, #fffefb 0%, var(--mv-surface-soft) 100%);
   border: 1px solid rgba(148, 163, 184, 0.24);
 }
 
@@ -300,7 +300,7 @@ h1 {
 
 .signature-panel__copy p {
   margin: 0;
-  color: #64748b;
+  color: var(--mv-muted);
   line-height: 1.5;
 }
 
@@ -326,7 +326,7 @@ h1 {
   width: 100%;
   height: 220px;
   display: block;
-  border-radius: 18px;
+  border-radius: var(--mv-radius-surface);
   border: 1px dashed rgba(15, 118, 110, 0.32);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.96));
@@ -337,7 +337,7 @@ h1 {
 .signature-helper,
 .preview-sub {
   margin: 0;
-  color: #64748b;
+  color: var(--mv-muted);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -347,18 +347,24 @@ h1 {
 }
 
 .hash {
-  color: #64748b;
+  color: var(--mv-muted);
   font-size: 12px;
   word-break: break-all;
 }
 
-iframe {
+.pdf-viewer-wrap {
   width: 100%;
-  min-height: 960px;
+  height: 960px;
   margin-top: 18px;
-  border: 0;
-  border-radius: 20px;
-  background: #ffffff;
+  overflow: hidden;
+  border-radius: var(--mv-radius-surface);
+  background: var(--mv-surface);
+}
+
+.public-pdf-viewer {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .spinner {
@@ -381,8 +387,8 @@ iframe {
     grid-template-columns: 1fr;
   }
 
-  iframe {
-    min-height: 720px;
+  .pdf-viewer-wrap {
+    height: 720px;
   }
 }
 
@@ -413,7 +419,8 @@ iframe {
     height: 190px;
   }
 
-  iframe {
-    min-height: 520px;
+  .pdf-viewer-wrap {
+    height: 74vh;
+    min-height: 540px;
   }
 }

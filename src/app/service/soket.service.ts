@@ -3,6 +3,17 @@ import { io, Socket } from 'socket.io-client';
 import { Observable } from 'rxjs';
 import { GlobalService } from './global.service';
 import { TenantService } from './tenant.service';
+import { getRealtimeClientId } from './realtime-client-id';
+
+export interface ResourceChange {
+  tenantId: string;
+  resource: string;
+  action: string;
+  entityId?: string | null;
+  actor?: { type?: string; id?: string | number | null } | null;
+  originClientId?: string | null;
+  occurredAt?: string;
+}
 
 @Injectable({
   providedIn: 'root'
@@ -45,6 +56,7 @@ export class SocketService {
       auth: {
         tenantId: this.tenantService.tenant,
         token: this.global.token,
+        clientId: getRealtimeClientId(),
       },
       query: { tenantId: this.tenantService.tenant },
     });
@@ -130,6 +142,23 @@ export class SocketService {
     });
   }
 
+  onCustomerArchiveReminderUpdate(): Observable<any> {
+    return new Observable((subscriber) => {
+      const socket = this.getSocket();
+      const listener = (data: any) => {
+        if (data?.tenantId && data.tenantId !== this.tenantService.tenant) {
+          return;
+        }
+        subscriber.next(data);
+      };
+      socket.on('customerArchiveReminderUpdated', listener);
+      this.connectIfReady(socket);
+      return () => {
+        socket.off('customerArchiveReminderUpdated', listener);
+      };
+    });
+  }
+
   onAdminTodoUpdate(): Observable<any> {
     return new Observable((subscriber) => {
       const socket = this.getSocket();
@@ -144,6 +173,53 @@ export class SocketService {
       return () => {
         socket.off('adminTodoUpdated', listener);
       };
+    });
+  }
+
+  onNoteUnreadUpdate(): Observable<any> {
+    return new Observable((subscriber) => {
+      const socket = this.getSocket();
+      const listener = (data: any) => {
+        if (data?.tenantId && data.tenantId !== this.tenantService.tenant) {
+          return;
+        }
+        subscriber.next(data);
+      };
+      socket.on('noteUnreadUpdated', listener);
+      this.connectIfReady(socket);
+      return () => {
+        socket.off('noteUnreadUpdated', listener);
+      };
+    });
+  }
+
+  onInternalWarehouseSummaryUpdate(): Observable<any> {
+    return new Observable((subscriber) => {
+      const socket = this.getSocket();
+      const listener = (data: any) => {
+        if (data?.tenantId && data.tenantId !== this.tenantService.tenant) {
+          return;
+        }
+        subscriber.next(data);
+      };
+      socket.on('internalWarehouseSummaryUpdated', listener);
+      this.connectIfReady(socket);
+      return () => {
+        socket.off('internalWarehouseSummaryUpdated', listener);
+      };
+    });
+  }
+
+  onResourceChanged(): Observable<ResourceChange> {
+    return new Observable((subscriber) => {
+      const socket = this.getSocket();
+      const listener = (data: ResourceChange) => {
+        if (data?.tenantId && data.tenantId !== this.tenantService.tenant) return;
+        subscriber.next(data);
+      };
+      socket.on('resourceChanged', listener);
+      this.connectIfReady(socket);
+      return () => socket.off('resourceChanged', listener);
     });
   }
 }

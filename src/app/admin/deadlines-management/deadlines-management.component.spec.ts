@@ -34,6 +34,75 @@ describe('DeadlinesManagementComponent selection', () => {
     expect(component.selectedDeadlines).toEqual([]);
   });
 
+  it('opens the edit form on a primary mouse pointerup', () => {
+    const component = createComponent();
+    const deadline = { id: 42 } as any;
+    const pointerEvent = {
+      pointerType: 'mouse',
+      button: 0,
+    } as PointerEvent;
+    spyOn(component, 'openEditForm');
+
+    component.onEditDeadlinePointerUp(pointerEvent, deadline);
+
+    expect(component.openEditForm).toHaveBeenCalledOnceWith(deadline);
+  });
+
+  it('ignores a touch scroll and opens only a stationary touch tap', () => {
+    const component = createComponent();
+    const deadline = { id: 42 } as any;
+    spyOn(component, 'openEditForm');
+
+    component.onEditDeadlinePointerDown({
+      pointerType: 'touch', pointerId: 7, clientX: 10, clientY: 10,
+    } as PointerEvent);
+    component.onEditDeadlinePointerUp({
+      pointerType: 'touch', pointerId: 7, clientX: 10, clientY: 40,
+    } as PointerEvent, deadline);
+    expect(component.openEditForm).not.toHaveBeenCalled();
+
+    component.onEditDeadlinePointerDown({
+      pointerType: 'touch', pointerId: 8, clientX: 20, clientY: 20,
+    } as PointerEvent);
+    component.onEditDeadlinePointerUp({
+      pointerType: 'touch', pointerId: 8, clientX: 23, clientY: 24,
+    } as PointerEvent, deadline);
+
+    expect(component.openEditForm).toHaveBeenCalledOnceWith(deadline);
+  });
+
+  it('runs deadline actions on primary pointerup', () => {
+    const component = createComponent();
+    const deadline = { id: 42 } as any;
+    spyOn(component, 'planDeadline');
+    spyOn(component, 'toggleHistory');
+
+    component.onDeadlineActionPointerUp({
+      pointerType: 'mouse', button: 0,
+    } as PointerEvent, deadline, 'plan');
+    component.onDeadlineActionPointerUp({
+      pointerType: 'mouse', button: 0,
+    } as PointerEvent, deadline, 'history');
+
+    expect(component.planDeadline).toHaveBeenCalledOnceWith(deadline);
+    expect(component.toggleHistory).toHaveBeenCalledOnceWith(deadline);
+  });
+
+  it('ignores a touch scroll on deadline actions', () => {
+    const component = createComponent();
+    const deadline = { id: 42 } as any;
+    spyOn(component, 'planDeadline');
+
+    component.onDeadlineActionPointerDown({
+      pointerType: 'touch', pointerId: 5, clientX: 10, clientY: 10,
+    } as PointerEvent);
+    component.onDeadlineActionPointerUp({
+      pointerType: 'touch', pointerId: 5, clientX: 10, clientY: 40,
+    } as PointerEvent, deadline, 'plan');
+
+    expect(component.planDeadline).not.toHaveBeenCalled();
+  });
+
   it('opens the guided update through the standalone route on mobile', () => {
     spyOn(window, 'matchMedia').and.returnValue({ matches: false } as MediaQueryList);
     const router = { navigateByUrl: jasmine.createSpy('navigateByUrl') };

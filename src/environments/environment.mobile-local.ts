@@ -2,7 +2,7 @@ export const environment = {
   production: false,
   apiUrl: 'http://192.168.1.92:5001/',
   mobileDevApiUrl: 'http://192.168.1.92:5001/',
-  invoicesEnabled: false,
+  invoicesEnabled: true,
   googleMapsApiKey: '',
   googleMapsMapId: '',
   companyRegistryEndpoint:

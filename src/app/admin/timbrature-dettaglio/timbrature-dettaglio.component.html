@@ -1,18 +1,8 @@
 <!-- timbrature-dettaglio.component.html -->
 
-<div class="container py-4">
-  <!-- 🔙 Torna indietro -->
-  <div class="d-flex justify-content-start align-items-center mb-3">
-    <button class="btn-back" type="button" (click)="back()">
-      <i class="fas fa-arrow-left me-2"></i> Torna Indietro
-    </button>
-  </div>
-
-  <!-- 👤 Intestazione -->
-  <h2 class="text-center mb-3 fw-bold text-dark">
-    Timbrature di {{ employee?.nome }} {{ employee?.cognome }}
-  </h2>
-
+<div class="standard-management-page">
+  <header class="mv-entity-toolbar"><div class="mv-entity-toolbar__title"><h1>Timbrature di {{ employee?.nome }} {{ employee?.cognome }}</h1></div><div class="mv-entity-toolbar__controls"><button class="btn mv-toolbar-back" type="button" (click)="back()"><i class="fas fa-arrow-left" aria-hidden="true"></i> Torna indietro</button></div></header>
+  <div class="container">
   <div class="alert alert-light border text-center fw-semibold">
     Modalità:
     <span *ngIf="!isWarehouseMode()">tag cliente</span>
@@ -323,6 +313,7 @@
       </div>
     </div>
   </div>
+</div>
 </div>
 
 <!-- =========================================================

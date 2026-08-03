@@ -16,6 +16,7 @@ interface AdminRow {
   email: string;
   codiceOperatore: string;
   permissions: string[];
+  isPrimaryAdmin?: boolean;
 }
 
 @Component({
@@ -90,6 +91,8 @@ export class UserSettingsComponent implements OnInit {
     ADMIN_EDIT: ['ADMIN_VIEW'],
     ADMIN_DELETE: ['ADMIN_VIEW'],
     SETTINGS_ADMIN: ['ADMIN_VIEW'],
+    VEHICLE_SETTINGS_MANAGE: ['VEHICLES_VIEW'],
+    EQUIPMENT_SETTINGS_MANAGE: ['EQUIPMENT_VIEW'],
     EMAIL_SETTINGS: ['EMAIL_VIEW'],
 
     // Dipendenti
@@ -102,9 +105,11 @@ export class UserSettingsComponent implements OnInit {
     EMPLOYEE_DEADLINES_CREATE: ['EMPLOYEE_DEADLINES_VIEW'],
     EMPLOYEE_DEADLINES_EDIT: ['EMPLOYEE_DEADLINES_VIEW'],
     EMPLOYEE_DEADLINES_DELETE: ['EMPLOYEE_DEADLINES_VIEW'],
+    VEHICLE_DEADLINES_VIEW: ['VEHICLES_VIEW'],
     VEHICLE_DEADLINES_CREATE: ['VEHICLE_DEADLINES_VIEW'],
     VEHICLE_DEADLINES_EDIT: ['VEHICLE_DEADLINES_VIEW'],
     VEHICLE_DEADLINES_DELETE: ['VEHICLE_DEADLINES_VIEW'],
+    EQUIPMENT_DEADLINES_VIEW: ['EQUIPMENT_VIEW'],
     EQUIPMENT_DEADLINES_CREATE: ['EQUIPMENT_DEADLINES_VIEW'],
     EQUIPMENT_DEADLINES_EDIT: ['EQUIPMENT_DEADLINES_VIEW'],
     EQUIPMENT_DEADLINES_DELETE: ['EQUIPMENT_DEADLINES_VIEW'],
@@ -223,6 +228,15 @@ export class UserSettingsComponent implements OnInit {
     this.ensurePermissionDeps(target, key, willBeChecked);
   }
 
+  isProtectedPrimaryPermission(target: AdminRow, key: string): boolean {
+    return target?.isPrimaryAdmin === true && [
+      'ADMIN_VIEW',
+      'ADMIN_CREATE',
+      'ADMIN_EDIT',
+      'ADMIN_DELETE',
+    ].includes(key);
+  }
+
   fetchAdmins() {
     this.http
       .get(this.globalService.url + 'admin/getAll', {
@@ -283,7 +297,9 @@ export class UserSettingsComponent implements OnInit {
       {
         title: 'Gestione mezzi e attrezzature',
         items: pick([
+          'VEHICLES_VIEW',
           'VEHICLE_SETTINGS_MANAGE',
+          'EQUIPMENT_VIEW',
           'EQUIPMENT_SETTINGS_MANAGE',
           'SETTINGS_ADMIN',
         ]),
@@ -556,8 +572,11 @@ export class UserSettingsComponent implements OnInit {
   }
 
   private filterAvailablePermissions(permissions: string[]): string[] {
-    if (!this.availablePermissionKeys.size) return permissions || [];
-    return [...new Set(permissions || [])].filter((permission) =>
+    const expanded = new Set(permissions || []);
+    if (expanded.has('VEHICLE_SETTINGS_MANAGE')) expanded.add('VEHICLES_VIEW');
+    if (expanded.has('EQUIPMENT_SETTINGS_MANAGE')) expanded.add('EQUIPMENT_VIEW');
+    if (!this.availablePermissionKeys.size) return [...expanded];
+    return [...expanded].filter((permission) =>
       this.availablePermissionKeys.has(permission),
     );
   }

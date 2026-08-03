@@ -2,18 +2,18 @@
   <div class="spinner-ring"></div>
 </div>
 
-<div class="container py-4 page-wrap">
-  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <button class="btn btn-back-glass" type="button" (click)="back()">
-      &larr; Torna Indietro
-    </button>
-  </div>
+<div class="standard-management-page" [class.standard-management-page--embedded]="embedded">
+  <header class="mv-entity-toolbar" *ngIf="!embedded">
+    <div class="mv-entity-toolbar__title">
+      <h1>Impostazioni dipendenti</h1>
+    </div>
+    <div class="mv-entity-toolbar__controls"><button class="btn mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button></div>
+  </header>
+  <div class="container">
 
-  <h2 class="text-center page-title mb-4 text-dark">Aggiungi Dipendente</h2>
-
-  <section class="admin-card mb-4" *ngIf="globalService.hasPermission('EMPLOYEE_CREATE')">
+  <section class="admin-card mb-4" *ngIf="globalService.hasPermission('EMPLOYEE_CREATE') && (!embedded || focusAction === 'new')">
     <div class="card-header py-3 px-4">
-      <h3 class="mb-0 fs-5">Nuovo dipendente</h3>
+      <h3 class="mb-0 fs-5">{{ embedded ? 'Dati dipendente' : 'Nuovo dipendente' }}</h3>
       <p class="mb-0 text-muted small">Inserisci i dati del nuovo dipendente</p>
     </div>
     <div class="card-body p-4">
@@ -38,6 +38,17 @@
           <div class="col-md-6">
             <label for="oreGiornaliereDefault" class="form-label fw-bold">Ore giornaliere standard</label>
             <input type="number" id="oreGiornaliereDefault" name="oreGiornaliereDefault" [(ngModel)]="employeesAdd.oreGiornaliereDefault" class="form-control form-control-glass" min="0" max="24" step="0.25" placeholder="es. 8" />
+          </div>
+          <div class="col-12">
+            <div class="warehouse-permissions">
+              <strong>Funzioni magazzino nell'app dipendenti</strong>
+              <small>Ogni autorizzazione è indipendente e viene verificata anche dal server.</small>
+              <div class="warehouse-permissions__checks">
+                <label class="mobility-check"><input type="checkbox" name="warehousePreparationEnabled" [(ngModel)]="employeesAdd.warehousePreparationEnabled" /><span>Preparazione ordini</span></label>
+                <label class="mobility-check"><input type="checkbox" name="warehouseStockInEnabled" [(ngModel)]="employeesAdd.warehouseStockInEnabled" /><span>Entrata prodotti</span></label>
+                <label class="mobility-check"><input type="checkbox" name="warehouseStockOutEnabled" [(ngModel)]="employeesAdd.warehouseStockOutEnabled" /><span>Uscita prodotti</span></label>
+              </div>
+            </div>
           </div>
           <div class="col-md-6" *ngFor="let field of employeeExtraFields">
             <label class="form-label fw-bold">{{ field.label || field.key }}</label>
@@ -182,6 +193,71 @@
     </div>
   </section>
 
+  <section class="admin-card mb-4 focused-employee-editor" *ngIf="embedded && focusAction === 'edit' && editingIndex !== null">
+    <div class="card-header py-3 px-4">
+      <h3 class="mb-0 fs-5">Dati del dipendente</h3>
+      <p class="mb-0 text-muted small">Modifica anagrafica, orario standard e autorizzazioni operative.</p>
+    </div>
+    <div class="card-body p-4">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-bold">Nome</label>
+          <input class="form-control" [(ngModel)]="employeeEdit.nome" name="focused_nome" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-bold">Cognome</label>
+          <input class="form-control" [(ngModel)]="employeeEdit.cognome" name="focused_cognome" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-bold">Email</label>
+          <input class="form-control" type="email" [(ngModel)]="employeeEdit.email" name="focused_email" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-bold">Cellulare</label>
+          <input class="form-control" [(ngModel)]="employeeEdit.cellulare" name="focused_cellulare" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-bold">Ore giornaliere standard</label>
+          <input class="form-control" type="number" min="0" max="24" step="0.25" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="focused_ore" />
+        </div>
+        <div class="col-12">
+          <div class="warehouse-permissions">
+            <strong>Funzioni magazzino nell'app dipendenti</strong>
+            <small>Abilita solamente le operazioni che questo dipendente può eseguire.</small>
+            <div class="warehouse-permissions__checks">
+              <label class="mobility-check"><input type="checkbox" [(ngModel)]="employeeEdit.warehousePreparationEnabled" name="focused_warehouse_prep" /><span>Preparazione ordini</span></label>
+              <label class="mobility-check"><input type="checkbox" [(ngModel)]="employeeEdit.warehouseStockInEnabled" name="focused_warehouse_in" /><span>Entrata prodotti</span></label>
+              <label class="mobility-check"><input type="checkbox" [(ngModel)]="employeeEdit.warehouseStockOutEnabled" name="focused_warehouse_out" /><span>Uscita prodotti</span></label>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6" *ngFor="let field of employeeExtraFields">
+          <label class="form-label fw-bold">{{ field.label || field.key }}</label>
+          <ng-container [ngSwitch]="field.type">
+            <textarea *ngSwitchCase="'textarea'" class="form-control" rows="3" [name]="'focused_extra_' + getEmployeeFieldKey(field)" [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]"></textarea>
+            <select *ngSwitchCase="'enum'" class="form-control" [name]="'focused_extra_' + getEmployeeFieldKey(field)" [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]">
+              <option value=""></option>
+              <option *ngFor="let option of getEmployeeFieldOptions(field)" [value]="option">{{ option }}</option>
+            </select>
+            <label *ngSwitchCase="'boolean'" class="mobility-check">
+              <input type="checkbox" [name]="'focused_extra_' + getEmployeeFieldKey(field)" [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]" />
+              <span>{{ field.label || field.key }}</span>
+            </label>
+            <input *ngSwitchDefault class="form-control" [type]="getEmployeeFieldType(field)" [name]="'focused_extra_' + getEmployeeFieldKey(field)" [(ngModel)]="employeeEdit[getEmployeeFieldKey(field)]" />
+          </ng-container>
+        </div>
+      </div>
+      <div class="d-flex justify-content-end mt-4">
+        <button type="button" class="btn btn-primary btn-round" (click)="saveEdit()">Salva modifiche</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="alert alert-info" *ngIf="embedded && focusAction === 'edit' && editingIndex === null && isLoading">
+    Caricamento dipendente…
+  </div>
+
+  <ng-container *ngIf="!embedded">
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h2 class="mb-0 page-title">Lista Dipendenti</h2>
     <div class="employee-list-tools">
@@ -241,6 +317,11 @@
                   {{ item.label }}: {{ item.value }}
                 </span>
               </div>
+              <div class="employee-extra-badges" *ngIf="emp.warehousePreparationEnabled || emp.warehouseStockInEnabled || emp.warehouseStockOutEnabled">
+                <span class="employee-extra-badge" *ngIf="emp.warehousePreparationEnabled">Prepara ordini</span>
+                <span class="employee-extra-badge" *ngIf="emp.warehouseStockInEnabled">Entrata</span>
+                <span class="employee-extra-badge" *ngIf="emp.warehouseStockOutEnabled">Uscita</span>
+              </div>
             </td>
             <td class="actions-cell">
               <ng-container *ngIf="emp.active">
@@ -266,6 +347,12 @@
             <td class="d-none d-md-table-cell"><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.cellulare" name="e_cell_{{ emp.id }}" /></td>
             <td><input type="number" class="form-control form-control-sm" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="e_ore_standard_{{ emp.id }}" min="0" max="24" step="0.25" /></td>
             <td>
+              <div class="warehouse-permissions warehouse-permissions--compact">
+                <strong>Permessi magazzino</strong>
+                <label class="mobility-check mobility-check--compact"><input type="checkbox" name="e_warehouse_prep_{{ emp.id }}" [(ngModel)]="employeeEdit.warehousePreparationEnabled" /><span>Preparazione</span></label>
+                <label class="mobility-check mobility-check--compact"><input type="checkbox" name="e_warehouse_in_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockInEnabled" /><span>Entrata</span></label>
+                <label class="mobility-check mobility-check--compact"><input type="checkbox" name="e_warehouse_out_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockOutEnabled" /><span>Uscita</span></label>
+              </div>
               <div class="employee-extra-edit-grid" *ngIf="employeeExtraFields.length; else noEmployeeExtraEdit">
                 <div class="employee-extra-field" *ngFor="let field of employeeExtraFields">
                   <span>{{ field.label || field.key }}</span>
@@ -363,6 +450,12 @@
           <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.email" name="m_email_{{ emp.id }}" placeholder="Email" />
           <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.cellulare" name="m_cell_{{ emp.id }}" placeholder="Cellulare" />
           <input type="number" class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="m_ore_{{ emp.id }}" placeholder="Ore std." min="0" max="24" step="0.25" />
+          <div class="warehouse-permissions warehouse-permissions--compact mb-2">
+            <strong>Permessi magazzino</strong>
+            <label class="mobility-check mobility-check--compact"><input type="checkbox" name="m_warehouse_prep_{{ emp.id }}" [(ngModel)]="employeeEdit.warehousePreparationEnabled" /><span>Preparazione</span></label>
+            <label class="mobility-check mobility-check--compact"><input type="checkbox" name="m_warehouse_in_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockInEnabled" /><span>Entrata</span></label>
+            <label class="mobility-check mobility-check--compact"><input type="checkbox" name="m_warehouse_out_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockOutEnabled" /><span>Uscita</span></label>
+          </div>
           <div class="employee-extra-edit-grid employee-extra-edit-grid--mobile" *ngIf="employeeExtraFields.length">
             <div class="employee-extra-field" *ngFor="let field of employeeExtraFields">
               <span>{{ field.label || field.key }}</span>
@@ -407,4 +500,6 @@
       </div>
     </article>
   </div>
+  </ng-container>
+</div>
 </div>

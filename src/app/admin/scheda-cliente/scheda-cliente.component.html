@@ -1,14 +1,11 @@
-<div class="container py-4">
-  <div class="d-flex justify-content-start align-items-center mb-3">
-    <button type="button" class="btn btn-outline-primary rounded-pill" (click)="back()">
-      Torna indietro
-    </button>
-  </div>
-
-  <h2 class="text-center mb-4 text-primary">
-    <i class="fas fa-user me-2"></i>Scheda cliente
-  </h2>
-
+<div class="standard-management-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title"><h1>Scheda cliente</h1></div>
+    <div class="mv-entity-toolbar__controls">
+      <button type="button" class="btn mv-toolbar-back" (click)="back()">&larr; Torna indietro</button>
+    </div>
+  </header>
+  <div class="container">
   <div
     *ngIf="!cliente"
     class="alert alert-warning text-center shadow-sm rounded-pill"
@@ -58,4 +55,5 @@
       </ng-template>
     </div>
   </div>
+</div>
 </div>

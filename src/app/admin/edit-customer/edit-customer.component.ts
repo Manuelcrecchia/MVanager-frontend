@@ -18,6 +18,10 @@ import {
   styleUrl: './edit-customer.component.css',
 })
 export class EditCustomerComponent {
+  canConfigureVehicleRequirements = false;
+  canConfigureEquipmentRequirements = false;
+  canConfigureEmployeeRequirements = false;
+  canConfigureCustomerDeadlineCategories = false;
   employeeCategories: any[] = [];
   customerDeadlineCategories: any[] = [];
   selectedCustomerDeadlineCategoryIds: number[] = [];
@@ -61,18 +65,21 @@ export class EditCustomerComponent {
   ) {}
 
   ngOnInit(): void {
-    this.loadEmployeeCategories();
-    this.loadCustomerDeadlineCategories();
-    this.loadResourceCategories('vehicle');
-    this.loadResourceCategories('equipment');
-    this.loadEquipmentTargets();
-    this.loadEmployeeTargets();
-    this.loadVehicleTargets();
     const numeroCliente =
       this.route.snapshot.paramMap.get('numeroCliente') ||
       this.route.snapshot.queryParamMap.get('numeroCliente') ||
       this.customerModelService.numeroCliente;
     this.globalService.loadTenantConfig(false, { showError: false }).then(() => {
+      const granted = new Set(this.globalService.permissions);
+      const canManageCustomers = granted.has('CUSTOMERS_MANAGE');
+      this.canConfigureVehicleRequirements = canManageCustomers && this.globalService.isFeatureAvailableInApp('vehicleDeadlines') && granted.has('VEHICLES_VIEW');
+      this.canConfigureEquipmentRequirements = canManageCustomers && this.globalService.isFeatureAvailableInApp('equipmentDeadlines') && granted.has('EQUIPMENT_VIEW');
+      this.canConfigureEmployeeRequirements = canManageCustomers && this.globalService.isFeatureAvailableInApp('employees') && granted.has('EMPLOYEE_VIEW');
+      this.canConfigureCustomerDeadlineCategories = canManageCustomers && this.globalService.isFeatureAvailableInApp('customerDeadlines') && granted.has('CUSTOMER_DEADLINES_VIEW');
+      if (this.canConfigureEmployeeRequirements) { this.loadEmployeeCategories(); this.loadEmployeeTargets(); }
+      if (this.canConfigureCustomerDeadlineCategories) this.loadCustomerDeadlineCategories();
+      if (this.canConfigureVehicleRequirements) { this.loadResourceCategories('vehicle'); this.loadVehicleTargets(); }
+      if (this.canConfigureEquipmentRequirements) { this.loadResourceCategories('equipment'); this.loadEquipmentTargets(); }
       this.refreshVisibleCustomerFields();
       if (numeroCliente) {
         this.caricaClienteFromDb(numeroCliente);
@@ -119,6 +126,7 @@ export class EditCustomerComponent {
   }
 
   private saveCustomerDeadlineCategories(numeroCliente: string): Promise<any> {
+    if (!this.canConfigureCustomerDeadlineCategories) return Promise.resolve();
     return this.http.post(this.globalService.url + `admin/customer-deadline-categories/customer/${encodeURIComponent(numeroCliente)}`, {
       categoryIds: this.selectedCustomerDeadlineCategoryIds,
     }, { headers: this.globalService.headers }).toPromise();
@@ -246,6 +254,7 @@ export class EditCustomerComponent {
   }
 
   private saveStaffRequirements(numeroCliente: string, done: () => void): void {
+    if (!this.canConfigureEmployeeRequirements) { done(); return; }
     const requirements = this.employeeRequirementMode === 'category' ? this.buildStaffRequirements() : [];
     this.http
       .post(
@@ -260,6 +269,7 @@ export class EditCustomerComponent {
   }
 
   private saveEquipmentRequirements(numeroCliente: string, done: () => void): void {
+    if (!this.canConfigureEquipmentRequirements) { done(); return; }
     const requirements = this.equipmentRequirementMode === 'specific' ? this.buildEquipmentRequirements() : [];
     this.http
       .post(
@@ -274,11 +284,13 @@ export class EditCustomerComponent {
   }
 
   private saveResourceRequirements(numeroCliente: string, done: () => void): void {
-    Promise.all([
-      this.http.post(this.globalService.url + `admin/resource-categories/vehicle/customer/${numeroCliente}`, { requirements: this.vehicleRequirementMode === 'category' ? this.buildCategoryRequirements(this.vehicleCategories, this.vehicleRequirementCounts) : [] }, { headers: this.globalService.headers }).toPromise(),
-      this.http.post(this.globalService.url + `admin/resource-categories/equipment/customer/${numeroCliente}`, { requirements: this.equipmentRequirementMode === 'category' ? this.buildCategoryRequirements(this.equipmentCategories, this.equipmentCategoryRequirementCounts) : [] }, { headers: this.globalService.headers }).toPromise(),
-      this.saveSpecificRequirements('vehicle', numeroCliente),
-    ]).then(done).catch(done);
+    const saves: Promise<any>[] = [];
+    if (this.canConfigureVehicleRequirements) {
+      saves.push(this.http.post(this.globalService.url + `admin/resource-categories/vehicle/customer/${numeroCliente}`, { requirements: this.vehicleRequirementMode === 'category' ? this.buildCategoryRequirements(this.vehicleCategories, this.vehicleRequirementCounts) : [] }, { headers: this.globalService.headers }).toPromise());
+      saves.push(this.saveSpecificRequirements('vehicle', numeroCliente));
+    }
+    if (this.canConfigureEquipmentRequirements) saves.push(this.http.post(this.globalService.url + `admin/resource-categories/equipment/customer/${numeroCliente}`, { requirements: this.equipmentRequirementMode === 'category' ? this.buildCategoryRequirements(this.equipmentCategories, this.equipmentCategoryRequirementCounts) : [] }, { headers: this.globalService.headers }).toPromise());
+    Promise.all(saves).then(done).catch(done);
   }
 
   private caricaClienteFromDb(numeroCliente: string): void {
@@ -292,13 +304,11 @@ export class EditCustomerComponent {
             this.customerModelService.reset();
             Object.assign(this.customerModelService as any, res[0]);
             this.syncCustomerFieldRules();
-            this.loadStaffRequirements(String(res[0].numeroCliente || numeroCliente));
-            this.loadEquipmentRequirements(String(res[0].numeroCliente || numeroCliente));
-            this.loadResourceRequirements('vehicle', String(res[0].numeroCliente || numeroCliente));
-            this.loadResourceRequirements('equipment', String(res[0].numeroCliente || numeroCliente));
-            this.loadSpecificRequirements('employee', String(res[0].numeroCliente || numeroCliente));
-            this.loadSpecificRequirements('vehicle', String(res[0].numeroCliente || numeroCliente));
-            this.loadCustomerDeadlineCategoryAssignments(String(res[0].numeroCliente || numeroCliente));
+            const customerId = String(res[0].numeroCliente || numeroCliente);
+            if (this.canConfigureEmployeeRequirements) { this.loadStaffRequirements(customerId); this.loadSpecificRequirements('employee', customerId); }
+            if (this.canConfigureEquipmentRequirements) { this.loadEquipmentRequirements(customerId); this.loadResourceRequirements('equipment', customerId); }
+            if (this.canConfigureVehicleRequirements) { this.loadResourceRequirements('vehicle', customerId); this.loadSpecificRequirements('vehicle', customerId); }
+            if (this.canConfigureCustomerDeadlineCategories) this.loadCustomerDeadlineCategoryAssignments(customerId);
           }
         },
         error: (err) => {

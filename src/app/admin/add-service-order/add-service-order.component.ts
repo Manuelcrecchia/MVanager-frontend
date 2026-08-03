@@ -1,7 +1,10 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { GlobalService } from '../../service/global.service';
+import {
+  GlobalService,
+  TenantConfigurableDocumentField,
+} from '../../service/global.service';
 
 @Component({
   selector: 'app-add-service-order',
@@ -13,8 +16,8 @@ export class AddServiceOrderComponent implements OnInit, OnDestroy {
   customers: any[] = [];
   selectedCustomer: any = null;
   descrizione = '';
-  data = '';
-  ora = '';
+  configuredFields: TenantConfigurableDocumentField[] = [];
+  fieldValues: Record<string, any> = {};
   isEditMode = false;
   loadingOrder = false;
   orderId: number | null = null;
@@ -31,12 +34,29 @@ export class AddServiceOrderComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.loadConfig();
     const id = Number.parseInt(this.route.snapshot.paramMap.get('id') || '', 10);
     if (Number.isInteger(id) && id > 0) {
       this.isEditMode = true;
       this.orderId = id;
       this.loadOrder();
     }
+  }
+
+  private loadConfig(): void {
+    this.http.get<any>(this.global.url + 'service-orders/config').subscribe({
+      next: (config) => {
+        this.configuredFields = Array.isArray(config?.fields) ? config.fields : [];
+        for (const field of this.configuredFields) {
+          if (!Object.prototype.hasOwnProperty.call(this.fieldValues, field.key)) {
+            this.fieldValues[field.key] = field.defaultValue || '';
+          }
+        }
+      },
+      error: (err) => {
+        console.error('Errore caricamento configurazione ordine di servizio:', err);
+      },
+    });
   }
 
   ngOnDestroy(): void {
@@ -105,6 +125,17 @@ export class AddServiceOrderComponent implements OnInit, OnDestroy {
     this.suppressNextSearch = true;
     this.customerQuery = `${customer.numeroCliente} - ${this.customerName(customer)}`;
     this.customers = [];
+    for (const field of this.configuredFields) {
+      const source = String(field.sourceField || '');
+      if (!source.startsWith('customer.')) continue;
+      const value = this.global.getRecordValueByFieldKey(
+        'customer',
+        customer,
+        source.slice('customer.'.length),
+      );
+      this.fieldValues[field.key] =
+        value === undefined || value === null ? field.defaultValue || '' : value;
+    }
   }
 
   private loadOrder(): void {
@@ -122,8 +153,7 @@ export class AddServiceOrderComponent implements OnInit, OnDestroy {
           this.selectedCustomer = customer;
           this.customerQuery = `${customer.numeroCliente || '-'} - ${this.customerName(customer)}`;
           this.descrizione = order?.descrizione || '';
-          this.data = this.toInputDate(order?.scheduledStart);
-          this.ora = this.toInputTime(order?.scheduledStart);
+          this.fieldValues = { ...(order?.fields || {}) };
         },
         error: (err) => {
           console.error("Errore caricamento ordine di servizio:", err);
@@ -140,8 +170,13 @@ export class AddServiceOrderComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.descrizione.trim() || (!this.isEditMode && (!this.data || !this.ora))) {
-      alert('Descrizione, data e ora sono obbligatorie.');
+    const missingField = this.configuredFields.find(
+      (field) =>
+        field.required &&
+        String(this.fieldValues[field.key] ?? '').trim() === '',
+    );
+    if (missingField) {
+      alert(`Il campo ${missingField.label} è obbligatorio.`);
       return;
     }
 
@@ -153,11 +188,12 @@ export class AddServiceOrderComponent implements OnInit, OnDestroy {
     const payload = this.isEditMode
       ? {
           descrizione: this.descrizione.trim(),
+          fields: this.fieldValues,
         }
       : {
           numeroCliente: this.selectedCustomer.numeroCliente,
           descrizione: this.descrizione.trim(),
-          scheduledStart: `${this.data}T${this.ora}:00`,
+          fields: this.fieldValues,
         };
 
     this.http.post(url, payload).subscribe({
@@ -200,19 +236,4 @@ export class AddServiceOrderComponent implements OnInit, OnDestroy {
     return this.customerRoleValue(customer, role) !== '-';
   }
 
-  private toInputDate(value: any): string {
-    if (!value) return '';
-    const parsed = new Date(value);
-    if (isNaN(parsed.getTime())) return '';
-    const pad = (part: number) => String(part).padStart(2, '0');
-    return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`;
-  }
-
-  private toInputTime(value: any): string {
-    if (!value) return '';
-    const parsed = new Date(value);
-    if (isNaN(parsed.getTime())) return '';
-    const pad = (part: number) => String(part).padStart(2, '0');
-    return `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
-  }
 }

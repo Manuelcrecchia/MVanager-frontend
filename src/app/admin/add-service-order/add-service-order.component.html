@@ -1,14 +1,16 @@
-<div class="container py-4 add-service-order-page">
-  <div class="d-flex justify-content-start align-items-center mb-4">
-    <button class="btn btn-outline-secondary" type="button" (click)="goBack()">
-      &larr; Indietro
-    </button>
-  </div>
+<div class="standard-management-page add-service-order-management-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title">
+      <h1>{{ isEditMode ? 'Modifica ordine di servizio' : 'Nuovo ordine di servizio' }}</h1>
+    </div>
+    <div class="mv-entity-toolbar__controls">
+      <button class="mv-toolbar-back" type="button" (click)="goBack()">
+        &larr; Torna indietro
+      </button>
+    </div>
+  </header>
 
-  <div class="page-title mb-4">
-    <p class="text-uppercase text-muted mb-1">Ordini di servizio</p>
-    <h2>{{ isEditMode ? 'Modifica ordine di servizio' : 'Nuovo ordine di servizio' }}</h2>
-  </div>
+  <div class="container add-service-order-page">
 
   <div *ngIf="loadingOrder" class="alert alert-info">Caricamento ordine di servizio...</div>
 
@@ -69,31 +71,50 @@
     </div>
   </section>
 
-  <section class="form-section">
-    <h5>Descrizione</h5>
-    <p class="section-note" *ngIf="isEditMode">
-      In modifica puoi aggiornare solo la descrizione.
+  <section class="form-section" *ngIf="configuredFields.length">
+    <h5>Dati dell'ordine</h5>
+    <p class="section-note">
+      I valori copiati dal cliente appartengono a questo ordine: modificarli qui
+      non modifica l'anagrafica del cliente.
     </p>
-    <textarea
-      class="form-control"
-      rows="7"
-      [(ngModel)]="descrizione"
-      placeholder="Dettagli dell'ordine di servizio"
-    ></textarea>
+    <label class="d-block mb-3" *ngFor="let field of configuredFields">
+      {{ field.label }}<span *ngIf="field.required"> *</span>
+      <textarea
+        *ngIf="field.type === 'textarea'"
+        class="form-control"
+        rows="4"
+        [(ngModel)]="fieldValues[field.key]"
+      ></textarea>
+      <select
+        *ngIf="field.type === 'select'"
+        class="form-select"
+        [(ngModel)]="fieldValues[field.key]"
+      >
+        <option value="">Seleziona</option>
+        <option
+          *ngFor="let option of (field.enumValues || '').split(',')"
+          [value]="option.trim()"
+        >
+          {{ option.trim() }}
+        </option>
+      </select>
+      <input
+        *ngIf="field.type === 'boolean'"
+        type="checkbox"
+        [(ngModel)]="fieldValues[field.key]"
+      />
+      <input
+        *ngIf="field.type !== 'textarea' && field.type !== 'select' && field.type !== 'boolean'"
+        class="form-control"
+        [type]="field.type === 'number' || field.type === 'date' || field.type === 'email' || field.type === 'datetime-local' ? field.type : 'text'"
+        [(ngModel)]="fieldValues[field.key]"
+      />
+    </label>
   </section>
 
-  <section class="form-section schedule-grid">
-    <p class="section-note schedule-note" *ngIf="isEditMode">
-      Data e ora iniziali sono bloccate e non possono essere modificate.
-    </p>
-    <label>
-      Data
-      <input class="form-control" type="date" [(ngModel)]="data" [disabled]="isEditMode" />
-    </label>
-    <label>
-      Ora
-      <input class="form-control" type="time" [(ngModel)]="ora" [disabled]="isEditMode" />
-    </label>
+  <section class="form-section" *ngIf="!configuredFields.length">
+    <h5>Descrizione</h5>
+    <textarea class="form-control" rows="7" [(ngModel)]="descrizione"></textarea>
   </section>
 
   <div class="actions">
@@ -104,5 +125,6 @@
           : (isEditMode ? 'Salva modifiche' : 'Salva ordine di servizio')
       }}
     </button>
+  </div>
   </div>
 </div>

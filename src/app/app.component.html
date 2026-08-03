@@ -3,6 +3,13 @@
   <span>{{ notice.message }}</span>
   <button type="button" class="subscription-notice-close" (click)="dismissSubscriptionNotice()" aria-label="Nascondi avviso pagamento" title="Nascondi per questa sessione">×</button>
 </div>
+<div class="realtime-update-notice" *ngIf="realtimeSync.pendingChange$ | async" role="status">
+  <span><strong>Aggiornamento disponibile.</strong> {{ realtimeNotice }}</span>
+  <div>
+    <button type="button" (click)="realtimeSync.applyPendingUpdate()">Aggiorna ora</button>
+    <button type="button" class="realtime-update-notice__dismiss" (click)="realtimeSync.dismissPendingUpdate()" aria-label="Chiudi">×</button>
+  </div>
+</div>
 <router-outlet></router-outlet>
 <app-attachment-viewer></app-attachment-viewer>
-<app-ai-assistant-widget></app-ai-assistant-widget>
+<app-ai-assistant-widget *ngIf="showAiAssistant"></app-ai-assistant-widget>

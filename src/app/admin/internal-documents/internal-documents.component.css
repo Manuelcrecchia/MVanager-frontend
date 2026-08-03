@@ -1,16 +1,16 @@
 :root {
   --brand-black: #0b0f14;
-  --brand-orange: #ff8a00;
-  --brand-sky: #2fb7ff;
+  --brand-orange: var(--mv-orange-500);
+  --brand-sky: var(--mv-blue-500);
 
-  --radius-lg: 22px;
-  --radius-md: 16px;
+  --radius-lg: var(--mv-radius-surface);
+  --radius-md: var(--mv-radius-control);
 
   --shadow-soft: 0 18px 60px rgba(0, 0, 0, 0.18);
 
-  --text-dark: #111;
-  --text-muted: #444;
-  --text-soft: #666;
+  --text-dark: var(--mv-ink);
+  --text-muted: var(--mv-muted);
+  --text-soft: var(--mv-muted);
 }
 
 .folder-item {
@@ -60,7 +60,7 @@
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   border: 1px solid rgba(0, 0, 0, 0.1);
   background: rgba(255, 255, 255, 0.9);
 }
@@ -81,6 +81,42 @@
 
 .document-search input::placeholder {
   color: rgba(17, 17, 17, 0.48);
+}
+
+/* Standard management shell */
+.docs-toolbar {
+  position: relative;
+  top: auto;
+  width: calc(100% - 32px);
+  height: 104px;
+  min-height: 104px;
+  margin: 16px auto 0;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--mv-radius-surface);
+  background: linear-gradient(135deg, var(--mv-orange-500), var(--mv-blue-600));
+  box-shadow: var(--mv-shadow-md);
+}
+
+.docs-page {
+  min-height: calc(100vh - 138px);
+  padding: 18px 16px 32px;
+  background: var(--mv-canvas);
+}
+
+.glass-panel,
+.glass-subpanel {
+  border: 1px solid var(--mv-border);
+  border-radius: var(--mv-radius-surface);
+  background: var(--mv-surface);
+  color: var(--mv-ink);
+  box-shadow: var(--mv-shadow-sm);
+}
+
+.main-title,
+.sidebar-title,
+.file-name {
+  color: var(--mv-ink);
 }
 :host ::ng-deep .folder-list .mat-mdc-list-item .mdc-list-item__content {
   width: 100% !important;
@@ -133,7 +169,7 @@ body {
   top: 0;
   z-index: 1000;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
@@ -157,7 +193,7 @@ body {
     rgba(47, 183, 255, 0.3),
     rgba(255, 138, 0, 0.25)
   );
-  color: #000 !important;
+  color: var(--mv-ink);
   font-weight: 950;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
   cursor: pointer;
@@ -248,7 +284,7 @@ body {
 }
 
 .folder-list {
-  background: transparent !important;
+  background: transparent;
 }
 
 .folder-item {
@@ -262,7 +298,7 @@ body {
 .folder-btn {
   width: 100%;
   justify-content: flex-start;
-  color: var(--text-dark) !important;
+  color: var(--text-dark);
   font-weight: 850;
 }
 
@@ -375,11 +411,11 @@ body {
     135deg,
     var(--brand-orange),
     var(--brand-sky)
-  ) !important;
-  color: #000 !important;
-  font-weight: 950 !important;
-  border-radius: 999px !important;
-  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  );
+  color: var(--mv-ink);
+  font-weight: 950;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
   transition:
     transform 0.14s ease,
@@ -394,10 +430,10 @@ body {
 
 /* Icon buttons */
 .icon-btn {
-  border-radius: 14px !important;
-  border: 1px solid rgba(0, 0, 0, 0.12) !important;
-  background: rgba(255, 255, 255, 0.8) !important;
-  color: #000 !important;
+  border-radius: var(--mv-radius-control);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--mv-ink);
   width: 42px !important;
   height: 42px !important;
   transition:
@@ -411,7 +447,7 @@ body {
   filter: brightness(1.02);
 }
 .icon-btn mat-icon {
-  color: #000 !important;
+  color: var(--mv-ink);
 }
 
 .icon-view {
@@ -419,7 +455,7 @@ body {
     135deg,
     rgba(34, 211, 238, 0.22),
     rgba(255, 255, 255, 0.58)
-  ) !important;
+  );
 }
 
 .icon-primary {
@@ -427,7 +463,7 @@ body {
     135deg,
     rgba(47, 183, 255, 0.26),
     rgba(255, 255, 255, 0.55)
-  ) !important;
+  );
 }
 
 .icon-print {
@@ -435,19 +471,19 @@ body {
     135deg,
     rgba(139, 92, 246, 0.2),
     rgba(255, 255, 255, 0.58)
-  ) !important;
+  );
 }
 .icon-danger {
   background: linear-gradient(
     135deg,
     rgba(255, 77, 77, 0.22),
     rgba(255, 138, 0, 0.1)
-  ) !important;
+  );
 }
 
 /* ================= FILE LIST — LAYOUT PULITO ================= */
 .file-list {
-  background: transparent !important;
+  background: transparent;
 }
 
 .file-item {
@@ -475,8 +511,8 @@ body {
   align-items: center !important;
   gap: 10px !important;
   justify-content: flex-start !important; /* <-- niente centro */
-  color: var(--text-dark) !important;
-  font-weight: 850 !important;
+  color: var(--text-dark);
+  font-weight: 850;
 }
 
 /* nome file: ellipsis */
@@ -486,18 +522,18 @@ body {
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
-  color: var(--text-dark) !important;
+  color: var(--text-dark);
 }
 
 /* status: dopo il nome, non rompe */
 :host ::ng-deep .file-list .mat-mdc-list-item .doc-status {
   flex: 0 0 auto !important;
   white-space: nowrap !important;
-  font-size: 12px !important;
-  color: var(--text-soft) !important;
+  font-size: 12px;
+  color: var(--text-soft);
 }
 :host ::ng-deep .file-list .mat-mdc-list-item .doc-status:not(.pending) {
-  color: var(--text-dark) !important;
+  color: var(--text-dark);
 }
 
 /* ✅ actions SEMPRE A DESTRA */
@@ -603,23 +639,23 @@ ngx-extended-pdf-viewer {
 
 /* Material fields: chiari + testo nero */
 .mat-mdc-text-field-wrapper {
-  background: rgba(255, 255, 255, 0.98) !important;
-  border-radius: 16px !important;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: var(--mv-radius-surface);
   border: 1px solid rgba(0, 0, 0, 0.12);
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.1);
 }
 .mat-mdc-floating-label {
-  color: #000 !important;
+  color: var(--mv-ink);
   font-weight: 900;
 }
 .mat-mdc-input-element {
-  color: #000 !important;
+  color: var(--mv-ink);
 }
 .mdc-line-ripple::after {
-  border-bottom-color: var(--brand-sky) !important;
+  border-bottom-color: var(--brand-sky);
 }
 .mat-mdc-form-field-focus-overlay {
-  background: transparent !important;
+  background: transparent;
 }
 
 @media (max-width: 992px) {
@@ -688,7 +724,7 @@ ngx-extended-pdf-viewer {
   gap: 12px;
 
   padding: 10px 12px;
-  border-radius: 16px;
+  border-radius: var(--mv-radius-surface);
   border: 1px solid rgba(0, 0, 0, 0.1);
   background: rgba(255, 255, 255, 0.9);
 }
@@ -714,7 +750,7 @@ ngx-extended-pdf-viewer {
 
   text-align: center; /* ✅ NOME IN MEZZO */
   font-weight: 900;
-  color: #111;
+  color: var(--mv-ink);
 
   overflow: hidden;
   text-overflow: ellipsis;
@@ -725,7 +761,7 @@ ngx-extended-pdf-viewer {
   flex: 0 0 auto;
   white-space: nowrap;
   font-size: 12px;
-  color: #111;
+  color: var(--mv-ink);
 }
 
 .doc-status.pending {
@@ -739,4 +775,41 @@ ngx-extended-pdf-viewer {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* Final standard shell overrides (kept last to supersede the legacy theme). */
+.docs-toolbar.mv-entity-toolbar {
+  position: relative;
+  top: auto;
+  width: 100%;
+  height: 104px;
+  min-height: 104px;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--mv-radius-surface);
+  background: linear-gradient(135deg, var(--mv-orange-500), var(--mv-blue-600));
+  box-shadow: var(--mv-shadow-md);
+}
+
+.docs-page.container-fluid {
+  min-height: calc(100vh - 122px);
+  padding: 18px 0 32px;
+  background: var(--mv-canvas);
+}
+
+.docs-shell .glass-panel,
+.docs-shell .glass-subpanel {
+  border: 1px solid var(--mv-border);
+  border-radius: var(--mv-radius-surface);
+  background: var(--mv-surface);
+  color: var(--mv-ink);
+  box-shadow: var(--mv-shadow-sm);
+}
+
+@media (max-width: 680px) {
+  .docs-toolbar.mv-entity-toolbar {
+    height: auto;
+    min-height: 0;
+  }
 }

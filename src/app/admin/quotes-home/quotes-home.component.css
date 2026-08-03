@@ -1,8 +1,9 @@
 .quote-card {
-  background: linear-gradient(135deg, rgba(255,122,0,.10), rgba(13,110,253,.08)),
-              rgba(255,255,255,.65);
+  background:
+    linear-gradient(135deg, rgba(13,110,253,.10), rgba(255,122,0,.08)),
+    rgba(255,255,255,.55);
   border: 1px solid rgba(255,255,255,.70);
-  border-radius: 22px;
+  border-radius: var(--mv-radius-control);
   box-shadow: 0 20px 60px rgba(2,6,23,.14);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -17,12 +18,18 @@
 .quote-header-layout {
   display: flex;
   align-items: stretch;
-  background: linear-gradient(135deg, rgba(142,197,255,.40), rgba(255,122,0,.22));
+  min-height: 52px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(13,110,253,.22), rgba(255,122,0,.14));
+}
+
+.quote-card--open .quote-header-layout {
+  border-radius: var(--mv-radius-control) var(--mv-radius-control) 0 0;
 }
 
 .quote-header-layout > .d-flex {
   flex: 0 0 auto;
-  padding: 8px 12px 8px 0;
+  padding: 6px 8px 6px 0;
 }
 
 .quote-header-btn {
@@ -36,7 +43,7 @@
   justify-content: space-between;
   gap: 12px;
   font-weight: 950;
-  color: #000;
+  color: var(--mv-ink);
   text-align: left;
   cursor: pointer;
   border-radius: 0;
@@ -47,15 +54,34 @@
 }
 
 .quote-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.quote-num {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: rgba(15,23,42,.08);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.quote-name {
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+
 .chev {
   font-size: 18px;
-  color: #000;
+  color: var(--mv-ink);
   transition: transform 0.2s ease;
 }
 
@@ -64,9 +90,15 @@
 }
 
 .btn-pdf {
-  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: var(--mv-radius-control);
   font-weight: 950;
-  color: #000 !important;
+  color: var(--mv-ink);
   background: linear-gradient(135deg, rgba(142,197,255,.70), rgba(255,122,0,.35));
   border: 1px solid rgba(0,0,0,.08);
   padding: 6px 10px;
@@ -78,9 +110,15 @@
 }
 
 .btn-notes {
-  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: var(--mv-radius-control);
   font-weight: 950;
-  color: #000 !important;
+  color: var(--mv-ink);
   background: linear-gradient(135deg, rgba(255,122,0,.45), rgba(142,197,255,.55));
   border: 1px solid rgba(0,0,0,.08);
   padding: 6px 10px;
@@ -91,166 +129,54 @@
   background: linear-gradient(135deg, rgba(255,122,0,.55), rgba(142,197,255,.65));
 }
 
-.quote-actions {
-  background: rgba(255,255,255,.22);
-  border-top: 1px solid rgba(0,0,0,.06);
-}
-
-.quote-actions-inner {
-  padding: 12px 14px 14px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.btn-quote-action {
-  position: relative;
-  overflow: visible !important;
-  min-width: 46px;
-  min-height: 40px;
-  border-radius: 14px !important;
-  font-weight: 950 !important;
-  color: #000 !important;
-  box-shadow: 0 10px 22px rgba(2,6,23,.10) !important;
-  border: 0 !important;
-  padding: 8px 14px;
-  font-size: 14px;
-}
-
-.btn-quote-action i,
 .btn-pdf i,
 .btn-notes i {
   min-width: 16px;
   text-align: center;
 }
 
-.action-with-tooltip {
+.quote-toolbar-filters {
+  flex-wrap: nowrap;
+}
+
+.quote-search-field {
   position: relative;
-  overflow: visible !important;
+  flex: 1 1 320px;
+  max-width: 520px;
+  min-width: 240px;
+  margin: 0;
 }
 
-.action-with-tooltip::after {
-  content: attr(data-tooltip);
+.quote-search-field i {
   position: absolute;
-  left: 50%;
-  bottom: calc(100% + 9px);
-  transform: translateX(-50%) translateY(4px);
-  z-index: 80;
-  width: max-content;
-  max-width: 220px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  background: rgba(15, 23, 42, 0.94);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.25;
-  text-align: center;
-  white-space: normal;
-  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.22);
-  opacity: 0;
+  z-index: 1;
+  top: 50%;
+  left: 13px;
+  color: var(--mv-muted);
+  transform: translateY(-50%);
   pointer-events: none;
-  transition: opacity .14s ease, transform .14s ease;
 }
 
-.action-with-tooltip:hover::after,
-.action-with-tooltip:focus-visible::after,
-.action-with-tooltip:active::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
+.quote-search-field .form-control {
+  min-height: 46px;
+  padding-left: 40px;
 }
 
-.btn-quote-edit {
-  background: linear-gradient(135deg, rgba(142,197,255,.85), rgba(13,110,253,.25)) !important;
-  border: 1px solid rgba(13,110,253,.18) !important;
-}
+@media (max-width: 1100px) {
+  .quote-toolbar-filters {
+    flex-wrap: wrap;
+  }
 
-.btn-quote-delete {
-  background: linear-gradient(135deg, rgba(255,122,0,.55), rgba(255,255,255,.35)) !important;
-  border: 1px solid rgba(255,122,0,.25) !important;
-}
-
-.btn-quote-chat {
-  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
-}
-
-.btn-quote-whatsapp {
-  background: linear-gradient(135deg, #25d366, #d9fbe6) !important;
-  border: 1px solid rgba(37, 211, 102, .30) !important;
-}
-
-.btn-quote-email {
-  background: linear-gradient(135deg, rgba(142,197,255,.85), rgba(255,255,255,.45)) !important;
-  border: 1px solid rgba(13,110,253,.18) !important;
-}
-
-.btn-quote-send {
-  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
-}
-
-.btn-quote-calendar {
-  background: linear-gradient(135deg, rgba(142,197,255,.85), rgba(13,110,253,.25)) !important;
-  border: 1px solid rgba(13,110,253,.18) !important;
-}
-
-.btn-quote-confirm {
-  background: linear-gradient(135deg, rgba(142,197,255,.75), rgba(255,255,255,.35)) !important;
-  border: 1px solid rgba(142,197,255,.35) !important;
-}
-
-.btn-quote-refuse {
-  background: linear-gradient(135deg, rgba(255,122,0,.55), rgba(255,255,255,.35)) !important;
-  border: 1px solid rgba(255,122,0,.25) !important;
-}
-
-.btn-quote-copy {
-  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
-}
-
-.btn-quote-verify {
-  background: linear-gradient(135deg, rgba(142,197,255,.75), rgba(255,255,255,.35)) !important;
-  border: 1px solid rgba(142,197,255,.35) !important;
-}
-
-.btn-quote-restore {
-  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
-}
-
-.btn-pink {
-  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
-  color: #000 !important;
-  border: 0 !important;
-  border-radius: 14px !important;
-  box-shadow: 0 14px 34px rgba(255,122,0,.30);
-}
-
-.btn-pink:hover {
-  filter: brightness(1.05);
-  transform: translateY(-1px);
+  .quote-search-field {
+    max-width: none;
+  }
 }
 
 @media (max-width: 768px) {
-  .top-actions {
-    flex-direction: column;
-    align-items: stretch !important;
-  }
-
-  .top-actions > div {
+  .quote-toolbar-filters,
+  .quote-search-field {
     width: 100%;
-  }
-
-  .top-actions .form-control {
-    max-width: 100% !important;
-    min-width: 100% !important;
-  }
-
-  .top-actions .d-flex.flex-wrap {
-    flex-direction: column;
-  }
-
-  .top-actions label {
-    width: 100%;
-    justify-content: space-between;
+    max-width: none;
   }
 
   .quote-actions-inner button {

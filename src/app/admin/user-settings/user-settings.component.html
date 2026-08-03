@@ -1,11 +1,11 @@
-<div class="container py-4 page-wrap">
-  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <button class="btn btn-back-glass" type="button" (click)="back()">
-      &larr; Torna Indietro
-    </button>
-  </div>
-
-  <h2 class="text-center page-title mb-4 text-dark">Gestione Amministratori</h2>
+<div class="standard-management-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title">
+      <h1>Amministratori</h1>
+    </div>
+    <div class="mv-entity-toolbar__controls"><button class="btn mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button></div>
+  </header>
+  <div class="container">
 
   <section class="admin-card mb-4">
     <div class="card-header py-3 px-4">
@@ -49,7 +49,7 @@
             <div class="mt-3 pt-3 border-top" *ngIf="admin.permissions && admin.permissions.length > 0">
               <div class="small text-muted fw-bold mb-2">Permessi assegnati</div>
               <div class="d-flex flex-wrap gap-1">
-                <span class="badge" style="background: linear-gradient(135deg, rgba(47,183,255,0.13), rgba(255,138,0,0.10)); color: #1a6fa8; border: 1px solid rgba(47,183,255,0.20); font-weight: 600;"
+                <span class="badge" style="background: linear-gradient(135deg, rgba(47,183,255,0.13), rgba(255,138,0,0.10)); color: var(--mv-blue-700); border: 1px solid rgba(47,183,255,0.20); font-weight: 600;"
                   *ngFor="let p of admin.permissions"
                 >{{ getPermissionLabel(p) }}</span>
               </div>
@@ -62,7 +62,13 @@
               <button class="btn btn-glass btn-round btn-sm" type="button" (click)="startEditAdmin(i)">
                 ✏️ Modifica
               </button>
-              <button class="btn btn-glass-dark btn-round btn-sm" type="button" (click)="deleteAdmin(i)">
+              <button
+                class="btn btn-glass-dark btn-round btn-sm"
+                type="button"
+                (click)="deleteAdmin(i)"
+                [disabled]="admin.isPrimaryAdmin"
+                [title]="admin.isPrimaryAdmin ? 'L\'admin iniziale non può essere eliminato' : 'Elimina admin'"
+              >
                 🗑️ Elimina
               </button>
             </div>
@@ -160,7 +166,7 @@
       <summary class="perm-accordion__summary">
         <div class="d-flex align-items-center gap-2">
           <span class="fw-bold" style="font-size: 14px;">{{ g.title }}</span>
-          <span class="badge" style="background: rgba(47,183,255,0.12); color: #1a6fa8; font-size: 11px;">{{ countGroupActive(g, target.permissions) }} / {{ g.items.length }}</span>
+          <span class="badge" style="background: rgba(47,183,255,0.12); color: var(--mv-blue-700); font-size: 11px;">{{ countGroupActive(g, target.permissions) }} / {{ g.items.length }}</span>
         </div>
         <span class="perm-accordion__chev"></span>
       </summary>
@@ -175,6 +181,7 @@
             <input
               type="checkbox"
               [checked]="(target.permissions || []).includes(p.key)"
+              [disabled]="isProtectedPrimaryPermission(target, p.key)"
               (change)="togglePermission(target, p.key)"
             />
             <span>
@@ -187,3 +194,4 @@
     </details>
   </div>
 </ng-template>
+</div>

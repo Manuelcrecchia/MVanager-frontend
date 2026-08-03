@@ -1,45 +1,49 @@
-<div class="container py-4 page-wrap">
-  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-      <button class="btn btn-back-glass" type="button" (click)="back()">
-        &larr; Torna Indietro
-      </button>
+<div class="bg-light quotes-page">
+  <header class="mv-entity-toolbar quotes-page-toolbar">
+    <div class="mv-entity-toolbar__title">
+      <h1>Preventivi</h1>
+      <button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="back()">← Torna indietro</button>
       <button type="button"
         *ngIf="globalService.hasPermission('QUOTES_MANAGE')"
-        class="btn btn-pink"
+        class="btn mv-toolbar-primary"
         (click)="navigateToAddQuote()"
       >
         <i class="fas fa-plus me-1"></i> Nuovo
       </button>
     </div>
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-      <input
-        class="form-control form-control-glass"
-        style="max-width: 220px; min-width: 160px;"
-        placeholder="Numero cliente"
-        #inputNumeroCliente
-        (input)="searchNumeroPreventivo(inputNumeroCliente.value)"
-      />
-      <input
-        class="form-control form-control-glass"
-        style="max-width: 220px; min-width: 160px;"
-        placeholder="Nominativo"
-        #inputNominativo
-        (input)="searchNominativo(inputNominativo.value)"
-      />
-      <label class="d-flex align-items-center gap-2" style="padding: 6px 12px; border-radius: 14px; background: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.55); cursor: pointer; white-space: nowrap;">
-        <input type="checkbox" [(ngModel)]="showCompletedQuotes" (change)="ngOnInit()" style="width: 18px; height: 18px;" />
-        <span class="fw-bold" style="font-size: 13px;">Completati</span>
+    <div class="mv-entity-toolbar__controls quote-toolbar-filters">
+      <label class="quote-search-field">
+        <span class="visually-hidden">Cerca preventivo</span>
+        <i class="fas fa-search" aria-hidden="true"></i>
+        <input
+          class="form-control"
+          type="search"
+          [(ngModel)]="quoteSearch"
+          (ngModelChange)="applyQuoteSearch()"
+          placeholder="Numero preventivo, nominativo, email o telefono"
+        />
       </label>
+      <span class="mv-entity-toolbar__count">{{ quotesFrEnd.length }} / {{ totalQuotesCount }}</span>
+      <button
+        type="button"
+        class="btn btn-light btn-sm"
+        *ngIf="quoteSearch"
+        (click)="clearQuoteSearch()"
+      >
+        Pulisci
+      </button>
+      <button type="button" class="btn btn-light btn-sm" (click)="toggleShowCompletedQuotes()">
+        {{ showCompletedQuotes ? 'Nascondi archivio' : 'Mostra archivio' }}
+      </button>
     </div>
-  </div>
+  </header>
 
-  <h2 class="text-center page-title mb-4 text-dark">Preventivi</h2>
-
-  <div class="d-flex flex-column gap-3">
-    <div *ngFor="let quote of quotesFrEnd">
+  <div class="container">
+    <div class="row g-3">
+    <div class="col-12" *ngFor="let quote of quotesFrEnd">
       <div
         class="quote-card"
+        [class.quote-card--open]="isQuoteOpen(quote.numeroPreventivo)"
         [class.notification-target]="quote.numeroPreventivo === highlightedQuoteFromNotification"
         [attr.id]="'quote-' + quote.numeroPreventivo"
       >
@@ -50,9 +54,10 @@
             (click)="toggleQuoteOpen(quote.numeroPreventivo)"
           >
             <span class="quote-title">
-            {{ quote.numeroPreventivo }} - {{ getQuoteDisplayName(quote) }}
+            <span class="quote-num">#{{ quote.numeroPreventivo }}</span>
+            <span class="quote-name">{{ getQuoteDisplayName(quote) }}</span>
             <span
-              *ngIf="quote.acceptanceStatus === 'pending' && !showCompletedQuotes"
+              *ngIf="quote.acceptanceStatus === 'pending' && !isQuoteCompleted(quote)"
               class="badge bg-warning text-dark ms-2"
             >
               In attesa cliente
@@ -75,7 +80,7 @@
             >
               Cliente creato
             </span>
-            <ng-container *ngIf="showCompletedQuotes">
+            <ng-container *ngIf="isQuoteCompleted(quote)">
               <i *ngIf="quote.complete === 'A'" class="fas fa-check-circle text-success ms-2"></i>
               <i *ngIf="quote.complete === 'R'" class="fas fa-times-circle text-danger ms-2"></i>
             </ng-container>
@@ -96,22 +101,23 @@
             <button
               *ngIf="globalService.hasPermission('QUOTES_NOTES_VIEW')"
               type="button"
-              class="btn btn-sm btn-notes action-with-tooltip"
+              class="btn btn-sm btn-notes action-with-tooltip mv-note-badge-anchor"
               (click)="navigateToNotes(quote.numeroPreventivo, getQuoteDisplayName(quote)); $event.stopPropagation()"
               title="Apri le note del preventivo"
               aria-label="Apri le note del preventivo"
               data-tooltip="Note del preventivo"
             >
               <i class="fas fa-note-sticky"></i>
+              <span class="mv-note-unread-badge" *ngIf="noteUnread.count('quote', quote.numeroPreventivo) as unread">{{ unread > 99 ? '99+' : unread }}</span>
             </button>
           </span>
         </div>
 
-        <div class="quote-actions" *ngIf="isQuoteOpen(quote.numeroPreventivo)">
-          <div class="quote-actions-inner">
+        <div class="quote-actions mv-record-actions" *ngIf="isQuoteOpen(quote.numeroPreventivo)">
+          <div class="quote-actions-inner mv-record-actions__inner">
             <button type="button"
-              *ngIf="!showCompletedQuotes && globalService.hasPermission('QUOTES_MANAGE') && !quote.isLocked"
-              class="btn btn-quote-action btn-quote-edit action-with-tooltip"
+              *ngIf="!isQuoteCompleted(quote) && globalService.hasPermission('QUOTES_MANAGE') && !quote.isLocked"
+              class="btn btn-quote-action btn-quote-edit mv-record-action mv-record-action--edit action-with-tooltip"
               (click)="navigateToEditQuote(quote.numeroPreventivo)"
               title="Modifica il preventivo"
               aria-label="Modifica il preventivo"
@@ -122,7 +128,7 @@
 
             <button type="button"
               *ngIf="globalService.hasPermission('QUOTES_MANAGE') && !quote.isLocked"
-              class="btn btn-quote-action btn-quote-delete action-with-tooltip"
+              class="btn btn-quote-action btn-quote-delete mv-record-action mv-record-action--danger action-with-tooltip"
               (click)="delete(quote.numeroPreventivo)"
               title="Elimina il preventivo"
               aria-label="Elimina il preventivo"
@@ -132,8 +138,8 @@
             </button>
 
             <button type="button"
-              *ngIf="!showCompletedQuotes"
-              class="btn btn-quote-action btn-quote-whatsapp action-with-tooltip"
+              *ngIf="!isQuoteCompleted(quote)"
+              class="btn btn-quote-action btn-quote-whatsapp mv-record-action mv-record-action--whatsapp action-with-tooltip"
               (click)="openQuoteWhatsApp(quote)"
               title="Apri la chat WhatsApp del cliente senza messaggio precompilato"
               aria-label="Apri WhatsApp"
@@ -143,8 +149,8 @@
             </button>
 
             <button type="button"
-              *ngIf="!showCompletedQuotes && globalService.hasPermission('EMAIL_VIEW')"
-              class="btn btn-quote-action btn-quote-email action-with-tooltip"
+              *ngIf="!isQuoteCompleted(quote) && globalService.hasPermission('EMAIL_VIEW')"
+              class="btn btn-quote-action btn-quote-email mv-record-action mv-record-action--email action-with-tooltip"
               (click)="composeQuoteEmail(quote)"
               title="Crea una nuova email con il cliente già come destinatario"
               aria-label="Scrivi email"
@@ -154,30 +160,32 @@
             </button>
 
             <button type="button"
-              *ngIf="!showCompletedQuotes"
-              class="btn btn-quote-action btn-quote-chat action-with-tooltip"
+              *ngIf="!isQuoteCompleted(quote)"
+              class="btn btn-quote-action btn-quote-chat mv-record-action mv-record-action--signature action-with-tooltip"
               (click)="sendAcceptanceLink(quote.numeroPreventivo)"
-              title="Genera e invia su WhatsApp il link per far accettare il preventivo"
+              title="Genera il link di accettazione e scegli WhatsApp o email"
               aria-label="Invia link accettazione"
-              data-tooltip="Link accettazione"
+              data-tooltip="Invia per accettazione"
             >
               <i class="fas fa-file-signature"></i>
             </button>
 
             <button type="button"
-              *ngIf="!showCompletedQuotes && !quote.isLocked"
-              class="btn btn-quote-action btn-quote-send action-with-tooltip"
-              (click)="invio(quote.numeroPreventivo)"
-              title="Invia il PDF del preventivo via email"
-              aria-label="Invia PDF preventivo via email"
-              data-tooltip="Invia PDF via email"
+              *ngIf="quote.acceptanceStatus && globalService.hasPermission('QUOTES_VIEW')"
+              class="btn btn-quote-action btn-quote-notes mv-record-action mv-record-action--evidence action-with-tooltip"
+              (click)="showAcceptanceEvidence(quote.numeroPreventivo)"
+              title="Visualizza i dati di prova dell'accettazione"
+              aria-label="Dati prova firma"
+              data-tooltip="Dati prova firma"
             >
-              <i class="fas fa-file-export"></i>
+              <i class="fas fa-shield-halved"></i>
             </button>
 
+
+
             <button type="button"
-              *ngIf="!showCompletedQuotes && canCreateCalendarEvents()"
-              class="btn btn-quote-action btn-quote-calendar action-with-tooltip"
+              *ngIf="!isQuoteCompleted(quote) && canCreateCalendarEvents()"
+              class="btn btn-quote-action btn-quote-calendar mv-record-action mv-record-action--calendar action-with-tooltip"
               (click)="addInspection(quote.numeroPreventivo, getQuoteDisplayName(quote))"
               title="Crea un appuntamento in calendario da questo preventivo"
               aria-label="Crea appuntamento"
@@ -187,8 +195,8 @@
             </button>
 
             <button type="button"
-              *ngIf="!showCompletedQuotes && !quote.isLocked"
-              class="btn btn-quote-action btn-quote-confirm action-with-tooltip"
+              *ngIf="!isQuoteCompleted(quote) && !quote.isLocked"
+              class="btn btn-quote-action btn-quote-confirm mv-record-action mv-record-action--confirm action-with-tooltip"
               (click)="conferm(quote.numeroPreventivo)"
               [title]="canCreateCustomersFromQuote() ? 'Conferma il preventivo e crea il cliente' : 'Segna il preventivo come accettato'"
               aria-label="Conferma preventivo"
@@ -198,8 +206,8 @@
             </button>
 
             <button type="button"
-              *ngIf="!showCompletedQuotes && (!quote.isLocked || quote.acceptanceStatus === 'pending')"
-              class="btn btn-quote-action btn-quote-refuse action-with-tooltip"
+              *ngIf="!isQuoteCompleted(quote) && (!quote.isLocked || quote.acceptanceStatus === 'pending')"
+              class="btn btn-quote-action btn-quote-refuse mv-record-action mv-record-action--danger action-with-tooltip"
               (click)="refuse(quote.numeroPreventivo)"
               title="Segna il preventivo come rifiutato"
               aria-label="Rifiuta preventivo"
@@ -210,7 +218,7 @@
 
             <button type="button"
               *ngIf="quote.isLocked && globalService.hasPermission('QUOTES_MANAGE')"
-              class="btn btn-quote-action btn-quote-copy action-with-tooltip"
+              class="btn btn-quote-action btn-quote-copy mv-record-action mv-record-action--signature action-with-tooltip"
               (click)="duplicateQuote(quote.numeroPreventivo)"
               title="Duplica il preventivo bloccato in una nuova bozza modificabile"
               aria-label="Duplica preventivo"
@@ -220,8 +228,8 @@
             </button>
 
             <button type="button"
-              *ngIf="showCompletedQuotes && quote.needsOfficeReview && canCreateCustomersFromQuote()"
-              class="btn btn-quote-action btn-quote-verify action-with-tooltip"
+              *ngIf="isQuoteCompleted(quote) && quote.needsOfficeReview && canCreateCustomersFromQuote()"
+              class="btn btn-quote-action btn-quote-verify mv-record-action mv-record-action--confirm action-with-tooltip"
               (click)="reviewSignedQuoteAndCreateCustomer(quote)"
               title="Apre il preventivo firmato; dopo la verifica puoi creare il cliente"
               aria-label="Verifica preventivo"
@@ -231,8 +239,8 @@
             </button>
 
             <button type="button"
-              *ngIf="showCompletedQuotes && !quote.needsOfficeReview"
-              class="btn btn-quote-action btn-quote-restore action-with-tooltip"
+              *ngIf="isQuoteCompleted(quote) && !quote.needsOfficeReview"
+              class="btn btn-quote-action btn-quote-restore mv-record-action mv-record-action--signature action-with-tooltip"
               (click)="restore(quote.numeroPreventivo)"
               title="Riporta il preventivo tra quelli aperti"
               aria-label="Ripristina preventivo"
@@ -243,6 +251,7 @@
           </div>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </div>

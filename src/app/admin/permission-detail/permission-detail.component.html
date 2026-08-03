@@ -1,0 +1,43 @@
+<div class="standard-management-page permission-sheet-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title"><h1>Scheda permesso</h1></div>
+    <div class="mv-entity-toolbar__controls">
+      <button type="button" class="btn mv-toolbar-back" (click)="back()">&larr; Torna indietro</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div *ngIf="loading" class="alert alert-info text-center">Caricamento in corso...</div>
+    <div *ngIf="!loading && errorMessage" class="alert alert-warning text-center">{{ errorMessage }}</div>
+
+    <article class="permission-sheet" *ngIf="request">
+      <div class="permission-sheet__heading">
+        <span class="entity-id-pill">#{{ request.displayId }}</span>
+        <div>
+          <h2>{{ employeeName }}</h2>
+          <span class="permission-status" [class.permission-status--success]="request.status === 'accettato'" [class.permission-status--danger]="request.status === 'rifiutato'">{{ statusLabel }}</span>
+        </div>
+      </div>
+
+      <div class="permission-sheet__grid">
+        <div class="permission-sheet__field"><span>Dipendente</span><strong>#{{ request.employeeId }} · {{ employeeName }}</strong></div>
+        <div class="permission-sheet__field"><span>Email</span><strong>{{ request.employee?.email || '-' }}</strong></div>
+        <div class="permission-sheet__field"><span>Categoria</span><strong>{{ categoryLabel }}</strong></div>
+        <div class="permission-sheet__field"><span>Tipo</span><strong>{{ typeLabel }}</strong></div>
+        <div class="permission-sheet__field"><span>Dal</span><strong>{{ request.fromDate | date:'dd/MM/yyyy' }}</strong></div>
+        <div class="permission-sheet__field"><span>Al</span><strong>{{ request.toDate | date:'dd/MM/yyyy' }}</strong></div>
+        <div class="permission-sheet__field" *ngIf="request.oraInizio || request.oraFine"><span>Orario richiesto</span><strong>{{ request.oraInizio || '-' }} – {{ request.oraFine || '-' }}</strong></div>
+        <div class="permission-sheet__field" *ngIf="request.oraInizioModificata || request.oraFineModificata"><span>Orario modificato</span><strong>{{ request.oraInizioModificata || '-' }} – {{ request.oraFineModificata || '-' }}</strong></div>
+        <div class="permission-sheet__field" *ngIf="request.oreGiornaliere"><span>Ore giornaliere</span><strong>{{ request.oreGiornaliere }}</strong></div>
+      </div>
+
+      <section class="permission-attachments" *ngIf="attachments.length">
+        <h3>Allegati</h3>
+        <button type="button" class="btn permission-attachment" *ngFor="let attachment of attachments" (click)="downloadAttachment(attachment)">
+          <i class="fas fa-paperclip" aria-hidden="true"></i>
+          {{ attachment.filename || 'Allegato' }}
+        </button>
+      </section>
+    </article>
+  </div>
+</div>

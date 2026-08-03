@@ -1,5 +1,8 @@
-<main class="assets-page">
-  <header><button type="button" class="back" (click)="back()">← Indietro</button><div><h1>{{ editorWorkflow ? editorTitle : (showArchived ? 'Storico ' + moduleLabel : moduleLabel) }}</h1><p>{{ editorWorkflow ? 'Compila i dati e torna automaticamente alle scadenze dei presidi dopo il salvataggio.' : (showArchived ? 'Consulta i presidi eliminati e le relative scadenze storiche.' : 'Registra ogni ' + (singularLabel | lowercase) + ' installato presso il cliente e pianifica le sue manutenzioni.') }}</p></div><button *ngIf="!editorWorkflow" type="button" (click)="toggleArchived()">{{ showArchived ? '← Operativo' : 'Storico eliminati' }}</button><button *ngIf="!showArchived && !editorWorkflow" type="button" class="primary" (click)="startNew()">+ Nuovo {{ singularLabel | lowercase }}</button></header>
+<main class="standard-management-page assets-page">
+  <header class="mv-entity-toolbar assets-toolbar">
+    <div class="mv-entity-toolbar__title assets-toolbar__copy"><h1>{{ editorWorkflow ? editorTitle : (showArchived ? 'Storico ' + moduleLabel : moduleLabel) }}</h1><p>{{ editorWorkflow ? 'Compila i dati e torna automaticamente alle scadenze dei presidi dopo il salvataggio.' : (showArchived ? 'Consulta i presidi eliminati e le relative scadenze storiche.' : 'Registra ogni ' + (singularLabel | lowercase) + ' installato presso il cliente e pianifica le sue manutenzioni.') }}</p></div>
+    <div class="mv-entity-toolbar__controls assets-toolbar__controls"><button type="button" class="mv-toolbar-back" (click)="back()">← Torna indietro</button><button *ngIf="!editorWorkflow" type="button" class="mv-toolbar-back" (click)="toggleArchived()">{{ showArchived ? '← Operativo' : 'Storico eliminati' }}</button><button *ngIf="!showArchived && !editorWorkflow" type="button" class="mv-toolbar-primary" (click)="startNew()">+ Nuovo {{ singularLabel | lowercase }}</button></div>
+  </header>
   <p id="customer-asset-error" class="error" *ngIf="error" role="alert">{{ error }}</p>
   <section class="editor" *ngIf="showForm">
     <h2>{{ editorTitle }}</h2>

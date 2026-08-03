@@ -3,7 +3,7 @@
 }
 
 .missing-contact-dialog p {
-  color: #1f2937;
+  color: var(--mv-text);
   font-size: 15px;
   line-height: 1.45;
   margin: 0;

@@ -1,21 +1,18 @@
 :root{
-  --brand-black:#0f172a;
-  --brand-orange:#ff7a00;
-  --brand-orange-2:#ff9a3c;
-  --brand-blue:#0d6efd;
-  --brand-sky:#8ec5ff;
+  --brand-black:var(--mv-ink);
+  --brand-orange:var(--mv-orange-500);
+  --brand-orange-2:var(--mv-orange-300);
+  --brand-blue:var(--mv-blue-600);
+  --brand-sky:var(--mv-blue-300);
 }
 
 /* pagina */
 .pdf-page{
-  min-height: calc(100vh - 24px);
+  min-height: 100%;
 }
 
 .pdf-page-header{
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 18px;
 }
 
 /* bottone back PDF: non usare .btn-back-brand, viene nascosto su desktop dal CSS globale */
@@ -25,11 +22,11 @@
   gap: 8px;
   border: 0;
   font-weight: 950;
-  color: #000 !important;
+  color: var(--mv-ink);
   background: linear-gradient(135deg, rgba(142,197,255,.75), rgba(255,122,0,.45));
   box-shadow: 0 14px 34px rgba(2,6,23,.12);
   padding: 10px 14px;
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   transition: .2s ease;
 }
 .btn-pdf-back:hover{
@@ -39,8 +36,10 @@
 
 /* contenitore viewer: glass + full screen */
 .pdf-shell{
-  height: calc(100vh - 172px); /* spazio per header/back */
-  border-radius: 22px;
+  width: calc(100% - 32px);
+  height: calc(100vh - 158px);
+  margin: 0 auto;
+  border-radius: var(--mv-radius-surface);
   overflow: hidden;
   background:
     linear-gradient(135deg, rgba(255,122,0,.14), rgba(13,110,253,.10)),
@@ -62,7 +61,7 @@
   align-items: center;
   justify-content: center;
   font-weight: 950;
-  color: #000;
+  color: var(--mv-ink);
 }
 
 /* toolbar custom: sticky e bella */
@@ -83,7 +82,7 @@
 
 .pdf-toolbar-title{
   font-weight: 950;
-  color: #000;
+  color: var(--mv-ink);
   letter-spacing: .2px;
 }
 
@@ -103,18 +102,18 @@
 
 /* bottoni action: testo nero */
 .btn-pdf-action{
-  border-radius: 14px !important;
-  font-weight: 950 !important;
-  color: #000 !important;
-  box-shadow: 0 10px 22px rgba(2,6,23,.10) !important;
+  border-radius: var(--mv-radius-control);
+  font-weight: 950;
+  color: var(--mv-ink);
+  box-shadow: 0 10px 22px rgba(2,6,23,.10);
 }
 .btn-pdf-action.btn-orange{
-  background: linear-gradient(135deg, var(--brand-orange), var(--brand-orange-2)) !important;
-  border: 0 !important;
+  background: linear-gradient(135deg, var(--brand-orange), var(--brand-orange-2));
+  border: 0;
 }
 .btn-pdf-action.btn-sky{
-  background: linear-gradient(135deg, rgba(142,197,255,.9), rgba(13,110,253,.22)) !important;
-  border: 1px solid rgba(13,110,253,.18) !important;
+  background: linear-gradient(135deg, rgba(142,197,255,.9), rgba(13,110,253,.22));
+  border: 1px solid rgba(13,110,253,.18);
 }
 
 .confirm-panel{
@@ -124,12 +123,12 @@
 }
 
 .btn-confirm-customer{
-  border: 0 !important;
-  border-radius: 14px !important;
+  border: 0;
+  border-radius: var(--mv-radius-control);
   padding: 11px 18px;
-  font-weight: 950 !important;
-  color: #000 !important;
-  background: linear-gradient(135deg, #ff7a00, #ff9a3c) !important;
+  font-weight: 950;
+  color: var(--mv-ink);
+  background: linear-gradient(135deg, var(--mv-orange-500), var(--mv-orange-300));
   box-shadow: 0 14px 34px rgba(255,122,0,.28);
 }
 

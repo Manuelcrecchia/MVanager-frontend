@@ -1,13 +1,14 @@
 <div class="stats-page">
-  <div class="stats-topbar">
-    <button class="btn-back" type="button" (click)="back()">← Indietro</button>
-    <button class="btn btn-outline-light btn-sm" type="button" (click)="loadStats()">↻ Aggiorna</button>
-  </div>
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title"><h1>Statistiche</h1><button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="back()">← Torna indietro</button></div>
+    <div class="mv-entity-toolbar__controls">
+      <button class="btn btn-light" type="button" (click)="loadStats()">↻ Aggiorna</button>
+    </div>
+  </header>
 
   <section class="stats-hero">
     <div>
       <p class="eyebrow">Fogli fine lavoro</p>
-      <h2>Statistiche</h2>
       <p>Analisi delle valutazioni lasciate dai clienti a fine intervento.</p>
     </div>
     <div class="stats-kpis">

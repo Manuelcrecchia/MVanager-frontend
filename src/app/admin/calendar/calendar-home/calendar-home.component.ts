@@ -238,6 +238,7 @@ export class CalendarHomeComponent implements OnInit {
 
   private quotesMap: Map<string, any> = new Map();
   private popupNumeroPreventivo = '';
+  private popupServiceOrderId: number | null = null;
 
   private quoteLabel(quote: any): string {
     const title = this.globalService.getRecordDisplayName('quote', quote || {});
@@ -599,12 +600,13 @@ export class CalendarHomeComponent implements OnInit {
 
   // ── POPUP ──────────────────────────────────────────────────────────────
 
-  openNewPopup(date: Date, category = '', title = '', description = '', numeroPreventivo = '') {
+  openNewPopup(date: Date, category = '', title = '', description = '', numeroPreventivo = '', serviceOrderId: number | null = null) {
     const start = new Date(date); start.setSeconds(0,0);
     this.isNewEvent=true; this.editingEventId=null; this.isRecurringInstance=false; this.hasRecurrenceRule=false;
     this.editingSingleOccurrence=false; this.editingOccurrenceStart=null; this.editingSelectedDate=null;
     this.popupTitle=title; this.popupDescription=description;
     this.popupNumeroPreventivo = numeroPreventivo;
+    this.popupServiceOrderId = serviceOrderId;
     this.popupStartDate=this.toInputDatetime(start);
     this.popupCategory=category||this.globalService.getDefaultAppointmentCategory(this.categories[0]?.id || '')||'';
     this.updatePopupEndFromCustomerDuration();
@@ -626,6 +628,14 @@ export class CalendarHomeComponent implements OnInit {
     const category = this.autoInspectionService.customerEventCategory ||
       this.getDefaultCustomerLinkedCategory(customerType);
     const description = this.autoInspectionService.customerEventDescription;
+    const serviceOrderId = this.autoInspectionService.pendingServiceOrderEvent
+      ? Number(this.autoInspectionService.serviceOrderId) || null
+      : null;
+    const serviceOrderDisplayId = this.autoInspectionService.pendingServiceOrderEvent
+      ? String(this.autoInspectionService.serviceOrderDisplayId || '').trim()
+      : '';
+    const serviceOrderStart = this.autoInspectionService.serviceOrderStartDate;
+    const serviceOrderEnd = this.autoInspectionService.serviceOrderEndDate;
 
     this.autoInspectionService.pendingCustomerEvent = false;
     this.autoInspectionService.numeroCliente = '';
@@ -633,20 +643,35 @@ export class CalendarHomeComponent implements OnInit {
     this.autoInspectionService.customerType = '';
     this.autoInspectionService.customerEventCategory = '';
     this.autoInspectionService.customerEventDescription = '';
+    this.autoInspectionService.pendingServiceOrderEvent = false;
+    this.autoInspectionService.serviceOrderId = 0;
+    this.autoInspectionService.serviceOrderDisplayId = '';
+    this.autoInspectionService.serviceOrderStartDate = '';
+    this.autoInspectionService.serviceOrderEndDate = '';
 
     if (!numeroCliente || !displayName) {
       return;
     }
 
     this.currentView = 'day';
-    this.currentDate = new Date();
+    const requestedStart = serviceOrderStart ? new Date(serviceOrderStart) : new Date();
+    const start = Number.isNaN(requestedStart.getTime()) ? new Date() : requestedStart;
+    this.currentDate = new Date(start);
     this.buildGrid();
     this.openNewPopup(
-      new Date(),
+      start,
       category,
-      `${numeroCliente} - ${displayName}`,
+      serviceOrderId
+        ? `${serviceOrderDisplayId || numeroCliente} ${displayName} - Ordini di servizio`
+        : `${numeroCliente} - ${displayName}`,
       description,
+      '',
+      serviceOrderId,
     );
+    if (serviceOrderEnd) {
+      const end = new Date(serviceOrderEnd);
+      if (!Number.isNaN(end.getTime()) && end > start) this.popupEndDate = this.toInputDatetime(end);
+    }
   }
 
   private getOriginalCalEvent(ev: CalEvent): CalEvent {
@@ -717,7 +742,7 @@ export class CalendarHomeComponent implements OnInit {
       ? this.singleDayView(ev, selectedDate)
       : original;
 
-    this.isNewEvent=false; this.editingEventId=ev.originalId??ev.id;
+    this.isNewEvent=false; this.editingEventId=ev.originalId??ev.id; this.popupServiceOrderId=null;
     this.isRecurringInstance=!!ev.isRecurring; this.hasRecurrenceRule=!!(original.recurrenceRule&&original.recurrenceRule.trim()!=='');
     this.editingSingleOccurrence=scope === 'single';
     this.editingOccurrenceStart=new Date(ev.start);
@@ -752,6 +777,7 @@ export class CalendarHomeComponent implements OnInit {
     this.pendingDeadlineIds = [];
     this.routeActionOpened = false;
     this.editingSingleOccurrence=false; this.editingOccurrenceStart=null; this.editingSelectedDate=null;
+    this.popupServiceOrderId = null;
   }
 
   showDayEventsPopup(cell: DayCell) {
@@ -969,6 +995,10 @@ export class CalendarHomeComponent implements OnInit {
     if (this.isNewEvent || this.popupNumeroPreventivo) {
       body.numeroPreventivo = this.popupNumeroPreventivo || null;
     }
+    if (this.isNewEvent && this.popupServiceOrderId) {
+      body.serviceOrderId = this.popupServiceOrderId;
+      body.returnAppointmentId = true;
+    }
     if (!this.isNewEvent && this.editingSingleOccurrence) {
       this.saveSingleOccurrence(body, isInspection, hasReminder);
       return;
@@ -1072,8 +1102,9 @@ export class CalendarHomeComponent implements OnInit {
       return !!quote && !quote.complete && this.quoteMatchesCategoryType(quote, category);
     }
     if (this.isCustomerCategory(category)) {
+      const customerCode = String(codice || '').split('/', 1)[0];
       return this.clientiArray.some((customer) => {
-        const sameCode = this.normalize(customer.numeroCliente?.toString() || '') === this.normalize(codice);
+        const sameCode = this.normalize(customer.numeroCliente?.toString() || '') === this.normalize(customerCode);
         return sameCode && this.customerMatchesCategoryType(customer, category);
       });
     }

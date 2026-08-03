@@ -5,6 +5,7 @@ import { catchError } from 'rxjs/operators';
 import { GlobalService } from './service/global.service';
 import { TenantService } from './service/tenant.service';
 import { PopupServiceService } from './componenti/popup/popup-service.service';
+import { getRealtimeClientId } from './service/realtime-client-id';
 
 @Injectable({
   providedIn: 'root'
@@ -18,7 +19,9 @@ export class AuthInterceptorService implements HttpInterceptor {
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     const token = this.globalService.token;
-    let headers = req.headers.set('X-Tenant-Id', this.tenantService.tenant);
+    let headers = req.headers
+      .set('X-Tenant-Id', this.tenantService.tenant)
+      .set('X-MV-Realtime-Client', getRealtimeClientId());
     if (token) {
       headers = headers.set('Authorization', `Bearer ${token}`);
     }
@@ -31,7 +34,7 @@ export class AuthInterceptorService implements HttpInterceptor {
           return throwError(() => err);
         }
         if (err.status === 403) {
-          this.popup.showHttpError(err, 'Non sei autorizzato a eseguire questa operazione.', 'Accesso non consentito');
+          this.popup.showHttpError(err, this.describeForbidden(cloned.url), 'Accesso non consentito');
           return throwError(() => err);
         }
 
@@ -79,6 +82,17 @@ export class AuthInterceptorService implements HttpInterceptor {
     }
 
     return 'Operazione non completata. Controlla i dati inseriti e riprova.';
+  }
+
+  private describeForbidden(url: string): string {
+    const value = String(url || '').toLowerCase();
+    if (value.includes('/vehicles/')) return 'Non hai i permessi per visualizzare o gestire i mezzi.';
+    if (value.includes('/equipment/')) return 'Non hai i permessi per visualizzare o gestire le attrezzature.';
+    if (value.includes('/employees/')) return 'Non hai i permessi per visualizzare i dipendenti.';
+    if (value.includes('/customers/')) return 'Non hai i permessi necessari per questa operazione sui clienti.';
+    if (value.includes('/quotes/')) return 'Non hai i permessi necessari per questa operazione sui preventivi.';
+    if (value.includes('/calendar')) return 'Non hai i permessi necessari per il calendario.';
+    return 'Non hai i permessi necessari per questa operazione.';
   }
 
 }

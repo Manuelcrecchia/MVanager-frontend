@@ -1,11 +1,9 @@
 <div class="cal-wrap">
 
   <!-- ═══ HEADER ═══ -->
-  <div class="cal-header">
-    <button type="button" class="btn-back" (click)="goBack()">
-      <i class="fa fa-arrow-left"></i> Indietro
-    </button>
-
+  <header class="cal-header mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title"><h1>Calendario</h1><button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="goBack()">← Torna indietro</button></div>
+    <div class="cal-header-controls">
     <div class="cal-nav-group">
       <button type="button" class="nav-arrow" (click)="prev()">&#8249;</button>
 
@@ -44,7 +42,8 @@
       <button type="button" [class.active]="currentView==='week'" (click)="setView('week')">Settimana</button>
       <button type="button" [class.active]="currentView==='day'" (click)="setView('day')">Giorno</button>
     </div>
-  </div>
+    </div>
+  </header>
 
   <!-- ═══ FILTER ═══ -->
   <div class="filter-bar">

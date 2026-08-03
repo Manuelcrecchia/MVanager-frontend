@@ -49,6 +49,10 @@ export class PopupComponentComponent {
   }
 
   confirm(): void {
-    this.dialogRef.close(this.data.mode === 'prompt' ? this.inputValue : true);
+    this.dialogRef.close(this.data.mode === 'prompt' ? this.inputValue : this.data.mode === 'choice' ? 'primary' : this.data.mode === 'evidence' ? 'save' : true);
+  }
+
+  chooseSecondary(): void {
+    this.dialogRef.close(this.data.mode === 'evidence' ? 'print' : 'secondary');
   }
 }

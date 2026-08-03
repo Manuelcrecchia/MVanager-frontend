@@ -1,7 +1,6 @@
-<div class="page-wrap">
-  <div class="topbar">
-    <button type="button" class="btn-back" (click)="back()">← Indietro</button>
-
+<div class="deadlines-page">
+  <header class="topbar mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title"><h1>{{ pageTitle }}</h1><button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="back()">← Torna indietro</button></div>
     <div class="topbar-actions">
       <label class="deadline-month-picker desktop-secondary-operation">
         <span>Mese riepilogo</span>
@@ -69,7 +68,7 @@
         </div>
       </details>
     </div>
-  </div>
+  </header>
 
   <section class="deadline-filter-panel glass" *ngIf="showDeadlineDateFilter">
     <div class="deadline-filter-heading">
@@ -149,7 +148,7 @@
             [checked]="selectedPdfCustomerIds.has(customer.id)"
             (change)="togglePdfCustomer(customer.id, $any($event.target).checked)"
           />
-          <span><strong>{{ customer.label }}</strong><small>{{ customer.assetCount }} presidi · {{ customer.deadlineCount }} scadenze</small></span>
+          <span><strong>#{{ customer.id }} · {{ customer.label }}</strong><small>{{ customer.assetCount }} presidi · {{ customer.deadlineCount }} scadenze</small></span>
         </label>
         <p class="empty-state" *ngIf="pdfCustomers.length === 0">Nessun cliente ha presidi in scadenza nel mese selezionato.</p>
       </div>
@@ -169,11 +168,7 @@
   </section>
 
   <div class="card glass hero-card">
-    <div>
-      <div class="eyebrow">{{ pageTitle }}</div>
-      <h2 class="title">{{ pageTitle }}</h2>
-      <p class="subtitle">{{ pageDescription }}</p>
-    </div>
+    <p class="subtitle deadline-summary-intro">{{ pageDescription }}</p>
 
     <div class="summary-grid">
       <div class="summary-box">
@@ -524,7 +519,7 @@
           *ngIf="canPlan && selectedDeadlineIds.size > 0"
           type="button"
           class="btn btn-primary btn-sm"
-          (click)="planSelectedDeadlines()"
+          (reliableTap)="planSelectedDeadlines()"
         >
           Pianifica selezionate ({{ selectedDeadlineIds.size }})
         </button>
@@ -721,7 +716,7 @@
                     type="button"
                     class="customer-asset-detail-toggle"
                     [attr.aria-expanded]="isCustomerAssetExpanded(asset)"
-                    (click)="toggleCustomerAsset(asset)"
+                    (reliableTap)="toggleCustomerAsset(asset)"
                   >
                     <span class="asset-toggle-arrow" aria-hidden="true">›</span>
                     <span>
@@ -735,7 +730,7 @@
                   </button>
                 </div>
                 <div class="detail-head-actions" *ngIf="!showArchivedCustomerAssets">
-                  <button type="button" class="btn btn-outline-light btn-sm" (click)="editCustomerAsset(asset)">Modifica presidio</button>
+                  <button type="button" class="btn btn-outline-light btn-sm" (reliableTap)="editCustomerAsset(asset)">Modifica presidio</button>
                   <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteCustomerAsset(asset)">Elimina presidio</button>
                 </div>
               </div>
@@ -850,7 +845,11 @@
                   : 'Seleziona ' + deadline.title + ' per pianificare'
               "
               title="Seleziona per pianificare"
-              (click)="toggleDeadlineSelection(deadline, !isDeadlineSelected(deadline))"
+              (pointerdown)="onDeadlineActionPointerDown($event)"
+              (pointerup)="onDeadlineActionPointerUp($event, deadline, 'select')"
+              (pointercancel)="onDeadlineActionPointerCancel()"
+              (keydown.enter)="runDeadlineAction(deadline, 'select')"
+              (keydown.space)="runDeadlineAction(deadline, 'select'); $event.preventDefault()"
             >
               <span aria-hidden="true">{{ isDeadlineSelected(deadline) ? '✓' : '' }}</span>
             </button>
@@ -874,7 +873,11 @@
                 *ngIf="canPlan && !deadline.plannedAppointmentId"
                 type="button"
                 class="btn btn-primary btn-sm"
-                (click)="planDeadline(deadline)"
+                (pointerdown)="onDeadlineActionPointerDown($event)"
+                (pointerup)="onDeadlineActionPointerUp($event, deadline, 'plan')"
+                (pointercancel)="onDeadlineActionPointerCancel()"
+                (keydown.enter)="runDeadlineAction(deadline, 'plan')"
+                (keydown.space)="runDeadlineAction(deadline, 'plan'); $event.preventDefault()"
               >
                 Pianifica
               </button>
@@ -882,7 +885,11 @@
                 *ngIf="canPlan && deadline.plannedAppointmentId"
                 type="button"
                 class="btn btn-outline-info btn-sm"
-                (click)="openPlannedEvent(deadline)"
+                (pointerdown)="onDeadlineActionPointerDown($event)"
+                (pointerup)="onDeadlineActionPointerUp($event, deadline, 'open')"
+                (pointercancel)="onDeadlineActionPointerCancel()"
+                (keydown.enter)="runDeadlineAction(deadline, 'open')"
+                (keydown.space)="runDeadlineAction(deadline, 'open'); $event.preventDefault()"
               >
                 Apri evento
               </button>
@@ -890,7 +897,11 @@
                 *ngIf="canEdit"
                 type="button"
                 class="btn btn-dark btn-sm"
-                (click)="openEditForm(deadline)"
+                (pointerdown)="onEditDeadlinePointerDown($event)"
+                (pointerup)="onEditDeadlinePointerUp($event, deadline)"
+                (pointercancel)="onEditDeadlinePointerCancel()"
+                (keydown.enter)="openEditForm(deadline)"
+                (keydown.space)="openEditForm(deadline); $event.preventDefault()"
               >
                 Aggiorna
               </button>
@@ -898,14 +909,22 @@
                 *ngIf="canDelete"
                 type="button"
                 class="btn btn-outline-danger btn-sm"
-                (click)="deleteDeadline(deadline)"
+                (pointerdown)="onDeadlineActionPointerDown($event)"
+                (pointerup)="onDeadlineActionPointerUp($event, deadline, 'delete')"
+                (pointercancel)="onDeadlineActionPointerCancel()"
+                (keydown.enter)="runDeadlineAction(deadline, 'delete')"
+                (keydown.space)="runDeadlineAction(deadline, 'delete'); $event.preventDefault()"
               >
                 Elimina
               </button>
               <button
                 type="button"
                 class="btn btn-deadline-secondary btn-sm"
-                (click)="toggleHistory(deadline)"
+                (pointerdown)="onDeadlineActionPointerDown($event)"
+                (pointerup)="onDeadlineActionPointerUp($event, deadline, 'history')"
+                (pointercancel)="onDeadlineActionPointerCancel()"
+                (keydown.enter)="runDeadlineAction(deadline, 'history')"
+                (keydown.space)="runDeadlineAction(deadline, 'history'); $event.preventDefault()"
               >
                 Storico
               </button>

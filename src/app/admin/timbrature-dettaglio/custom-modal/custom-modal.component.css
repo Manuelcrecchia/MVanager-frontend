@@ -1,10 +1,10 @@
 :root{
-  --brand-orange:#ff8a00;
-  --brand-sky:#2fb7ff;
+  --brand-orange:var(--mv-orange-500);
+  --brand-sky:var(--mv-blue-500);
   --glass-border: rgba(255,255,255,0.18);
   --shadow-soft: 0 25px 70px rgba(0,0,0,0.55);
-  --radius-lg: 22px;
-  --radius-md: 16px;
+  --radius-lg: var(--mv-radius-surface);
+  --radius-md: var(--mv-radius-control);
   --text: rgba(255,255,255,0.92);
   --muted: rgba(255,255,255,0.72);
 }
@@ -13,88 +13,88 @@
 .modal-backdrop.show{
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  background-color: rgba(0,0,0,0.65) !important;
+  background-color: rgba(0,0,0,0.65);
 }
 
 /* ===== MV MODAL (solo se ha mv-modal) ===== */
 .mv-modal .mv-modal__content{
-  border: 1px solid var(--glass-border) !important;
-  border-radius: var(--radius-lg) !important;
-  background: linear-gradient(180deg, rgba(18,25,36,0.96), rgba(10,14,20,0.96)) !important;
-  box-shadow: var(--shadow-soft) !important;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(18,25,36,0.96), rgba(10,14,20,0.96));
+  box-shadow: var(--shadow-soft);
   overflow: hidden;
-  color: var(--text) !important;
+  color: var(--text);
 }
 
 .mv-modal .mv-modal__header{
-  border-bottom: 1px solid rgba(255,255,255,0.12) !important;
-  background: linear-gradient(135deg, rgba(255,138,0,0.95), rgba(47,183,255,0.85)) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  background: linear-gradient(135deg, rgba(255,138,0,0.95), rgba(47,183,255,0.85));
 }
 
 .mv-modal .mv-modal__title{
-  font-weight: 950 !important;
+  font-weight: 950;
   letter-spacing: .2px;
-  color: #111 !important;
+  color: var(--mv-ink);
 }
 
 .mv-modal .mv-modal__close{
-  opacity: 1 !important;
+  opacity: 1;
   filter: invert(1) grayscale(1) brightness(2);
 }
 
 .mv-modal .mv-modal__body{
   padding: 22px !important;
-  color: var(--text) !important;
+  color: var(--text);
 }
 
 .mv-modal .mv-modal__label{
-  font-weight: 900 !important;
+  font-weight: 900;
   margin-bottom: 8px !important;
-  color: var(--text) !important;
+  color: var(--text);
 }
 
 .mv-modal .mv-modal__input{
-  border-radius: var(--radius-md) !important;
-  border: 1px solid rgba(255,255,255,0.20) !important;
-  background: rgba(255,255,255,0.96) !important;
-  color: #111 !important;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.25) !important;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255,255,255,0.20);
+  background: rgba(255,255,255,0.96);
+  color: var(--mv-ink);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.25);
   padding: 10px 12px !important;
 }
 
 .mv-modal .mv-modal__input:focus{
-  border-color: rgba(47,183,255,0.85) !important;
-  box-shadow: 0 0 0 .18rem rgba(47,183,255,0.22) !important;
+  border-color: rgba(47,183,255,0.85);
+  box-shadow: 0 0 0 .18rem rgba(47,183,255,0.22);
 }
 
 .mv-modal .mv-modal__footer{
-  border-top: 1px solid rgba(255,255,255,0.12) !important;
+  border-top: 1px solid rgba(255,255,255,0.12);
   padding: 16px 22px !important;
   gap: 10px;
 }
 
 .mv-modal .mv-modal__btn{
-  border-radius: 999px !important;
-  font-weight: 950 !important;
+  border-radius: 999px;
+  font-weight: 950;
   padding: 10px 16px !important;
-  border: 1px solid rgba(255,255,255,0.22) !important;
-  box-shadow: 0 12px 26px rgba(0,0,0,0.35) !important;
+  border: 1px solid rgba(255,255,255,0.22);
+  box-shadow: 0 12px 26px rgba(0,0,0,0.35);
   transition: transform .14s ease, filter .14s ease, box-shadow .14s ease;
 }
 
 .mv-modal .mv-modal__btn:hover{
   transform: translateY(-2px);
   filter: brightness(1.03);
-  box-shadow: 0 16px 36px rgba(0,0,0,0.45) !important;
+  box-shadow: 0 16px 36px rgba(0,0,0,0.45);
 }
 
 .mv-modal .mv-modal__btn--secondary{
-  background: rgba(255,255,255,0.85) !important;
-  color: #111 !important;
-  border-color: rgba(255,255,255,0.65) !important;
+  background: rgba(255,255,255,0.85);
+  color: var(--mv-ink);
+  border-color: rgba(255,255,255,0.65);
 }
 
 .mv-modal .mv-modal__btn--primary{
-  background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky)) !important;
-  color: #111 !important;
+  background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky));
+  color: var(--mv-ink);
 }

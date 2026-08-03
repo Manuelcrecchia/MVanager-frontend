@@ -6,6 +6,7 @@ import { Component, Input } from '@angular/core';
 import { saveAs } from 'file-saver';
 import { forkJoin } from 'rxjs';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+import { NoteUnreadService } from '../../service/note-unread.service';
 
 @Component({
   selector: 'app-list-customer',
@@ -33,17 +34,25 @@ export class ListCustomerComponent {
     private route: ActivatedRoute,
     private customerModelService: CustomerModelService,
     private appDialog: PopupServiceService,
+    public noteUnread: NoteUnreadService,
   ) {}
 
   ngOnInit(): void {
+    this.noteUnread.start();
     this.archiveReminderCustomerId = String(this.route.snapshot.queryParamMap.get('archiveReminder') || '').trim();
     if (this.archiveReminderCustomerId) {
       this.customerSearch = this.archiveReminderCustomerId;
     }
     this.getCustomers();
-    this.getEmployeeCategories();
-    this.getVehicleCategories();
-    this.getEquipmentCategories();
+    if (this.globalService.hasPermission('EMPLOYEE_VIEW')) {
+      this.getEmployeeCategories();
+    }
+    if (this.globalService.hasPermission('VEHICLES_VIEW')) {
+      this.getVehicleCategories();
+    }
+    if (this.globalService.hasPermission('EQUIPMENT_VIEW')) {
+      this.getEquipmentCategories();
+    }
   }
 
   getEmployeeCategories(): void {
@@ -342,10 +351,63 @@ export class ListCustomerComponent {
     this.router.navigate(['/homeAdmin/documenti/client', numeroCliente]);
   }
 
-  openWorkCompletion(customer: any): void {
+  async openWorkCompletion(customer: any): Promise<void> {
     const numeroCliente = String(customer?.numeroCliente || '').trim();
     if (!numeroCliente) return;
-    this.router.navigate(['/homeAdmin/listCustomer', numeroCliente, 'work-completion']);
+    const email = this.getCustomerEmail(customer);
+    if (!email) {
+      this.appDialog.showError(
+        'Non puoi generare la richiesta: nell’anagrafica del cliente non è presente un indirizzo email.',
+        'Email cliente mancante',
+      );
+      return;
+    }
+    if (!this.isValidEmail(email)) {
+      this.appDialog.showError(
+        'Non puoi generare la richiesta: l’indirizzo email salvato per il cliente non è valido.',
+        'Email cliente non valida',
+      );
+      return;
+    }
+
+    const choice = await this.appDialog.choose(
+      'Il cliente compilerà personalmente il foglio, verificherà la propria email con un codice OTP e firmerà dal suo dispositivo. Via email riceverà anche il PDF preliminare; su WhatsApp verrà aperto il messaggio pronto.',
+      'Invia foglio di fine lavoro',
+      {
+        primaryLabel: 'Invia via email',
+        secondaryLabel: 'Invia su WhatsApp',
+        cancelLabel: 'Annulla',
+      },
+    );
+    if (!choice) return;
+    const sendByEmail = choice === 'primary';
+    this.http.post<any>(
+      this.globalService.url + 'admin/work-completion/request',
+      {
+        numeroCliente,
+        deliveryChannel: sendByEmail ? 'email' : 'manual',
+      },
+      { headers: this.globalService.headers },
+    ).subscribe({
+      next: (result) => {
+        if (!sendByEmail && (result?.whatsappUrl || result?.approvalUrl)) {
+          window.open(result.whatsappUrl || result.approvalUrl, '_blank');
+        }
+        this.appDialog.show(
+          sendByEmail
+            ? 'Email con link e PDF inviata al cliente.'
+            : 'Link generato e messaggio WhatsApp aperto.',
+          'Richiesta creata',
+          'success',
+        );
+      },
+      error: (err) => {
+        this.appDialog.showHttpError(
+          err,
+          'Impossibile generare la richiesta del foglio di fine lavoro.',
+        );
+      },
+    });
   }
 
   openStaffRequirements(customer: any): void {

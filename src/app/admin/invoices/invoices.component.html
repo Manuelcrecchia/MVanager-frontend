@@ -1,88 +1,60 @@
-<section class="invoice-page">
-  <header class="invoice-toolbar">
-    <div class="invoice-title-group">
-      <button type="button" class="back-btn" (click)="back()">
-        <i class="fas fa-arrow-left"></i>
-        Indietro
-      </button>
-      <div>
-        <p class="eyebrow">Pagamenti e fatture</p>
-        <h1>{{ viewTitle }}</h1>
-      </div>
+<section class="invoice-page" [class.invoice-page--economics]="activeView === 'economics'">
+  <header class="invoice-toolbar mv-entity-toolbar">
+    <div class="invoice-title-group mv-entity-toolbar__title">
+      <h1>{{ viewTitle }}</h1>
+      <button type="button" class="btn mv-toolbar-back mv-mobile-home-back" *ngIf="pageMode === 'list'" (click)="back()"><i class="fas fa-arrow-left"></i> Torna indietro</button>
+      <button type="button" class="primary-btn mv-toolbar-primary" *ngIf="activeView === 'invoices' && pageMode === 'list'" (click)="newInvoice()"><i class="fas fa-plus"></i> Nuova</button>
+      <button type="button" class="primary-btn mv-toolbar-primary" *ngIf="activeView === 'ddt' && pageMode === 'list'" (click)="newDdt()"><i class="fas fa-plus"></i> Nuovo</button>
+      <button type="button" class="primary-btn mv-toolbar-primary" *ngIf="activeView === 'suppliers' && pageMode === 'list'" (click)="newSupplier()"><i class="fas fa-plus"></i> Nuovo</button>
     </div>
-    <ng-container *ngIf="activeView === 'invoices'">
-      <button type="button" class="primary-btn" (click)="newInvoice()">
-        <i class="fas fa-plus"></i>
-        Nuova
-      </button>
-      <button type="button" class="ghost-btn" (click)="newProforma()">
-        <i class="fas fa-file-invoice"></i>
-        Proforma
-      </button>
-      <button type="button" class="ghost-btn" *ngIf="directionFilter === 'outbound'" (click)="importSalesHistory()" [disabled]="saving">
-        <i class="fas fa-file-import"></i>
-        Import storico vendita
-      </button>
-      <button type="button" class="ghost-btn" *ngIf="directionFilter === 'inbound'" (click)="importPassive()" [disabled]="saving">
-        <i class="fas fa-download"></i>
-        Import XML acquisto
-      </button>
-      <button type="button" class="ghost-btn" *ngIf="directionFilter === 'inbound'" (click)="importPassiveFromProvider()" [disabled]="saving">
-        <i class="fas fa-sync-alt"></i>
-        {{ saving ? 'Aggiornamento...' : 'Aggiorna' }}
-      </button>
-    </ng-container>
+    <div class="mv-entity-toolbar__controls" *ngIf="activeView === 'invoices' && pageMode === 'list'">
+      <label class="invoice-toolbar-search"><i class="fas fa-search"></i><input type="search" [(ngModel)]="search" (keyup.enter)="loadInvoices()" [placeholder]="invoiceSearchPlaceholder()" /></label>
+      <span class="mv-entity-toolbar__count">{{ invoiceVisibleCount }} / {{ invoices.length }}</span>
+      <button type="button" class="ghost-btn" (click)="toggleArchive()">{{ showInvoiceArchive ? 'Nascondi archivio' : 'Mostra archivio' }}</button>
+    </div>
+    <div class="mv-entity-toolbar__controls" *ngIf="activeView === 'ddt' && pageMode === 'list'">
+      <label class="invoice-toolbar-search"><i class="fas fa-search"></i><input type="search" [(ngModel)]="ddtSearch" (keyup.enter)="loadDdts()" placeholder="Numero, cliente o destinazione" /></label>
+      <span class="mv-entity-toolbar__count">{{ visibleDdts().length }} / {{ ddts.length }}</span>
+      <button type="button" class="ghost-btn" (click)="toggleArchive()">{{ showDdtArchive ? 'Nascondi archivio' : 'Mostra archivio' }}</button>
+    </div>
+    <div class="mv-entity-toolbar__controls" *ngIf="activeView === 'suppliers' && pageMode === 'list'">
+      <label class="invoice-toolbar-search"><i class="fas fa-search"></i><input type="search" [(ngModel)]="supplierSearch" (keyup.enter)="loadSuppliers()" placeholder="Nome, email, P.IVA o codice fiscale" /></label>
+      <span class="mv-entity-toolbar__count">{{ suppliers.length }}</span>
+    </div>
+    <div class="mv-entity-toolbar__controls" *ngIf="activeView === 'payments'">
+      <label class="invoice-toolbar-search"><i class="fas fa-search"></i><input type="search" [(ngModel)]="scheduleSearch" placeholder="Numero, cliente, fornitore o scadenza" /></label>
+      <span class="mv-entity-toolbar__count">{{ filteredPaymentScheduleItems().length }} / {{ paymentScheduleItems.length }}</span>
+      <button type="button" class="ghost-btn" (click)="scheduleStatus = scheduleStatus === 'paid' ? 'open' : 'paid'; loadPaymentSchedule()">{{ scheduleStatus === 'paid' ? 'Nascondi archivio' : 'Mostra archivio' }}</button>
+    </div>
+    <div class="mv-entity-toolbar__controls economics-toolbar-controls" *ngIf="activeView === 'economics'">
+      <label class="compact-toolbar-field">Da <input type="date" [(ngModel)]="economicFrom" /></label>
+      <label class="compact-toolbar-field">A <input type="date" [(ngModel)]="economicTo" /></label>
+      <button type="button" class="ghost-btn" (click)="loadEconomicSummary()">Aggiorna</button>
+    </div>
+    <div class="mv-entity-toolbar__controls" *ngIf="pageMode !== 'list' && (activeView === 'invoices' || activeView === 'ddt' || activeView === 'suppliers')">
+      <button type="button" class="back-btn" (click)="closeEntityPage()"><i class="fas fa-arrow-left"></i> Torna indietro</button>
+    </div>
   </header>
-
-  <nav class="invoice-section-tabs" aria-label="Sezioni pagamenti e fatture">
-    <button type="button" [class.active]="activeView === 'invoices' && directionFilter === 'outbound'" (click)="setView('invoices', 'outbound')">
-      <i class="fas fa-file-invoice-dollar"></i>
-      Fatture vendita
-    </button>
-    <button type="button" [class.active]="activeView === 'invoices' && directionFilter === 'inbound'" (click)="setView('invoices', 'inbound')">
-      <i class="fas fa-file-download"></i>
-      Fatture acquisto
-    </button>
-    <button type="button" [class.active]="activeView === 'payments'" (click)="setView('payments')">
-      <i class="fas fa-calendar-check"></i>
-      Pagamenti
-    </button>
-    <button type="button" [class.active]="activeView === 'economics'" (click)="setView('economics')">
-      <i class="fas fa-chart-line"></i>
-      Economia
-    </button>
-    <button type="button" [class.active]="activeView === 'ddt'" (click)="setView('ddt')">
-      <i class="fas fa-truck"></i>
-      DDT
-    </button>
-    <button type="button" [class.active]="activeView === 'suppliers'" (click)="setView('suppliers')">
-      <i class="fas fa-building"></i>
-      Fornitori
-    </button>
-    <button type="button" [class.active]="activeView === 'settings'" (click)="setView('settings')">
-      <i class="fas fa-cog"></i>
-      Impostazioni
-    </button>
-  </nav>
 
   <div class="invoice-feedback error" *ngIf="error">{{ error }}</div>
   <div class="invoice-feedback success" *ngIf="success && !error">{{ success }}</div>
 
   <div class="invoice-layout" *ngIf="activeView === 'invoices'">
-    <aside class="invoice-list">
-      <div class="filters">
-        <input type="search" [(ngModel)]="search" (keyup.enter)="loadInvoices()" [placeholder]="invoiceSearchPlaceholder()" />
-        <select [(ngModel)]="directionFilter" (change)="loadInvoices()">
-          <option value="outbound">Vendita</option>
-          <option value="inbound">Acquisto</option>
-          <option value="">Tutte</option>
-        </select>
-        <select [(ngModel)]="statusFilter" (change)="loadInvoices()">
-          <option *ngFor="let item of statuses" [value]="item.key">{{ item.label }}</option>
-        </select>
-        <select [(ngModel)]="documentKindFilter">
-          <option *ngFor="let item of documentKindOptions" [value]="item.key">{{ item.label }}</option>
-        </select>
+    <aside class="invoice-list" *ngIf="pageMode === 'list'">
+      <div class="invoice-list-tools">
+        <div class="filters">
+          <select [(ngModel)]="statusFilter" (change)="loadInvoices()" aria-label="Stato fattura">
+            <option *ngFor="let item of statuses" [value]="item.key">{{ item.label }}</option>
+          </select>
+          <select [(ngModel)]="documentKindFilter" aria-label="Tipo documento">
+            <option *ngFor="let item of documentKindOptions" [value]="item.key">{{ item.label }}</option>
+          </select>
+        </div>
+        <div class="invoice-secondary-actions">
+          <button type="button" class="ghost-btn" (click)="newProforma()"><i class="fas fa-file-invoice"></i> Proforma</button>
+          <button type="button" class="ghost-btn" *ngIf="directionFilter === 'outbound'" (click)="importSalesHistory()" [disabled]="saving"><i class="fas fa-file-import"></i> Import storico</button>
+          <button type="button" class="ghost-btn" *ngIf="directionFilter === 'inbound'" (click)="importPassive()" [disabled]="saving"><i class="fas fa-download"></i> Import XML</button>
+        </div>
       </div>
 
       <section class="invoice-list-group" *ngFor="let group of invoiceListGroups(); trackBy: trackStableInteractiveItem">
@@ -100,23 +72,24 @@
           [class.invoice-row--supplier]="isInbound(invoice)"
           (click)="selectInvoice(invoice)"
         >
-          <span>
+          <span class="invoice-row__identity">
             <strong>{{ invoice.series ? invoice.series + '/' : '' }}{{ invoice.number }}</strong>
             <small>{{ invoice.customerName || partyFallback(invoice) }}</small>
           </span>
-          <span class="row-meta">
+          <span class="invoice-row__badges">
             <em>{{ invoice.type }}</em>
             <em>{{ statusLabel(invoice.status) }}</em>
             <em>{{ paymentStatusLabel(invoice.paymentStatus) }}</em>
-            <b>{{ invoice.total || 0 | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b>
           </span>
+          <b class="invoice-row__amount">{{ invoice.total || 0 | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b>
+          <span class="entity-row-action"><i class="fas fa-file-invoice"></i> Scheda fattura</span>
         </button>
       </section>
 
       <p class="empty" *ngIf="!loading && invoiceListGroups().length === 0">Nessuna fattura trovata</p>
     </aside>
 
-    <main #invoiceEditor class="invoice-editor" tabindex="-1">
+    <main #invoiceEditor class="invoice-editor" tabindex="-1" *ngIf="pageMode !== 'list'">
       <div class="status-strip">
         <span class="status-pill">{{ statusLabel(selected.status) }}</span>
         <span *ngIf="selected.providerStatus">Provider: {{ selected.providerStatus }}</span>
@@ -167,6 +140,44 @@
           </label>
         </div>
 
+        <h2>Riferimenti ordine, contratto e PA</h2>
+        <div class="form-grid">
+          <label>
+            Tipo riferimento
+            <select [(ngModel)]="selected.paReferenceType" name="paReferenceType" [disabled]="!canEdit()">
+              <option value="order">Ordine di acquisto</option>
+              <option value="contract">Contratto</option>
+              <option value="agreement">Convenzione</option>
+              <option value="reception">Ricezione</option>
+            </select>
+          </label>
+          <label>
+            Numero documento
+            <input [(ngModel)]="selected.paDocumentId" name="paDocumentId" maxlength="20" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Data documento
+            <input type="date" [(ngModel)]="selected.paDocumentDate" name="paDocumentDate" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Numero voce
+            <input [(ngModel)]="selected.paItemNumber" name="paItemNumber" maxlength="20" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            Commessa / convenzione
+            <input [(ngModel)]="selected.paConventionCode" name="paConventionCode" maxlength="100" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            CUP
+            <input [(ngModel)]="selected.paCup" name="paCup" maxlength="15" [readonly]="!canEdit()" />
+          </label>
+          <label>
+            CIG
+            <input [(ngModel)]="selected.paCig" name="paCig" maxlength="15" [readonly]="!canEdit()" />
+          </label>
+          <p class="wide form-help">Campi facoltativi. Se inserisci CIG, CUP o un altro riferimento, indica anche il numero del documento richiesto dal tracciato FatturaPA.</p>
+        </div>
+
         <h2>{{ partyTitle() }}</h2>
         <div class="form-grid">
           <div class="wide form-field-group">
@@ -202,9 +213,9 @@
               </div>
             </div>
           </div>
-          <label>
+          <label *ngIf="!isSelfInvoice()">
             Tipo anagrafica
-            <select [(ngModel)]="selected.customerRecipientType" name="customerRecipientType" [disabled]="!canEdit()">
+            <select [(ngModel)]="selected.customerRecipientType" name="customerRecipientType" [disabled]="!canEdit()" (ngModelChange)="onCustomerRecipientTypeChange()">
               <option value="business">Azienda privata</option>
               <option value="pa">Pubblica amministrazione</option>
               <option value="private">Privato</option>
@@ -219,15 +230,17 @@
             <input [(ngModel)]="selected.customerVatNumber" name="customerVatNumber" [readonly]="!canEdit()" (ngModelChange)="onCustomerVatNumberChange()" />
           </label>
           <label>
-            Codice fiscale
+            Codice fiscale{{ selected.customerRecipientType === 'private' ? ' *' : '' }}
             <input [(ngModel)]="selected.customerFiscalCode" name="customerFiscalCode" [readonly]="!canEdit()" />
           </label>
-          <label>
-            Codice SDI
-            <input [(ngModel)]="selected.customerSdiCode" name="customerSdiCode" [readonly]="!canEdit()" />
+          <label *ngIf="!isSelfInvoice()">
+            {{ selected.customerRecipientType === 'pa' ? 'Codice ufficio PA' : 'Codice SDI' }}
+            <input [(ngModel)]="selected.customerSdiCode" name="customerSdiCode" [attr.maxlength]="selected.customerRecipientType === 'pa' ? 6 : 7" [readonly]="!canEdit() || selected.customerRecipientType === 'private'" />
+            <small *ngIf="selected.customerRecipientType === 'private'">Impostato automaticamente per il consumatore finale</small>
+            <small *ngIf="selected.customerRecipientType === 'pa'">Codice univoco dell'ufficio destinatario, 6 caratteri</small>
           </label>
-          <label>
-            PEC
+          <label *ngIf="!isSelfInvoice()">
+            PEC{{ selected.customerRecipientType === 'private' ? ' (facoltativa)' : '' }}
             <input type="email" [(ngModel)]="selected.customerPec" name="customerPec" [readonly]="!canEdit()" />
           </label>
           <label>
@@ -276,9 +289,9 @@
           <div class="line-row" *ngFor="let line of selected.lines; let i = index">
             <label class="line-field"><span>Codice</span><input [(ngModel)]="line.serviceCode" [name]="'serviceCode' + i" list="invoice-service-codes" [readonly]="!canEdit()" (change)="applyServiceToLine(line)" /></label>
             <label class="line-field"><span>Descrizione</span><input [(ngModel)]="line.description" [name]="'description' + i" [readonly]="!canEdit()" /></label>
-            <label class="line-field"><span>Quantità</span><input type="number" step="0.01" [(ngModel)]="line.quantity" [name]="'quantity' + i" [readonly]="!canEdit()" /></label>
+            <label class="line-field"><span>Quantità</span><input type="number" step="0.000001" [(ngModel)]="line.quantity" [name]="'quantity' + i" [readonly]="!canEdit()" /></label>
             <label class="line-field"><span>Unità</span><input [(ngModel)]="line.unit" [name]="'unit' + i" [readonly]="!canEdit()" /></label>
-            <label class="line-field"><span>Prezzo</span><input type="number" step="0.01" [(ngModel)]="line.unitPriceInput" [name]="'unitPriceInput' + i" [readonly]="!canEdit()" (ngModelChange)="syncLinePriceMode(line)" /></label>
+            <label class="line-field"><span>Prezzo</span><input type="number" step="0.000001" [(ngModel)]="line.unitPriceInput" [name]="'unitPriceInput' + i" [readonly]="!canEdit()" (ngModelChange)="syncLinePriceMode(line)" /></label>
             <label class="line-field"><span>Tipo prezzo</span><select [(ngModel)]="line.priceIncludesVat" [name]="'priceIncludesVat' + i" [disabled]="!canEdit()" (ngModelChange)="syncLinePriceMode(line)">
               <option [ngValue]="false">IVA escl.</option>
               <option [ngValue]="true">IVA incl.</option>
@@ -288,6 +301,7 @@
             <label class="line-field"><span>Natura IVA</span><select [(ngModel)]="line.vatNature" [name]="'nature' + i" [disabled]="!canEdit() || +line.vatRate !== 0">
               <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
             </select></label>
+            <label class="line-field" *ngIf="+line.vatRate === 0"><span>Riferimento normativo</span><input [(ngModel)]="line.vatLegalReference" [name]="'vatLegalReference' + i" maxlength="100" [readonly]="!canEdit()" placeholder="Es. Esente art. 10 DPR 633/72" /></label>
             <button type="button" class="icon-btn danger" (click)="removeLine(i)" [disabled]="!canEdit()">
               <i class="fas fa-trash"></i>
             </button>
@@ -366,6 +380,10 @@
               <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
             </select>
           </label>
+          <label *ngIf="selected.pensionFundEnabled && +(selected.pensionFundVatRate || 0) === 0">
+            Riferimento normativo cassa
+            <input [(ngModel)]="selected.pensionFundLegalReference" name="pensionFundLegalReference" maxlength="100" [readonly]="!canEdit()" />
+          </label>
         </div>
 
         <div class="form-grid">
@@ -424,7 +442,7 @@
             <section class="action-group">
               <span class="action-group__label">Documento</span>
               <div class="action-group__buttons">
-                <button type="button" class="ghost-btn" (click)="createCreditNote()" [disabled]="saving || !selected.id || selected.type === 'TD04' || isProforma(selected)">Nota credito</button>
+                <button type="button" class="ghost-btn" (click)="createCreditNote()" [disabled]="saving || !canCreateCreditNote()">Nota credito</button>
                 <button type="button" class="ghost-btn" (click)="createDebitNote()" [disabled]="saving || !selected.id || selected.type === 'TD05' || isProforma(selected)">Nota debito</button>
                 <button type="button" class="ghost-btn" (click)="convertProforma()" [disabled]="saving || !selected.id || !isProforma(selected)">Converti proforma</button>
                 <button type="button" class="ghost-btn" (click)="emailInvoice()" [disabled]="saving || !selected.id || !sendEmailRecipient">Invia email</button>
@@ -434,9 +452,9 @@
             <section class="action-group">
               <span class="action-group__label">Pagamenti</span>
               <div class="action-group__buttons">
-                <button type="button" class="ghost-btn" (click)="generateInstallments()" [disabled]="saving || !selected.id">Genera rate</button>
-                <button type="button" class="ghost-btn" (click)="registerPayment()" [disabled]="saving || !selected.id || selected.paymentStatus === 'paid'">Registra pagamento</button>
-                <button type="button" class="ghost-btn" (click)="markPaid()" [disabled]="saving || !selected.id || selected.paymentStatus === 'paid'">Segna saldata</button>
+                <button type="button" class="ghost-btn" (click)="generateInstallments()" [disabled]="saving || !selected.id || isCreditNote(selected)">Genera rate</button>
+                <button type="button" class="ghost-btn" (click)="registerPayment()" [disabled]="saving || !selected.id || selected.paymentStatus === 'paid'">{{ isCreditNote(selected) ? 'Registra compensazione' : 'Registra pagamento' }}</button>
+                <button type="button" class="ghost-btn" (click)="markPaid()" [disabled]="saving || !selected.id || selected.paymentStatus === 'paid'">{{ isCreditNote(selected) ? 'Segna compensata' : 'Segna saldata' }}</button>
               </div>
             </section>
 
@@ -447,7 +465,7 @@
                 <button type="button" class="ghost-btn" (click)="issue()" [disabled]="saving || !selected.id">Emetti</button>
                 <button type="button" class="ghost-btn" (click)="send()" [disabled]="saving || !canSendElectronic()">Invia provider</button>
                 <button type="button" class="ghost-btn" (click)="validate()" [disabled]="saving || !canSendElectronic()">Valida</button>
-                <button type="button" class="ghost-btn" (click)="sync()" [disabled]="saving || !canSendElectronic()">Sync</button>
+                <button type="button" class="ghost-btn" (click)="sync()" [disabled]="saving || !selected.id">Aggiorna stato</button>
                 <button type="button" class="ghost-btn" (click)="generateXml()" [disabled]="saving || !canSendElectronic()">XML</button>
                 <button type="button" class="ghost-btn danger" (click)="deleteDraft()" [disabled]="saving || selected.status !== 'draft'">Elimina</button>
               </div>
@@ -518,9 +536,10 @@
         </article>
         <article>
           <h2>Documenti collegati</h2>
-          <div class="event" *ngFor="let link of linkedDocuments()">
+          <div class="event" *ngFor="let link of linkedDocuments(); trackBy: trackStableInteractiveItem">
             <strong>{{ link.label }}</strong>
             <span>{{ link.detail }}</span>
+            <button type="button" class="ghost-btn" *ngIf="link.invoiceId" (click)="openLinkedInvoice(link.invoiceId)">Apri fattura</button>
           </div>
           <p class="empty" *ngIf="linkedDocuments().length === 0">Nessun collegamento registrato</p>
         </article>
@@ -533,24 +552,6 @@
   </div>
 
   <section class="economics-panel" *ngIf="activeView === 'economics'">
-    <header class="ddt-header">
-      <div>
-        <p class="eyebrow">Economia</p>
-        <h2>Cruscotto gestionale</h2>
-      </div>
-      <div class="filters compact-filter economics-filters">
-        <label>
-          Dal
-          <input type="date" [(ngModel)]="economicFrom" />
-        </label>
-        <label>
-          Al
-          <input type="date" [(ngModel)]="economicTo" />
-        </label>
-        <button type="button" class="ghost-btn" (click)="loadEconomicSummary()">Aggiorna</button>
-      </div>
-    </header>
-
     <ng-container *ngIf="economicSummary as summary; else noEconomicSummary">
       <div class="economics-grid">
         <article class="metric-panel strong">
@@ -656,20 +657,9 @@
   </section>
 
   <section class="ddt-panel" *ngIf="activeView === 'ddt'">
-    <header class="ddt-header">
-      <div>
-        <p class="eyebrow">Documenti di trasporto</p>
-        <h2>DDT</h2>
-      </div>
-      <div class="actions">
-        <button type="button" class="primary-btn" (click)="newDdt()">Nuovo DDT</button>
-      </div>
-    </header>
-
     <div class="ddt-layout">
-      <aside class="ddt-list">
+      <aside class="ddt-list" *ngIf="pageMode === 'list'">
         <div class="filters">
-          <input type="search" [(ngModel)]="ddtSearch" (keyup.enter)="loadDdts()" placeholder="Cerca DDT o cliente" />
           <select [(ngModel)]="ddtStatusFilter" (change)="loadDdts()">
             <option value="">Tutti</option>
             <option value="draft">Bozze</option>
@@ -681,7 +671,7 @@
 
         <div
           class="invoice-row"
-          *ngFor="let ddt of ddts"
+          *ngFor="let ddt of visibleDdts()"
           [class.active]="ddt.id === selectedDdt.id"
           (click)="selectDdt(ddt)"
           (keydown.enter)="selectDdt(ddt)"
@@ -704,12 +694,13 @@
             <em>{{ statusLabel(ddt.status) }}</em>
             <b>{{ ddt.issueDate | date:'dd/MM/yyyy' }}</b>
           </span>
+          <span class="entity-row-action"><i class="fas fa-file-alt"></i> Scheda DDT</span>
         </div>
 
-        <p class="empty" *ngIf="ddts.length === 0">Nessun DDT trovato</p>
+        <p class="empty" *ngIf="visibleDdts().length === 0">Nessun DDT trovato</p>
       </aside>
 
-      <form class="ddt-editor" (ngSubmit)="saveDdt()">
+      <form class="ddt-editor" *ngIf="pageMode !== 'list'" (ngSubmit)="saveDdt()">
         <div class="status-strip">
           <span class="status-pill">{{ statusLabel(selectedDdt.status) }}</span>
           <span *ngIf="selectedDdt.invoiceId">Fattura collegata: #{{ selectedDdt.invoiceId }}</span>
@@ -903,24 +894,13 @@
 
   <section class="invoice-ops-grid" [class.invoice-ops-grid--single]="activeView === 'payments'" *ngIf="activeView === 'payments' || activeView === 'suppliers'">
     <article class="ops-panel" *ngIf="activeView === 'payments'">
-      <header class="ddt-header">
-        <div>
-          <p class="eyebrow">Pagamenti</p>
-          <h2>Scadenziario</h2>
-        </div>
-        <div class="filters compact-filter schedule-filters">
-          <input type="search" [(ngModel)]="scheduleSearch" placeholder="Cerca scadenza, cliente, fornitore" />
-          <select [(ngModel)]="scheduleDirection" (change)="loadPaymentSchedule()">
-            <option value="">Tutte</option>
-            <option value="outbound">Da incassare</option>
-            <option value="inbound">Da pagare</option>
-          </select>
-          <select [(ngModel)]="scheduleStatus" (change)="loadPaymentSchedule()">
-            <option *ngFor="let item of scheduleStatusOptions" [value]="item.key">{{ item.label }}</option>
-          </select>
-          <button type="button" class="ghost-btn" (click)="loadPaymentSchedule()">Aggiorna</button>
-        </div>
-      </header>
+      <div class="section-filter-row">
+        <select [(ngModel)]="scheduleDirection" (change)="loadPaymentSchedule()" aria-label="Tipo pagamento">
+          <option value="">Incassi e pagamenti</option>
+          <option value="outbound">Da incassare</option>
+          <option value="inbound">Da pagare</option>
+        </select>
+      </div>
 
       <div class="schedule-summary" *ngIf="scheduleSummary() as summary">
         <div class="schedule-card schedule-card--credit">
@@ -984,26 +964,16 @@
     </article>
 
     <article class="ops-panel" *ngIf="activeView === 'suppliers'">
-      <header class="ddt-header">
-        <div>
-          <p class="eyebrow">Ciclo passivo</p>
-          <h2>Fornitori</h2>
-        </div>
-        <div class="filters compact-filter">
-          <input type="search" [(ngModel)]="supplierSearch" (keyup.enter)="loadSuppliers()" placeholder="Cerca fornitore" />
-          <button type="button" class="ghost-btn" (click)="loadSuppliers()">Cerca</button>
-        </div>
-      </header>
-      <div class="ops-list">
+      <div class="ops-list" *ngIf="pageMode === 'list'">
         <button type="button" class="supplier-row" *ngFor="let supplier of suppliers" (click)="editSupplier(supplier)">
-          <strong>{{ supplier.name }}</strong>
-          <span>{{ supplier.vatNumber || supplier.fiscalCode || '-' }}</span>
-          <small>{{ supplierLocation(supplier) }}</small>
+          <span><strong>{{ supplier.id }}</strong><b>{{ supplier.name }}</b></span>
+          <small>{{ supplier.vatNumber || supplier.fiscalCode || '-' }} · {{ supplierLocation(supplier) }}</small>
+          <em><i class="fas fa-address-card"></i> Scheda fornitore</em>
         </button>
         <p class="empty" *ngIf="suppliers.length === 0">Nessun fornitore trovato</p>
       </div>
 
-      <form class="supplier-editor" (ngSubmit)="saveSupplier()">
+      <form class="supplier-editor" *ngIf="pageMode !== 'list'" (ngSubmit)="saveSupplier()">
         <div class="form-grid compact">
           <label>
             Nome
@@ -1047,7 +1017,6 @@
           </label>
         </div>
         <div class="actions">
-          <button type="button" class="ghost-btn" (click)="newSupplier()">Nuovo fornitore</button>
           <button type="submit" class="primary-btn" [disabled]="saving">Salva fornitore</button>
           <button type="button" class="ghost-btn danger" (click)="deleteSupplier()" [disabled]="saving || !selectedSupplier.id">Elimina fornitore</button>
         </div>
@@ -1056,6 +1025,23 @@
   </section>
 
   <section class="settings-panel" *ngIf="activeView === 'settings'">
+    <article class="ops-panel invoice-health" *ngIf="operationalHealth">
+      <header class="ddt-header">
+        <div>
+          <p class="eyebrow">Stato fatturazione</p>
+          <h2>{{ operationalHealth.ready && !operationalHealth.managementRequired ? 'Fatturazione pronta' : 'Verifica tecnica centralizzata' }}</h2>
+        </div>
+        <span class="status-pill" [class.ok]="operationalHealth.ready && !operationalHealth.managementRequired" [class.error]="!operationalHealth.ready">
+          {{ operationalHealth.ready && !operationalHealth.managementRequired ? 'Operativa' : 'Gestita in MVControlManager' }}
+        </span>
+      </header>
+      <p class="invoice-health__summary" *ngIf="operationalHealth.managementRequired">
+        La configurazione del provider, le callback SdI, la conservazione e gli eventuali problemi di sincronizzazione sono controllati dagli amministratori tecnici in MVControlManager.
+      </p>
+      <p class="invoice-health__summary ok" *ngIf="!operationalHealth.managementRequired">
+        I controlli tecnici centralizzati non hanno rilevato problemi. Qui restano disponibili soltanto le impostazioni operative dell'azienda.
+      </p>
+    </article>
     <article class="ops-panel">
       <header class="ddt-header">
         <div>

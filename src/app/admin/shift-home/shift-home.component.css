@@ -11,7 +11,7 @@
   align-items: stretch;
   overflow: visible;
   border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 12px;
+  border-radius: var(--mv-radius-control);
   background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
 }
@@ -20,7 +20,7 @@
   appearance: none;
   border: 0;
   background: rgba(15, 23, 42, 0.04);
-  color: #111;
+  color: var(--mv-ink);
   display: grid;
   place-items: center;
   min-width: 42px;
@@ -47,7 +47,7 @@
 
 .shift-date-step:hover {
   background: #e8f0fe;
-  color: #1a73e8;
+  color: var(--mv-blue-600);
 }
 
 .shift-date-btn {
@@ -55,7 +55,7 @@
   border: none;
   font-size: 18px;
   font-weight: 700;
-  color: #111;
+  color: var(--mv-ink);
   cursor: pointer;
   width: 100%;
   min-height: 40px;
@@ -72,9 +72,9 @@
   top: calc(100% + 8px);
   right: 0;
   width: 260px;
-  background: #fff;
+  background: var(--mv-surface);
   border: 1px solid #e0e3e8;
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
   padding: 12px;
   z-index: 2500;
@@ -88,7 +88,7 @@
 .smc-header span {
   font-weight: 700;
   font-size: 14px;
-  color: #111 !important;
+  color: var(--mv-ink);
 }
 .smc-header button {
   background: none;
@@ -96,8 +96,8 @@
   font-size: 20px;
   cursor: pointer;
   padding: 2px 8px;
-  border-radius: 6px;
-  color: #111 !important;
+  border-radius: var(--mv-radius-control);
+  color: var(--mv-ink);
 }
 .smc-header button:hover {
   background: #f0f2f5;
@@ -128,15 +128,15 @@
   border-radius: 50%;
   cursor: pointer;
   transition: background 0.12s;
-  color: #333;
+  color: var(--mv-text);
   line-height: 1;
 }
 .smc-day:hover {
   background: #e8f0fe;
 }
 .smc-day.smc-today {
-  background: #1a73e8;
-  color: #fff;
+  background: var(--mv-blue-600);
+  color: var(--mv-surface);
   font-weight: 700;
 }
 .smc-day.smc-other {
@@ -144,8 +144,8 @@
 }
 
 .list-group-item.border-success {
-  border-left: 5px solid #28a745 !important;
-  background-color: #f7fff9 !important;
+  border-left: 5px solid #28a745;
+  background-color: #f7fff9;
 }
 
 .key-icon {
@@ -162,12 +162,12 @@ input[type="checkbox"] {
 
 :root {
   --brand-black: #0b0f14;
-  --brand-orange: #ff8a00;
-  --brand-sky: #2fb7ff;
+  --brand-orange: var(--mv-orange-500);
+  --brand-sky: var(--mv-blue-500);
 
   --glass-border: rgba(255, 255, 255, 0.18);
-  --radius-lg: 22px;
-  --radius-md: 16px;
+  --radius-lg: var(--mv-radius-surface);
+  --radius-md: var(--mv-radius-control);
 }
 
 /* 🔥 SFONDO FULL SCREEN */
@@ -209,8 +209,8 @@ body::before {
 .route-planner-panel {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.94);
-  color: #111;
-  border-radius: 14px;
+  color: var(--mv-ink);
+  border-radius: var(--mv-radius-control);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
 }
 
@@ -239,14 +239,14 @@ body::before {
 .turni-hero__title span,
 .route-planner-panel__header span,
 .route-planner-controls span {
-  color: #64748b;
+  color: var(--mv-muted);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
 .turni-hero__title strong {
-  color: #111;
+  color: var(--mv-ink);
   font-size: 22px;
   line-height: 1.15;
   text-transform: capitalize;
@@ -261,21 +261,21 @@ body::before {
 
 .turni-hero__stats div {
   border: 1px solid rgba(15, 23, 42, 0.08);
-  background: #f8fafc;
-  border-radius: 10px;
+  background: var(--mv-surface-soft);
+  border-radius: var(--mv-radius-control);
   padding: 12px;
   display: grid;
   gap: 2px;
 }
 
 .turni-hero__stats span {
-  color: #64748b;
+  color: var(--mv-muted);
   font-size: 12px;
   font-weight: 800;
 }
 
 .turni-hero__stats strong {
-  color: #0f172a;
+  color: var(--mv-ink);
   font-size: 24px;
   line-height: 1;
 }
@@ -289,7 +289,7 @@ body::before {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: #111;
+  color: var(--mv-ink);
   font-weight: 800;
 }
 
@@ -307,8 +307,8 @@ body::before {
 }
 
 .btn-map-glass {
-  background: linear-gradient(135deg, #111827, #2563eb);
-  color: #fff !important;
+  background: linear-gradient(135deg, var(--mv-ink), var(--mv-blue-600));
+  color: var(--mv-surface);
 }
 
 .route-planner-panel {
@@ -318,7 +318,7 @@ body::before {
 
 .route-planner-panel__header strong {
   display: block;
-  color: #111;
+  color: var(--mv-ink);
   font-size: 18px;
 }
 
@@ -338,10 +338,10 @@ body::before {
   width: 100%;
   min-height: 40px;
   border: 1px solid rgba(15, 23, 42, 0.14);
-  border-radius: 8px;
+  border-radius: var(--mv-radius-control);
   padding: 8px 10px;
-  color: #111;
-  background: #fff;
+  color: var(--mv-ink);
+  background: var(--mv-surface);
   font-weight: 700;
 }
 
@@ -354,10 +354,10 @@ body::before {
 .route-map-shell {
   position: relative;
   min-height: 460px;
-  border-radius: 10px;
+  border-radius: var(--mv-radius-control);
   overflow: hidden;
   border: 1px solid rgba(15, 23, 42, 0.12);
-  background: #e5e7eb;
+  background: var(--mv-border);
 }
 
 .google-route-map {
@@ -382,7 +382,7 @@ body::before {
   position: absolute;
   inset: 18px;
   border: 1px dashed rgba(15, 23, 42, 0.16);
-  border-radius: 8px;
+  border-radius: var(--mv-radius-control);
   pointer-events: none;
 }
 
@@ -403,7 +403,7 @@ body::before {
   border-radius: 50% 50% 50% 8px;
   rotate: -45deg;
   background: var(--team-color);
-  color: #fff;
+  color: var(--mv-surface);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.24);
   border: 2px solid rgba(255, 255, 255, 0.92);
 }
@@ -429,9 +429,9 @@ body::before {
   display: grid;
   place-items: center;
   padding: 18px;
-  border-radius: 10px;
+  border-radius: var(--mv-radius-control);
   background: rgba(255, 255, 255, 0.92);
-  color: #111;
+  color: var(--mv-ink);
   text-align: center;
   font-weight: 800;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
@@ -458,10 +458,10 @@ body::before {
 
 .route-team-card {
   border-left: 5px solid var(--team-color);
-  background: #f8fafc;
-  border-radius: 10px;
+  background: var(--mv-surface-soft);
+  border-radius: var(--mv-radius-control);
   padding: 12px;
-  color: #111;
+  color: var(--mv-ink);
   box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
 }
 
@@ -474,7 +474,7 @@ body::before {
 }
 
 .route-team-card__head strong {
-  color: #111;
+  color: var(--mv-ink);
 }
 
 .route-team-card__head span {
@@ -504,29 +504,29 @@ body::before {
 }
 
 .route-team-card li span {
-  color: #111;
+  color: var(--mv-ink);
   font-weight: 800;
 }
 
 .route-team-card li small,
 .route-team-empty {
-  color: #64748b;
+  color: var(--mv-muted);
   font-size: 12px;
 }
 
 .route-google-link {
   display: inline-flex;
   margin-top: 8px;
-  color: #1d4ed8;
+  color: var(--mv-blue-700);
   font-weight: 800;
   text-decoration: none;
 }
 
 /* ---------------- BUTTON BASE ---------------- */
 .turni-page .btn {
-  color: #000 !important;
+  color: var(--mv-ink);
   font-weight: 900;
-  border-radius: 999px !important;
+  border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.25);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -594,9 +594,9 @@ body::before {
   width: 24px;
   height: 24px;
   min-width: 24px;
-  border-radius: 6px;
-  border: 2px solid #000;
-  background: #fff;
+  border-radius: var(--mv-radius-control);
+  border: 2px solid var(--mv-ink);
+  background: var(--mv-surface);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition:
     border-color 0.18s ease,
@@ -640,8 +640,8 @@ body::before {
 }
 
 .turni-controls .form-check-input {
-  border: 2px solid #000;
-  background: #fff;
+  border: 2px solid var(--mv-ink);
+  background: var(--mv-surface);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -668,10 +668,10 @@ body::before {
 
 /* ✅ CONTROLS: hai bg-light (chiaro) -> testo NERO */
 .turni-controls {
-  border-radius: var(--radius-lg) !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  background: rgba(255, 255, 255, 0.92) !important; /* chiaro */
-  color: #000 !important;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.92); /* chiaro */
+  color: var(--mv-ink);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
@@ -679,16 +679,16 @@ body::before {
 
 /* ✅ ALERT INFO: chiaro + testo nero */
 .turni-page .alert.alert-info {
-  background: rgba(255, 255, 255, 0.92) !important;
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
-  color: #000 !important;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: var(--mv-ink);
   border-radius: var(--radius-lg);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
 }
 
 /* LIST WRAPPER */
 .turni-list .list-group {
-  background: transparent !important;
+  background: transparent;
 }
 
 .turni-list .list-group-flush {
@@ -703,19 +703,19 @@ body::before {
 
 /* Riga turno (default scura) */
 .turni-item {
-  border: 0 !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: rgba(255, 255, 255, 0.92) !important;
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
   padding: 14px;
 }
 .turni-item + .turni-item {
-  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* ✅ Se Angular applica bg-light al turno pubblicato -> testo NERO */
 .turni-item.bg-light {
-  background: rgba(255, 255, 255, 0.92) !important;
-  color: #000 !important;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--mv-ink);
 }
 
 /* Published highlight (senza rompere testo) */
@@ -724,13 +724,13 @@ body::before {
     135deg,
     rgba(46, 204, 113, 0.22),
     rgba(255, 255, 255, 0.06)
-  ) !important;
+  );
   box-shadow: inset 0 0 0 1px rgba(46, 204, 113, 0.28);
 }
 
 /* muted su dark (default) */
 .turni-page .text-muted {
-  color: rgba(255, 255, 255, 0.7) !important;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* Key icon */
@@ -740,7 +740,7 @@ body::before {
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: linear-gradient(
     135deg,
@@ -759,7 +759,7 @@ body::before {
   position: fixed;
   z-index: 2000;
   padding: 12px 16px;
-  border-radius: 16px;
+  border-radius: var(--mv-radius-surface);
   background: rgba(0, 0, 0, 0.85);
   color: white;
   backdrop-filter: blur(14px);
@@ -780,14 +780,14 @@ body::before {
 .turni-controls,
 .turni-page .alert.alert-info,
 .turni-item.bg-light {
-  color: #000 !important;
+  color: var(--mv-ink);
 }
 
 /* TUTTO il contenuto dentro blocchi chiari -> nero */
 .turni-controls *,
 .turni-page .alert.alert-info *,
 .turni-item.bg-light * {
-  color: #000 !important;
+  color: var(--mv-ink);
 }
 
 /* Forza anche muted dentro blocchi chiari */
@@ -796,14 +796,14 @@ body::before {
 .turni-item.bg-light .text-muted,
 .turni-item.bg-light small,
 .turni-item.bg-light .small {
-  color: rgba(0, 0, 0, 0.6) !important;
+  color: rgba(0, 0, 0, 0.6);
 }
 
 /* Bootstrap utility che può sbiancare */
 .turni-controls .text-white,
 .turni-page .alert.alert-info .text-white,
 .turni-item.bg-light .text-white {
-  color: #000 !important;
+  color: var(--mv-ink);
 }
 
 /* Form / label nel box chiaro */
@@ -812,24 +812,24 @@ body::before {
 .turni-controls span,
 .turni-controls small,
 .turni-controls strong {
-  color: #000 !important;
+  color: var(--mv-ink);
 }
 
 /* Icone dentro box chiari */
 .turni-controls i,
 .turni-item.bg-light i {
-  color: #000 !important;
+  color: var(--mv-ink);
 }
 
 /* WhatsApp icon lasciata com'è */
 .btn-wa .text-success {
-  color: #25d366 !important;
+  color: #25d366;
 }
 
 /* Pulsante toggle vista */
 .btn-view-glass {
   background: rgba(255, 255, 255, 0.15);
-  color: #fff !important;
+  color: var(--mv-surface);
   font-weight: 700;
   border: 1px solid rgba(255, 255, 255, 0.28);
   backdrop-filter: blur(10px);
@@ -845,7 +845,7 @@ body::before {
 }
 
 .turni-page .btn-map-glass {
-  color: #fff !important;
+  color: var(--mv-surface);
 }
 
 /* Header cliente (vista per cliente) */
@@ -861,7 +861,7 @@ body::before {
 }
 .client-header h4,
 .client-header small {
-  color: rgba(0, 0, 0, 0.95) !important;
+  color: rgba(0, 0, 0, 0.95);
 }
 
 @media (max-width: 767.98px) {
@@ -921,7 +921,7 @@ body::before {
 
   .turni-hero,
   .route-planner-panel {
-    border-radius: 12px;
+    border-radius: var(--mv-radius-control);
   }
 
   .turni-hero__top,

@@ -1,13 +1,10 @@
-<div class="container py-4">
-  <button
-    type="button"
-    class="btn btn-outline-primary rounded-pill mb-3"
-    routerLink="/listCustomer"
-  >
-    ⬅ Torna Indietro
-  </button>
+<div class="standard-management-page customer-tag-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title"><h1>Gestione posizione tag</h1></div>
+    <div class="mv-entity-toolbar__controls"><button type="button" class="btn mv-toolbar-back" routerLink="/listCustomer">← Torna indietro</button></div>
+  </header>
 
-  <h2 class="text-center mb-4 text-dark">Gestione Posizione Tag</h2>
+  <div class="container customer-tag-content">
 
   <div class="card p-4 shadow-sm">
     <label class="form-label fw-bold">Posizione Tag</label>
@@ -36,8 +33,9 @@
       />
     </div>
 
-    <button type="button" class="btn btn-success rounded-pill" (click)="salva()">
-      💾 Salva
+    <button type="button" class="btn mv-toolbar-primary" (click)="salva()">
+      Salva
     </button>
+  </div>
   </div>
 </div>

@@ -15,6 +15,11 @@ export class AutomaticAddInspectionToCalendarService {
   customerType: string = '';
   customerEventCategory: string = '';
   customerEventDescription: string = '';
+  pendingServiceOrderEvent = false;
+  serviceOrderId = 0;
+  serviceOrderDisplayId = '';
+  serviceOrderStartDate = '';
+  serviceOrderEndDate = '';
 
   constructor() { }
 }

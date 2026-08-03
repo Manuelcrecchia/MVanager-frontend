@@ -1,16 +1,19 @@
 <section class="accounting-page">
-  <header class="accounting-toolbar">
-    <div class="toolbar-title-group">
-      <button type="button" class="back-btn" (click)="back()">
-        <i class="fas fa-arrow-left"></i>
-        Indietro
+  <header class="accounting-toolbar mv-entity-toolbar">
+    <div class="toolbar-title-group mv-entity-toolbar__title">
+      <h1>{{ viewTitle }}</h1>
+      <button type="button" class="btn mv-toolbar-back mv-mobile-home-back" *ngIf="pageMode === 'list'" (click)="back()"><i class="fas fa-arrow-left"></i> Torna indietro</button>
+      <button type="button" class="primary-btn" *ngIf="activeTab === 'accounts' && pageMode === 'list'" (click)="newAccount()">
+        <i class="fas fa-plus"></i> Nuovo
       </button>
-      <div>
-        <p class="eyebrow">Contabilita'</p>
-        <h1>Contabilita' aziendale</h1>
-      </div>
     </div>
-    <div class="toolbar-actions">
+    <div class="toolbar-actions mv-entity-toolbar__controls" *ngIf="activeTab === 'accounts' && pageMode === 'list'">
+      <label class="accounting-toolbar-search"><i class="fas fa-search"></i><input type="search" [(ngModel)]="accountSearch" placeholder="Codice, nome o tipo conto" /></label>
+      <span class="mv-entity-toolbar__count">{{ filteredAccounts().length }} / {{ accounts.length }}</span>
+    </div>
+    <div class="toolbar-actions toolbar-period-actions mv-entity-toolbar__controls" *ngIf="activeTab !== 'accounts'">
+      <label class="compact-toolbar-field">Da <input type="date" [(ngModel)]="filters.startDate" /></label>
+      <label class="compact-toolbar-field">A <input type="date" [(ngModel)]="filters.endDate" /></label>
       <button type="button" class="ghost-btn" (click)="loadCurrentTab()" [disabled]="loading">
         <i class="fas fa-sync-alt"></i>
         Aggiorna
@@ -20,29 +23,13 @@
         Sincronizza da fatture
       </button>
     </div>
+    <div class="toolbar-actions mv-entity-toolbar__controls" *ngIf="activeTab === 'accounts' && pageMode !== 'list'">
+      <button type="button" class="back-btn" (click)="closeAccountPage()"><i class="fas fa-arrow-left"></i> Torna indietro</button>
+    </div>
   </header>
-
-  <nav class="accounting-tabs" aria-label="Sezioni contabilita'">
-    <button type="button" *ngFor="let tab of tabs" [class.active]="activeTab === tab.key" (click)="setTab(tab.key)">
-      <i [class]="tab.icon"></i>
-      {{ tab.label }}
-    </button>
-  </nav>
 
   <div class="feedback error" *ngIf="error">{{ error }}</div>
   <div class="feedback success" *ngIf="success && !error">{{ success }}</div>
-
-  <div class="period-filter" *ngIf="activeTab !== 'accounts'">
-    <label>
-      Da
-      <input type="date" [(ngModel)]="filters.startDate" />
-    </label>
-    <label>
-      A
-      <input type="date" [(ngModel)]="filters.endDate" />
-    </label>
-    <button type="button" class="ghost-btn" (click)="loadCurrentTab()">Applica</button>
-  </div>
 
   <p class="loading" *ngIf="loading">Caricamento...</p>
 
@@ -76,22 +63,18 @@
   </section>
 
   <section class="split-layout" *ngIf="activeTab === 'accounts'">
-    <div class="panel">
-      <div class="panel-head">
-        <h2>Piano dei conti</h2>
-        <button type="button" class="ghost-btn" (click)="newAccount()">Nuovo conto</button>
-      </div>
-      <button type="button" class="list-row" *ngFor="let account of accounts" (click)="editAccount(account)">
+    <div class="panel" *ngIf="pageMode === 'list'">
+      <button type="button" class="list-row" *ngFor="let account of filteredAccounts(); trackBy: trackStableInteractiveItem" (click)="editAccount(account)">
         <span>
-          <strong>{{ account.code }} - {{ account.name }}</strong>
+          <strong><em>{{ account.code }}</em>{{ account.name }}</strong>
           <small>{{ typeLabel(account.type) }} · {{ account.normalBalance === 'credit' ? 'Avere' : 'Dare' }}</small>
         </span>
-        <em *ngIf="account.systemKey">Sistema</em>
+        <span class="entity-row-action"><i class="fas fa-book"></i> Scheda conto</span>
       </button>
+      <p class="subtle" *ngIf="filteredAccounts().length === 0">Nessun conto trovato.</p>
     </div>
 
-    <form class="panel edit-panel" (ngSubmit)="saveAccount()">
-      <h2>{{ selectedAccount.id ? 'Modifica conto' : 'Nuovo conto' }}</h2>
+    <form class="panel edit-panel" *ngIf="pageMode !== 'list'" (ngSubmit)="saveAccount()">
       <div class="form-grid">
         <label>Codice <input name="code" [(ngModel)]="selectedAccount.code" required /></label>
         <label>Nome <input name="name" [(ngModel)]="selectedAccount.name" required /></label>

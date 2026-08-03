@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+import { NoteUnreadService } from '../../service/note-unread.service';
 import { Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 
@@ -170,9 +171,11 @@ export class CandidatesComponent implements OnInit {
     public globalService: GlobalService,
     private router: Router,
     private appDialog: PopupServiceService,
+    public noteUnread: NoteUnreadService,
   ) {}
 
   ngOnInit(): void {
+    this.noteUnread.start();
     this.loadConfig();
     this.loadCandidates();
   }
@@ -333,6 +336,7 @@ export class CandidatesComponent implements OnInit {
         next: (detail) => {
           this.selectedCandidate = detail.candidate;
           this.notes = detail.notes || [];
+          this.noteUnread.markRead('candidate', detail.candidate.id);
           this.events = detail.events || [];
           this.attachments = detail.attachments || [];
           this.form = this.formFromCandidate(detail.candidate);

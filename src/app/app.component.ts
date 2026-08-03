@@ -9,6 +9,8 @@ import { Router } from '@angular/router';
 import { InspectionAlarmSyncService } from './service/inspection-alarm-sync.service';
 import { AuthServiceService } from './auth-service.service';
 import { PopupServiceService } from './componenti/popup/popup-service.service';
+import { ServiceAnnouncementService } from './service/service-announcement.service';
+import { RealtimeSyncService } from './service/realtime-sync.service';
 
 @Component({
   selector: 'app-root',
@@ -22,6 +24,12 @@ export class AppComponent {
   private sessionUnlocked = false;
   private tenantConfigRefreshInProgress = false;
   subscriptionNoticeDismissed = false;
+
+  get showAiAssistant(): boolean {
+    return Boolean(this.globalService.token) &&
+      !this.isLoginRoute() &&
+      !this.isPublicRoute();
+  }
 
   get subscriptionNotice(): { tone: 'warning' | 'urgent'; message: string } | null {
     if (this.subscriptionNoticeDismissed) return null;
@@ -84,9 +92,12 @@ export class AppComponent {
     private inspectionAlarmSync: InspectionAlarmSyncService,
     private authService: AuthServiceService,
     private popupService: PopupServiceService,
+    private serviceAnnouncements: ServiceAnnouncementService,
+    public realtimeSync: RealtimeSyncService,
   ) {}
   ngOnInit() {
     this.popupService.installBrowserAlertBridge();
+    this.realtimeSync.start();
 
     const platform = Capacitor.getPlatform();
     document.body.classList.toggle('cap-ios', platform === 'ios');
@@ -132,6 +143,12 @@ export class AppComponent {
         }
       }
     });
+  }
+
+  get realtimeNotice(): string {
+    const change = this.realtimeSync.pendingChange$.value;
+    if (!change) return '';
+    return 'Questi dati sono stati modificati da un altro utente.';
   }
 
   @HostListener('window:focus')
@@ -190,6 +207,7 @@ export class AppComponent {
       this.authService.initializePostLoginServices(this.globalService.token);
       this.inspectionAlarmSync.setToken(this.globalService.token);
       await this.inspectionAlarmSync.syncSoon('biometric-unlock', true);
+      await this.serviceAnnouncements.showAfterLogin();
       const navigatedFromNotification =
         await this.notificationNavigation.navigatePendingIfAny();
 
@@ -209,8 +227,12 @@ export class AppComponent {
   private isPublicRoute(): boolean {
     const url = this.router.url.split('?')[0];
     // These links are opened by external customers. A locally remembered
-    // employee/admin session must never reveal internal billing information.
-    return url.startsWith('/quote-accept/') || url.startsWith('/contract-accept/');
+    // employee/admin session must never reveal internal UI or billing information.
+    return url.startsWith('/quote-accept/') ||
+      url.startsWith('/contract-accept/') ||
+      url.startsWith('/work-completion-accept/') ||
+      url.startsWith('/service-order-accept/') ||
+      url.startsWith('/material-delivery-accept/');
   }
 
   @HostListener('window:unhandledrejection', ['$event'])

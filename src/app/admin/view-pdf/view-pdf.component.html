@@ -1,9 +1,8 @@
-<div class="container py-4 pdf-page">
-  <div class="pdf-page-header">
-    <button type="button" class="btn btn-pdf-back" (click)="back()">
-      &larr; Torna indietro
-    </button>
-  </div>
+<div class="standard-management-page pdf-page">
+  <header class="mv-entity-toolbar pdf-page-header">
+    <div class="mv-entity-toolbar__title"><h1>{{ documentTitle || 'Documento PDF' }}</h1></div>
+    <div class="mv-entity-toolbar__controls"><button type="button" class="btn mv-toolbar-back" (click)="back()">&larr; Torna indietro</button></div>
+  </header>
 
   <div class="pdf-shell">
     <div *ngIf="loadingPdf" class="pdf-loading">
@@ -16,7 +15,7 @@
       class="ngx-extended-pdf-viewer pdf-viewer"
       [src]="pdfSrc"
       useBrowserLocale="true"
-      backgroundColor="#ffffff"
+      backgroundColor="var(--mv-surface)"
       [height]="'100%'"
       [customToolbar]="customToolbar"
       [filenameForDownload]="downloadName"

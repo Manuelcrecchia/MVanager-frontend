@@ -1,11 +1,11 @@
-<div class="container py-4 page-wrap">
-  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <button class="btn btn-back-glass" type="button" (click)="back()">
-      &larr; Torna Indietro
-    </button>
-  </div>
-
-  <h2 class="text-center page-title mb-4 text-dark">{{ pageTitle }}</h2>
+<div class="standard-management-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title">
+      <h1>{{ pageTitle }}</h1>
+    </div>
+    <div class="mv-entity-toolbar__controls"><button class="btn mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button></div>
+  </header>
+  <div class="container">
 
   <section class="admin-card mb-4" *ngIf="isVehicleMode">
     <div class="card-header py-3 px-4">
@@ -438,7 +438,7 @@
         <article class="employee-card" *ngFor="let v of filteredVehicles">
           <div class="employee-card__identity">
             <h3>{{ v.name }}</h3>
-            <p *ngIf="v.plate" class="plate-badge" style="display: inline-block; padding: 2px 10px; border-radius: 20px; background: rgba(47,183,255,0.15); border: 1px solid rgba(47,183,255,0.25); font-weight: 700; font-size: 13px;">{{ v.plate }}</p>
+            <p *ngIf="v.plate" class="plate-badge" style="display: inline-block; padding: 2px 10px; border-radius: var(--mv-radius-surface); background: rgba(47,183,255,0.15); border: 1px solid rgba(47,183,255,0.25); font-weight: 700; font-size: 13px;">{{ v.plate }}</p>
             <p *ngIf="!v.plate" class="text-muted small">Nessuna targa</p>
             <div class="resource-category-badges" *ngIf="getVehicleCategoryNames(v).length">
               <span class="resource-category-badge" *ngFor="let name of getVehicleCategoryNames(v)">{{ name }}</span>
@@ -519,4 +519,5 @@
       </div>
     </div>
   </section>
+</div>
 </div>

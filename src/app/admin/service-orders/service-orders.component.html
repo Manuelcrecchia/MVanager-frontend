@@ -1,83 +1,62 @@
-<div class="container py-4 service-orders-page">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <button class="btn btn-outline-secondary" type="button" (click)="goBack()">
-      &larr; Indietro
-    </button>
+<div class="bg-light service-orders-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title">
+      <h1>Ordini di servizio</h1>
+      <button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="goBack()">← Torna indietro</button>
+      <button class="btn mv-toolbar-primary" type="button" (click)="addOrder()" *ngIf="global.hasPermission('SERVICE_ORDERS_MANAGE')">
+        <i class="fas fa-plus" aria-hidden="true"></i> Nuovo
+      </button>
+    </div>
+    <div class="mv-entity-toolbar__controls">
+      <label class="service-order-search-field">
+        <span class="visually-hidden">Cerca ordine di servizio</span>
+        <i class="fas fa-search" aria-hidden="true"></i>
+        <input class="form-control" type="search" [(ngModel)]="search" (keyup.enter)="loadOrders()" placeholder="ID, cliente o nominativo" />
+      </label>
+      <span class="mv-entity-toolbar__count">{{ orders.length }}</span>
+      <button class="btn btn-light btn-sm" type="button" *ngIf="search" (click)="search = ''; loadOrders()">Pulisci</button>
+      <button class="btn btn-light btn-sm" type="button" (click)="toggleShowArchived()">
+        {{ showArchived ? 'Nascondi archivio' : 'Mostra archivio' }}
+      </button>
+    </div>
+  </header>
 
-    <button
-      class="btn btn-primary"
-      type="button"
-      (click)="addOrder()"
-      *ngIf="global.hasPermission('SERVICE_ORDERS_MANAGE')"
-    >
-      Aggiungi
-    </button>
-  </div>
+  <div class="container">
+    <div *ngIf="loading" class="alert alert-info">Caricamento...</div>
+    <div *ngIf="!loading && orders.length === 0" class="alert alert-light border">Nessun ordine di servizio trovato.</div>
 
-  <div class="page-title mb-4">
-    <p class="text-uppercase text-muted mb-1">Gestionale</p>
-    <h2>Ordini di servizio</h2>
-  </div>
-
-  <div class="search-bar mb-4">
-    <input
-      class="form-control"
-      type="search"
-      [(ngModel)]="search"
-      (keyup.enter)="loadOrders()"
-      placeholder="Cerca per nome o numero cliente"
-    />
-    <button class="btn btn-dark" type="button" (click)="loadOrders()">Cerca</button>
-  </div>
-
-  <div *ngIf="loading" class="alert alert-info">Caricamento...</div>
-  <div *ngIf="!loading && orders.length === 0" class="alert alert-light border">
-    Nessun ordine di servizio trovato.
-  </div>
-
-  <div class="orders-list" *ngIf="!loading && orders.length > 0">
-    <article class="order-card" *ngFor="let order of orders">
-      <div class="order-main">
-        <span class="order-number">Ordine #{{ order.numeroOrdine || order.id }}</span>
-        <h5>{{ customerName(order) }}</h5>
-        <p class="mb-1">
-          Cliente {{ order.numeroCliente }}
-          <span *ngIf="order.customer?.telefono"> - {{ order.customer.telefono }}</span>
-          <span *ngIf="order.customer?.email"> - {{ order.customer.email }}</span>
-        </p>
-        <p class="description">{{ order.descrizione }}</p>
-
-        <div class="order-actions" *ngIf="global.hasPermission('SERVICE_ORDERS_MANAGE')">
-          <button
-            class="btn btn-outline-primary btn-sm"
-            type="button"
-            (click)="editOrder(order.id)"
-          >
-            Modifica
+    <div class="orders-list" *ngIf="!loading && orders.length > 0">
+      <article class="order-card" [class.order-card--open]="isOrderOpen(order.id)" *ngFor="let order of orders">
+        <div class="order-header-layout">
+          <button class="order-header-btn" type="button" (click)="toggleOrder(order.id)">
+            <span class="order-title">
+              <span class="entity-id-pill">#{{ order.displayId || (order.numeroCliente + '/' + order.id) }}</span>
+              <span class="order-customer-name">{{ customerName(order) }}</span>
+              <span class="badge bg-warning text-dark" *ngIf="order.signatureProof?.status === 'pending' || order.signatureProof?.status === 'otp_verified'">In attesa cliente</span>
+              <span class="badge bg-info text-dark" *ngIf="order.signatureProof?.status === 'accepted'">Firmato</span>
+              <span class="badge bg-warning text-dark" *ngIf="order.status === 'ARCHIVED' && order.signatureProof?.status !== 'accepted'">Archiviato</span>
+            </span>
+            <span class="chev" [class.chev--open]="isOrderOpen(order.id)">▾</span>
           </button>
-          <button
-            class="btn btn-outline-dark btn-sm"
-            type="button"
-            (click)="generateDeliveryDocument(order.id)"
-            [disabled]="generatingDeliveryId === order.id"
-            *ngIf="canGenerateDeliveryDocument()"
-          >
-            {{ generatingDeliveryId === order.id ? 'Genero...' : 'Materiale' }}
-          </button>
-          <button
-            class="btn btn-outline-danger btn-sm"
-            type="button"
-            (click)="deleteOrder(order.id)"
-          >
-            Elimina
-          </button>
+
+          <span class="order-quick-actions">
+            <button class="btn btn-sm order-quick-button action-with-tooltip" type="button" (click)="openOrderSheet(order)" aria-label="Scheda ordine di servizio" data-tooltip="Scheda ordine"><i class="fas fa-id-card"></i></button>
+            <button class="btn btn-sm order-quick-button action-with-tooltip" type="button" *ngIf="global.hasPermission('CUSTOMERS_NOTES_VIEW')" (click)="openCustomerNotes(order)" aria-label="Note cliente" data-tooltip="Note cliente"><i class="fas fa-sticky-note"></i></button>
+          </span>
         </div>
-      </div>
 
-      <div class="date-box">
-        <strong>{{ order.scheduledStart | date : "dd/MM/yyyy" }}</strong>
-        <span>{{ order.scheduledStart | date : "HH:mm" }}</span>
-      </div>
-    </article>
+        <div class="mv-record-actions" *ngIf="isOrderOpen(order.id)">
+          <div class="mv-record-actions__inner">
+            <button class="btn mv-record-action mv-record-action--edit action-with-tooltip" type="button" *ngIf="order.status !== 'ARCHIVED' && global.hasPermission('SERVICE_ORDERS_MANAGE')" (click)="editOrder(order.id)" aria-label="Modifica ordine" data-tooltip="Modifica ordine"><i class="fas fa-pen-to-square"></i></button>
+            <button class="btn mv-record-action mv-record-action--whatsapp action-with-tooltip" type="button" *ngIf="order.status !== 'ARCHIVED'" (click)="openOrderWhatsApp(order)" aria-label="Apri WhatsApp" data-tooltip="Apri WhatsApp"><i class="fab fa-whatsapp"></i></button>
+            <button class="btn mv-record-action mv-record-action--email action-with-tooltip" type="button" *ngIf="order.status !== 'ARCHIVED' && global.hasPermission('EMAIL_VIEW')" (click)="composeOrderEmail(order)" aria-label="Scrivi email" data-tooltip="Scrivi email"><i class="fas fa-envelope"></i></button>
+            <button class="btn mv-record-action mv-record-action--signature action-with-tooltip" type="button" *ngIf="order.status !== 'ARCHIVED' && global.hasPermission('SERVICE_ORDERS_MANAGE')" (click)="requestRemoteSignature(order)" [disabled]="generatingSignatureId === order.id || order.signatureProof?.status === 'accepted'" aria-label="Richiedi firma" data-tooltip="Invia per accettazione"><i class="fas fa-file-signature"></i></button>
+            <button class="btn mv-record-action mv-record-action--evidence action-with-tooltip" type="button" *ngIf="order.signatureProof?.status === 'accepted'" (click)="showSignatureEvidence(order)" aria-label="Dati prova firma" data-tooltip="Dati prova firma"><i class="fas fa-shield-halved"></i></button>
+            <button class="btn mv-record-action mv-record-action--calendar action-with-tooltip" type="button" *ngIf="canUseCalendar(order)" (click)="openOrCreateCalendarEvent(order)" [attr.aria-label]="calendarTooltip(order)" [attr.data-tooltip]="calendarTooltip(order)"><i class="fas fa-calendar-alt"></i></button>
+            <button class="btn mv-record-action mv-record-action--danger action-with-tooltip" type="button" *ngIf="order.status !== 'ARCHIVED' && global.hasPermission('SERVICE_ORDERS_MANAGE')" (click)="archiveOrder(order.id)" aria-label="Archivia ordine" data-tooltip="Archivia ordine"><i class="fas fa-archive"></i></button>
+          </div>
+        </div>
+      </article>
+    </div>
   </div>
 </div>

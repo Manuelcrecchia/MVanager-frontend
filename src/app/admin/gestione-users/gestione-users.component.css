@@ -17,3 +17,16 @@
     display: flex !important;
   }
 }
+:host { display: block; }
+
+.users-page { container-type: inline-size; }
+
+@container (max-width: 920px) {
+  .users-toolbar { grid-template-columns: 1fr; height: auto; min-height: 104px; }
+  .users-toolbar .mv-entity-toolbar__controls { justify-content: flex-start; }
+}
+
+@container (max-width: 620px) {
+  .users-toolbar .mv-entity-toolbar__controls { align-items: stretch; flex-direction: column; }
+  .users-toolbar .mv-entity-toolbar__controls button { width: 100%; }
+}

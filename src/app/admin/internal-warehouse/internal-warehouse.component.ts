@@ -12,10 +12,21 @@ import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import { Subscription } from 'rxjs';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+import { SocketService } from '../../service/soket.service';
 
-type WarehouseTab = 'list' | 'requests' | 'orders' | 'in' | 'out' | 'movements' | 'products' | 'tools';
+type WarehouseTab = 'list' | 'requests' | 'material-orders' | 'orders' | 'in' | 'out' | 'movements' | 'products' | 'tools';
 type MovementType = 'in' | 'out';
 type SummaryFilter = 'all' | 'low' | 'out' | 'quantity';
+type WarehouseRequestView = 'list' | 'new' | 'detail';
+type WarehouseEntityView = 'list' | 'new' | 'detail';
+type MaterialOrderStatusView =
+  | 'to-prepare'
+  | 'preparing'
+  | 'prepared'
+  | 'waiting-customer'
+  | 'partially-delivered'
+  | 'completed'
+  | 'cancelled';
 
 interface WarehouseProduct {
   id: number;
@@ -121,16 +132,32 @@ interface WarehouseReferences {
   serviceOrders: any[];
 }
 
+type MaterialOrderReferenceKind = 'customer' | 'recipient' | 'preparation' | 'delivery';
+
 interface InternalWarehouseConfig {
   mobileMode: 'simple' | 'advanced';
   barcodeMode: 'barcode_required' | 'auto_internal_code';
   internalCodePrefix: string;
-  serviceOrderFlow: {
+  materialOrderFlow: {
     enabled: boolean;
-    requireServiceOrderForOutputs: boolean;
+    employeeRequestsEnabled: boolean;
+    schedulingEnabled: boolean;
+    calendarCategoryKey: string;
+    preparationDocumentEnabled: boolean;
+    preparationDocumentTitle: string;
+    preparationDocumentStyle: 'classic' | 'modern' | 'minimal';
+    preparationPrimaryColor: string;
+    preparationShowLogo: boolean;
+    preparationShowBarcode: boolean;
+    preparationShowInternalChecks: boolean;
+    preparationFooterText: string;
     documentEnabled: boolean;
     documentLabel: string;
     pdfTemplateKey: string;
+    customerSignatureEnabled: boolean;
+    employeeAppSignatureEnabled: boolean;
+    signatureEmailSource: string;
+    fields: any[];
   };
 }
 
@@ -158,7 +185,8 @@ interface WarehouseRequestItem {
 
 interface WarehouseRequest {
   id: number;
-  employeeId: number;
+  employeeId: number | null;
+  createdByAdminId?: number | null;
   productId: number;
   categoryId: number | null;
   customerId?: string | null;
@@ -174,6 +202,35 @@ interface WarehouseRequest {
   customer?: any | null;
 }
 
+interface MaterialRequestAvailability {
+  requestId: number;
+  allAvailable: boolean;
+  noneAvailable: boolean;
+  items: Array<{
+    itemId: number | null;
+    productId: number;
+    requestedQuantity: number;
+    availableQuantity: number;
+    preparableQuantity: number;
+    missingQuantity: number;
+    product?: WarehouseProduct | null;
+  }>;
+}
+
+interface SupplierOrder {
+  id: number;
+  numeroOrdine: string;
+  supplierId: number;
+  recipient: string;
+  subject: string;
+  message: string;
+  status: 'sent' | 'completed' | 'cancelled';
+  sentAt: string;
+  createdAt: string;
+  supplier?: WarehouseSupplier | null;
+  items: Array<{ product: WarehouseProduct; quantity: number; note: string }>;
+}
+
 @Component({
   selector: 'app-internal-warehouse',
   templateUrl: './internal-warehouse.component.html',
@@ -185,11 +242,27 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   }
 
   @ViewChildren('scannerVideo') scannerVideos?: QueryList<ElementRef<HTMLVideoElement>>;
-  private readonly validTabs: WarehouseTab[] = ['list', 'requests', 'orders', 'in', 'out', 'movements', 'products', 'tools'];
-  private readonly fractionalUnits = new Set(['litri', 'ml', 'kg', 'g', 'metri']);
+  private readonly validTabs: WarehouseTab[] = ['list', 'requests', 'material-orders', 'orders', 'in', 'out', 'movements', 'products', 'tools'];
 
   activeTab: WarehouseTab = 'list';
   products: WarehouseProduct[] = [];
+  materialOrders: any[] = [];
+  materialOrderSourceRequestId = 0;
+  materialOrderSourceCustomer: any = null;
+  materialOrderConfig: any = {};
+  materialOrderFields: any[] = [];
+  materialOrderForm: any = {
+    customerId: '',
+    recipientEmployeeId: 0,
+    preparationEmployeeId: 0,
+    deliveryEmployeeId: 0,
+    deliveryMode: 'immediate',
+    scheduledStart: '',
+    scheduledEnd: '',
+    note: '',
+    fields: {},
+    items: [{ productId: 0, quantity: 1, note: '' }],
+  };
   orderProducts: WarehouseProduct[] = [];
   categories: WarehouseCategory[] = [];
   suppliers: WarehouseSupplier[] = [];
@@ -221,6 +294,76 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   reportMovements: WarehouseMovement[] = [];
   reportSummary: WarehouseMovementSummary[] = [];
   productRequests: WarehouseRequest[] = [];
+  requestView: WarehouseRequestView = 'list';
+  requestSearch = '';
+  showArchivedRequests = false;
+  selectedProductRequest: WarehouseRequest | null = null;
+  editingRequestAssignment = false;
+  requestAssignmentForm = { customerId: '', employeeId: 0 };
+  productView: WarehouseEntityView = 'list';
+  showArchivedProducts = false;
+  materialOrderView: WarehouseEntityView = 'list';
+  materialOrderSearch = '';
+  materialOrderStatusView: MaterialOrderStatusView = 'to-prepare';
+  showArchivedMaterialOrders = false;
+  selectedMaterialOrder: any = null;
+  editingMaterialOrderAssignment = false;
+  materialOrderAssignmentForm = {
+    recipientEmployeeId: 0,
+    preparationEmployeeId: 0,
+    deliveryEmployeeId: 0,
+    deliveryMode: 'immediate',
+    scheduledStart: '',
+    scheduledEnd: '',
+  };
+  materialOrderReferenceSearch: Record<MaterialOrderReferenceKind, string> = {
+    customer: '', recipient: '', preparation: '', delivery: '',
+  };
+  readonly materialOrderReferencePickers: Array<{
+    kind: MaterialOrderReferenceKind;
+    label: string;
+    placeholder: string;
+  }> = [
+    { kind: 'customer', label: 'Cliente destinatario', placeholder: 'Cerca cliente per nome o numero' },
+    { kind: 'recipient', label: 'Dipendente destinatario', placeholder: 'Cerca dipendente per nome o email' },
+    { kind: 'preparation', label: 'Addetto alla preparazione', placeholder: 'Cerca addetto alla preparazione' },
+    { kind: 'delivery', label: 'Incaricato della consegna', placeholder: 'Cerca incaricato della consegna' },
+  ];
+  materialOrderReferenceOpen: Record<MaterialOrderReferenceKind, boolean> = {
+    customer: false, recipient: false, preparation: false, delivery: false,
+  };
+  materialOrderReferenceLoading: Record<MaterialOrderReferenceKind, boolean> = {
+    customer: false, recipient: false, preparation: false, delivery: false,
+  };
+  materialOrderReferenceResults: Record<MaterialOrderReferenceKind, any[]> = {
+    customer: [], recipient: [], preparation: [], delivery: [],
+  };
+  materialOrderReferenceActiveIndex: Record<MaterialOrderReferenceKind, number> = {
+    customer: -1, recipient: -1, preparation: -1, delivery: -1,
+  };
+  supplierOrderView: WarehouseEntityView = 'list';
+  supplierOrderSearch = '';
+  showArchivedSupplierOrders = false;
+  supplierOrders: SupplierOrder[] = [];
+  selectedSupplierOrder: SupplierOrder | null = null;
+  adminRequestForm: any = {
+    customerId: '',
+    employeeId: 0,
+    note: '',
+    items: [{ productId: 0, quantity: 1 }],
+  };
+  adminRequestSearch = {
+    customer: '',
+    employee: '',
+  };
+  adminRequestSearchOpen = {
+    customer: false,
+    employee: false,
+  };
+  adminRequestSearchLoading = {
+    customer: false,
+    employee: false,
+  };
   preparingRequest: WarehouseRequest | null = null;
   preparingRequestItem: WarehouseRequestItem | null = null;
   cancelRequestForm = {
@@ -309,9 +452,17 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   private lastScanValue = '';
   private lastScanAt = 0;
   private queryParamSub?: Subscription;
+  private internalWarehouseUpdateSub?: Subscription;
   private referenceSearchTimers: Record<'customer' | 'employee', any> = {
     customer: null,
     employee: null,
+  };
+  private adminRequestSearchTimers: Record<'customer' | 'employee', any> = {
+    customer: null,
+    employee: null,
+  };
+  private materialOrderReferenceTimers: Record<MaterialOrderReferenceKind, any> = {
+    customer: null, recipient: null, preparation: null, delivery: null,
   };
 
   constructor(
@@ -321,12 +472,16 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     public global: GlobalService,
     private popup: PopupServiceService,
     private cdr: ChangeDetectorRef,
+    private socketService: SocketService,
   ) {}
 
   ngOnInit(): void {
     this.applyRouteTab(this.route.snapshot.queryParamMap.get('tab'));
     this.queryParamSub = this.route.queryParamMap.subscribe((params) => {
       this.applyRouteTab(params.get('tab'));
+      this.applyMaterialOrderStatusRoute(params.get('materialStatus'));
+      this.applyRequestRoute(params.get('requestView'), params.get('requestId'));
+      this.applyWarehouseEntityRoute(params.get('view'), params.get('entityId'));
     });
     this.loadMeta();
     this.loadReferences();
@@ -335,11 +490,26 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     this.loadSummary();
     this.loadProducts();
     this.loadProductRequests();
+    if (this.activeTab === 'material-orders') this.loadMaterialOrders();
     if (this.activeTab === 'movements') this.loadMovementReport();
+    this.internalWarehouseUpdateSub = this.socketService
+      .onInternalWarehouseSummaryUpdate()
+      .subscribe(() => {
+        this.loadSummary();
+        this.loadProductRequests();
+        if (this.activeTab === 'material-orders') this.loadMaterialOrders();
+        if (['list', 'in', 'out', 'products'].includes(this.activeTab)) this.loadProducts();
+        if (this.activeTab === 'movements') this.loadMovementReport();
+      });
   }
 
   ngOnDestroy(): void {
     this.queryParamSub?.unsubscribe();
+    this.internalWarehouseUpdateSub?.unsubscribe();
+    clearTimeout(this.adminRequestSearchTimers.customer);
+    clearTimeout(this.adminRequestSearchTimers.employee);
+    (Object.keys(this.materialOrderReferenceTimers) as MaterialOrderReferenceKind[])
+      .forEach((kind) => clearTimeout(this.materialOrderReferenceTimers[kind]));
     this.stopScanner();
   }
 
@@ -351,8 +521,105 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     return this.global.hasPermission('INTERNAL_WAREHOUSE_VIEW');
   }
 
+  get activeTabLabel(): string {
+    const labels: Record<WarehouseTab, string> = {
+      list: 'Lista prodotti',
+      requests: 'Richieste prodotti',
+      'material-orders': 'Ordini materiali',
+      orders: 'Ordini fornitori',
+      in: 'Entrata prodotti',
+      out: 'Uscita prodotti',
+      movements: 'Movimenti e report',
+      products: 'Prodotti',
+      tools: 'Strumenti',
+    };
+    return labels[this.activeTab];
+  }
+
+  get requestPageTitle(): string {
+    if (this.requestView === 'new') return 'Nuova richiesta';
+    if (this.requestView === 'detail') return 'Scheda richiesta';
+    return 'Richieste prodotti';
+  }
+
+  get entityPageTitle(): string {
+    if (this.activeTab === 'list') return this.productView === 'detail' ? 'Scheda prodotto' : 'Lista prodotti';
+    if (this.activeTab === 'material-orders') {
+      if (this.materialOrderView === 'new') return 'Nuovo ordine materiali';
+      if (this.materialOrderView === 'detail') return 'Scheda ordine materiali';
+      return this.materialOrderStatusViewLabel;
+    }
+    if (this.activeTab === 'orders') {
+      if (this.supplierOrderView === 'new') return 'Nuovo ordine fornitore';
+      if (this.supplierOrderView === 'detail') return 'Scheda ordine fornitore';
+      return 'Ordini fornitori';
+    }
+    if (this.activeTab === 'products') return this.productForm.id ? 'Modifica prodotto' : 'Nuovo prodotto';
+    return this.activeTabLabel;
+  }
+
+  get currentEntityView(): WarehouseEntityView {
+    if (this.activeTab === 'list') return this.productView;
+    if (this.activeTab === 'material-orders') return this.materialOrderView;
+    if (this.activeTab === 'products') return 'new';
+    return this.supplierOrderView;
+  }
+
+  get filteredMaterialOrders(): any[] {
+    const query = this.normalizeRequestSearch(this.materialOrderSearch);
+    return this.materialOrders.filter((order) => {
+      if (!this.materialOrderMatchesStatusView(order?.status)) return false;
+      if (!query) return true;
+      return this.normalizeRequestSearch([
+      order.numeroOrdine, this.materialOrderRecipient(order), order.status, order.note,
+      ...(order.items || []).map((item: any) => item.product?.name || ''),
+      ].join(' ')).includes(query);
+    });
+  }
+
+  get materialOrderStatusViewLabel(): string {
+    const labels: Record<MaterialOrderStatusView, string> = {
+      'to-prepare': 'Da preparare',
+      preparing: 'In preparazione',
+      prepared: 'Preparati',
+      'waiting-customer': 'In attesa firma destinatario',
+      'partially-delivered': 'Consegnati in parte',
+      completed: 'Completati',
+      cancelled: 'Annullati',
+    };
+    return labels[this.materialOrderStatusView];
+  }
+
+  get filteredSupplierOrders(): SupplierOrder[] {
+    const query = this.normalizeRequestSearch(this.supplierOrderSearch);
+    if (!query) return this.supplierOrders;
+    return this.supplierOrders.filter((order) => this.normalizeRequestSearch([
+      order.numeroOrdine, order.supplier?.name, order.recipient, order.subject, order.message,
+      this.supplierOrderStatusLabel(order.status),
+      ...(order.items || []).map((item) => item.product?.name || ''),
+    ].join(' ')).includes(query));
+  }
+
+  get filteredProductRequests(): WarehouseRequest[] {
+    const query = this.normalizeRequestSearch(this.requestSearch);
+    if (!query) return this.productRequests;
+    return this.productRequests.filter((request) => this.normalizeRequestSearch([
+      this.requestNumber(request),
+      this.requestRequesterLabel(request),
+      this.requestProductSummary(request),
+      request.note,
+      request.adminNote,
+      this.requestStatusLabel(request.status),
+      ...this.requestItems(request).map((item) => item.product?.name || ''),
+    ].join(' ')).includes(query));
+  }
+
   get canRegisterIn(): boolean {
     return this.global.hasPermission('INTERNAL_WAREHOUSE_IN');
+  }
+
+  get preparationEmployees(): any[] {
+    return this.references.employees.filter((employee) => employee.warehousePreparationEnabled === true);
   }
 
   get canRegisterOut(): boolean {
@@ -403,8 +670,397 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     this.setTab(tab);
   }
 
+  private applyMaterialOrderStatusRoute(value: string | null): void {
+    if (this.activeTab !== 'material-orders') return;
+    const allowed: MaterialOrderStatusView[] = [
+      'to-prepare', 'preparing', 'prepared', 'waiting-customer',
+      'partially-delivered', 'completed', 'cancelled',
+    ];
+    const next = allowed.includes(value as MaterialOrderStatusView)
+      ? value as MaterialOrderStatusView
+      : 'to-prepare';
+    const nextArchived = next === 'completed' || next === 'cancelled';
+    const scopeChanged = nextArchived !== this.showArchivedMaterialOrders;
+    this.materialOrderStatusView = next;
+    this.showArchivedMaterialOrders = nextArchived;
+    if (!value) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { materialStatus: next },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
+    if (scopeChanged) this.loadMaterialOrders();
+  }
+
+  private materialOrderMatchesStatusView(status: string): boolean {
+    if (this.materialOrderStatusView === 'to-prepare') {
+      return ['draft', 'requested', 'approved'].includes(status);
+    }
+    const statusByView: Record<Exclude<MaterialOrderStatusView, 'to-prepare'>, string> = {
+      preparing: 'preparing',
+      prepared: 'prepared',
+      'waiting-customer': 'ready',
+      'partially-delivered': 'partially_delivered',
+      completed: 'completed',
+      cancelled: 'cancelled',
+    };
+    return status === statusByView[this.materialOrderStatusView as Exclude<MaterialOrderStatusView, 'to-prepare'>];
+  }
+
+  private applyRequestRoute(viewValue: string | null, requestIdValue: string | null): void {
+    if (this.activeTab !== 'requests') return;
+    const view: WarehouseRequestView = ['new', 'detail'].includes(String(viewValue))
+      ? viewValue as WarehouseRequestView
+      : 'list';
+    this.requestView = view;
+    if (view !== 'detail') {
+      this.selectedProductRequest = null;
+      return;
+    }
+    const requestId = Number(requestIdValue || 0);
+    const current = this.productRequests.find((request) => request.id === requestId) || null;
+    if (current) this.selectedProductRequest = current;
+    else if (requestId > 0) this.loadProductRequestById(requestId);
+  }
+
+  private applyWarehouseEntityRoute(viewValue: string | null, entityIdValue: string | null): void {
+    if (!['list', 'material-orders', 'orders'].includes(this.activeTab)) return;
+    const view: WarehouseEntityView = ['new', 'detail'].includes(String(viewValue))
+      ? viewValue as WarehouseEntityView : 'list';
+    const id = Number(entityIdValue || 0);
+    if (this.activeTab === 'list') {
+      this.productView = view === 'new' ? 'list' : view;
+      if (view === 'detail' && id) {
+        const product = this.products.find((item) => item.id === id);
+        if (product) this.selectProduct(product);
+      }
+    } else if (this.activeTab === 'material-orders') {
+      this.materialOrderView = view;
+      if (view === 'detail' && id) this.selectedMaterialOrder = this.materialOrders.find((item) => item.id === id) || null;
+    } else {
+      this.supplierOrderView = view;
+      if (view === 'detail' && id) this.selectedSupplierOrder = this.supplierOrders.find((item) => item.id === id) || null;
+    }
+  }
+
+  openEntityNew(): void {
+    if (this.activeTab === 'list') {
+      this.resetProductForm();
+      this.setTab('products');
+      return;
+    }
+    if (this.activeTab === 'material-orders') {
+      this.materialOrderView = 'new';
+      this.resetMaterialOrderReferencePickers();
+    }
+    if (this.activeTab === 'orders') this.supplierOrderView = 'new';
+    this.navigateEntityView('new');
+  }
+
+  openProductSheet(product: WarehouseProduct): void {
+    this.productView = 'detail';
+    this.selectProduct(product);
+    this.navigateEntityView('detail', product.id);
+  }
+
+  openMaterialOrderSheet(order: any): void {
+    this.materialOrderView = 'detail';
+    this.selectedMaterialOrder = order;
+    this.editingMaterialOrderAssignment = false;
+    this.navigateEntityView('detail', order.id);
+  }
+
+  openSupplierOrderSheet(order: SupplierOrder): void {
+    this.supplierOrderView = 'detail';
+    this.selectedSupplierOrder = order;
+    this.navigateEntityView('detail', order.id);
+  }
+
+  closeEntityView(): void {
+    if (this.activeTab === 'products') {
+      this.setTab('list');
+      return;
+    }
+    if (this.activeTab === 'list') {
+      this.productView = 'list';
+      this.selectedProduct = null;
+    } else if (this.activeTab === 'material-orders') {
+      this.materialOrderView = 'list';
+      this.selectedMaterialOrder = null;
+      this.editingMaterialOrderAssignment = false;
+      this.loadMaterialOrders();
+    } else if (this.activeTab === 'orders') {
+      this.supplierOrderView = 'list';
+      this.selectedSupplierOrder = null;
+      this.loadSupplierOrders();
+    }
+    this.navigateEntityView('list');
+  }
+
+  private navigateEntityView(view: WarehouseEntityView, id?: number): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: this.activeTab, view: view === 'list' ? null : view, entityId: id || null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  toggleCurrentArchive(): void {
+    if (this.activeTab === 'list') {
+      this.showArchivedProducts = !this.showArchivedProducts;
+      this.loadProducts();
+    } else if (this.activeTab === 'material-orders') {
+      this.materialOrderSearch = '';
+      return;
+    } else if (this.activeTab === 'orders') {
+      this.showArchivedSupplierOrders = !this.showArchivedSupplierOrders;
+      this.supplierOrderSearch = '';
+      this.loadSupplierOrders();
+    }
+  }
+
+  materialOrderRecipient(order: any): string {
+    const snapshot = typeof order?.customerSnapshotJson === 'string'
+      ? this.parseJsonObject(order.customerSnapshotJson) : (order?.customerSnapshotJson || {});
+    if (order?.customerId) {
+      return this.entityReferenceLabel(order.customerId, snapshot?.displayName || `Cliente ${order.customerId}`);
+    }
+    if (order?.recipientEmployeeId) {
+      if (order?.recipientEmployee) {
+        return this.employeeReferenceLabel(order.recipientEmployee);
+      }
+      const employee = this.references.employees.find((item) => Number(item.id) === Number(order.recipientEmployeeId));
+      return employee ? this.employeeReferenceLabel(employee) : `Dipendente #${order.recipientEmployeeId}`;
+    }
+    return 'Destinatario non indicato';
+  }
+
+  materialOrderPreparationEmployee(order: any): string {
+    if (order?.preparationEmployee) {
+      return this.employeeReferenceLabel(order.preparationEmployee);
+    }
+    const employee = this.references.employees.find(
+      (item) => Number(item.id) === Number(order?.preparationEmployeeId),
+    );
+    return employee ? this.employeeReferenceLabel(employee) : 'Ufficio';
+  }
+
+  materialOrderDeliveryEmployee(order: any): string {
+    if (order?.deliveryEmployee) {
+      return this.employeeReferenceLabel(order.deliveryEmployee);
+    }
+    const employee = this.references.employees.find(
+      (item) => Number(item.id) === Number(order?.deliveryEmployeeId),
+    );
+    return employee ? this.employeeReferenceLabel(employee) : 'Da definire';
+  }
+
+  materialOrderStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      draft: 'Bozza', requested: 'Richiesto', approved: 'Da preparare', preparing: 'In preparazione', prepared: 'Preparato',
+      ready: 'In attesa firma destinatario', partially_delivered: 'Consegnato in parte', completed: 'Completato', cancelled: 'Annullato',
+    };
+    return labels[status] || status;
+  }
+
+  materialOrderStatusClass(status: string): string {
+    if (status === 'completed' || status === 'prepared') return 'success';
+    if (status === 'cancelled') return 'danger';
+    if (status === 'partially_delivered' || status === 'preparing') return 'info';
+    return 'warning';
+  }
+
+  materialOrderHasRemaining(order: any): boolean {
+    return (order?.items || []).some((item: any) => (
+      Number(item.requestedQuantity || 0) > Number(item.deliveredQuantity || 0)
+    ));
+  }
+
+  canMarkMaterialOrderPrepared(order: any): boolean {
+    return order?.status === 'preparing' || (
+      order?.status === 'approved' && !Number(order?.preparationEmployeeId || 0)
+    );
+  }
+
+  canDeliverMaterialOrder(order: any): boolean {
+    return ['prepared', 'partially_delivered'].includes(String(order?.status || '')) &&
+      this.materialOrderHasRemaining(order);
+  }
+
+  supplierOrderStatusLabel(status: SupplierOrder['status']): string {
+    return status === 'completed' ? 'Completato' : status === 'cancelled' ? 'Annullato' : 'Inviato';
+  }
+
+  supplierOrderStatusClass(status: SupplierOrder['status']): string {
+    return status === 'completed' ? 'success' : status === 'cancelled' ? 'danger' : 'info';
+  }
+
+  private parseJsonObject(value: string): any {
+    try { return JSON.parse(value || '{}'); } catch { return {}; }
+  }
+
+  openNewProductRequest(): void {
+    this.requestView = 'new';
+    this.selectedProductRequest = null;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: 'requests', requestView: 'new', requestId: null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  openProductRequest(request: WarehouseRequest): void {
+    this.requestView = 'detail';
+    this.selectedProductRequest = request;
+    this.editingRequestAssignment = false;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: 'requests', requestView: 'detail', requestId: request.id },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  closeProductRequestView(): void {
+    this.requestView = 'list';
+    this.selectedProductRequest = null;
+    this.editingRequestAssignment = false;
+    this.clearCancelRequest();
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: 'requests', requestView: null, requestId: null },
+      queryParamsHandling: 'merge',
+    });
+    this.loadProductRequests();
+  }
+
+  toggleRequestArchive(): void {
+    this.showArchivedRequests = !this.showArchivedRequests;
+    this.requestSearch = '';
+    this.loadProductRequests();
+  }
+
+  startRequestAssignmentEdit(request: WarehouseRequest): void {
+    // Le ricerche autocomplete sostituiscono temporaneamente le reference con i
+    // soli risultati trovati. Ricarichiamo l'elenco completo prima di mostrare
+    // il form, altrimenti potrebbe comparire soltanto il richiedente corrente.
+    this.loadReferences();
+    this.requestAssignmentForm = {
+      customerId: String(request.customerId || ''),
+      employeeId: Number(request.employeeId || 0),
+    };
+    this.editingRequestAssignment = true;
+    this.clearFeedback();
+  }
+
+  saveRequestAssignment(request: WarehouseRequest): void {
+    if (!this.requestAssignmentForm.customerId && !this.requestAssignmentForm.employeeId) {
+      this.error = 'Seleziona almeno un cliente o un dipendente richiedente.';
+      return;
+    }
+    this.saving = true;
+    this.http.patch<WarehouseRequest>(this.api(`/requests/${request.id}`), {
+      customerId: this.requestAssignmentForm.customerId || null,
+      employeeId: Number(this.requestAssignmentForm.employeeId || 0) || null,
+    }).subscribe({
+      next: (updated) => {
+        this.saving = false;
+        this.editingRequestAssignment = false;
+        this.selectedProductRequest = updated;
+        this.productRequests = this.productRequests.map((item) => item.id === updated.id ? updated : item);
+        this.message = 'Richiedente aggiornato.';
+      },
+      error: (err) => {
+        this.saving = false;
+        this.handleError(err, 'Richiedente non aggiornato.');
+      },
+    });
+  }
+
+  startMaterialOrderAssignmentEdit(order: any): void {
+    this.loadReferences();
+    this.materialOrderAssignmentForm = {
+      recipientEmployeeId: order.customerId ? 0 : Number(order.recipientEmployeeId || 0),
+      preparationEmployeeId: Number(order.preparationEmployeeId || 0),
+      deliveryEmployeeId: Number(order.deliveryEmployeeId || 0),
+      deliveryMode: order.deliveryMode === 'planned' ? 'planned' : 'immediate',
+      scheduledStart: this.dateTimeLocalValue(order.scheduledStart),
+      scheduledEnd: this.dateTimeLocalValue(order.scheduledEnd),
+    };
+    this.editingMaterialOrderAssignment = true;
+    this.clearFeedback();
+  }
+
+  saveMaterialOrderAssignment(order: any): void {
+    if (!order.customerId && !this.materialOrderAssignmentForm.recipientEmployeeId) {
+      this.error = 'Seleziona un dipendente destinatario.';
+      return;
+    }
+    this.saving = true;
+    this.http.patch<any>(this.materialApi(`/${order.id}/assignment`), {
+      ...this.materialOrderAssignmentForm,
+    }).subscribe({
+      next: (updated) => {
+        this.saving = false;
+        this.editingMaterialOrderAssignment = false;
+        this.selectedMaterialOrder = updated;
+        this.materialOrders = this.materialOrders.map((item) => item.id === updated.id ? updated : item);
+        this.message = 'Assegnazione ordine aggiornata.';
+      },
+      error: (err) => {
+        this.saving = false;
+        this.handleError(err, 'Assegnazione non aggiornata.');
+      },
+    });
+  }
+
+  requestNumber(request: WarehouseRequest): string {
+    return `RICH-${String(request.id).padStart(6, '0')}`;
+  }
+
+  requestRequesterLabel(request: WarehouseRequest): string {
+    const customer = request.customerId
+      ? this.customerReferenceLabelForRecord(request.customerId, request.customer)
+      : '';
+    const employee = request.employeeId
+      ? this.employeeReferenceLabelForRecord(request.employeeId, request.employee)
+      : '';
+    if (request.customerId && request.employeeId) {
+      return `${customer} · ${employee}`;
+    }
+    if (request.customerId) return customer;
+    if (request.employeeId) return employee;
+    return 'Richiedente non indicato';
+  }
+
+  requestStatusClass(status: WarehouseRequest['status']): string {
+    if (status === 'fulfilled') return 'success';
+    if (status === 'cancelled' || status === 'rejected') return 'danger';
+    if (status === 'approved') return 'info';
+    return 'warning';
+  }
+
+  private normalizeRequestSearch(value: unknown): string {
+    return String(value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+  }
+
   setTab(tab: WarehouseTab): void {
     this.activeTab = tab;
+    if (this.route.snapshot.queryParamMap.get('tab') !== tab) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {
+          tab,
+          requestView: tab === 'requests' ? undefined : null,
+          requestId: tab === 'requests' ? undefined : null,
+          view: null,
+          entityId: null,
+        },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
     this.message = '';
     this.error = '';
     this.movementDetailsOpen = false;
@@ -413,10 +1069,821 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     }
     if (tab === 'movements') this.loadMovementReport();
     if (tab === 'requests') this.loadProductRequests();
+    if (tab === 'material-orders') this.loadMaterialOrders();
     if (tab === 'orders') {
       this.loadSuppliers();
-      this.loadOrderProducts();
+      this.loadSupplierOrders();
     }
+  }
+
+  private materialApi(path = ''): string {
+    return `${this.global.url}admin/material-orders${path}`;
+  }
+
+  loadMaterialOrders(): void {
+    const scope = this.showArchivedMaterialOrders ? 'archive' : 'active';
+    this.http.get<any[]>(this.materialApi(`?scope=${scope}`)).subscribe({
+      next: (orders) => {
+        this.materialOrders = Array.isArray(orders) ? orders : [];
+        const selectedId = Number(this.route.snapshot.queryParamMap.get('entityId') || 0);
+        if (this.materialOrderView === 'detail' && selectedId) {
+          this.selectedMaterialOrder = this.materialOrders.find((item) => item.id === selectedId) || null;
+        }
+      },
+      error: (err) => this.handleError(err, 'Impossibile caricare gli ordini materiali.'),
+    });
+    this.http.get<any>(this.materialApi('/config')).subscribe({
+      next: (config) => {
+        this.materialOrderConfig = config || {};
+        this.materialOrderFields = Array.isArray(config?.fields) ? config.fields : [];
+        for (const field of this.materialOrderFields) {
+          if (!Object.prototype.hasOwnProperty.call(this.materialOrderForm.fields, field.key)) {
+            this.materialOrderForm.fields[field.key] = field.defaultValue || '';
+          }
+        }
+        if (this.materialOrderForm.customerId) {
+          this.onMaterialOrderCustomerChange();
+        }
+      },
+    });
+  }
+
+  loadSupplierOrders(): void {
+    if (!this.canView) return;
+    const scope = this.showArchivedSupplierOrders ? 'archive' : 'active';
+    this.http.get<SupplierOrder[]>(this.api(`/orders?scope=${scope}`)).subscribe({
+      next: (orders) => {
+        this.supplierOrders = orders || [];
+        const selectedId = Number(this.route.snapshot.queryParamMap.get('entityId') || 0);
+        if (this.supplierOrderView === 'detail' && selectedId) {
+          this.selectedSupplierOrder = this.supplierOrders.find((item) => item.id === selectedId) || this.selectedSupplierOrder;
+        }
+        if (this.selectedSupplierOrder) {
+          this.selectedSupplierOrder = this.supplierOrders.find((item) => item.id === this.selectedSupplierOrder?.id) || this.selectedSupplierOrder;
+        }
+      },
+      error: (err) => this.handleError(err, 'Impossibile caricare gli ordini fornitori.'),
+    });
+  }
+
+  updateSupplierOrderStatus(order: SupplierOrder, status: SupplierOrder['status']): void {
+    this.http.patch<SupplierOrder>(this.api(`/orders/${order.id}/status`), { status }).subscribe({
+      next: (saved) => {
+        this.selectedSupplierOrder = saved;
+        this.message = status === 'completed' ? 'Ordine completato e archiviato.' : status === 'cancelled' ? 'Ordine annullato.' : 'Ordine ripristinato.';
+        this.loadSupplierOrders();
+      },
+      error: (err) => this.handleError(err, 'Impossibile aggiornare l’ordine fornitore.'),
+    });
+  }
+
+  addMaterialOrderLine(): void {
+    this.materialOrderForm.items.push({ productId: 0, quantity: 1, note: '' });
+  }
+
+  removeMaterialOrderLine(index: number): void {
+    this.materialOrderForm.items.splice(index, 1);
+    if (!this.materialOrderForm.items.length) this.addMaterialOrderLine();
+  }
+
+  addAdminRequestLine(): void {
+    this.adminRequestForm.items.push({ productId: 0, quantity: 1 });
+  }
+
+  removeAdminRequestLine(index: number): void {
+    this.adminRequestForm.items.splice(index, 1);
+    if (!this.adminRequestForm.items.length) this.addAdminRequestLine();
+  }
+
+  createAdminRequest(): void {
+    const customerId = String(this.adminRequestForm.customerId || '').trim();
+    const employeeId = Number(this.adminRequestForm.employeeId || 0);
+    const items = this.adminRequestForm.items
+      .filter((item: any) => Number(item.productId) > 0 && Number(item.quantity) > 0)
+      .map((item: any) => ({ productId: Number(item.productId), quantity: Number(item.quantity) }));
+    if (!customerId && !employeeId) {
+      this.error = 'Seleziona almeno un cliente o un dipendente richiedente.';
+      return;
+    }
+    if (!items.length) {
+      this.error = 'Inserisci almeno un prodotto e una quantità.';
+      return;
+    }
+    this.saving = true;
+    this.error = '';
+    this.http.post<WarehouseRequest>(this.api('/requests'), {
+      customerId: customerId || null,
+      employeeId: employeeId || null,
+      note: String(this.adminRequestForm.note || '').trim(),
+      items,
+    }).subscribe({
+      next: (request) => {
+        this.saving = false;
+        this.adminRequestForm = { customerId: '', employeeId: 0, note: '', items: [{ productId: 0, quantity: 1 }] };
+        this.adminRequestSearch = { customer: '', employee: '' };
+        this.adminRequestSearchOpen = { customer: false, employee: false };
+        this.message = `Richiesta RICH-${String(request.id).padStart(6, '0')} creata. Ora puoi stampare il foglio per il magazziniere.`;
+        this.showArchivedRequests = false;
+        this.closeProductRequestView();
+        this.loadSummary();
+      },
+      error: (err) => {
+        this.saving = false;
+        this.handleError(err, 'Richiesta non creata.');
+      },
+    });
+  }
+
+  onAdminRequestSearchChange(kind: 'customer' | 'employee'): void {
+    if (kind === 'customer') this.adminRequestForm.customerId = '';
+    else this.adminRequestForm.employeeId = 0;
+
+    clearTimeout(this.adminRequestSearchTimers[kind]);
+    const q = this.adminRequestSearch[kind].trim();
+    this.adminRequestSearchOpen[kind] = !!q;
+    if (!q) {
+      this.adminRequestSearchLoading[kind] = false;
+      return;
+    }
+    this.adminRequestSearchLoading[kind] = true;
+    this.adminRequestSearchTimers[kind] = setTimeout(() => {
+      let params = new HttpParams().set('q', q);
+      this.http.get<WarehouseReferences>(this.api('/references'), { params }).subscribe({
+        next: (refs) => {
+          if (this.adminRequestSearch[kind].trim() !== q) return;
+          this.references = {
+            ...this.references,
+            customers: kind === 'customer' ? (refs?.customers || []) : this.references.customers,
+            employees: kind === 'employee' ? (refs?.employees || []) : this.references.employees,
+          };
+          this.adminRequestSearchLoading[kind] = false;
+        },
+        error: () => {
+          if (this.adminRequestSearch[kind].trim() === q) {
+            this.adminRequestSearchLoading[kind] = false;
+          }
+        },
+      });
+    }, 250);
+  }
+
+  adminRequestReferenceResults(kind: 'customer' | 'employee'): any[] {
+    const q = this.adminRequestSearch[kind].trim().toLocaleLowerCase('it-IT');
+    if (!q) return [];
+    const list = kind === 'customer' ? this.references.customers : this.references.employees;
+    return (list || []).filter((item) => {
+      const label = kind === 'customer' ? this.customerReferenceLabel(item) : this.employeeReferenceLabel(item);
+      const searchableValues = kind === 'customer'
+        ? [item?.numeroCliente, item?.ragioneSociale, item?.denominazione, item?.nominativo, item?.nome, item?.cognome, item?.email]
+        : [item?.id, item?.nome, item?.cognome, item?.email];
+      return [label, ...searchableValues]
+        .filter((value) => value !== null && value !== undefined)
+        .some((value) => String(value).toLocaleLowerCase('it-IT').includes(q));
+    }).slice(0, 8);
+  }
+
+  openAdminRequestSearch(kind: 'customer' | 'employee'): void {
+    if (this.adminRequestSearch[kind].trim()) this.adminRequestSearchOpen[kind] = true;
+  }
+
+  closeAdminRequestSearch(kind: 'customer' | 'employee'): void {
+    setTimeout(() => { this.adminRequestSearchOpen[kind] = false; }, 120);
+  }
+
+  selectAdminRequestCustomer(customer: any): void {
+    this.adminRequestForm.customerId = String(customer?.numeroCliente || '');
+    this.adminRequestSearch.customer = this.customerReferenceLabel(customer);
+    this.adminRequestSearchOpen.customer = false;
+  }
+
+  selectAdminRequestEmployee(employee: any): void {
+    this.adminRequestForm.employeeId = Number(employee?.id || 0);
+    this.adminRequestSearch.employee = this.employeeReferenceLabel(employee);
+    this.adminRequestSearchOpen.employee = false;
+  }
+
+  clearAdminRequestReference(kind: 'customer' | 'employee'): void {
+    this.adminRequestSearch[kind] = '';
+    this.adminRequestSearchOpen[kind] = false;
+    if (kind === 'customer') this.adminRequestForm.customerId = '';
+    else this.adminRequestForm.employeeId = 0;
+  }
+
+  onMaterialOrderCustomerChange(): void {
+    const customer = this.references.customers.find(
+      (item) => String(item?.numeroCliente || '') === String(this.materialOrderForm.customerId || ''),
+    ) || (
+      String(this.materialOrderSourceCustomer?.numeroCliente || '') ===
+      String(this.materialOrderForm.customerId || '')
+        ? this.materialOrderSourceCustomer
+        : null
+    );
+    if (!customer) return;
+    for (const field of this.materialOrderFields) {
+      const source = String(field?.sourceField || '');
+      if (!source.startsWith('customer.')) continue;
+      const key = source.slice('customer.'.length);
+      const value = this.global.getRecordValueByFieldKey('customer', customer, key);
+      this.materialOrderForm.fields[field.key] =
+        value === undefined || value === null ? field.defaultValue ?? '' : value;
+    }
+  }
+
+  onMaterialOrderScheduledStartChange(value: string): void {
+    this.setScheduledEndThirtyMinutesAfter(value, this.materialOrderForm);
+  }
+
+  onMaterialOrderAssignmentScheduledStartChange(value: string): void {
+    this.setScheduledEndThirtyMinutesAfter(value, this.materialOrderAssignmentForm);
+  }
+
+  private setScheduledEndThirtyMinutesAfter(value: string, target: { scheduledEnd: string }): void {
+    const start = String(value || '').trim();
+    if (!start) {
+      target.scheduledEnd = '';
+      return;
+    }
+    const parsed = new Date(start);
+    if (Number.isNaN(parsed.getTime())) return;
+    parsed.setMinutes(parsed.getMinutes() + 30);
+    const pad = (part: number) => String(part).padStart(2, '0');
+    target.scheduledEnd = [
+      parsed.getFullYear(),
+      '-', pad(parsed.getMonth() + 1),
+      '-', pad(parsed.getDate()),
+      'T', pad(parsed.getHours()),
+      ':', pad(parsed.getMinutes()),
+    ].join('');
+  }
+
+  private dateTimeLocalValue(value: string | Date | null | undefined): string {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    const pad = (part: number) => String(part).padStart(2, '0');
+    return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+  }
+
+  materialOrderReferenceOptions(kind: MaterialOrderReferenceKind): any[] {
+    const query = this.materialOrderReferenceSearch[kind].trim().toLocaleLowerCase('it-IT');
+    const isCustomer = kind === 'customer';
+    const localSource = isCustomer ? this.references.customers : this.references.employees;
+    const remoteSource = this.materialOrderReferenceResults[kind];
+    let source = query && remoteSource.length ? remoteSource : localSource;
+    if (kind === 'preparation') {
+      source = source.filter((employee) => employee?.warehousePreparationEnabled === true);
+    }
+    if (!query) return source.slice(0, 8);
+    return source.filter((item) => {
+      const label = isCustomer ? this.customerReferenceLabel(item) : this.employeeReferenceLabel(item);
+      const values = isCustomer
+        ? [label, item?.numeroCliente, item?.ragioneSociale, item?.nome, item?.cognome, item?.email]
+        : [label, item?.id, item?.nome, item?.cognome, item?.email];
+      return values.some((value) => String(value || '').toLocaleLowerCase('it-IT').includes(query));
+    }).slice(0, 8);
+  }
+
+  onMaterialOrderReferenceSearchChange(kind: MaterialOrderReferenceKind): void {
+    this.clearMaterialOrderReferenceValue(kind, false);
+    this.materialOrderReferenceOpen[kind] = true;
+    this.materialOrderReferenceActiveIndex[kind] = -1;
+    clearTimeout(this.materialOrderReferenceTimers[kind]);
+    const query = this.materialOrderReferenceSearch[kind].trim();
+    if (!query) {
+      this.materialOrderReferenceLoading[kind] = false;
+      this.materialOrderReferenceResults[kind] = [];
+      return;
+    }
+    this.materialOrderReferenceLoading[kind] = true;
+    this.materialOrderReferenceTimers[kind] = setTimeout(() => {
+      const params = new HttpParams().set('q', query);
+      this.http.get<WarehouseReferences>(this.api('/references'), { params }).subscribe({
+        next: (refs) => {
+          if (this.materialOrderReferenceSearch[kind].trim() !== query) return;
+          const results = kind === 'customer' ? refs?.customers : refs?.employees;
+          this.materialOrderReferenceResults[kind] = results || [];
+          this.materialOrderReferenceLoading[kind] = false;
+        },
+        error: () => {
+          if (this.materialOrderReferenceSearch[kind].trim() === query) {
+            this.materialOrderReferenceLoading[kind] = false;
+          }
+        },
+      });
+    }, 250);
+  }
+
+  openMaterialOrderReference(kind: MaterialOrderReferenceKind, event?: FocusEvent): void {
+    this.materialOrderReferenceOpen[kind] = true;
+    this.materialOrderReferenceActiveIndex[kind] = -1;
+    const input = event?.target as HTMLInputElement | null;
+    if (input && this.materialOrderReferenceValue(kind)) input.select();
+  }
+
+  closeMaterialOrderReference(kind: MaterialOrderReferenceKind): void {
+    setTimeout(() => {
+      this.materialOrderReferenceOpen[kind] = false;
+      this.materialOrderReferenceActiveIndex[kind] = -1;
+    }, 120);
+  }
+
+  handleMaterialOrderReferenceKeydown(event: KeyboardEvent, kind: MaterialOrderReferenceKind): void {
+    const options = this.materialOrderReferenceOptions(kind);
+    if (event.key === 'Escape') {
+      this.materialOrderReferenceOpen[kind] = false;
+      this.materialOrderReferenceActiveIndex[kind] = -1;
+      return;
+    }
+    if (!['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) return;
+    if (!this.materialOrderReferenceOpen[kind]) this.materialOrderReferenceOpen[kind] = true;
+    if (!options.length) return;
+    event.preventDefault();
+    if (event.key === 'ArrowDown') {
+      this.materialOrderReferenceActiveIndex[kind] =
+        (this.materialOrderReferenceActiveIndex[kind] + 1) % options.length;
+    } else if (event.key === 'ArrowUp') {
+      this.materialOrderReferenceActiveIndex[kind] =
+        (this.materialOrderReferenceActiveIndex[kind] - 1 + options.length) % options.length;
+    } else {
+      const index = Math.max(0, this.materialOrderReferenceActiveIndex[kind]);
+      this.selectMaterialOrderReference(kind, options[index]);
+    }
+  }
+
+  selectMaterialOrderReference(kind: MaterialOrderReferenceKind, item: any): void {
+    if (kind === 'customer') {
+      this.clearMaterialOrderReference('recipient');
+      this.materialOrderForm.customerId = String(item?.numeroCliente || '');
+      this.materialOrderReferenceSearch.customer = this.customerReferenceLabel(item);
+      this.onMaterialOrderCustomerChange();
+    } else {
+      const id = Number(item?.id || 0);
+      if (kind === 'recipient') {
+        this.clearMaterialOrderReference('customer');
+        this.materialOrderForm.recipientEmployeeId = id;
+      }
+      if (kind === 'preparation') this.materialOrderForm.preparationEmployeeId = id;
+      if (kind === 'delivery') this.materialOrderForm.deliveryEmployeeId = id;
+      this.materialOrderReferenceSearch[kind] = this.employeeReferenceLabel(item);
+    }
+    this.materialOrderReferenceOpen[kind] = false;
+    this.materialOrderReferenceActiveIndex[kind] = -1;
+  }
+
+  clearMaterialOrderReference(kind: MaterialOrderReferenceKind): void {
+    this.materialOrderReferenceSearch[kind] = '';
+    this.materialOrderReferenceResults[kind] = [];
+    this.clearMaterialOrderReferenceValue(kind, true);
+  }
+
+  isMaterialOrderReferenceDisabled(kind: MaterialOrderReferenceKind): boolean {
+    if (kind === 'customer') return Number(this.materialOrderForm.recipientEmployeeId || 0) > 0;
+    if (kind === 'recipient') return !!String(this.materialOrderForm.customerId || '').trim();
+    return false;
+  }
+
+  materialOrderReferenceValue(kind: MaterialOrderReferenceKind): string | number {
+    if (kind === 'customer') return this.materialOrderForm.customerId;
+    if (kind === 'recipient') return this.materialOrderForm.recipientEmployeeId;
+    if (kind === 'preparation') return this.materialOrderForm.preparationEmployeeId;
+    return this.materialOrderForm.deliveryEmployeeId;
+  }
+
+  materialOrderReferenceOptionId(kind: MaterialOrderReferenceKind, index: number): string {
+    return `material-order-${kind}-option-${index}`;
+  }
+
+  private clearMaterialOrderReferenceValue(kind: MaterialOrderReferenceKind, close: boolean): void {
+    if (kind === 'customer') this.materialOrderForm.customerId = '';
+    if (kind === 'recipient') this.materialOrderForm.recipientEmployeeId = 0;
+    if (kind === 'preparation') this.materialOrderForm.preparationEmployeeId = 0;
+    if (kind === 'delivery') this.materialOrderForm.deliveryEmployeeId = 0;
+    if (close) this.materialOrderReferenceOpen[kind] = false;
+  }
+
+  private resetMaterialOrderReferencePickers(request?: WarehouseRequest): void {
+    const destination = this.materialOrderDestinationFromRequest(request);
+    this.materialOrderReferenceSearch = {
+      customer: destination.customerId && request?.customerId
+        ? this.customerReferenceLabelForRecord(request.customerId, request.customer)
+        : '',
+      recipient: destination.recipientEmployeeId && request?.employeeId
+        ? this.employeeReferenceLabelForRecord(request.employeeId, request.employee)
+        : '',
+      preparation: '',
+      delivery: '',
+    };
+    this.materialOrderReferenceOpen = { customer: false, recipient: false, preparation: false, delivery: false };
+    this.materialOrderReferenceLoading = { customer: false, recipient: false, preparation: false, delivery: false };
+    this.materialOrderReferenceResults = { customer: [], recipient: [], preparation: [], delivery: [] };
+    this.materialOrderReferenceActiveIndex = { customer: -1, recipient: -1, preparation: -1, delivery: -1 };
+  }
+
+  materialOrderDestinationFromRequest(request?: WarehouseRequest): {
+    customerId: string;
+    recipientEmployeeId: number;
+  } {
+    const customerId = String(request?.customerId || '').trim();
+    return customerId
+      ? { customerId, recipientEmployeeId: 0 }
+      : { customerId: '', recipientEmployeeId: Number(request?.employeeId || 0) };
+  }
+
+  prepareMaterialRequest(request: WarehouseRequest): void {
+    this.clearFeedback();
+    this.http.get<MaterialRequestAvailability>(
+      this.materialApi(`/from-request/${request.id}/availability`),
+    ).subscribe({
+      next: async (availability) => {
+        if (availability.noneAvailable) {
+          const missing = this.materialAvailabilityMessage(availability);
+          await this.popup.action(
+            `Al momento non è possibile preparare nessun prodotto.\n\n${missing}`,
+            'Materiale non disponibile',
+            { type: 'warning', actionLabel: 'Chiudi' },
+          );
+          return;
+        }
+        if (!availability.allAvailable) {
+          const proceed = await this.popup.confirm(
+            `Non tutto il materiale richiesto è disponibile.\n\n${this.materialAvailabilityMessage(availability)}\n\nVuoi creare un ordine soltanto per le quantità disponibili? Il residuo rimarrà nella richiesta.`,
+            'Disponibilità parziale',
+            {
+              type: 'warning',
+              confirmLabel: 'Prepara disponibile',
+              cancelLabel: 'Non preparare',
+            },
+          );
+          if (!proceed) return;
+        }
+        this.openMaterialOrderFromRequest(request, availability);
+      },
+      error: (err) => this.handleError(err, 'Impossibile verificare la disponibilità del materiale.'),
+    });
+  }
+
+  private materialAvailabilityMessage(availability: MaterialRequestAvailability): string {
+    return availability.items.map((item) => {
+      const name = item.product?.name || `Prodotto #${item.productId}`;
+      const unit = item.product?.unit || 'pz';
+      return item.missingQuantity > 0
+        ? `• ${name}: richiesti ${item.requestedQuantity} ${unit}, disponibili ${item.preparableQuantity} ${unit}, mancanti ${item.missingQuantity} ${unit}`
+        : `• ${name}: disponibili tutti i ${item.requestedQuantity} ${unit} richiesti`;
+    }).join('\n');
+  }
+
+  private openMaterialOrderFromRequest(
+    request: WarehouseRequest,
+    availability: MaterialRequestAvailability,
+  ): void {
+    const destination = this.materialOrderDestinationFromRequest(request);
+    this.materialOrderSourceRequestId = request.id;
+    this.materialOrderSourceCustomer = request.customer || null;
+    this.materialOrderForm = {
+      customerId: destination.customerId,
+      recipientEmployeeId: destination.recipientEmployeeId,
+      preparationEmployeeId: 0,
+      deliveryEmployeeId: 0,
+      deliveryMode: 'immediate',
+      scheduledStart: '',
+      scheduledEnd: '',
+      note: request.note || '',
+      fields: {},
+      items: availability.items
+        .filter((item) => item.preparableQuantity > 0)
+        .map((item) => ({
+          productId: item.productId,
+          quantity: item.preparableQuantity,
+          note: request.note || '',
+        })),
+    };
+    this.resetMaterialOrderReferencePickers(request);
+    this.onMaterialOrderCustomerChange();
+    this.setTab('material-orders');
+    this.materialOrderView = 'new';
+    this.navigateEntityView('new');
+    this.message = availability.allAvailable
+      ? `Disponibilità verificata. Ordine precompilato dalla richiesta #${request.id}: controlla destinatario, consegna e prodotti.`
+      : `Ordine parziale precompilato dalla richiesta #${request.id}. Il materiale mancante resterà nella richiesta.`;
+  }
+
+  createMaterialOrder(): void {
+    if (this.materialOrderForm.customerId && this.materialOrderForm.recipientEmployeeId) {
+      this.error = 'Seleziona un solo destinatario: cliente oppure dipendente.';
+      return;
+    }
+    if (!this.materialOrderForm.customerId && !this.materialOrderForm.recipientEmployeeId) {
+      this.error = 'Seleziona un cliente oppure un dipendente destinatario.';
+      return;
+    }
+    const items = this.materialOrderForm.items
+      .filter((item: any) => Number(item.productId) > 0 && Number(item.quantity) > 0);
+    if (!items.length) {
+      this.error = 'Inserisci almeno un prodotto e una quantità.';
+      return;
+    }
+    this.saving = true;
+    const path = this.materialOrderSourceRequestId
+      ? `/from-request/${this.materialOrderSourceRequestId}`
+      : '';
+    this.http.post<any>(this.materialApi(path), { ...this.materialOrderForm, items }).subscribe({
+      next: () => {
+        this.saving = false;
+        this.message = 'Ordine materiali creato.';
+        this.materialOrderForm = {
+          customerId: '', recipientEmployeeId: 0, preparationEmployeeId: 0, deliveryEmployeeId: 0,
+          deliveryMode: 'immediate', scheduledStart: '', scheduledEnd: '',
+          note: '',
+          fields: {}, items: [{ productId: 0, quantity: 1, note: '' }],
+        };
+        this.materialOrderSourceRequestId = 0;
+        this.materialOrderSourceCustomer = null;
+        this.resetMaterialOrderReferencePickers();
+        this.materialOrderView = 'list';
+        this.navigateEntityView('list');
+        this.loadMaterialOrders();
+        this.loadProductRequests();
+      },
+      error: (err) => {
+        this.saving = false;
+        this.handleError(err, 'Ordine materiali non creato.');
+      },
+    });
+  }
+
+  deliverMaterialOrder(order: any): void {
+    const items = (order?.items || []).map((item: any) => ({
+      orderItemId: item.id,
+      quantity: Math.max(0, Number(order.preparationStartedAt
+        ? Number(item.preparedQuantity || 0) - Number(item.deliveredQuantity || 0)
+        : Number(item.requestedQuantity || 0) - Number(item.deliveredQuantity || 0))),
+    })).filter((item: any) => item.quantity > 0);
+    if (!items.length) return;
+    this.http.post<any>(this.materialApi(`/${order.id}/deliver`), { items }).subscribe({
+      next: (result) => {
+        this.message = result?.alreadyDispatched
+          ? 'Consegna già registrata. Il documento è pronto per la firma del destinatario.'
+          : result?.requiresRecipientSignature || result?.requiresCustomerSignature
+          ? `Consegna registrata. Il documento è pronto per la firma ${result?.signatureRecipientType === 'employee' ? 'del dipendente destinatario' : 'del cliente'}.`
+          : 'Consegna registrata. L’ordine resterà aperto fino alla firma del destinatario.';
+        if (result?.alreadyDispatched && Number(this.selectedMaterialOrder?.id) === Number(order.id)) {
+          this.selectedMaterialOrder = { ...this.selectedMaterialOrder, status: 'ready' };
+        }
+        this.loadMaterialOrders();
+        this.loadProducts();
+        this.loadSummary();
+      },
+      error: (err) => this.handleError(err, 'Consegna non registrata.'),
+    });
+  }
+
+  async markMaterialOrderPrepared(order: any): Promise<void> {
+    if (!this.canMarkMaterialOrderPrepared(order) || this.saving) return;
+    const confirmed = await this.popup.confirm(
+      'Confermi che tutti i prodotti e le quantità dell’ordine sono stati preparati e controllati?',
+      'Segna come preparato',
+      {
+        type: 'info',
+        confirmLabel: 'Conferma preparazione',
+        cancelLabel: 'Annulla',
+      },
+    );
+    if (!confirmed) return;
+    this.saving = true;
+    this.http.post<{ order?: any }>(this.materialApi(`/${order.id}/mark-prepared`), {}).subscribe({
+      next: (result) => {
+        this.saving = false;
+        this.message = 'Ordine segnato come preparato. Ora puoi segnarlo come consegnato.';
+        this.selectedMaterialOrder = result?.order || { ...order, status: 'prepared' };
+        this.materialOrderStatusView = 'prepared';
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { materialStatus: 'prepared' },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+        this.loadMaterialOrders();
+      },
+      error: (err) => {
+        this.saving = false;
+        this.handleError(err, 'Impossibile confermare la preparazione.');
+      },
+    });
+  }
+
+  materialPreparationPdf(order: any, action: 'open' | 'download' | 'print'): void {
+    this.http.get(
+      this.materialApi(`/${order.id}/preparation-pdf${action === 'download' ? '?download=true' : ''}`),
+      { responseType: 'blob' },
+    ).subscribe({
+      next: (blob) => this.usePreparationPdf(blob, `preparazione-${order.numeroOrdine || order.id}.pdf`, action),
+      error: (err) => this.handleError(err, 'Impossibile generare il foglio di preparazione.'),
+    });
+  }
+
+  materialDeliveryPdf(delivery: any, action: 'open' | 'download' | 'print'): void {
+    this.http.get(
+      this.materialApi(`/deliveries/${delivery.id}/pdf${action === 'download' ? '?download=true' : ''}`),
+      { responseType: 'blob' },
+    ).subscribe({
+      next: (blob) => this.usePreparationPdf(
+        blob,
+        `consegna-materiali-${delivery.numeroConsegna || delivery.id}.pdf`,
+        action,
+      ),
+      error: (err) => this.handleError(err, 'Impossibile aprire il documento di consegna.'),
+    });
+  }
+
+  async startPaperMaterialDeliverySignature(delivery: any, input: HTMLInputElement): Promise<void> {
+    const choice = await this.popup.choose(
+      'Dichiara che il documento è stato firmato dal destinatario sulla copia cartacea. Puoi allegare una scansione/foto oppure conservare soltanto l’originale.',
+      'Registra copia cartacea firmata',
+      {
+        primaryLabel: 'Allega e conferma',
+        secondaryLabel: 'Conferma senza allegato',
+        cancelLabel: 'Annulla',
+      },
+    );
+    if (choice === 'primary') {
+      input.click();
+      return;
+    }
+    if (choice === 'secondary') {
+      this.submitPaperMaterialDeliverySignature(delivery, null);
+    }
+  }
+
+  registerPaperMaterialDeliverySignature(delivery: any, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.submitPaperMaterialDeliverySignature(delivery, file, input);
+  }
+
+  private submitPaperMaterialDeliverySignature(
+    delivery: any,
+    file: File | null,
+    input?: HTMLInputElement,
+  ): void {
+    const formData = new FormData();
+    if (file) formData.append('document', file);
+    this.http.post<any>(
+      this.materialApi(`/deliveries/${delivery.id}/paper-signature`),
+      formData,
+    ).subscribe({
+      next: (result) => {
+        if (input) input.value = '';
+        this.message = result?.attachmentProvided
+          ? 'Firma cartacea e copia allegata registrate. La consegna risulta accettata.'
+          : 'Firma cartacea dichiarata senza allegato. La consegna risulta accettata.';
+        this.loadMaterialOrders();
+      },
+      error: (err) => {
+        if (input) input.value = '';
+        this.handleError(err, 'Impossibile registrare la firma cartacea.');
+      },
+    });
+  }
+
+  private usePreparationPdf(blob: Blob, filename: string, action: 'open' | 'download' | 'print'): void {
+    const url = URL.createObjectURL(blob);
+    if (action === 'download') {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return;
+    }
+    if (action === 'print') {
+      const frame = document.createElement('iframe');
+      frame.style.position = 'fixed';
+      frame.style.width = '1px';
+      frame.style.height = '1px';
+      frame.style.opacity = '0';
+      frame.style.pointerEvents = 'none';
+      frame.onload = () => setTimeout(() => {
+        frame.contentWindow?.focus();
+        frame.contentWindow?.print();
+      }, 300);
+      frame.src = url;
+      document.body.appendChild(frame);
+      setTimeout(() => {
+        frame.remove();
+        URL.revokeObjectURL(url);
+      }, 60000);
+      return;
+    }
+    const opened = window.open(url, '_blank');
+    if (!opened) {
+      URL.revokeObjectURL(url);
+      this.error = 'Pop-up bloccato: consenti l’apertura del PDF.';
+      return;
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  async requestMaterialDeliverySignature(delivery: any, order?: any): Promise<void> {
+    const recipientLabel = order?.customerId ? 'cliente' : 'dipendente destinatario';
+    const choice = await this.popup.choose(
+      `Il ${recipientLabel} visualizzerà il documento, verificherà la propria email tramite OTP e firmerà dal suo dispositivo.`,
+      'Richiedi firma consegna materiali',
+      {
+        primaryLabel: 'Invia via email',
+        secondaryLabel: 'Invia su WhatsApp',
+        cancelLabel: 'Annulla',
+      },
+    );
+    if (!choice) return;
+    const email = choice === 'primary';
+    this.http.post<any>(
+      this.materialApi(`/deliveries/${delivery.id}/signature-request`),
+      { deliveryChannel: email ? 'email' : 'manual' },
+    ).subscribe({
+      next: (result) => {
+        if (!email && (result?.whatsappUrl || result?.approvalUrl)) {
+          window.open(result.whatsappUrl || result.approvalUrl, '_blank');
+        }
+        this.popup.show(
+          email
+            ? `Email con link e PDF inviata al ${recipientLabel}.`
+            : 'Messaggio WhatsApp aperto.',
+          'Richiesta creata',
+          'success',
+        );
+        this.loadMaterialOrders();
+      },
+      error: (err) => this.popup.showHttpError(
+        err,
+        'Impossibile generare la richiesta di firma.',
+      ),
+    });
+  }
+
+  showMaterialDeliverySignatureEvidence(delivery: any): void {
+    this.http.get<any>(
+      this.materialApi(`/deliveries/${delivery.id}/signature-proof`),
+    ).subscribe({
+      next: async (evidence) => {
+        const date = (item: any) =>
+          item ? new Date(item).toLocaleString('it-IT') : 'Non disponibile';
+        const value = (item: any) => String(item || 'Non disponibile');
+        const audit = Array.isArray(evidence.auditTrail)
+          ? evidence.auditTrail
+              .map((entry: any) => `• ${date(entry?.at)} — ${value(entry?.type)}`)
+              .join('\n')
+          : 'Non disponibile';
+        const receipt = [
+          `Consegna materiali: ${value(delivery.numeroConsegna || delivery.id)}`,
+          `Cliente: ${value(evidence.numeroCliente)}`,
+          `Stato: ${value(evidence.status)}`,
+          `Canale firma: ${evidence.sourceType === 'paper' ? 'Firma cartacea acquisita in presenza' : evidence.sourceType === 'employee_app' ? 'App caposquadra' : 'Link remoto da MVanager'}`,
+          `Richiesta da: ${value(evidence.sourceType === 'employee_app' ? evidence.requestedByEmployeeName : evidence.requestedByAdminName)}`,
+          `Email destinatario/OTP: ${evidence.sourceType === 'paper' ? 'Non prevista per firma cartacea' : value(evidence.recipientEmail)}`,
+          `Richiesta: ${date(evidence.requestedAt)}`,
+          `Apertura link: ${date(evidence.viewedAt)}`,
+          `OTP inviata: ${date(evidence.otpSentAt)}`,
+          `OTP verificata: ${date(evidence.otpVerifiedAt)}`,
+          `Firma: ${date(evidence.acceptedAt)}`,
+          `IP invio: ${value(evidence.requestIp)}`,
+          `IP verifica OTP: ${value(evidence.otpVerifiedIp)}`,
+          `IP firma: ${value(evidence.acceptanceIp)}`,
+          `Dispositivo: ${value(evidence.acceptanceUserAgent)}`,
+          `SHA-256 PDF preliminare: ${value(evidence.documentSnapshotHashSha256)}`,
+          `SHA-256 PDF finale: ${value(evidence.pdfHashSha256)}`,
+          `Copia firmata allegata: ${evidence.sourceType === 'paper' ? (evidence.attachmentProvided ? 'Sì' : 'No, originale conservato su carta') : 'Non applicabile'}`,
+          `SHA-256 firma: ${value(evidence.signatureHashSha256)}`,
+          '',
+          'Cronologia registrata:',
+          audit,
+        ].join('\n');
+        const action = await this.popup.evidence(receipt);
+        if (action === 'save') {
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(
+            new Blob([receipt], { type: 'text/plain;charset=utf-8' }),
+          );
+          link.download = `dati-prova-consegna-materiali-${delivery.numeroConsegna || delivery.id}.txt`;
+          link.click();
+          URL.revokeObjectURL(link.href);
+        }
+        if (action === 'print') {
+          const printWindow = window.open('', '_blank', 'width=850,height=700');
+          if (!printWindow) return;
+          const escaped = receipt
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+          printWindow.document.write(
+            `<html><head><title>Dati prova firma</title><style>body{font-family:Arial;padding:32px;color:#182235}pre{white-space:pre-wrap;word-break:break-word;line-height:1.55}</style></head><body><h1>Dati di prova della firma</h1><pre>${escaped}</pre><script>window.onload=()=>window.print()</script></body></html>`,
+          );
+          printWindow.document.close();
+        }
+      },
+      error: (err) =>
+        this.popup.showHttpError(err, 'Impossibile recuperare i dati di prova.'),
+    });
   }
 
   applySummaryFilter(filter: SummaryFilter): void {
@@ -508,22 +1975,22 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
   selectReportEmployee(employee: any): void {
     this.movementFilters.employeeId = Number(employee?.id || 0);
-    this.referenceSearch.employee = this.employeeLabel(employee);
+    this.referenceSearch.employee = this.employeeReferenceLabel(employee);
   }
 
   selectReportCustomer(customer: any): void {
     this.movementFilters.customerId = String(customer?.numeroCliente || '');
-    this.referenceSearch.customer = this.customerLabel(customer);
+    this.referenceSearch.customer = this.customerReferenceLabel(customer);
   }
 
   selectMovementEmployee(employee: any): void {
     this.manualMovement.employeeId = Number(employee?.id || 0);
-    this.referenceSearch.employee = this.employeeLabel(employee);
+    this.referenceSearch.employee = this.employeeReferenceLabel(employee);
   }
 
   selectMovementCustomer(customer: any): void {
     this.manualMovement.customerId = String(customer?.numeroCliente || '');
-    this.referenceSearch.customer = this.customerLabel(customer);
+    this.referenceSearch.customer = this.customerReferenceLabel(customer);
   }
 
   loadCategories(): void {
@@ -662,6 +2129,8 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       [product.id]: this.defaultOrderQuantity(product),
     };
     this.setTab('orders');
+    this.supplierOrderView = 'new';
+    this.navigateEntityView('new');
     this.loadOrderProducts();
   }
 
@@ -751,7 +2220,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     }
     this.clearFeedback();
     this.sendingOrder = true;
-    this.http.post<{ ok: boolean; to: string; itemCount: number }>(this.api('/orders/send-email'), {
+    this.http.post<{ ok: boolean; to: string; itemCount: number; order?: SupplierOrder }>(this.api('/orders/send-email'), {
       supplierId: supplier.id,
       message: this.orderMessage,
       items,
@@ -760,6 +2229,9 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         this.sendingOrder = false;
         this.message = `Ordine inviato a ${res.to}: ${res.itemCount} prodotti.`;
         this.clearOrderSelection();
+        this.supplierOrderView = 'list';
+        this.navigateEntityView('list');
+        this.loadSupplierOrders();
       },
       error: (err) => {
         this.sendingOrder = false;
@@ -828,13 +2300,21 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     Object.entries(this.filters).forEach(([key, value]) => {
       if (value) params = params.set(key, value);
     });
+    if (this.showArchivedProducts) params = params.set('includeInactive', 'true');
 
     this.http.get<WarehouseProduct[]>(this.api('/products'), { params }).subscribe({
       next: (products) => {
         this.products = (products || []).filter((product) => {
+          if (this.showArchivedProducts && product.active) return false;
+          if (!this.showArchivedProducts && !product.active) return false;
           if (this.filters.favorite === 'true') return product.favorite;
           return true;
         });
+        const selectedId = Number(this.route.snapshot.queryParamMap.get('entityId') || 0);
+        if (this.productView === 'detail' && selectedId) {
+          const selected = this.products.find((item) => item.id === selectedId);
+          if (selected) this.selectProduct(selected);
+        }
         this.loading = false;
       },
       error: (err) => {
@@ -846,9 +2326,28 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
   loadProductRequests(): void {
     if (!this.canView) return;
-    this.http.get<WarehouseRequest[]>(this.api('/requests?status=pending')).subscribe({
-      next: (requests) => this.productRequests = requests || [],
+    const scope = this.showArchivedRequests ? 'archive' : 'active';
+    this.http.get<WarehouseRequest[]>(this.api(`/requests?scope=${scope}`)).subscribe({
+      next: (requests) => {
+        this.productRequests = requests || [];
+        if (this.selectedProductRequest) {
+          this.selectedProductRequest = this.productRequests.find((item) => item.id === this.selectedProductRequest?.id) || this.selectedProductRequest;
+        }
+      },
       error: () => this.productRequests = [],
+    });
+  }
+
+  private loadProductRequestById(requestId: number): void {
+    this.http.get<WarehouseRequest[]>(this.api('/requests?scope=all&limit=500')).subscribe({
+      next: (requests) => {
+        this.selectedProductRequest = (requests || []).find((request) => request.id === requestId) || null;
+        if (!this.selectedProductRequest) {
+          this.error = 'Richiesta non trovata.';
+          this.closeProductRequestView();
+        }
+      },
+      error: (err) => this.handleError(err, 'Impossibile caricare la richiesta.'),
     });
   }
 
@@ -897,6 +2396,8 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         if (!payload.id) {
           this.selectedLabelIds = new Set([product.id]);
         }
+        this.productView = 'list';
+        this.setTab('list');
       },
       error: (err) => {
         this.saving = false;
@@ -990,6 +2491,19 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         if (this.activeTab === 'orders') this.loadOrderProducts();
       },
       error: (err) => this.handleError(err, 'Impossibile archiviare il prodotto.'),
+    });
+  }
+
+  restoreProduct(product: WarehouseProduct): void {
+    if (!this.canManageProducts) return;
+    this.http.patch<WarehouseProduct>(this.api(`/products/${product.id}/active`), { active: true }).subscribe({
+      next: () => {
+        this.message = 'Prodotto ripristinato.';
+        this.closeEntityView();
+        this.loadProducts();
+        this.loadSummary();
+      },
+      error: (err) => this.handleError(err, 'Impossibile ripristinare il prodotto.'),
     });
   }
 
@@ -1413,7 +2927,8 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       next: () => {
         this.message = 'Richiesta aggiornata.';
         this.clearCancelRequest();
-        this.loadProductRequests();
+        if (this.requestView === 'detail') this.loadProductRequestById(request.id);
+        else this.loadProductRequests();
       },
       error: (err) => this.handleError(err, 'Impossibile aggiornare la richiesta.'),
     });
@@ -1502,7 +3017,26 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   }
 
   quantityStep(unit?: string | null): string {
-    return this.fractionalUnits.has(String(unit || '').trim()) ? '0.001' : '1';
+    return '1';
+  }
+
+  quantityStepForProduct(productId: number | string | null | undefined): string {
+    const product = this.products.find((item) => Number(item.id) === Number(productId));
+    return this.quantityStep(product?.unit);
+  }
+
+  quantityMinForProduct(productId: number | string | null | undefined): string {
+    return '1';
+  }
+
+  quantityStepForBarcode(barcode: string | null | undefined): string {
+    const normalized = String(barcode || '').trim().toLowerCase();
+    const product = this.products.find((item) => String(item.barcode || '').trim().toLowerCase() === normalized);
+    return this.quantityStep(product?.unit);
+  }
+
+  quantityMinForBarcode(barcode: string | null | undefined): string {
+    return '1';
   }
 
   selectedAdjustmentProduct(): WarehouseProduct | null {
@@ -1641,14 +3175,14 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     return this.products.filter((product) => this.selectedLabelIds.has(product.id));
   }
 
-  printProductLabels(): void {
-    const products = this.selectedLabelProducts();
+  printProductLabels(productsOverride?: WarehouseProduct[], copiesOverride?: number): void {
+    const products = productsOverride?.length ? productsOverride : this.selectedLabelProducts();
     if (!products.length) {
       this.error = 'Seleziona almeno un prodotto da stampare.';
       return;
     }
-    const copies = Math.min(20, Math.max(1, Math.floor(Number(this.labelCopies || 1))));
-    this.labelCopies = copies;
+    const copies = Math.min(20, Math.max(1, Math.floor(Number(copiesOverride ?? this.labelCopies ?? 1))));
+    if (copiesOverride === undefined) this.labelCopies = copies;
     const labels = products.flatMap((product) => Array.from({ length: copies }, () => product));
     const popup = window.open('', '_blank', 'width=900,height=700');
     if (!popup) {
@@ -1660,6 +3194,33 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     popup.document.close();
     popup.focus();
     setTimeout(() => popup.print(), 250);
+  }
+
+  printSingleProductLabel(product: WarehouseProduct): void {
+    this.printProductLabels([product], 1);
+  }
+
+  printCurrentProductLabel(): void {
+    const product = this.currentProductForLabel;
+    if (!product || !this.canPrintCurrentProductLabel) {
+      this.error = 'Salva prima le modifiche del prodotto, poi stampa l’etichetta.';
+      return;
+    }
+    this.printSingleProductLabel(product);
+  }
+
+  get currentProductForLabel(): WarehouseProduct | null {
+    const id = Number(this.productForm?.id || 0);
+    return id ? (this.products.find((product) => Number(product.id) === id) || null) : null;
+  }
+
+  get canPrintCurrentProductLabel(): boolean {
+    const product = this.currentProductForLabel;
+    if (!product) return false;
+    return String(product.name || '').trim() === String(this.productForm.name || '').trim()
+      && String(product.barcode || '').trim() === String(this.productForm.barcode || '').trim()
+      && Number(product.categoryId || 0) === Number(this.productForm.categoryId || 0)
+      && String(product.unit || 'pz') === String(this.productForm.unit || 'pz');
   }
 
   importProducts(event: Event): void {
@@ -1690,6 +3251,14 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     return this.global.getRecordDisplayName('customer', customer) || customer?.numeroCliente || 'Cliente';
   }
 
+  customerReferenceLabel(customer: any): string {
+    return this.entityReferenceLabel(customer?.numeroCliente, this.customerLabel(customer));
+  }
+
+  customerReferenceLabelForRecord(customerId: string | number, customer?: any | null): string {
+    return this.entityReferenceLabel(customerId, customer ? this.customerLabel(customer) : 'Cliente');
+  }
+
   customerNameById(customerId: string | number | null | undefined): string {
     const id = String(customerId || '').trim();
     if (!id) return '';
@@ -1708,6 +3277,22 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
   employeeLabel(employee: any): string {
     return `${employee?.nome || ''} ${employee?.cognome || ''}`.trim() || employee?.email || `Dipendente ${employee?.id || ''}`;
+  }
+
+  employeeReferenceLabel(employee: any): string {
+    return this.entityReferenceLabel(employee?.id, this.employeeLabel(employee));
+  }
+
+  employeeReferenceLabelForRecord(employeeId: number | null | undefined, employee?: any | null): string {
+    return this.entityReferenceLabel(employeeId, employee ? this.employeeLabel(employee) : 'Dipendente');
+  }
+
+  private entityReferenceLabel(id: unknown, label: string): string {
+    const normalizedId = String(id ?? '').trim();
+    const normalizedLabel = String(label || '').trim();
+    if (!normalizedId) return normalizedLabel;
+    if (!normalizedLabel || normalizedLabel === normalizedId || normalizedLabel === `#${normalizedId}`) return `#${normalizedId}`;
+    return `#${normalizedId} · ${normalizedLabel}`;
   }
 
   movementTargetLabel(movement: WarehouseMovement): string {
@@ -1736,15 +3321,15 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   }
 
   get isServiceOrderFlowEnabled(): boolean {
-    return this.warehouseConfig.serviceOrderFlow.enabled === true;
+    return false;
   }
 
   get requiresServiceOrderForOutput(): boolean {
-    return this.warehouseConfig.serviceOrderFlow.requireServiceOrderForOutputs === true;
+    return false;
   }
 
   get serviceOrderDocumentLabel(): string {
-    return this.warehouseConfig.serviceOrderFlow.documentLabel || 'Materiale consegnato';
+    return this.warehouseConfig.materialOrderFlow.documentLabel || 'Materiale consegnato';
   }
 
   get isSimpleMobileMode(): boolean {
@@ -1774,29 +3359,59 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       mobileMode: 'simple',
       barcodeMode: 'barcode_required',
       internalCodePrefix: 'MAG',
-      serviceOrderFlow: {
-        enabled: false,
-        requireServiceOrderForOutputs: false,
-        documentEnabled: false,
+      materialOrderFlow: {
+        enabled: true,
+        employeeRequestsEnabled: true,
+        schedulingEnabled: true,
+        calendarCategoryKey: '',
+        preparationDocumentEnabled: true,
+        preparationDocumentTitle: 'Ordine di preparazione materiali',
+        preparationDocumentStyle: 'modern',
+        preparationPrimaryColor: '',
+        preparationShowLogo: true,
+        preparationShowBarcode: true,
+        preparationShowInternalChecks: true,
+        preparationFooterText: '',
+        documentEnabled: true,
         documentLabel: 'Materiale consegnato',
         pdfTemplateKey: 'warehouse_delivery_default',
+        customerSignatureEnabled: true,
+        employeeAppSignatureEnabled: true,
+        signatureEmailSource: '',
+        fields: [],
       },
     };
   }
 
   private normalizeWarehouseConfig(config?: Partial<InternalWarehouseConfig> | null): InternalWarehouseConfig {
     const fallback = this.defaultWarehouseConfig();
-    const flow = (config?.serviceOrderFlow || {}) as Partial<InternalWarehouseConfig['serviceOrderFlow']>;
+    const flow = (config?.materialOrderFlow || {}) as Partial<InternalWarehouseConfig['materialOrderFlow']>;
     return {
       mobileMode: config?.mobileMode === 'advanced' ? 'advanced' : 'simple',
       barcodeMode: config?.barcodeMode === 'auto_internal_code' ? 'auto_internal_code' : 'barcode_required',
       internalCodePrefix: String(config?.internalCodePrefix || fallback.internalCodePrefix).trim() || fallback.internalCodePrefix,
-      serviceOrderFlow: {
-        enabled: flow.enabled === true,
-        requireServiceOrderForOutputs: flow.requireServiceOrderForOutputs === true,
+      materialOrderFlow: {
+        enabled: flow.enabled !== false,
+        employeeRequestsEnabled: flow.employeeRequestsEnabled !== false,
+        schedulingEnabled: flow.schedulingEnabled !== false,
+        calendarCategoryKey: String(flow.calendarCategoryKey || '').trim(),
+        preparationDocumentEnabled: flow.preparationDocumentEnabled !== false,
+        preparationDocumentTitle: String(flow.preparationDocumentTitle || fallback.materialOrderFlow.preparationDocumentTitle).trim() || fallback.materialOrderFlow.preparationDocumentTitle,
+        preparationDocumentStyle: flow.preparationDocumentStyle === 'classic' || flow.preparationDocumentStyle === 'minimal'
+          ? flow.preparationDocumentStyle
+          : 'modern',
+        preparationPrimaryColor: String(flow.preparationPrimaryColor || '').trim(),
+        preparationShowLogo: flow.preparationShowLogo !== false,
+        preparationShowBarcode: flow.preparationShowBarcode !== false,
+        preparationShowInternalChecks: flow.preparationShowInternalChecks !== false,
+        preparationFooterText: String(flow.preparationFooterText || '').trim(),
         documentEnabled: flow.documentEnabled === true,
-        documentLabel: String(flow.documentLabel || fallback.serviceOrderFlow.documentLabel).trim() || fallback.serviceOrderFlow.documentLabel,
-        pdfTemplateKey: String(flow.pdfTemplateKey || fallback.serviceOrderFlow.pdfTemplateKey).trim() || fallback.serviceOrderFlow.pdfTemplateKey,
+        documentLabel: String(flow.documentLabel || fallback.materialOrderFlow.documentLabel).trim() || fallback.materialOrderFlow.documentLabel,
+        pdfTemplateKey: String(flow.pdfTemplateKey || fallback.materialOrderFlow.pdfTemplateKey).trim() || fallback.materialOrderFlow.pdfTemplateKey,
+        customerSignatureEnabled: flow.customerSignatureEnabled !== false,
+        employeeAppSignatureEnabled: flow.employeeAppSignatureEnabled !== false,
+        signatureEmailSource: String(flow.signatureEmailSource || '').trim(),
+        fields: Array.isArray(flow.fields) ? flow.fields : [],
       },
     };
   }

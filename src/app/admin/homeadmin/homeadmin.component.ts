@@ -9,8 +9,9 @@ import { AuthServiceService } from '../../auth-service.service';
 import { TenantService } from '../../service/tenant.service';
 import { SocketService } from '../../service/soket.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Subscription, filter } from 'rxjs';
+import { Subscription, filter, firstValueFrom } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
+import { NoteUnreadService } from '../../service/note-unread.service';
 
 type DeadlineStatus = 'ok' | 'warning' | 'expired';
 
@@ -29,11 +30,12 @@ interface HomeButton {
   permission: string;
   permissionsAny?: string[];
   feature?: string;
-  action: () => void;
+  action?: () => void;
   desktopPath?: string;
   queryParams?: Record<string, string>;
   badgeCount?: () => number;
   badgeClass?: () => string;
+  children?: HomeButton[];
 }
 
 interface HomeCategory {
@@ -42,6 +44,10 @@ interface HomeCategory {
   icon: string;
   buttons: HomeButton[];
 }
+
+type HomeNavigationItem =
+  | { type: 'button'; key: string; button: HomeButton }
+  | { type: 'category'; key: string; category: HomeCategory };
 
 interface AdminTodo {
   id: number;
@@ -54,6 +60,13 @@ interface AdminTodo {
 interface PermissionOption {
   key: string;
   label: string;
+}
+
+interface CustomerArchiveReminder {
+  notificationId: number;
+  numeroCliente: string;
+  clienteNome: string;
+  createdAt?: string | null;
 }
 
 interface EmailHealthIssue {
@@ -78,13 +91,17 @@ interface EmailHealthIssue {
 export class HomeAdminComponent implements OnInit, OnDestroy {
   private quoteAcceptanceSubscription?: Subscription;
   private employeeContractSubscription?: Subscription;
+  private customerArchiveReminderSubscription?: Subscription;
   private routerEventsSubscription?: Subscription;
   private deadlineSummarySubscription?: Subscription;
   private adminTodoSubscription?: Subscription;
+  private internalWarehouseSummarySubscription?: Subscription;
   private emailUnreadIntervalId?: ReturnType<typeof setInterval>;
+  private internalWarehouseSummaryIntervalId?: ReturnType<typeof setInterval>;
   private readonly desktopEmbeddedRootPaths = new Set([
     'addCustomer',
     'addQuote',
+    'accounting',
     'calendarHome',
     'candidates',
     'cambiapassword',
@@ -92,6 +109,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     'customer-assets',
     'customer-deadlines',
     'customerNotes',
+    'employeeNotes',
     'documenti',
     'editCustomer',
     'editQuote',
@@ -118,6 +136,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     'riepilogo-ore-clienti',
     'riepilogo-presenze-editabile',
     'schedaCliente',
+    'schedaDipendente',
     'service-orders',
     'settingsemployees',
     'shifts',
@@ -146,11 +165,13 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     private socketService: SocketService,
     private snackBar: MatSnackBar,
     private renderer: Renderer2,
+    public noteUnread: NoteUnreadService,
   ) {}
 
   isMenuOpen: boolean = false;
   selectedHomeCategoryId = '';
   expandedHomeCategoryId = '';
+  expandedHomeButtonKey = '';
   permessiInAttesa: number = 0;
   candidatiNonCompletati: number = 0;
   pendingQuoteReviews: number = 0;
@@ -159,6 +180,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   emailAccountIssueCount: number = 0;
   internalWarehouseLowStockCount: number = 0;
   internalWarehousePendingRequestCount: number = 0;
+  internalWarehouseMaterialOrderCounts: Record<string, number> = {};
   employeeDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   vehicleDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
   equipmentDeadlineSummary: DeadlineSummary = this.emptyDeadlineSummary();
@@ -177,9 +199,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   emailHealthNoticeVisible = false;
   private dismissedEmailHealthIssueKey = '';
   private emailHealthRefreshRunning = false;
+  private customerArchiveReminderQueue: CustomerArchiveReminder[] = [];
+  private customerArchiveReminderOpen = false;
 
   ngOnInit(): void {
-    this.global.loadTenantConfig().finally(() => {
+    this.noteUnread.start();
+    // Il menu deve riflettere subito i moduli appena pubblicati da MVControl.
+    // Senza refresh la feature fatture poteva restare nascosta fino a una nuova sessione.
+    this.global.loadTenantConfig(true, { showError: false }).finally(() => {
       this.checkPermessiInAttesa();
       this.loadActiveCandidatesCount();
       this.loadDeadlineSummary();
@@ -189,6 +216,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       this.loadEmailHealthNotice(false, true);
       this.loadInternalWarehouseSummary();
       this.loadUnassignedPermissionNotice();
+      this.loadPendingCustomerArchiveReminders();
       if (this.canUseTodoView()) {
         this.loadAdminTodos();
       }
@@ -202,6 +230,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.bindRouterState();
     this.bindQuoteAcceptanceUpdates();
     this.bindEmployeeContractUpdates();
+    this.bindCustomerArchiveReminderUpdates();
+    this.bindInternalWarehouseSummaryUpdates();
     if (this.canUseTodoView()) {
       this.bindAdminTodoUpdates();
     }
@@ -211,11 +241,16 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.quoteAcceptanceSubscription?.unsubscribe();
     this.employeeContractSubscription?.unsubscribe();
+    this.customerArchiveReminderSubscription?.unsubscribe();
     this.routerEventsSubscription?.unsubscribe();
     this.deadlineSummarySubscription?.unsubscribe();
     this.adminTodoSubscription?.unsubscribe();
+    this.internalWarehouseSummarySubscription?.unsubscribe();
     if (this.emailUnreadIntervalId) {
       clearInterval(this.emailUnreadIntervalId);
+    }
+    if (this.internalWarehouseSummaryIntervalId) {
+      clearInterval(this.internalWarehouseSummaryIntervalId);
     }
     this.renderer.removeClass(document.body, 'is-desktop');
     this.renderer.removeStyle(document.documentElement, '--admin-sidebar-width');
@@ -479,22 +514,44 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     if (!this.canUsePermission('INTERNAL_WAREHOUSE_VIEW', 'internalWarehouse')) {
       this.internalWarehouseLowStockCount = 0;
       this.internalWarehousePendingRequestCount = 0;
+      this.internalWarehouseMaterialOrderCounts = {};
       return;
     }
 
     this.http
-      .get<{ lowStockCount: number; pendingRequestCount: number }>(this.global.url + 'admin/internal-warehouse/summary')
+      .get<{
+        lowStockCount: number;
+        pendingRequestCount: number;
+        materialOrderCounts?: Record<string, number>;
+      }>(this.global.url + 'admin/internal-warehouse/summary')
       .subscribe({
         next: (res) => {
           this.internalWarehouseLowStockCount = Number(res?.lowStockCount) || 0;
           this.internalWarehousePendingRequestCount = Number(res?.pendingRequestCount) || 0;
+          this.internalWarehouseMaterialOrderCounts = res?.materialOrderCounts || {};
         },
         error: (err) => {
           console.error('Errore caricamento riepilogo magazzino:', err);
           this.internalWarehouseLowStockCount = 0;
           this.internalWarehousePendingRequestCount = 0;
+          this.internalWarehouseMaterialOrderCounts = {};
         },
       });
+  }
+
+  private bindInternalWarehouseSummaryUpdates(): void {
+    if (!this.internalWarehouseSummarySubscription) {
+      this.internalWarehouseSummarySubscription = this.socketService
+        .onInternalWarehouseSummaryUpdate()
+        .subscribe(() => this.loadInternalWarehouseSummary());
+    }
+
+    if (!this.internalWarehouseSummaryIntervalId) {
+      this.internalWarehouseSummaryIntervalId = setInterval(
+        () => this.loadInternalWarehouseSummary(),
+        30000,
+      );
+    }
   }
 
   private bindEmailUnreadPolling(): void {
@@ -561,6 +618,84 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
           );
         }
       });
+  }
+
+  private bindCustomerArchiveReminderUpdates(): void {
+    if (this.customerArchiveReminderSubscription) return;
+
+    this.customerArchiveReminderSubscription = this.socketService
+      .onCustomerArchiveReminderUpdate()
+      .subscribe((update: any) => {
+        if (update?.kind !== 'created') return;
+        this.enqueueCustomerArchiveReminder({
+          notificationId: Number(update?.notificationId),
+          numeroCliente: String(update?.numeroCliente || '').trim(),
+          clienteNome: String(update?.clienteNome || '').trim(),
+        });
+      });
+  }
+
+  private loadPendingCustomerArchiveReminders(): void {
+    if (!this.canUsePermission('CUSTOMERS_MANAGE')) return;
+    this.http.get<CustomerArchiveReminder[]>(
+      this.global.url + 'admin/notifications/archive-reminders/pending',
+      { headers: this.global.headers },
+    ).subscribe({
+      next: (rows) => (rows || []).forEach((row) => this.enqueueCustomerArchiveReminder(row)),
+      error: (err) => console.error('Errore caricamento reminder archiviazione clienti:', err),
+    });
+  }
+
+  private enqueueCustomerArchiveReminder(reminder: CustomerArchiveReminder): void {
+    const notificationId = Number(reminder?.notificationId);
+    const numeroCliente = String(reminder?.numeroCliente || '').trim();
+    if (!notificationId || !numeroCliente) return;
+    const duplicate = this.customerArchiveReminderQueue.some((item) =>
+      item.notificationId === notificationId || item.numeroCliente === numeroCliente,
+    );
+    if (duplicate) return;
+    this.customerArchiveReminderQueue.push({
+      ...reminder,
+      notificationId,
+      numeroCliente,
+      clienteNome: String(reminder?.clienteNome || '').trim(),
+    });
+    void this.showNextCustomerArchiveReminder();
+  }
+
+  private async showNextCustomerArchiveReminder(): Promise<void> {
+    if (this.customerArchiveReminderOpen) return;
+    const reminder = this.customerArchiveReminderQueue.shift();
+    if (!reminder) return;
+
+    this.customerArchiveReminderOpen = true;
+    const customerLabel = reminder.clienteNome
+      ? `${reminder.clienteNome} (#${reminder.numeroCliente})`
+      : `#${reminder.numeroCliente}`;
+    try {
+      const archive = await this.popup.confirm(
+        `Il cliente ${customerLabel} ha firmato il foglio di fine lavoro. Vuoi archiviarlo?`,
+        'Foglio di fine lavoro firmato',
+        {
+          type: 'success',
+          confirmLabel: 'Archivia',
+          cancelLabel: 'Annulla',
+        },
+      );
+      await firstValueFrom(this.http.post(
+        this.global.url + `admin/notifications/archive-reminders/${reminder.notificationId}/resolve`,
+        { action: archive ? 'archive' : 'dismiss' },
+        { headers: this.global.headers },
+      ));
+      if (archive) {
+        this.snackBar.open(`Cliente ${customerLabel} archiviato`, 'Chiudi', { duration: 4000 });
+      }
+    } catch (err) {
+      this.popup.showHttpError(err, 'Impossibile gestire il promemoria del cliente.');
+    } finally {
+      this.customerArchiveReminderOpen = false;
+      void this.showNextCustomerArchiveReminder();
+    }
   }
 
   navigateToCalendarHome() {
@@ -689,6 +824,11 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     return this.global.getTenantCustomerAssetsConfig().moduleLabel || 'Presidi presso clienti';
   }
 
+  getCustomerAssetDeadlinesLabel(): string {
+    const moduleLabel = this.getCustomerAssetsModuleLabel();
+    return `Scadenze ${moduleLabel}${/presso clienti/i.test(moduleLabel) ? '' : ' presso clienti'}`;
+  }
+
   navigateToInternalDeadlines() {
     this.navigateInHome('internal-deadlines');
   }
@@ -721,12 +861,12 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.navigateInHome('statistiche');
   }
 
-  navigateToInternalWarehouse(tab: string = 'list') {
+  navigateToInternalWarehouse(tab: string = 'list', materialStatus?: string) {
     const commands = this.isDesktopHome
       ? ['/homeAdmin', 'internal-warehouse']
       : ['/internal-warehouse'];
     this.router.navigate(commands, {
-      queryParams: { tab },
+      queryParams: { tab, materialStatus: materialStatus || null },
     });
   }
 
@@ -757,14 +897,6 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
         badgeClass: () => this.emailAccountIssueCount > 0 ? 'alert-badge alert-badge-expired' : 'badge bg-danger ms-1',
       },
       {
-        label: 'Invio notifiche dipendenti',
-        icon: 'fas fa-users-cog',
-        permission: 'ADMIN_VIEW',
-        feature: 'administrators',
-        action: () => this.navigateToGestioneUsers(),
-        desktopPath: 'gestioneusers',
-      },
-      {
         label: 'Documenti interni',
         icon: 'fas fa-file',
         permission: 'INTERNAL_DOCS_ACCESS',
@@ -784,7 +916,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   get homeCategories(): HomeCategory[] {
-    return [
+    const categories: HomeCategory[] = [
       {
         id: 'personale',
         label: 'Dipendenti',
@@ -807,15 +939,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             desktopPath: 'timbratureHome',
           },
           {
-            label: 'Riepilogo ore clienti',
-            icon: 'fas fa-user-clock',
-            permission: 'CUSTOMERS_HOURS_VIEW',
-            feature: 'customers',
-            action: () => this.goToRiepilogoOreClienti(),
-            desktopPath: 'riepilogo-ore-clienti',
-          },
-          {
-            label: 'Riepilogo ore personalizzabile',
+            label: 'Riepilogo ore dipendenti',
             icon: 'fas fa-clock',
             permission: 'ATTENDANCE_MANAGE',
             feature: 'attendance',
@@ -829,6 +953,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'employees',
             action: () => this.navigateToGestioneemployees(),
             desktopPath: 'gestioneemployees',
+            badgeCount: () => this.noteUnread.typeTotal('employee'),
+            badgeClass: () => 'badge bg-danger ms-1',
           },
           {
             label: 'Contratti',
@@ -847,11 +973,11 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'candidates',
             action: () => this.navigateToCandidates(),
             desktopPath: 'candidates',
-            badgeCount: () => this.candidatiNonCompletati,
+            badgeCount: () => this.candidatiNonCompletati + this.noteUnread.typeTotal('candidate'),
             badgeClass: () => 'badge bg-danger ms-1',
           },
           {
-            label: 'Gestione permessi e dipendenti',
+            label: 'Gestione permessi',
             icon: 'fas fa-clipboard-check',
             permission: 'EMPLOYEE_PERMITS_MANAGE',
             feature: 'leaveRequests',
@@ -874,14 +1000,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'customers',
             action: () => this.navigateToListCustomer(),
             desktopPath: 'listCustomer',
-          },
-          {
-            label: 'Nuovo cliente',
-            icon: 'fas fa-user-plus',
-            permission: 'CUSTOMERS_MANAGE',
-            feature: 'customers',
-            action: () => this.navigateToAddCustomer(),
-            desktopPath: 'addCustomer',
+            badgeCount: () => this.noteUnread.typeTotal('customer'),
+            badgeClass: () => 'badge bg-danger ms-1',
           },
           {
             label: 'Gestione Preventivi',
@@ -890,7 +1010,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'quotes',
             action: () => this.navigateToQuotesHome(),
             desktopPath: 'quotesHome',
-            badgeCount: () => this.pendingQuoteReviews,
+            badgeCount: () => this.pendingQuoteReviews + this.noteUnread.typeTotal('quote'),
             badgeClass: () => 'badge bg-danger ms-1',
           },
           {
@@ -900,6 +1020,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'serviceOrders',
             action: () => this.navigateToServiceOrders(),
             desktopPath: 'service-orders',
+          },
+          {
+            label: 'Riepilogo ore clienti',
+            icon: 'fas fa-user-clock',
+            permission: 'CUSTOMERS_HOURS_VIEW',
+            feature: 'customers',
+            action: () => this.goToRiepilogoOreClienti(),
+            desktopPath: 'riepilogo-ore-clienti',
           },
         ],
       },
@@ -1062,6 +1190,101 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             badgeClass: () => 'badge bg-danger ms-1',
           },
           {
+            label: 'Ordini materiali',
+            icon: 'fas fa-truck-loading',
+            permission: 'INTERNAL_WAREHOUSE_OUT',
+            feature: 'internalWarehouse',
+            badgeCount: () => Number(this.internalWarehouseMaterialOrderCounts['active'] || 0),
+            badgeClass: () => 'badge bg-danger ms-1',
+            children: [
+              {
+                label: 'Da preparare',
+                icon: 'fas fa-box-open',
+                permission: 'INTERNAL_WAREHOUSE_OUT',
+                feature: 'internalWarehouse',
+                action: () => this.navigateToInternalWarehouse('material-orders', 'to-prepare'),
+                desktopPath: 'internal-warehouse',
+                queryParams: { tab: 'material-orders', materialStatus: 'to-prepare' },
+                badgeCount: () => ['draft', 'requested', 'approved'].reduce(
+                  (total, status) => total + Number(this.internalWarehouseMaterialOrderCounts[status] || 0), 0,
+                ),
+                badgeClass: () => 'badge bg-warning text-dark ms-1',
+              },
+              {
+                label: 'In preparazione',
+                icon: 'fas fa-spinner',
+                permission: 'INTERNAL_WAREHOUSE_OUT',
+                feature: 'internalWarehouse',
+                action: () => this.navigateToInternalWarehouse('material-orders', 'preparing'),
+                desktopPath: 'internal-warehouse',
+                queryParams: { tab: 'material-orders', materialStatus: 'preparing' },
+                badgeCount: () => Number(this.internalWarehouseMaterialOrderCounts['preparing'] || 0),
+                badgeClass: () => 'badge bg-info text-dark ms-1',
+              },
+              {
+                label: 'Preparati',
+                icon: 'fas fa-boxes-stacked',
+                permission: 'INTERNAL_WAREHOUSE_OUT',
+                feature: 'internalWarehouse',
+                action: () => this.navigateToInternalWarehouse('material-orders', 'prepared'),
+                desktopPath: 'internal-warehouse',
+                queryParams: { tab: 'material-orders', materialStatus: 'prepared' },
+                badgeCount: () => Number(this.internalWarehouseMaterialOrderCounts['prepared'] || 0),
+                badgeClass: () => 'badge bg-success ms-1',
+              },
+              {
+                label: 'In attesa firma destinatario',
+                icon: 'fas fa-signature',
+                permission: 'INTERNAL_WAREHOUSE_OUT',
+                feature: 'internalWarehouse',
+                action: () => this.navigateToInternalWarehouse('material-orders', 'waiting-customer'),
+                desktopPath: 'internal-warehouse',
+                queryParams: { tab: 'material-orders', materialStatus: 'waiting-customer' },
+                badgeCount: () => Number(this.internalWarehouseMaterialOrderCounts['ready'] || 0),
+                badgeClass: () => 'badge bg-warning text-dark ms-1',
+              },
+              {
+                label: 'Consegnati in parte',
+                icon: 'fas fa-truck-ramp-box',
+                permission: 'INTERNAL_WAREHOUSE_OUT',
+                feature: 'internalWarehouse',
+                action: () => this.navigateToInternalWarehouse('material-orders', 'partially-delivered'),
+                desktopPath: 'internal-warehouse',
+                queryParams: { tab: 'material-orders', materialStatus: 'partially-delivered' },
+                badgeCount: () => Number(this.internalWarehouseMaterialOrderCounts['partially_delivered'] || 0),
+                badgeClass: () => 'badge bg-info text-dark ms-1',
+              },
+              {
+                label: 'Completati',
+                icon: 'fas fa-circle-check',
+                permission: 'INTERNAL_WAREHOUSE_OUT',
+                feature: 'internalWarehouse',
+                action: () => this.navigateToInternalWarehouse('material-orders', 'completed'),
+                desktopPath: 'internal-warehouse',
+                queryParams: { tab: 'material-orders', materialStatus: 'completed' },
+              },
+              {
+                label: 'Annullati',
+                icon: 'fas fa-ban',
+                permission: 'INTERNAL_WAREHOUSE_OUT',
+                feature: 'internalWarehouse',
+                action: () => this.navigateToInternalWarehouse('material-orders', 'cancelled'),
+                desktopPath: 'internal-warehouse',
+                queryParams: { tab: 'material-orders', materialStatus: 'cancelled' },
+              },
+            ],
+          },
+          {
+            label: 'Ordini fornitori',
+            icon: 'fas fa-paper-plane',
+            permission: 'INTERNAL_WAREHOUSE_IN',
+            permissionsAny: ['INTERNAL_WAREHOUSE_IN', 'INTERNAL_WAREHOUSE_PRODUCTS_MANAGE'],
+            feature: 'internalWarehouse',
+            action: () => this.navigateToInternalWarehouse('orders'),
+            desktopPath: 'internal-warehouse',
+            queryParams: { tab: 'orders' },
+          },
+          {
             label: 'Entrata prodotti',
             icon: 'fas fa-arrow-down',
             permission: 'INTERNAL_WAREHOUSE_IN',
@@ -1089,7 +1312,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             queryParams: { tab: 'movements' },
           },
           {
-            label: 'Impostazioni prodotti',
+            label: 'Prodotti',
             icon: 'fas fa-tags',
             permission: 'INTERNAL_WAREHOUSE_PRODUCTS_MANAGE',
             feature: 'internalWarehouse',
@@ -1098,9 +1321,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             queryParams: { tab: 'products' },
           },
           {
-            label: 'Import / export',
-            icon: 'fas fa-file-export',
+            label: 'Strumenti',
+            icon: 'fas fa-tools',
             permission: 'INTERNAL_WAREHOUSE_EXPORT',
+            permissionsAny: ['INTERNAL_WAREHOUSE_EXPORT', 'INTERNAL_WAREHOUSE_PRODUCTS_MANAGE'],
             feature: 'internalWarehouse',
             action: () => this.navigateToInternalWarehouse('tools'),
             desktopPath: 'internal-warehouse',
@@ -1154,7 +1378,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             badgeClass: () => this.deadlineBadgeClass(this.customerDeadlineSummary),
           },
           {
-            label: `Scadenze ${this.global.getTenantCustomerAssetsConfig().moduleLabel || 'presidi'}`,
+            label: this.getCustomerAssetDeadlinesLabel(),
             icon: 'fas fa-fire-extinguisher',
             permission: 'CUSTOMER_ASSET_DEADLINES_VIEW',
             feature: 'customerAssets',
@@ -1176,12 +1400,67 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
         ],
       },
     ];
+
+    const categoryOrder = ['commerciale', 'personale', 'billing', 'accounting', 'internalWarehouse', 'operativo'];
+    const buttonOrder: Record<string, string[]> = {
+      commerciale: ['quotesHome', 'listCustomer', 'service-orders', 'riepilogo-ore-clienti'],
+      personale: ['gestioneemployees', 'gestionepermessi', 'shifts', 'timbratureHome', 'riepilogo-presenze-editabile', 'candidates', 'employee-contracts'],
+      internalWarehouse: ['list', 'in', 'out', 'requests', 'material-orders', 'orders', 'products', 'movements', 'tools'],
+      operativo: ['customer-deadlines', 'customer-asset-deadlines', 'employee-deadlines', 'vehicle-deadlines', 'equipment-deadlines', 'internal-deadlines'],
+    };
+    const buttonKey = (button: HomeButton): string => (
+      button.queryParams?.['tab'] || button.children?.[0]?.queryParams?.['tab'] || button.desktopPath || ''
+    );
+
+    for (const category of categories) {
+      const order = buttonOrder[category.id];
+      if (!order) continue;
+      category.buttons.sort((left, right) => {
+        const leftIndex = order.indexOf(buttonKey(left));
+        const rightIndex = order.indexOf(buttonKey(right));
+        return (leftIndex < 0 ? order.length : leftIndex) - (rightIndex < 0 ? order.length : rightIndex);
+      });
+    }
+
+    return categories.sort(
+      (left, right) => categoryOrder.indexOf(left.id) - categoryOrder.indexOf(right.id),
+    );
   }
 
   get visibleHomeCategories(): HomeCategory[] {
     return this.homeCategories.filter(
       (category) => this.visibleHomeButtons(category).length > 0,
     );
+  }
+
+  get orderedHomeNavigationItems(): HomeNavigationItem[] {
+    const categories = new Map(this.visibleHomeCategories.map((category) => [category.id, category]));
+    const buttons = new Map<string, HomeButton>();
+    for (const button of this.standaloneHomeButtons) {
+      buttons.set(button.desktopPath || button.label.toLowerCase(), button);
+      if (button.label === 'Email') buttons.set('email', button);
+    }
+    const order: Array<{ type: 'button' | 'category'; key: string }> = [
+      { type: 'category', key: 'commerciale' },
+      { type: 'category', key: 'personale' },
+      { type: 'button', key: 'calendarHome' },
+      { type: 'button', key: 'email' },
+      { type: 'button', key: 'internal-documents' },
+      { type: 'category', key: 'billing' },
+      { type: 'category', key: 'accounting' },
+      { type: 'category', key: 'internalWarehouse' },
+      { type: 'category', key: 'operativo' },
+      { type: 'button', key: 'statistiche' },
+    ];
+
+    return order.flatMap((item): HomeNavigationItem[] => {
+      if (item.type === 'category') {
+        const category = categories.get(item.key);
+        return category ? [{ type: 'category', key: `category:${item.key}`, category }] : [];
+      }
+      const button = buttons.get(item.key);
+      return button ? [{ type: 'button', key: `button:${item.key}`, button }] : [];
+    });
   }
 
   get shouldShowHomeCategories(): boolean {
@@ -1198,7 +1477,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   get mainMenuItemsCount(): number {
-    return this.standaloneHomeButtons.length + this.visibleHomeCategories.length;
+    return this.orderedHomeNavigationItems.length;
   }
 
   get currentHomeButtons(): HomeButton[] {
@@ -1246,6 +1525,13 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   activateHomeButton(button: HomeButton): void {
+    const children = this.visibleHomeButtonChildren(button);
+    if (children.length) {
+      const key = this.homeButtonKey(button);
+      this.expandedHomeButtonKey = this.expandedHomeButtonKey === key ? '' : key;
+      return;
+    }
+
     if (this.isDesktopHome && button.desktopPath) {
       this.isDesktopContentActive = true;
       this.setExpandedCategoryForButton(button);
@@ -1253,7 +1539,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       return;
     }
 
-    button.action();
+    button.action?.();
   }
 
   showDesktopMainMenu(): void {
@@ -1555,11 +1841,17 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     return category.buttons.filter((button) => this.canUseHomeButton(button));
   }
 
+  visibleHomeButtonChildren(button: HomeButton): HomeButton[] {
+    return (button.children || []).filter((child) => this.canUseHomeButton(child));
+  }
+
   trackByHomeCategory(_index: number, category: HomeCategory): string {
     return category.id;
   }
 
-  trackByHomeButton(_index: number, button: HomeButton): string {
+  trackByHomeButton = (_index: number, button: HomeButton): string => this.homeButtonKey(button);
+
+  homeButtonKey(button: HomeButton): string {
     const query = button.queryParams
       ? Object.entries(button.queryParams)
         .sort(([left], [right]) => left.localeCompare(right))
@@ -1571,6 +1863,14 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       button.permission,
       query,
     ].join('|');
+  }
+
+  isHomeButtonGroupExpanded(button: HomeButton): boolean {
+    return this.expandedHomeButtonKey === this.homeButtonKey(button);
+  }
+
+  trackByHomeNavigationItem(_index: number, item: HomeNavigationItem): string {
+    return item.key;
   }
 
   isCategoryExpanded(category: HomeCategory): boolean {
@@ -1586,6 +1886,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   isHomeButtonActive(button: HomeButton): boolean {
+    const children = this.visibleHomeButtonChildren(button);
+    if (children.length) return children.some((child) => this.isHomeButtonActive(child));
     return (
       !!button.desktopPath &&
       this.activeDesktopChildPath() === button.desktopPath &&
@@ -1749,7 +2051,9 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
     const activeCategory = this.visibleHomeCategories.find((category) =>
       this.visibleHomeButtons(category).some(
-        (button) => button.desktopPath === activePath,
+        (button) => button.desktopPath === activePath || this.visibleHomeButtonChildren(button).some(
+          (child) => child.desktopPath === activePath,
+        ),
       ),
     );
 
@@ -1757,6 +2061,12 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       this.selectedHomeCategoryId = activeCategory.id;
       this.expandedHomeCategoryId = activeCategory.id;
       this.isDesktopContentActive = this.isDesktopHome;
+      const activeGroup = this.visibleHomeButtons(activeCategory).find((button) =>
+        this.visibleHomeButtonChildren(button).some((child) => (
+          child.desktopPath === activePath && this.buttonQueryParamsMatch(child)
+        )),
+      );
+      if (activeGroup) this.expandedHomeButtonKey = this.homeButtonKey(activeGroup);
       return;
     }
 
@@ -1777,10 +2087,16 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   private setExpandedCategoryForButton(button: HomeButton): void {
     const owner = this.visibleHomeCategories.find((category) =>
-      this.visibleHomeButtons(category).some((item) => item === button),
+      this.visibleHomeButtons(category).some((item) => (
+        item === button || this.visibleHomeButtonChildren(item).some((child) => child === button)
+      )),
+    );
+    const parent = owner && this.visibleHomeButtons(owner).find((item) =>
+      this.visibleHomeButtonChildren(item).some((child) => child === button),
     );
     this.expandedHomeCategoryId = owner?.id || '';
     this.selectedHomeCategoryId = owner?.id || '';
+    if (parent) this.expandedHomeButtonKey = this.homeButtonKey(parent);
   }
 
   private scrollMobileHomeToTop(): void {

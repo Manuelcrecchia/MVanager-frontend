@@ -92,7 +92,14 @@ export class CustomerAssetsGuidedUpdateComponent implements OnInit {
       .sort((a, b) => this.assetLabel(a).localeCompare(this.assetLabel(b), 'it'));
   }
   get selectedCustomerLabel(): string {
-    return this.customers.find((customer) => customer.id === this.selectedCustomer)?.label || 'Seleziona cliente';
+    const customer = this.customers.find((item) => item.id === this.selectedCustomer);
+    return customer ? this.customerOptionLabel(customer) : 'Seleziona cliente';
+  }
+
+  customerOptionLabel(customer: { id: string; label: string }): string {
+    const id = String(customer?.id || '').trim();
+    const label = String(customer?.label || '').trim();
+    return id ? `#${id} · ${label || `Cliente ${id}`}` : label;
   }
   get currentStep(): GuidedStep | null { return this.steps[this.currentIndex] || null; }
   get completedCount(): number { return this.steps.filter((step) => step.done).length; }

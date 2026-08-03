@@ -82,10 +82,12 @@ import { HTTP_INTERCEPTORS } from '@angular/common/http';
 import { AuthInterceptorService } from './auth-interceptor.service';
 import { EditCustomerComponent } from './admin/edit-customer/edit-customer.component';
 import { SchedaClienteComponent } from './admin/scheda-cliente/scheda-cliente.component';
+import { SchedaDipendenteComponent } from './admin/scheda-dipendente/scheda-dipendente.component';
 import { ShiftHomeComponent } from './admin/shift-home/shift-home.component';
 import { CreateShiftComponent } from './admin/create-shift/create-shift.component';
 import { AssignDialogComponent } from './admin/assign-dialog/assign-dialog.component';
 import { GestionePermessiComponent } from './admin/gestione-permessi/gestione-permessi.component';
+import { PermissionDetailComponent } from './admin/permission-detail/permission-detail.component';
 import { TimbratureHomeComponent } from './admin/timbrature-home/timbrature-home.component';
 import { TimbratureDettaglioComponent } from './admin/timbrature-dettaglio/timbrature-dettaglio.component';
 import { CustomModalComponent } from './admin/timbrature-dettaglio/custom-modal/custom-modal.component';
@@ -99,8 +101,11 @@ import { QuoteNotesComponent } from './admin/quote-notes/quote-notes.component';
 import { CustomerNotesComponent } from './admin/customer-notes/customer-notes.component';
 import { ServiceOrdersComponent } from './admin/service-orders/service-orders.component';
 import { AddServiceOrderComponent } from './admin/add-service-order/add-service-order.component';
+import { ServiceOrderDetailComponent } from './admin/service-order-detail/service-order-detail.component';
 import { QuoteAcceptComponent } from './public/quote-accept/quote-accept.component';
 import { ContractAcceptComponent } from './public/contract-accept/contract-accept.component';
+import { WorkCompletionAcceptComponent } from './public/work-completion-accept/work-completion-accept.component';
+import { ServiceOrderAcceptComponent } from './public/service-order-accept/service-order-accept.component';
 import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work-completion-stats.component';
 import { EmailHomeComponent } from './admin/email-home/email-home.component';
 import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
@@ -149,6 +154,7 @@ registerLocaleData(localeIt);
     DocumentManagerComponent,
     EditCustomerComponent,
     SchedaClienteComponent,
+    SchedaDipendenteComponent,
     ShiftHomeComponent,
     CreateShiftComponent,
     AssignDialogComponent,
@@ -157,6 +163,7 @@ registerLocaleData(localeIt);
     VehiclesSettingsComponent,
     QuoteSettingsComponent,
     GestionePermessiComponent,
+    PermissionDetailComponent,
     TimbratureHomeComponent,
     TimbratureDettaglioComponent,
     GestioneAssenzeComponent,
@@ -169,8 +176,11 @@ registerLocaleData(localeIt);
     CustomerNotesComponent,
     ServiceOrdersComponent,
     AddServiceOrderComponent,
+    ServiceOrderDetailComponent,
     QuoteAcceptComponent,
     ContractAcceptComponent,
+    WorkCompletionAcceptComponent,
+    ServiceOrderAcceptComponent,
     WorkCompletionStatsComponent,
     EmailHomeComponent,
     EmailSettingsComponent,

@@ -1,52 +1,80 @@
-<div class="container py-4 warehouse-page">
-  <div class="warehouse-topbar">
-    <button class="btn btn-outline-secondary" type="button" (click)="goBack()">
+<div class="warehouse-page standard-management-page">
+  <header class="warehouse-topbar mv-entity-toolbar" *ngIf="!['requests', 'list', 'material-orders', 'orders', 'products'].includes(activeTab)">
+    <button class="btn warehouse-back-button" type="button" (click)="goBack()">
       &larr; Indietro
     </button>
+    <div class="warehouse-section-heading" aria-live="polite">
+      <span>Sezione corrente</span>
+      <h1>{{ activeTabLabel }}</h1>
+    </div>
     <div class="warehouse-title">
       <p>Gestionale</p>
       <h2>Magazzino interno</h2>
     </div>
-  </div>
+  </header>
 
-  <nav class="warehouse-tabs" *ngIf="canView" aria-label="Sezioni magazzino interno">
-    <button type="button" (click)="setTab('list')" [class.active]="activeTab === 'list'">
-      <i class="fas fa-boxes"></i>
-      <span>Inventario</span>
-    </button>
-    <button type="button" (click)="setTab('requests')" [class.active]="activeTab === 'requests'">
-      <i class="fas fa-inbox"></i>
-      <span>Richieste</span>
-      <strong *ngIf="productRequests.length">{{ productRequests.length }}</strong>
-    </button>
-    <button type="button" (click)="setTab('orders')" [class.active]="activeTab === 'orders'" *ngIf="canRegisterIn || canManageProducts">
-      <i class="fas fa-paper-plane"></i>
-      <span>Ordini</span>
-      <strong *ngIf="selectedOrderCount">{{ selectedOrderCount }}</strong>
-    </button>
-    <button type="button" (click)="setTab('out')" [class.active]="activeTab === 'out'" *ngIf="canRegisterOut">
-      <i class="fas fa-arrow-up"></i>
-      <span>Uscite</span>
-    </button>
-    <button type="button" (click)="setTab('in')" [class.active]="activeTab === 'in'" *ngIf="canRegisterIn">
-      <i class="fas fa-arrow-down"></i>
-      <span>Entrate</span>
-    </button>
-    <button type="button" (click)="setTab('movements')" [class.active]="activeTab === 'movements'" *ngIf="canHistory">
-      <i class="fas fa-chart-line"></i>
-      <span>Movimenti</span>
-    </button>
-    <button type="button" (click)="setTab('products')" [class.active]="activeTab === 'products'" *ngIf="canManageProducts">
-      <i class="fas fa-pen"></i>
-      <span>Prodotti</span>
-    </button>
-    <button type="button" (click)="setTab('tools')" [class.active]="activeTab === 'tools'" *ngIf="canExport || canManageProducts">
-      <i class="fas fa-tools"></i>
-      <span>Strumenti</span>
-    </button>
-  </nav>
+  <header class="request-page-toolbar mv-entity-toolbar" *ngIf="['list', 'material-orders', 'orders', 'products'].includes(activeTab)">
+    <div class="mv-entity-toolbar__title">
+      <h1>{{ entityPageTitle }}</h1>
+      <button class="btn mv-toolbar-back mv-mobile-home-back" type="button" *ngIf="currentEntityView === 'list'" (click)="goBack()">&larr; Torna indietro</button>
+      <button class="mv-toolbar-primary" type="button" *ngIf="currentEntityView === 'list' && (activeTab !== 'list' || canManageProducts) && (activeTab !== 'material-orders' || materialOrderStatusView === 'to-prepare')" (click)="openEntityNew()">
+        <i class="fas fa-plus" aria-hidden="true"></i> Nuovo
+      </button>
+    </div>
+    <div class="mv-entity-toolbar__controls" *ngIf="currentEntityView === 'list'; else entityBackControls">
+      <label class="request-search-field" *ngIf="activeTab === 'list'">
+        <span class="visually-hidden">Cerca prodotto</span><i class="fas fa-search"></i>
+        <input class="form-control" type="search" [(ngModel)]="filters.q" (keyup.enter)="loadProducts()" placeholder="Nome, barcode, categoria o fornitore" />
+      </label>
+      <label class="request-search-field" *ngIf="activeTab === 'material-orders'">
+        <span class="visually-hidden">Cerca ordine materiali</span><i class="fas fa-search"></i>
+        <input class="form-control" type="search" [(ngModel)]="materialOrderSearch" placeholder="ID, destinatario, prodotto o stato" />
+      </label>
+      <label class="request-search-field" *ngIf="activeTab === 'orders'">
+        <span class="visually-hidden">Cerca ordine fornitore</span><i class="fas fa-search"></i>
+        <input class="form-control" type="search" [(ngModel)]="supplierOrderSearch" placeholder="ID, fornitore, prodotto o stato" />
+      </label>
+      <span class="mv-entity-toolbar__count" *ngIf="activeTab === 'list'">{{ products.length }}</span>
+      <span class="mv-entity-toolbar__count" *ngIf="activeTab === 'material-orders'">{{ filteredMaterialOrders.length }} / {{ materialOrders.length }}</span>
+      <span class="mv-entity-toolbar__count" *ngIf="activeTab === 'orders'">{{ filteredSupplierOrders.length }} / {{ supplierOrders.length }}</span>
+      <button class="btn btn-light" type="button" *ngIf="activeTab !== 'material-orders'" (click)="toggleCurrentArchive()">
+        {{ (activeTab === 'list' && showArchivedProducts) || (activeTab === 'orders' && showArchivedSupplierOrders) ? 'Nascondi archivio' : 'Mostra archivio' }}
+      </button>
+    </div>
+    <ng-template #entityBackControls>
+      <div class="mv-entity-toolbar__controls">
+        <button class="mv-toolbar-back" type="button" (click)="closeEntityView()">&larr; Torna indietro</button>
+      </div>
+    </ng-template>
+  </header>
 
-  <div class="summary-grid" *ngIf="activeTab === 'list' && canView">
+  <header class="request-page-toolbar mv-entity-toolbar" *ngIf="activeTab === 'requests'">
+    <div class="mv-entity-toolbar__title">
+      <h1>{{ requestPageTitle }}</h1>
+      <button class="btn mv-toolbar-back mv-mobile-home-back" type="button" *ngIf="requestView === 'list'" (click)="goBack()">&larr; Torna indietro</button>
+      <button class="mv-toolbar-primary" type="button" *ngIf="requestView === 'list' && canRegisterOut" (click)="openNewProductRequest()">
+        <i class="fas fa-plus" aria-hidden="true"></i> Nuovo
+      </button>
+    </div>
+    <div class="mv-entity-toolbar__controls" *ngIf="requestView === 'list'; else requestBackControls">
+      <label class="request-search-field">
+        <span class="visually-hidden">Cerca richiesta</span>
+        <i class="fas fa-search" aria-hidden="true"></i>
+        <input class="form-control" type="search" [(ngModel)]="requestSearch" placeholder="ID, richiedente, prodotto o stato" />
+      </label>
+      <span class="mv-entity-toolbar__count">{{ filteredProductRequests.length }} / {{ productRequests.length }}</span>
+      <button class="btn btn-light" type="button" (click)="toggleRequestArchive()">
+        {{ showArchivedRequests ? 'Nascondi archivio' : 'Mostra archivio' }}
+      </button>
+    </div>
+    <ng-template #requestBackControls>
+      <div class="mv-entity-toolbar__controls">
+        <button class="mv-toolbar-back" type="button" (click)="closeProductRequestView()">&larr; Torna indietro</button>
+      </div>
+    </ng-template>
+  </header>
+
+  <div class="summary-grid" *ngIf="activeTab === 'list' && productView === 'list' && canView && !showArchivedProducts">
     <button class="summary-tile" type="button" (click)="applySummaryFilter('all')" [class.active]="activeSummaryFilter === 'all'">
       <span>Prodotti</span>
       <strong>{{ summary.totalProducts }}</strong>
@@ -68,7 +96,7 @@
   <div class="alert alert-success" *ngIf="message">{{ message }}</div>
   <div class="alert alert-danger" *ngIf="error">{{ error }}</div>
 
-  <section class="mobile-quick-panel" *ngIf="isSimpleMobileMode && activeTab === 'list' && canView">
+  <section class="mobile-quick-panel" *ngIf="isSimpleMobileMode && activeTab === 'list' && productView === 'list' && canView && !showArchivedProducts">
     <button class="mobile-quick-action primary" type="button" (click)="quickStartMovement('out')" *ngIf="canRegisterOut">
       <i class="fas fa-arrow-up"></i>
       <span>Uscita</span>
@@ -95,7 +123,7 @@
     </button>
   </section>
 
-  <div class="quick-grid" *ngIf="activeTab === 'list' && canView">
+  <div class="quick-grid" *ngIf="activeTab === 'list' && productView === 'list' && canView && !showArchivedProducts">
     <section class="quick-panel">
       <h4>Da riordinare</h4>
       <div *ngIf="!summary.lowStockProducts.length" class="muted-line">Nessun prodotto sotto soglia.</div>
@@ -114,61 +142,181 @@
     </section>
   </div>
 
-  <section class="panel requests-panel" *ngIf="activeTab === 'requests' && canView">
-    <div class="section-head requests-head">
-      <div>
-        <span class="section-kicker">Coda operativa</span>
-        <h4>Richieste prodotti</h4>
-        <p>Prepara solo il materiale richiesto dai dipendenti. Apri una richiesta e registra l'uscita con barcode.</p>
-      </div>
-      <button class="btn btn-outline-dark" type="button" (click)="loadProductRequests()">
-        <i class="fas fa-refresh me-1"></i> Aggiorna
-      </button>
+  <section class="request-list-page" *ngIf="activeTab === 'requests' && canView && requestView === 'list'">
+    <div class="request-list-summary">
+      <span>{{ showArchivedRequests ? 'Richieste concluse o annullate' : 'Richieste da gestire' }}</span>
+      <button class="btn btn-outline-secondary" type="button" (click)="loadProductRequests()"><i class="fas fa-rotate"></i> Aggiorna</button>
     </div>
 
-    <div class="request-insight-grid" *ngIf="productRequests.length">
-      <div class="request-insight primary">
-        <span>Richieste in attesa</span>
-        <strong>{{ productRequests.length }}</strong>
-      </div>
-      <div class="request-insight">
-        <span>Dipendenti</span>
-        <strong>{{ pendingRequestEmployeesCount }}</strong>
-      </div>
-      <div class="request-insight">
-        <span>Pezzi da preparare</span>
-        <strong>{{ pendingRequestQuantityTotal }}</strong>
-      </div>
-      <div class="request-insight" *ngIf="oldestPendingRequest as oldestRequest">
-        <span>Prima richiesta</span>
-        <strong>{{ oldestRequest.createdAt | date : "dd/MM HH:mm" }}</strong>
-      </div>
+    <div class="requests-empty" *ngIf="!filteredProductRequests.length">
+      <i class="fas" [class.fa-check-circle]="!requestSearch" [class.fa-search]="requestSearch"></i>
+      <strong>{{ requestSearch ? 'Nessun risultato' : (showArchivedRequests ? 'Archivio vuoto' : 'Nessuna richiesta in attesa') }}</strong>
+      <span>{{ requestSearch ? 'Prova a modificare i termini della ricerca.' : 'Le richieste compariranno qui.' }}</span>
     </div>
 
-    <div class="requests-empty" *ngIf="!productRequests.length">
-      <i class="fas fa-check-circle"></i>
-      <strong>Nessuna richiesta in attesa</strong>
-      <span>Quando un dipendente richiede un prodotto, lo trovi qui.</span>
-    </div>
-
-    <div class="request-board" *ngIf="productRequests.length">
-      <article class="request-card" *ngFor="let request of productRequests">
-        <div class="request-quantity">
-          <strong>{{ requestItems(request).length }}</strong>
-          <span>{{ requestItems(request).length === 1 ? 'prodotto' : 'prodotti' }}</span>
-        </div>
-
-        <div class="request-main">
-          <div class="request-title-line">
-            <span class="category">{{ request.product?.category || 'Categoria' }}</span>
-            <span class="request-date">{{ request.createdAt | date : "dd/MM HH:mm" }}</span>
+    <div class="standard-request-list" *ngIf="filteredProductRequests.length">
+      <article class="standard-request-card" *ngFor="let request of filteredProductRequests">
+        <div class="standard-request-card__main">
+          <div class="standard-request-card__identity">
+            <span class="standard-request-id">{{ requestNumber(request) }}</span>
+            <strong>{{ requestRequesterLabel(request) }}</strong>
           </div>
-          <strong>{{ requestProductSummary(request) }}</strong>
+          <div class="standard-request-card__meta">
+            <span>{{ requestProductSummary(request) }}</span>
+            <span>{{ request.createdAt | date : "dd/MM/yyyy HH:mm" }}</span>
+          </div>
+          <div class="request-state-banner" [ngClass]="requestStatusClass(request.status)">
+            {{ requestStatusLabel(request.status) }}
+            <span *ngIf="request.adminNote">· {{ request.adminNote }}</span>
+          </div>
+        </div>
+        <div class="standard-request-card__actions">
+          <button class="request-profile-button action-with-tooltip" type="button" (click)="openProductRequest(request)" title="Scheda richiesta" aria-label="Scheda richiesta" data-tooltip="Scheda richiesta">
+            <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+          </button>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel request-create-page" *ngIf="activeTab === 'requests' && canView && requestView === 'new' && canRegisterOut">
+    <div class="section-head compact">
+      <div>
+        <span class="section-kicker">Inserimento da MVanager</span>
+        <h4>Dati della richiesta</h4>
+        <p>Seleziona un cliente, un dipendente oppure entrambi e indica i prodotti richiesti.</p>
+      </div>
+    </div>
+    <form class="manual-form movement-form admin-request-form" (ngSubmit)="createAdminRequest()">
+      <div class="field full request-reference-picker">
+        <label for="adminRequestCustomerSearch">Cliente richiedente</label>
+        <div class="request-reference-input" [class.selected]="!!adminRequestForm.customerId">
+          <i class="fas fa-search" aria-hidden="true"></i>
+          <input
+            id="adminRequestCustomerSearch"
+            class="form-control"
+            type="text"
+            name="adminRequestCustomerSearch"
+            [(ngModel)]="adminRequestSearch.customer"
+            (ngModelChange)="onAdminRequestSearchChange('customer')"
+            (focus)="openAdminRequestSearch('customer')"
+            (blur)="closeAdminRequestSearch('customer')"
+            placeholder="Cerca per nome, ragione sociale o numero cliente"
+            autocomplete="off"
+            role="combobox"
+            aria-autocomplete="list"
+            [attr.aria-expanded]="adminRequestSearchOpen.customer"
+          />
+          <button class="btn-close request-reference-clear" type="button" *ngIf="adminRequestSearch.customer" (mousedown)="$event.preventDefault()" (click)="clearAdminRequestReference('customer')" aria-label="Rimuovi cliente"></button>
+        </div>
+        <div class="request-reference-results list-group" *ngIf="adminRequestSearchOpen.customer">
+          <span class="list-group-item text-muted text-center" *ngIf="adminRequestSearchLoading.customer">Ricerca clienti...</span>
+          <button class="list-group-item list-group-item-action" type="button" *ngFor="let customer of adminRequestReferenceResults('customer'); trackBy: trackStableInteractiveItem" (mousedown)="$event.preventDefault()" (click)="selectAdminRequestCustomer(customer)">
+            <i class="fas fa-building me-2" aria-hidden="true"></i>
+            <span>{{ customerReferenceLabel(customer) }}</span>
+          </button>
+          <span class="list-group-item text-muted text-center" *ngIf="!adminRequestSearchLoading.customer && !adminRequestReferenceResults('customer').length">Nessun cliente trovato</span>
+        </div>
+      </div>
+      <div class="field full request-reference-picker">
+        <label for="adminRequestEmployeeSearch">Dipendente richiedente</label>
+        <div class="request-reference-input" [class.selected]="!!adminRequestForm.employeeId">
+          <i class="fas fa-search" aria-hidden="true"></i>
+          <input
+            id="adminRequestEmployeeSearch"
+            class="form-control"
+            type="text"
+            name="adminRequestEmployeeSearch"
+            [(ngModel)]="adminRequestSearch.employee"
+            (ngModelChange)="onAdminRequestSearchChange('employee')"
+            (focus)="openAdminRequestSearch('employee')"
+            (blur)="closeAdminRequestSearch('employee')"
+            placeholder="Cerca per nome, cognome o email"
+            autocomplete="off"
+            role="combobox"
+            aria-autocomplete="list"
+            [attr.aria-expanded]="adminRequestSearchOpen.employee"
+          />
+          <button class="btn-close request-reference-clear" type="button" *ngIf="adminRequestSearch.employee" (mousedown)="$event.preventDefault()" (click)="clearAdminRequestReference('employee')" aria-label="Rimuovi dipendente"></button>
+        </div>
+        <div class="request-reference-results list-group" *ngIf="adminRequestSearchOpen.employee">
+          <span class="list-group-item text-muted text-center" *ngIf="adminRequestSearchLoading.employee">Ricerca dipendenti...</span>
+          <button class="list-group-item list-group-item-action" type="button" *ngFor="let employee of adminRequestReferenceResults('employee'); trackBy: trackStableInteractiveItem" (mousedown)="$event.preventDefault()" (click)="selectAdminRequestEmployee(employee)">
+            <i class="fas fa-user me-2" aria-hidden="true"></i>
+            <span>{{ employeeReferenceLabel(employee) }}</span>
+          </button>
+          <span class="list-group-item text-muted text-center" *ngIf="!adminRequestSearchLoading.employee && !adminRequestReferenceResults('employee').length">Nessun dipendente trovato</span>
+        </div>
+        <small>È necessario selezionare almeno un cliente o un dipendente.</small>
+      </div>
+      <div class="request-item-list">
+        <div class="request-item" *ngFor="let line of adminRequestForm.items; let lineIndex = index">
+          <select class="form-select" [(ngModel)]="line.productId" [name]="'adminRequestProduct' + lineIndex" required>
+            <option [ngValue]="0">Seleziona prodotto</option>
+            <option *ngFor="let product of products" [ngValue]="product.id">
+              {{ product.name }} · disponibili {{ product.quantity }} {{ product.unit }}
+            </option>
+          </select>
+          <input class="form-control" type="number" [attr.min]="quantityMinForProduct(line.productId)" [attr.step]="quantityStepForProduct(line.productId)" [(ngModel)]="line.quantity" [name]="'adminRequestQuantity' + lineIndex" required />
+          <button class="btn btn-outline-danger" type="button" (click)="removeAdminRequestLine(lineIndex)">Rimuovi</button>
+        </div>
+      </div>
+      <button class="btn btn-outline-secondary" type="button" (click)="addAdminRequestLine()">Aggiungi prodotto</button>
+      <label class="field full">
+        <span>Note della richiesta</span>
+        <textarea class="form-control" rows="3" [(ngModel)]="adminRequestForm.note" name="adminRequestNote" placeholder="Indicazioni del richiedente o note per il magazziniere"></textarea>
+      </label>
+      <button class="btn btn-primary" type="submit" [disabled]="saving">
+        <i class="fas fa-clipboard-list me-1"></i>
+        {{ saving ? 'Salvataggio...' : 'Crea richiesta' }}
+      </button>
+    </form>
+  </section>
+
+  <section class="panel request-detail-page" *ngIf="activeTab === 'requests' && canView && requestView === 'detail' && selectedProductRequest as request">
+    <div class="request-detail-heading">
+      <div>
+        <span class="standard-request-id">{{ requestNumber(request) }}</span>
+        <h2>{{ requestRequesterLabel(request) }}</h2>
+        <p>Creata il {{ request.createdAt | date : "dd/MM/yyyy 'alle' HH:mm" }}</p>
+      </div>
+      <div class="request-state-banner" [ngClass]="requestStatusClass(request.status)">{{ requestStatusLabel(request.status) }}</div>
+    </div>
+
+    <div class="request-detail-grid">
+      <div class="request-detail-content">
+          <div class="request-title-line">
+            <strong>Prodotti richiesti</strong>
+            <span>{{ requestItems(request).length }} {{ requestItems(request).length === 1 ? 'voce' : 'voci' }}</span>
+          </div>
           <div class="request-meta">
-            <span><i class="fas fa-user"></i> {{ employeeLabel(request.employee) }}</span>
+            <span *ngIf="request.createdByAdminId"><i class="fas fa-headset"></i> Inserita da MVanager</span>
+            <span *ngIf="request.employeeId"><i class="fas fa-user"></i> {{ employeeReferenceLabelForRecord(request.employeeId, request.employee) }}</span>
             <span *ngIf="request.customerId">
-              <i class="fas fa-building"></i> {{ customerNameForRecord(request.customerId, request.customer) }}
+              <i class="fas fa-building"></i> {{ customerReferenceLabelForRecord(request.customerId, request.customer) }}
             </span>
+          </div>
+          <div class="cancel-reason-box" *ngIf="editingRequestAssignment">
+            <div class="assignment-grid">
+              <label class="field">
+                <span>Cliente richiedente</span>
+                <select class="form-select" [(ngModel)]="requestAssignmentForm.customerId" name="editRequestCustomer">
+                  <option value="">Nessun cliente</option>
+                  <option *ngFor="let customer of references.customers" [value]="customer.numeroCliente">{{ customerReferenceLabel(customer) }}</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Dipendente richiedente</span>
+                <select class="form-select" [(ngModel)]="requestAssignmentForm.employeeId" name="editRequestEmployee">
+                  <option [ngValue]="0">Nessun dipendente</option>
+                  <option *ngFor="let employee of references.employees" [ngValue]="employee.id">{{ employeeReferenceLabel(employee) }}</option>
+                </select>
+              </label>
+            </div>
+            <div class="cancel-reason-actions">
+              <button class="btn btn-dark" type="button" (click)="saveRequestAssignment(request)" [disabled]="saving">Salva richiedente</button>
+              <button class="btn btn-outline-secondary" type="button" (click)="editingRequestAssignment = false" [disabled]="saving">Annulla modifica</button>
+            </div>
           </div>
           <p class="request-note" *ngIf="request.note">{{ request.note }}</p>
           <div class="request-item-list">
@@ -181,19 +329,12 @@
                   · {{ requestStatusLabel(item.status) }}
                 </small>
               </span>
-              <button
-                class="btn btn-sm btn-outline-dark"
-                type="button"
-                (click)="prepareRequest(request, item)"
-                *ngIf="canRegisterOut && item.status === 'pending' && requestItemRemaining(item) > 0"
-              >
-                Prepara
-              </button>
             </div>
           </div>
+          <div class="request-admin-note" *ngIf="request.adminNote"><strong>Nota gestione</strong><p>{{ request.adminNote }}</p></div>
           <div class="cancel-reason-box" *ngIf="cancelRequestForm.requestId === request.id">
             <label class="field full">
-              <span>Motivo annullamento visibile al dipendente</span>
+              <span>{{ request.employeeId ? 'Motivo annullamento visibile al dipendente' : 'Motivo annullamento' }}</span>
               <textarea class="form-control" rows="3" [(ngModel)]="cancelRequestForm.reason" name="cancelReason{{ request.id }}" placeholder="Es. Prodotto non disponibile, sostituito con altro materiale..."></textarea>
             </label>
             <div class="cancel-reason-actions">
@@ -201,37 +342,334 @@
               <button class="btn btn-outline-secondary" type="button" (click)="clearCancelRequest()">Chiudi</button>
             </div>
           </div>
-        </div>
+      </div>
 
-        <div class="request-actions">
-          <span class="request-status">{{ requestStatusLabel(request.status) }}</span>
-          <button class="btn btn-dark" type="button" (click)="prepareRequest(request)" *ngIf="canRegisterOut">
-            <i class="fas fa-barcode me-1"></i> Prepara
+      <aside class="request-detail-actions">
+          <h3>Azioni</h3>
+          <button class="btn btn-outline-secondary" type="button" (click)="startRequestAssignmentEdit(request)" *ngIf="canRegisterOut && !editingRequestAssignment && (request.status === 'pending' || request.status === 'approved')">
+            <i class="fas fa-user-pen me-1"></i> Modifica richiedente
           </button>
-          <button class="btn btn-outline-danger" type="button" (click)="startCancelRequest(request)" *ngIf="canRegisterOut">
+          <button class="btn btn-dark" type="button" (click)="prepareMaterialRequest(request)" *ngIf="canRegisterOut && (request.status === 'pending' || request.status === 'approved')">
+            <i class="fas fa-boxes me-1"></i> Verifica disponibilità
+          </button>
+          <button class="btn btn-outline-danger" type="button" (click)="startCancelRequest(request)" *ngIf="canRegisterOut && (request.status === 'pending' || request.status === 'approved')">
             <i class="fas fa-times me-1"></i> Annulla
           </button>
+      </aside>
+    </div>
+  </section>
+
+  <section class="panel requests-panel" *ngIf="activeTab === 'material-orders' && canRegisterOut && materialOrderView === 'new'">
+    <form class="manual-form movement-form" (ngSubmit)="createMaterialOrder()">
+      <div class="movement-assignment">
+        <div class="assignment-grid">
+          <div class="field request-reference-picker" *ngFor="let picker of materialOrderReferencePickers">
+            <label [for]="'materialOrderReference-' + picker.kind">{{ picker.label }}</label>
+            <div class="request-reference-input" [class.selected]="!!materialOrderReferenceValue(picker.kind)">
+              <i class="fas fa-search" aria-hidden="true"></i>
+              <input
+                class="form-control"
+                type="text"
+                [id]="'materialOrderReference-' + picker.kind"
+                [name]="'materialOrderReference-' + picker.kind"
+                [(ngModel)]="materialOrderReferenceSearch[picker.kind]"
+                (ngModelChange)="onMaterialOrderReferenceSearchChange(picker.kind)"
+                (focus)="openMaterialOrderReference(picker.kind, $event)"
+                (blur)="closeMaterialOrderReference(picker.kind)"
+                (keydown)="handleMaterialOrderReferenceKeydown($event, picker.kind)"
+                [placeholder]="picker.placeholder"
+                [disabled]="isMaterialOrderReferenceDisabled(picker.kind)"
+                autocomplete="off"
+                role="combobox"
+                aria-autocomplete="list"
+                [attr.aria-expanded]="materialOrderReferenceOpen[picker.kind]"
+                [attr.aria-controls]="'material-order-' + picker.kind + '-results'"
+                [attr.aria-activedescendant]="materialOrderReferenceActiveIndex[picker.kind] >= 0 ? materialOrderReferenceOptionId(picker.kind, materialOrderReferenceActiveIndex[picker.kind]) : null"
+              />
+              <button
+                class="btn-close request-reference-clear"
+                type="button"
+                *ngIf="materialOrderReferenceSearch[picker.kind]"
+                (mousedown)="$event.preventDefault()"
+                (click)="clearMaterialOrderReference(picker.kind)"
+                [attr.aria-label]="'Rimuovi ' + picker.label.toLowerCase()"
+              ></button>
+            </div>
+            <div
+              class="request-reference-results list-group"
+              [id]="'material-order-' + picker.kind + '-results'"
+              role="listbox"
+              *ngIf="materialOrderReferenceOpen[picker.kind]"
+            >
+              <button
+                class="list-group-item list-group-item-action material-reference-empty-option"
+                type="button"
+                role="option"
+                (mousedown)="$event.preventDefault()"
+                (click)="clearMaterialOrderReference(picker.kind)"
+              >
+                <i class="fas fa-ban me-2" aria-hidden="true"></i>
+                {{ picker.kind === 'customer' ? 'Nessun cliente' : picker.kind === 'recipient' ? 'Nessun dipendente' : picker.kind === 'preparation' ? 'Preparazione a cura dell’ufficio' : 'Nessun incaricato' }}
+              </button>
+              <span class="list-group-item text-muted text-center" *ngIf="materialOrderReferenceLoading[picker.kind]">Ricerca in corso...</span>
+              <button
+                class="list-group-item list-group-item-action"
+                type="button"
+                role="option"
+                *ngFor="let item of materialOrderReferenceOptions(picker.kind); let optionIndex = index; trackBy: trackStableInteractiveItem"
+                [id]="materialOrderReferenceOptionId(picker.kind, optionIndex)"
+                [class.active]="materialOrderReferenceActiveIndex[picker.kind] === optionIndex"
+                [attr.aria-selected]="materialOrderReferenceActiveIndex[picker.kind] === optionIndex"
+                (mousedown)="$event.preventDefault()"
+                (click)="selectMaterialOrderReference(picker.kind, item)"
+              >
+                <i [class]="picker.kind === 'customer' ? 'fas fa-building me-2' : 'fas fa-user me-2'" aria-hidden="true"></i>
+                <span>{{ picker.kind === 'customer' ? customerReferenceLabel(item) : employeeReferenceLabel(item) }}</span>
+              </button>
+              <span class="list-group-item text-muted text-center" *ngIf="!materialOrderReferenceLoading[picker.kind] && !materialOrderReferenceOptions(picker.kind).length">
+                Nessun risultato trovato
+              </span>
+            </div>
+            <small *ngIf="picker.kind === 'preparation' && !materialOrderForm.preparationEmployeeId">Facoltativo: se non assegni un dipendente, l’ordine sarà preparato dall’ufficio.</small>
+            <small *ngIf="picker.kind === 'customer' && isMaterialOrderReferenceDisabled('customer')">Rimuovi il dipendente destinatario per scegliere un cliente.</small>
+            <small *ngIf="picker.kind === 'recipient' && isMaterialOrderReferenceDisabled('recipient')">Rimuovi il cliente destinatario per scegliere un dipendente.</small>
+          </div>
+          <label class="field">
+            <span>Modalità</span>
+            <select class="form-select" [(ngModel)]="materialOrderForm.deliveryMode" name="materialOrderDeliveryMode">
+              <option value="immediate">Ritiro/consegna immediata</option>
+              <option value="planned">Consegna pianificata</option>
+            </select>
+          </label>
+          <label class="field" *ngIf="materialOrderForm.deliveryMode === 'planned'">
+            <span>Inizio consegna</span>
+            <input class="form-control" type="datetime-local" [(ngModel)]="materialOrderForm.scheduledStart" name="materialOrderStart" (ngModelChange)="onMaterialOrderScheduledStartChange($event)" />
+          </label>
+          <label class="field" *ngIf="materialOrderForm.deliveryMode === 'planned'">
+            <span>Fine consegna</span>
+            <input class="form-control" type="datetime-local" [(ngModel)]="materialOrderForm.scheduledEnd" name="materialOrderEnd" />
+          </label>
+        </div>
+      </div>
+
+      <div class="assignment-grid" *ngIf="materialOrderFields.length">
+        <label class="field" *ngFor="let field of materialOrderFields">
+          <span>{{ field.label }}{{ field.required ? ' *' : '' }}</span>
+          <textarea *ngIf="field.type === 'textarea'" class="form-control" [(ngModel)]="materialOrderForm.fields[field.key]" [name]="'materialField_' + field.key"></textarea>
+          <select *ngIf="field.type === 'select'" class="form-select" [(ngModel)]="materialOrderForm.fields[field.key]" [name]="'materialField_' + field.key">
+            <option value="">Seleziona</option>
+            <option *ngFor="let option of (field.enumValues || '').split(',')" [value]="option.trim()">{{ option.trim() }}</option>
+          </select>
+          <input *ngIf="field.type !== 'textarea' && field.type !== 'select' && field.type !== 'boolean'" class="form-control"
+            [type]="field.type === 'datetime-local' ? 'datetime-local' : field.type"
+            [(ngModel)]="materialOrderForm.fields[field.key]" [name]="'materialField_' + field.key" />
+          <input *ngIf="field.type === 'boolean'" type="checkbox" [(ngModel)]="materialOrderForm.fields[field.key]" [name]="'materialField_' + field.key" />
+        </label>
+      </div>
+
+      <div class="request-item-list">
+        <div class="request-item" *ngFor="let line of materialOrderForm.items; let lineIndex = index">
+          <select class="form-select" [(ngModel)]="line.productId" [name]="'materialProduct' + lineIndex">
+            <option [ngValue]="0">Seleziona prodotto</option>
+            <option *ngFor="let product of products" [ngValue]="product.id">{{ product.name }} · disponibili {{ product.quantity }} {{ product.unit }}</option>
+          </select>
+          <input class="form-control" type="number" [attr.min]="quantityMinForProduct(line.productId)" [attr.step]="quantityStepForProduct(line.productId)" [(ngModel)]="line.quantity" [name]="'materialQuantity' + lineIndex" />
+          <input class="form-control" [(ngModel)]="line.note" [name]="'materialNote' + lineIndex" placeholder="Nota riga" />
+          <button class="btn btn-outline-danger" type="button" (click)="removeMaterialOrderLine(lineIndex)">Rimuovi</button>
+        </div>
+      </div>
+      <button class="btn btn-outline-secondary" type="button" (click)="addMaterialOrderLine()">Aggiungi prodotto</button>
+      <label class="field full">
+        <span>Note ordine</span>
+        <textarea class="form-control" [(ngModel)]="materialOrderForm.note" name="materialOrderNote"></textarea>
+      </label>
+      <div class="alert alert-info field full material-order-signature-notice" role="note">
+        <strong>Documento e firma obbligatori.</strong>
+        Alla consegna verrà generato il foglio riepilogativo, che dovrà essere firmato dal cliente o dal dipendente destinatario. In alternativa potrai registrare la firma sulla copia cartacea.
+      </div>
+      <button class="btn btn-dark" type="submit" [disabled]="saving">
+        {{ materialOrderSourceRequestId ? 'Approva e crea ordine materiali' : 'Crea ordine materiali' }}
+      </button>
+    </form>
+
+  </section>
+
+  <section class="request-list-page" *ngIf="activeTab === 'material-orders' && canRegisterOut && materialOrderView === 'list'">
+    <div class="request-list-summary">
+      <span><strong>Ordini materiali</strong> · {{ materialOrderStatusViewLabel }}</span>
+      <button class="btn btn-outline-secondary" type="button" (click)="loadMaterialOrders()"><i class="fas fa-rotate"></i> Aggiorna</button>
+    </div>
+    <div class="requests-empty" *ngIf="!filteredMaterialOrders.length">
+      <i class="fas fa-boxes-packing"></i><strong>Nessun ordine trovato</strong><span>Non ci sono ordini in “{{ materialOrderStatusViewLabel }}” per la ricerca corrente.</span>
+    </div>
+    <div class="request-board entity-card-list" *ngIf="filteredMaterialOrders.length">
+      <article class="request-card entity-list-card" *ngFor="let order of filteredMaterialOrders">
+        <div class="request-main">
+          <div class="request-title-line">
+            <strong class="entity-card-id">{{ order.displayId || order.numeroOrdine }}</strong>
+            <span class="request-status" [ngClass]="materialOrderStatusClass(order.status)">{{ materialOrderStatusLabel(order.status) }}</span>
+          </div>
+          <strong class="entity-card-name">{{ materialOrderRecipient(order) }}</strong>
+          <span><i class="fas fa-user-check"></i> Prepara: {{ materialOrderPreparationEmployee(order) }}</span>
+          <span>{{ (order.items || []).length }} prodotti · {{ order.createdAt | date : "dd/MM/yyyy HH:mm" }}</span>
+        </div>
+        <div class="request-actions">
+          <button class="entity-sheet-button" type="button" (click)="openMaterialOrderSheet(order)" title="Scheda ordine materiali"><i class="fas fa-clipboard-list"></i><span>Scheda ordine</span></button>
         </div>
       </article>
     </div>
   </section>
 
-  <section class="panel supplier-order-panel" *ngIf="activeTab === 'orders' && canView && (canRegisterIn || canManageProducts)">
-    <div class="section-head order-head">
-      <div>
-        <span class="section-kicker">Riordino</span>
-        <h4>Ordini fornitori</h4>
-        <p>Seleziona un fornitore, scegli i prodotti e invia la richiesta via email.</p>
-      </div>
-      <div class="product-directory-actions">
-        <button class="btn btn-outline-dark" type="button" (click)="loadSuppliers()">
-          <i class="fas fa-refresh me-1"></i> Fornitori
+  <section class="panel request-detail-page" *ngIf="activeTab === 'material-orders' && canRegisterOut && materialOrderView === 'detail' && selectedMaterialOrder as order">
+    <div class="request-detail-grid">
+      <article class="request-detail-card">
+        <span class="section-kicker">{{ order.displayId || order.numeroOrdine }}</span>
+        <h3>{{ materialOrderRecipient(order) }}</h3>
+        <p><strong>Addetto alla preparazione:</strong> {{ materialOrderPreparationEmployee(order) }}</p>
+        <p><strong>Incaricato della consegna:</strong> {{ materialOrderDeliveryEmployee(order) }}</p>
+        <p>
+          <strong>Modalità di consegna:</strong>
+          {{ order.deliveryMode === 'planned' ? 'Consegna pianificata' : 'Ritiro/consegna immediata' }}
+          <span *ngIf="order.deliveryMode === 'planned' && order.scheduledStart">
+            · {{ order.scheduledStart | date:'dd/MM/yyyy HH:mm' }}<ng-container *ngIf="order.scheduledEnd"> – {{ order.scheduledEnd | date:'dd/MM/yyyy HH:mm' }}</ng-container>
+          </span>
+        </p>
+        <span class="request-status" [ngClass]="materialOrderStatusClass(order.status)">{{ materialOrderStatusLabel(order.status) }}</span>
+        <p *ngIf="order.note">{{ order.note }}</p>
+        <div class="cancel-reason-box" *ngIf="editingMaterialOrderAssignment">
+          <div class="assignment-grid">
+            <label class="field" *ngIf="!order.customerId">
+              <span>Dipendente destinatario</span>
+              <select class="form-select" [(ngModel)]="materialOrderAssignmentForm.recipientEmployeeId" name="editMaterialRecipient">
+                <option [ngValue]="0">Nessun dipendente</option>
+                <option *ngFor="let employee of references.employees" [ngValue]="employee.id">{{ employeeReferenceLabel(employee) }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Addetto alla preparazione</span>
+              <select class="form-select" [(ngModel)]="materialOrderAssignmentForm.preparationEmployeeId" name="editMaterialPreparation">
+                <option [ngValue]="0">Preparazione a cura dell’ufficio</option>
+                <option *ngFor="let employee of preparationEmployees" [ngValue]="employee.id">{{ employeeReferenceLabel(employee) }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Incaricato della consegna</span>
+              <select class="form-select" [(ngModel)]="materialOrderAssignmentForm.deliveryEmployeeId" name="editMaterialDelivery">
+                <option [ngValue]="0">Nessun incaricato</option>
+                <option *ngFor="let employee of references.employees" [ngValue]="employee.id">{{ employeeReferenceLabel(employee) }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Modalità di consegna</span>
+              <select class="form-select" [(ngModel)]="materialOrderAssignmentForm.deliveryMode" name="editMaterialDeliveryMode">
+                <option value="immediate">Ritiro/consegna immediata</option>
+                <option value="planned">Consegna pianificata</option>
+              </select>
+            </label>
+            <label class="field" *ngIf="materialOrderAssignmentForm.deliveryMode === 'planned'">
+              <span>Inizio consegna</span>
+              <input class="form-control" type="datetime-local" [(ngModel)]="materialOrderAssignmentForm.scheduledStart" name="editMaterialScheduledStart" (ngModelChange)="onMaterialOrderAssignmentScheduledStartChange($event)" />
+            </label>
+            <label class="field" *ngIf="materialOrderAssignmentForm.deliveryMode === 'planned'">
+              <span>Fine consegna</span>
+              <input class="form-control" type="datetime-local" [(ngModel)]="materialOrderAssignmentForm.scheduledEnd" name="editMaterialScheduledEnd" />
+            </label>
+          </div>
+          <div class="cancel-reason-actions">
+            <button class="btn btn-dark" type="button" (click)="saveMaterialOrderAssignment(order)" [disabled]="saving">Salva assegnazione</button>
+            <button class="btn btn-outline-secondary" type="button" (click)="editingMaterialOrderAssignment = false" [disabled]="saving">Annulla modifica</button>
+          </div>
+        </div>
+        <div class="request-detail-items">
+          <div class="request-detail-item" *ngFor="let item of order.items">
+            <span><strong>{{ item.product?.name || ('Prodotto #' + item.productId) }}</strong><small>{{ item.note || 'Nessuna nota' }}</small></span>
+            <strong>
+              Preparati {{ item.preparedQuantity || 0 }} / {{ item.requestedQuantity }} {{ item.product?.unit || '' }}
+              <small *ngIf="item.deliveredQuantity">Usciti {{ item.deliveredQuantity }} {{ item.product?.unit || '' }}</small>
+            </strong>
+          </div>
+        </div>
+        <div class="request-detail-items" *ngIf="order.deliveries?.length">
+          <div class="request-detail-item" *ngFor="let delivery of order.deliveries">
+            <span><strong>{{ delivery.numeroConsegna }}</strong><small>Documento di uscita · {{ delivery.status }}</small></span>
+            <div class="delivery-document-actions" *ngIf="delivery.documentPath">
+              <button class="btn btn-outline-secondary" type="button" (click)="materialDeliveryPdf(delivery, 'open')">Apri documento</button>
+              <button class="btn btn-outline-secondary" type="button" (click)="materialDeliveryPdf(delivery, 'print')" *ngIf="delivery.status !== 'accepted'">Stampa per firma</button>
+              <button class="btn btn-outline-secondary" type="button" (click)="materialDeliveryPdf(delivery, 'download')">Scarica</button>
+              <button class="btn btn-outline-dark" type="button" (click)="requestMaterialDeliverySignature(delivery, order)" *ngIf="delivery.status !== 'accepted'">Firma digitale destinatario</button>
+              <button class="btn btn-outline-dark" type="button" (click)="startPaperMaterialDeliverySignature(delivery, paperSignatureInput)" *ngIf="delivery.status !== 'accepted'">Copia cartacea firmata</button>
+              <input #paperSignatureInput type="file" accept="application/pdf,.pdf,image/jpeg,image/png,.jpg,.jpeg,.png" hidden (change)="registerPaperMaterialDeliverySignature(delivery, $event)" />
+              <button class="btn btn-outline-secondary" type="button" (click)="showMaterialDeliverySignatureEvidence(delivery)" *ngIf="delivery.status === 'accepted'">Dati prova firma</button>
+            </div>
+          </div>
+        </div>
+      </article>
+      <aside class="request-detail-actions">
+        <button class="btn btn-outline-secondary" type="button" (click)="startMaterialOrderAssignmentEdit(order)" *ngIf="!editingMaterialOrderAssignment && (order.status === 'approved' || order.status === 'preparing' || order.status === 'prepared')">
+          <i class="fas fa-user-pen me-1"></i> Modifica assegnazione e consegna
         </button>
-        <button class="btn btn-dark" type="button" (click)="loadOrderProducts()" [disabled]="!orderFilters.supplierId">
-          <i class="fas fa-filter me-1"></i> Prodotti
+        <button class="btn btn-outline-secondary" type="button" (click)="materialPreparationPdf(order, 'open')" *ngIf="materialOrderConfig.preparationDocumentEnabled !== false">Apri preparazione</button>
+        <button class="btn btn-outline-secondary" type="button" (click)="materialPreparationPdf(order, 'download')" *ngIf="materialOrderConfig.preparationDocumentEnabled !== false">Scarica PDF</button>
+        <button class="btn btn-outline-secondary" type="button" (click)="materialPreparationPdf(order, 'print')" *ngIf="materialOrderConfig.preparationDocumentEnabled !== false">Stampa</button>
+        <button class="btn btn-dark" type="button" (click)="markMaterialOrderPrepared(order)" *ngIf="canMarkMaterialOrderPrepared(order)" [disabled]="saving">
+          <i class="fas fa-check me-1"></i> Segna come preparato
         </button>
-      </div>
+        <button class="btn btn-dark" type="button" (click)="deliverMaterialOrder(order)" *ngIf="canDeliverMaterialOrder(order)">
+          {{ order.status === 'partially_delivered' ? 'Segna il residuo come consegnato' : 'Segna come consegnato' }}
+        </button>
+      </aside>
     </div>
+  </section>
+
+  <section class="request-list-page" *ngIf="activeTab === 'orders' && supplierOrderView === 'list' && canView && (canRegisterIn || canManageProducts)">
+    <div class="request-list-summary">
+      <span>{{ showArchivedSupplierOrders ? 'Ordini fornitori completati o annullati' : 'Ordini inviati ai fornitori' }}</span>
+      <button class="btn btn-outline-secondary" type="button" (click)="loadSupplierOrders()"><i class="fas fa-rotate"></i> Aggiorna</button>
+    </div>
+    <div class="requests-empty" *ngIf="!filteredSupplierOrders.length">
+      <i class="fas fa-truck"></i><strong>Nessun ordine trovato</strong><span>Modifica la ricerca oppure prepara un nuovo ordine fornitore.</span>
+    </div>
+    <div class="request-board entity-card-list" *ngIf="filteredSupplierOrders.length">
+      <article class="request-card entity-list-card" *ngFor="let order of filteredSupplierOrders">
+        <div class="request-main">
+          <div class="request-title-line">
+            <strong class="entity-card-id">{{ order.numeroOrdine || ('FOR-' + order.id) }}</strong>
+            <span class="request-status" [ngClass]="supplierOrderStatusClass(order.status)">{{ supplierOrderStatusLabel(order.status) }}</span>
+          </div>
+          <strong class="entity-card-name">{{ order.supplier?.name || 'Fornitore' }}</strong>
+          <span>{{ order.items.length }} prodotti · inviato il {{ order.sentAt | date : "dd/MM/yyyy HH:mm" }}</span>
+        </div>
+        <div class="request-actions">
+          <button class="entity-sheet-button" type="button" (click)="openSupplierOrderSheet(order)" title="Scheda ordine fornitore"><i class="fas fa-file-invoice"></i><span>Scheda ordine</span></button>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel request-detail-page" *ngIf="activeTab === 'orders' && supplierOrderView === 'detail' && selectedSupplierOrder as order">
+    <div class="request-detail-grid">
+      <article class="request-detail-card">
+        <span class="section-kicker">{{ order.numeroOrdine }}</span>
+        <h3>{{ order.supplier?.name || 'Fornitore' }}</h3>
+        <span class="request-status" [ngClass]="supplierOrderStatusClass(order.status)">{{ supplierOrderStatusLabel(order.status) }}</span>
+        <p>{{ order.recipient }} · {{ order.sentAt | date : "dd/MM/yyyy HH:mm" }}</p>
+        <p *ngIf="order.message">{{ order.message }}</p>
+        <div class="request-detail-items">
+          <div class="request-detail-item" *ngFor="let item of order.items">
+            <span><strong>{{ item.product.name || 'Prodotto' }}</strong><small>{{ item.note || 'Nessuna nota' }}</small></span>
+            <strong>{{ item.quantity }} {{ item.product.unit || '' }}</strong>
+          </div>
+        </div>
+      </article>
+      <aside class="request-detail-actions">
+        <button class="btn btn-success" type="button" (click)="updateSupplierOrderStatus(order, 'completed')" *ngIf="order.status === 'sent'">Segna completato</button>
+        <button class="btn btn-outline-danger" type="button" (click)="updateSupplierOrderStatus(order, 'cancelled')" *ngIf="order.status === 'sent'">Annulla ordine</button>
+        <button class="btn btn-outline-secondary" type="button" (click)="updateSupplierOrderStatus(order, 'sent')" *ngIf="order.status !== 'sent'">Ripristina tra gli attivi</button>
+      </aside>
+    </div>
+  </section>
+
+  <section class="panel supplier-order-panel" *ngIf="activeTab === 'orders' && supplierOrderView === 'new' && canView && (canRegisterIn || canManageProducts)">
 
     <div class="supplier-order-layout">
       <aside class="supplier-directory">
@@ -322,7 +760,7 @@
               </label>
               <label class="field order-quantity">
                 <span>Quantità</span>
-                <input class="form-control" type="number" min="0.001" [attr.step]="quantityStep(product.unit)" [(ngModel)]="orderQuantities[product.id]" />
+                <input class="form-control" type="number" min="1" step="1" [(ngModel)]="orderQuantities[product.id]" />
               </label>
               <label class="field order-note">
                 <span>Nota riga</span>
@@ -408,23 +846,7 @@
     </details>
   </section>
 
-  <section class="panel product-directory" *ngIf="activeTab === 'list' && canView">
-    <div class="section-head product-directory-head">
-      <div>
-        <span class="section-kicker">Inventario</span>
-        <h4>Lista prodotti</h4>
-        <p>{{ products.length }} prodotti visualizzati. Cerca, controlla scorte e apri lo storico con un click.</p>
-      </div>
-      <div class="product-directory-actions">
-        <button class="btn btn-outline-dark" type="button" (click)="loadProducts()">
-          <i class="fas fa-refresh me-1"></i> Aggiorna
-        </button>
-        <button class="btn btn-dark" type="button" (click)="setTab('products')" *ngIf="canManageProducts">
-          <i class="fas fa-plus me-1"></i> Nuovo prodotto
-        </button>
-      </div>
-    </div>
-
+  <section class="panel product-directory" *ngIf="activeTab === 'list' && productView === 'list' && canView">
     <div class="product-filters">
       <label class="filter-field filter-field-wide">
         <span>Cerca prodotto</span>
@@ -496,7 +918,7 @@
         [class.out-stock]="product.isOutOfStock"
         [class.selected]="selectedProduct?.id === product.id"
       >
-        <button class="product-card-main" type="button" (click)="selectProduct(product)">
+        <button class="product-card-main" type="button" (click)="openProductSheet(product)">
           <span class="product-image">
             <img *ngIf="product.photoUrl" [src]="productImageUrl(product)" [alt]="product.name" />
             <i *ngIf="!product.photoUrl" class="fas fa-box-open"></i>
@@ -523,9 +945,10 @@
             <span>Soglia</span>
             <strong>{{ product.minimumQuantity || 0 }}</strong>
           </div>
-          <span class="stock-badge out" *ngIf="product.isOutOfStock">Esaurito</span>
-          <span class="stock-badge low" *ngIf="!product.isOutOfStock && product.isLowStock">Sotto scorta</span>
-          <span class="stock-badge ok" *ngIf="!product.isOutOfStock && !product.isLowStock">Disponibile</span>
+          <span class="stock-badge out" *ngIf="!product.active">Archiviato</span>
+          <span class="stock-badge out" *ngIf="product.active && product.isOutOfStock">Esaurito</span>
+          <span class="stock-badge low" *ngIf="product.active && !product.isOutOfStock && product.isLowStock">Sotto scorta</span>
+          <span class="stock-badge ok" *ngIf="product.active && !product.isOutOfStock && !product.isLowStock">Disponibile</span>
         </div>
 
         <div class="supplier-line" *ngIf="supplierDisplayName(product) || product.supplierCode || product.indicativePrice !== null">
@@ -535,11 +958,17 @@
         </div>
 
         <div class="product-card-actions" *ngIf="canManageProducts || canRegisterIn">
+          <button class="icon-action sheet" type="button" (click)="openProductSheet(product)" title="Scheda prodotto">
+            <i class="fas fa-clipboard-list"></i>
+          </button>
           <button class="icon-action order" type="button" (click)="openOrderForProduct(product)" title="Prepara ordine fornitore" *ngIf="canRegisterIn || canManageProducts">
             <i class="fas fa-paper-plane"></i>
           </button>
           <button class="icon-action favorite" type="button" (click)="toggleFavorite(product)" [class.is-active]="product.favorite" [title]="product.favorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'" *ngIf="canManageProducts">
             <i class="fas fa-star"></i>
+          </button>
+          <button class="icon-action" type="button" (click)="printSingleProductLabel(product)" title="Stampa etichetta" *ngIf="canManageProducts">
+            <i class="fas fa-print"></i>
           </button>
           <button class="icon-action" type="button" (click)="editProduct(product)" title="Modifica" *ngIf="canManageProducts">
             <i class="fas fa-pen"></i>
@@ -551,33 +980,33 @@
       </article>
     </div>
 
-    <aside class="history-panel product-history" *ngIf="selectedProduct">
-      <div class="history-head">
-        <div>
-          <span class="section-kicker">Storico prodotto</span>
-          <h5>{{ selectedProduct.name }}</h5>
-          <p>{{ selectedProduct.quantity }} {{ selectedProduct.unit }} disponibili · soglia {{ selectedProduct.minimumQuantity }}</p>
-        </div>
-        <button class="btn btn-outline-secondary btn-sm" type="button" (click)="selectedProduct = null">
-          Chiudi
-        </button>
+  </section>
+
+  <section class="panel product-sheet-page" *ngIf="activeTab === 'list' && productView === 'detail' && selectedProduct as product">
+    <div class="product-sheet-hero">
+      <span class="product-image large"><img *ngIf="product.photoUrl" [src]="productImageUrl(product)" [alt]="product.name" /><i *ngIf="!product.photoUrl" class="fas fa-box-open"></i></span>
+      <div><span class="section-kicker">PROD-{{ product.id | number : '3.0-0' }}</span><h3>{{ product.name }}</h3><p>{{ product.description || 'Nessuna descrizione' }}</p><span class="barcode-pill"><i class="fas fa-barcode"></i> {{ product.barcode }}</span></div>
+      <span class="request-status" [ngClass]="!product.active || product.isOutOfStock ? 'danger' : product.isLowStock ? 'warning' : 'success'">{{ !product.active ? 'Archiviato' : product.isOutOfStock ? 'Esaurito' : product.isLowStock ? 'Sotto scorta' : 'Disponibile' }}</span>
+    </div>
+    <div class="product-sheet-facts">
+      <div><span>Giacenza</span><strong>{{ product.quantity }} {{ product.unit }}</strong></div>
+      <div><span>Soglia minima</span><strong>{{ product.minimumQuantity }}</strong></div>
+      <div><span>Categoria</span><strong>{{ product.category }}</strong></div>
+      <div><span>Fornitore</span><strong>{{ supplierDisplayName(product) || 'Non indicato' }}</strong></div>
+    </div>
+    <div class="product-sheet-actions">
+      <button class="btn btn-outline-primary" type="button" (click)="editProduct(product)" *ngIf="canManageProducts">Modifica prodotto</button>
+      <button class="btn btn-outline-dark" type="button" (click)="printSingleProductLabel(product)" *ngIf="canManageProducts"><i class="fas fa-print me-1"></i> Stampa etichetta</button>
+      <button class="btn btn-outline-dark" type="button" (click)="openOrderForProduct(product)" *ngIf="canRegisterIn || canManageProducts">Prepara ordine fornitore</button>
+      <button class="btn btn-outline-danger" type="button" (click)="deleteProduct(product)" *ngIf="canManageProducts && product.active">Archivia</button>
+      <button class="btn btn-outline-secondary" type="button" (click)="restoreProduct(product)" *ngIf="canManageProducts && !product.active">Ripristina prodotto</button>
+    </div>
+    <aside class="history-panel product-history">
+      <div class="history-head"><div><span class="section-kicker">Storico prodotto</span><h5>Movimenti</h5></div></div>
+      <div class="movement-list compact" *ngIf="canHistory && selectedMovements.length; else noProductMovements">
+        <div class="movement" *ngFor="let movement of selectedMovements"><strong>{{ movement.type === 'in' ? 'Entrata' : movement.type === 'out' ? 'Uscita' : 'Rettifica' }}</strong><span>{{ movement.quantity }} · {{ movement.previousQuantity }} → {{ movement.newQuantity }}<em *ngIf="movement.reason"> · {{ movement.reason }}</em><em> · {{ movementTargetLabel(movement) }}</em></span><small *ngIf="movement.note">Nota: {{ movement.note }}</small><small>{{ movement.createdAt | date : "dd/MM/yyyy HH:mm" }} · {{ movement.actorEmail || 'utente' }}</small></div>
       </div>
-      <div class="movement-list compact" *ngIf="canHistory && selectedMovements.length; else noMovements">
-        <div class="movement" *ngFor="let movement of selectedMovements">
-          <strong>{{ movement.type === 'in' ? 'Entrata' : movement.type === 'out' ? 'Uscita' : 'Rettifica' }}</strong>
-          <span>
-            {{ movement.quantity }} · {{ movement.previousQuantity }} → {{ movement.newQuantity }}
-            <em *ngIf="movement.reason"> · {{ movement.reason }}</em>
-            <em> · {{ movementTargetLabel(movement) }}</em>
-            <em *ngIf="movement.totalCost !== null && movement.totalCost !== undefined"> · € {{ movement.totalCost }}</em>
-          </span>
-          <small *ngIf="movement.note">Nota: {{ movement.note }}</small>
-          <small>{{ movement.createdAt | date : "dd/MM/yyyy HH:mm" }} · {{ movement.actorEmail || 'utente' }}</small>
-        </div>
-      </div>
-      <ng-template #noMovements>
-        <p class="text-muted mb-0">{{ canHistory ? 'Nessun movimento registrato.' : 'Storico disponibile solo con permesso dedicato.' }}</p>
-      </ng-template>
+      <ng-template #noProductMovements><p class="text-muted mb-0">{{ canHistory ? 'Nessun movimento registrato.' : 'Storico disponibile solo con permesso dedicato.' }}</p></ng-template>
     </aside>
   </section>
 
@@ -595,7 +1024,7 @@
           <strong>{{ preparingRequestItem?.product?.name || requestProductSummary(preparingRequest) }}</strong>
           <span>
             Da prendere ora: {{ preparingRequestItem ? requestItemRemaining(preparingRequestItem) : preparingRequest.quantity }} {{ preparingRequestItem?.product?.unit || preparingRequest.product?.unit || '' }}
-            · {{ employeeLabel(preparingRequest.employee) }}
+            · {{ employeeReferenceLabelForRecord(preparingRequest.employeeId, preparingRequest.employee) }}
             <ng-container *ngIf="preparingRequest.customerId"> · cliente {{ customerNameForRecord(preparingRequest.customerId, preparingRequest.customer) }}</ng-container>
           </span>
         </div>
@@ -637,7 +1066,7 @@
       <div class="movement-fields">
         <label class="field">
           <span>Quantità</span>
-          <input class="form-control" type="number" min="0.001" step="0.001" [(ngModel)]="manualMovement.quantity" name="movementQuantity" placeholder="Quantità" />
+          <input class="form-control" type="number" [attr.min]="quantityMinForBarcode(manualMovement.barcode)" [attr.step]="quantityStepForBarcode(manualMovement.barcode)" [(ngModel)]="manualMovement.quantity" name="movementQuantity" placeholder="Quantità" />
         </label>
         <label class="field" *ngIf="!isSimpleMobileMode || movementDetailsOpen">
           <span>Motivo</span>
@@ -666,26 +1095,7 @@
           <strong>Destinazione uscita</strong>
         </div>
 
-        <label class="field full" *ngIf="isServiceOrderFlowEnabled">
-          <span>Ordine di servizio{{ requiresServiceOrderForOutput ? ' *' : '' }}</span>
-          <select
-            class="form-select"
-            [(ngModel)]="manualMovement.serviceOrderId"
-            name="movementServiceOrder"
-            (ngModelChange)="onMovementServiceOrderChange()"
-            [required]="requiresServiceOrderForOutput"
-          >
-            <option [ngValue]="0">Nessun ordine di servizio</option>
-            <option *ngFor="let order of references.serviceOrders" [ngValue]="order.id">
-              {{ serviceOrderLabel(order) }}
-            </option>
-          </select>
-          <small *ngIf="warehouseConfig.serviceOrderFlow.documentEnabled">
-            Genera riferimento per {{ serviceOrderDocumentLabel }}.
-          </small>
-        </label>
-
-        <div class="assignment-grid" *ngIf="!isSimpleMobileMode || movementDetailsOpen || !isServiceOrderFlowEnabled">
+        <div class="assignment-grid" *ngIf="!isSimpleMobileMode || movementDetailsOpen">
           <div class="assignment-column">
             <label class="field">
               <span>Cliente</span>
@@ -693,12 +1103,12 @@
             </label>
             <div class="quick-pick" *ngIf="quickReferenceResults('customer').length && referenceSearch.customer">
               <button type="button" *ngFor="let customer of quickReferenceResults('customer'); trackBy: trackStableInteractiveItem" (click)="selectMovementCustomer(customer)">
-                {{ customerLabel(customer) }}
+                {{ customerReferenceLabel(customer) }}
               </button>
             </div>
             <select class="form-select" [(ngModel)]="manualMovement.customerId" name="movementCustomer">
               <option value="">Nessun cliente</option>
-              <option *ngFor="let customer of references.customers" [value]="customer.numeroCliente">{{ customerLabel(customer) }}</option>
+              <option *ngFor="let customer of references.customers" [value]="customer.numeroCliente">{{ customerReferenceLabel(customer) }}</option>
             </select>
           </div>
 
@@ -709,12 +1119,12 @@
             </label>
             <div class="quick-pick" *ngIf="quickReferenceResults('employee').length && referenceSearch.employee">
               <button type="button" *ngFor="let employee of quickReferenceResults('employee'); trackBy: trackStableInteractiveItem" (click)="selectMovementEmployee(employee)">
-                {{ employeeLabel(employee) }}
+                {{ employeeReferenceLabel(employee) }}
               </button>
             </div>
             <select class="form-select" [(ngModel)]="manualMovement.employeeId" name="movementEmployee">
               <option [ngValue]="0">Nessun dipendente</option>
-              <option *ngFor="let employee of references.employees" [ngValue]="employee.id">{{ employeeLabel(employee) }}</option>
+              <option *ngFor="let employee of references.employees" [ngValue]="employee.id">{{ employeeReferenceLabel(employee) }}</option>
             </select>
           </div>
         </div>
@@ -774,12 +1184,12 @@
           </label>
           <div class="quick-pick" *ngIf="quickReferenceResults('employee').length && referenceSearch.employee">
             <button type="button" *ngFor="let employee of quickReferenceResults('employee'); trackBy: trackStableInteractiveItem" (click)="selectReportEmployee(employee)">
-              {{ employeeLabel(employee) }}
+              {{ employeeReferenceLabel(employee) }}
             </button>
           </div>
           <select class="form-select" [(ngModel)]="movementFilters.employeeId">
             <option [ngValue]="0">Tutti i dipendenti</option>
-            <option *ngFor="let employee of references.employees" [ngValue]="employee.id">{{ employeeLabel(employee) }}</option>
+            <option *ngFor="let employee of references.employees" [ngValue]="employee.id">{{ employeeReferenceLabel(employee) }}</option>
           </select>
         </div>
 
@@ -790,12 +1200,12 @@
           </label>
           <div class="quick-pick" *ngIf="quickReferenceResults('customer').length && referenceSearch.customer">
             <button type="button" *ngFor="let customer of quickReferenceResults('customer'); trackBy: trackStableInteractiveItem" (click)="selectReportCustomer(customer)">
-              {{ customerLabel(customer) }}
+              {{ customerReferenceLabel(customer) }}
             </button>
           </div>
           <select class="form-select" [(ngModel)]="movementFilters.customerId">
             <option value="">Tutti i clienti</option>
-            <option *ngFor="let customer of references.customers" [value]="customer.numeroCliente">{{ customerLabel(customer) }}</option>
+            <option *ngFor="let customer of references.customers" [value]="customer.numeroCliente">{{ customerReferenceLabel(customer) }}</option>
           </select>
         </div>
 
@@ -905,6 +1315,14 @@
         </label>
         <div class="form-actions">
           <button class="btn btn-dark" type="submit" [disabled]="saving">Salva prodotto</button>
+          <button
+            class="btn btn-outline-primary"
+            type="button"
+            *ngIf="productForm.id"
+            [disabled]="!canPrintCurrentProductLabel"
+            (click)="printCurrentProductLabel()"
+            [title]="canPrintCurrentProductLabel ? 'Stampa una copia dell’etichetta con nome e barcode' : 'Salva prima le modifiche'"
+          ><i class="fas fa-print me-1"></i> Stampa etichetta</button>
           <button class="btn btn-outline-secondary" type="button" (click)="resetProductForm()">Pulisci</button>
         </div>
       </form>
@@ -918,11 +1336,11 @@
         </div>
         <label class="field">
           <span>Soglia minima</span>
-          <input class="form-control" type="number" min="0" [attr.step]="quantityStep(productForm.unit)" [(ngModel)]="productForm.minimumQuantity" name="minimumQuantity" placeholder="Avvisa quando la giacenza scende sotto questo valore" />
+          <input class="form-control" type="number" min="0" step="1" [(ngModel)]="productForm.minimumQuantity" name="minimumQuantity" placeholder="Avvisa quando la giacenza scende sotto questo valore" />
         </label>
         <label class="field">
           <span>Giacenza iniziale</span>
-          <input class="form-control" type="number" min="0" [attr.step]="quantityStep(productForm.unit)" [(ngModel)]="productForm.quantity" name="initialQuantity" placeholder="Quantità disponibile ora" [disabled]="!!productForm.id" />
+          <input class="form-control" type="number" min="0" step="1" [(ngModel)]="productForm.quantity" name="initialQuantity" placeholder="Quantità disponibile ora" [disabled]="!!productForm.id" />
         </label>
         <label class="field">
           <span>Fornitore abituale</span>
@@ -1020,7 +1438,7 @@
             <option [ngValue]="0">Seleziona prodotto</option>
             <option *ngFor="let product of products" [ngValue]="product.id">{{ product.name }} · {{ product.quantity }} {{ product.unit }}</option>
           </select>
-          <input class="form-control" type="number" min="0" [attr.step]="quantityStep(selectedAdjustmentProduct()?.unit)" [(ngModel)]="adjustment.quantity" name="adjustQuantity" placeholder="Quantità reale" />
+          <input class="form-control" type="number" min="0" step="1" [(ngModel)]="adjustment.quantity" name="adjustQuantity" placeholder="Quantità reale" />
           <textarea class="form-control" rows="3" [(ngModel)]="adjustment.note" name="adjustNote" placeholder="Nota rettifica"></textarea>
           <button class="btn btn-outline-dark" type="submit">Salva rettifica</button>
         </form>

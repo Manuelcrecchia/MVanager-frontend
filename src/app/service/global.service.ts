@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpHeaders } from '@angular/common/http';
 import { Capacitor } from '@capacitor/core';
+import { AppLauncher } from '@capacitor/app-launcher';
 import { AuthServiceService } from '../auth-service.service';
 import { TenantService } from './tenant.service';
 import { environment } from '../../environments/environment';
@@ -27,6 +28,7 @@ interface TenantBackendConfig {
   };
   stampingConfig?: TenantStampingConfig;
   internalWarehouseConfig?: TenantInternalWarehouseConfig;
+  serviceOrderConfig?: TenantServiceOrderConfig;
   customerAssetsConfig?: TenantCustomerAssetsConfig;
   quoteConfig?: TenantQuoteConfig;
   addressConfig?: TenantCustomerAddressConfig;
@@ -145,13 +147,51 @@ export interface TenantInternalWarehouseConfig {
   mobileMode?: 'simple' | 'advanced';
   barcodeMode?: 'barcode_required' | 'auto_internal_code';
   internalCodePrefix?: string;
-  serviceOrderFlow?: {
+  materialOrderFlow?: {
     enabled?: boolean;
-    requireServiceOrderForOutputs?: boolean;
+    employeeRequestsEnabled?: boolean;
+    schedulingEnabled?: boolean;
+    calendarCategoryKey?: string;
+    preparationDocumentEnabled?: boolean;
+    preparationDocumentTitle?: string;
+    preparationDocumentStyle?: 'classic' | 'modern' | 'minimal';
+    preparationPrimaryColor?: string;
+    preparationShowLogo?: boolean;
+    preparationShowBarcode?: boolean;
+    preparationShowInternalChecks?: boolean;
+    preparationFooterText?: string;
     documentEnabled?: boolean;
     documentLabel?: string;
     pdfTemplateKey?: string;
+    customerSignatureEnabled?: boolean;
+    employeeAppSignatureEnabled?: boolean;
+    signatureEmailSource?: string;
+    fields?: any[];
   };
+}
+
+export interface TenantConfigurableDocumentField {
+  key: string;
+  label: string;
+  type?:
+    | 'text'
+    | 'textarea'
+    | 'number'
+    | 'date'
+    | 'datetime-local'
+    | 'email'
+    | 'phone'
+    | 'select'
+    | 'boolean';
+  required?: boolean;
+  sourceField?: string;
+  defaultValue?: string;
+  enumValues?: string;
+}
+
+export interface TenantServiceOrderConfig {
+  fields?: TenantConfigurableDocumentField[];
+  signatureEmailSource?: string;
 }
 
 export interface TenantQuoteTypeConfig {
@@ -309,7 +349,7 @@ export class GlobalService {
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '5.7';
+  version = '5.8';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -328,59 +368,140 @@ export class GlobalService {
     return environment.apiUrl || environment.mobileDevApiUrl;
   }
 
-  checkVersion(): Promise<boolean> {
-    return new Promise((resolve) => {
-      const platform = this.forMobile ? 'mobile' : 'web';
+  async checkVersion(): Promise<boolean> {
+    const platform = this.versionPlatform;
+
+    while (true) {
       const url =
         this.url +
         `api/version?app=MVanager&platform=${platform}&version=${encodeURIComponent(this.version)}`;
 
-      fetch(url, {
-        headers: {
-          'X-Tenant-Id': this.tenantService.tenant,
-        },
-      })
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
-          }
-          return res.json();
-        })
-        .then((data) => {
-          const supported =
-            typeof data.supported === 'boolean'
-              ? data.supported
-              : data.version === this.version;
-
-          if (!supported) {
-            this.popup.showError(
-              this.buildUnsupportedVersionMessage(
-                data.allowedVersions || data.version,
-              ),
-              'Versione app non supportata',
-            );
-            resolve(false);
-            this.logout();
-          } else {
-            resolve(true);
-          }
-        })
-        .catch((error) => {
-          console.error('Errore verifica versione server', url, error);
-          this.popup.showError(
-            this.buildVersionCheckFailedMessage(),
-            'Versione app',
-          );
-          resolve(false);
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'X-Tenant-Id': this.tenantService.tenant,
+          },
         });
-    });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        const supported =
+          typeof data.supported === 'boolean'
+            ? data.supported
+            : data.version === this.version;
+
+        if (supported) {
+          return true;
+        }
+
+        const storeUrl =
+          typeof data.storeUrl === 'string' ? data.storeUrl.trim() : '';
+        const message = this.buildUnsupportedVersionMessage(
+          data.allowedVersions || data.version,
+          platform !== 'web' && !storeUrl,
+        );
+
+        if (platform === 'web') {
+          await this.popup.action(message, 'Versione app non supportata', {
+            type: 'error',
+            actionLabel: 'Ricarica ora',
+          });
+          this.hardReloadBrowser();
+          return false;
+        }
+
+        if (storeUrl) {
+          await this.popup.action(message, 'Versione app non supportata', {
+            type: 'error',
+            actionLabel: 'Aggiorna ora',
+          });
+          await this.openStoreUrl(storeUrl, platform);
+          return false;
+        }
+
+        await this.popup.action(message, 'Versione app non supportata', {
+          type: 'error',
+          actionLabel: 'Riprova',
+        });
+      } catch (error) {
+        console.error('Errore verifica versione server', url, error);
+        this.popup.showError(
+          this.buildVersionCheckFailedMessage(),
+          'Versione app',
+        );
+        return false;
+      }
+    }
   }
 
-  private buildUnsupportedVersionMessage(allowedVersions: unknown): string {
+  private get versionPlatform(): 'web' | 'android' | 'ios' {
+    const platform = Capacitor.getPlatform();
+    return platform === 'android' || platform === 'ios' ? platform : 'web';
+  }
+
+  private hardReloadBrowser(): void {
+    const url = new URL(window.location.href);
+    url.searchParams.set('_refresh', Date.now().toString());
+    window.location.replace(url.toString());
+  }
+
+  private async openStoreUrl(
+    storeUrl: string,
+    platform: 'android' | 'ios',
+  ): Promise<void> {
+    const nativeUrl = this.toNativeStoreUrl(storeUrl, platform);
+
+    try {
+      const result = await AppLauncher.openUrl({ url: nativeUrl });
+      if (result.completed || nativeUrl === storeUrl) {
+        return;
+      }
+      await AppLauncher.openUrl({ url: storeUrl });
+    } catch (error) {
+      console.error('Impossibile aprire lo store', nativeUrl, error);
+      window.open(storeUrl, '_blank', 'noopener');
+    }
+  }
+
+  private toNativeStoreUrl(
+    storeUrl: string,
+    platform: 'android' | 'ios',
+  ): string {
+    if (platform === 'ios' && /^https:\/\/apps\.apple\.com\//i.test(storeUrl)) {
+      return storeUrl.replace(/^https:\/\//i, 'itms-apps://');
+    }
+
+    if (platform === 'android') {
+      try {
+        const url = new URL(storeUrl);
+        const appId = url.searchParams.get('id');
+        if (url.hostname === 'play.google.com' && appId) {
+          return `market://details?id=${encodeURIComponent(appId)}`;
+        }
+      } catch {
+        return storeUrl;
+      }
+    }
+
+    return storeUrl;
+  }
+
+  private buildUnsupportedVersionMessage(
+    allowedVersions: unknown,
+    storeUrlMissing = false,
+  ): string {
     return [
-      "AGGIORNA O CONTATTA L'ASSISTENZA",
+      'AGGIORNAMENTO NECESSARIO',
       `Versione app in uso: ${this.version}`,
       `Versioni disponibili: ${this.formatAllowedVersions(allowedVersions)}`,
+      ...(storeUrlMissing
+        ? [
+            'Il collegamento allo store non è ancora disponibile.',
+            "Contatta l'assistenza.",
+          ]
+        : []),
     ].join('\n');
   }
 
@@ -418,22 +539,36 @@ export class GlobalService {
 
   hasPermission(key: string): boolean {
     const tenantPermissions = this.tenantConfig?.permissions;
-    const available =
-      tenantPermissions?.available || tenantPermissions?.permissions || [];
+    const available = new Set(
+      tenantPermissions?.available || tenantPermissions?.permissions || [],
+    );
     const disabled =
       tenantPermissions?.disabled ||
       tenantPermissions?.disabledPermissions ||
       [];
+    const granted = new Set(this.permissions);
+    if (granted.has('VEHICLE_SETTINGS_MANAGE')) granted.add('VEHICLES_VIEW');
+    if (granted.has('EQUIPMENT_SETTINGS_MANAGE')) granted.add('EQUIPMENT_VIEW');
+    if (granted.has('INVOICES_MANAGE')) granted.add('INVOICES_VIEW');
+    if (granted.has('ACCOUNTING_MANAGE')) granted.add('ACCOUNTING_VIEW');
 
-    if (available.length) {
-      return available.includes(key) && this.permissions.includes(key);
+    // Anche il catalogo runtime deve rispettare la gerarchia manage -> view.
+    // Alcune configurazioni pubblicate in precedenza esponevano solo il livello
+    // di gestione, facendo sparire dal menu la relativa pagina di consultazione.
+    if (available.has('VEHICLE_SETTINGS_MANAGE')) available.add('VEHICLES_VIEW');
+    if (available.has('EQUIPMENT_SETTINGS_MANAGE')) available.add('EQUIPMENT_VIEW');
+    if (available.has('INVOICES_MANAGE')) available.add('INVOICES_VIEW');
+    if (available.has('ACCOUNTING_MANAGE')) available.add('ACCOUNTING_VIEW');
+
+    if (available.size) {
+      return available.has(key) && granted.has(key);
     }
 
     if (disabled.includes(key)) {
       return false;
     }
 
-    return this.permissions.includes(key);
+    return granted.has(key);
   }
 
   loadTenantConfig(
@@ -505,13 +640,9 @@ export class GlobalService {
   }
 
   isFeatureAvailableInApp(feature: string): boolean {
-    if (
-      feature === 'invoices' &&
-      (environment as { invoicesEnabled?: boolean }).invoicesEnabled !== true
-    ) {
-      return false;
-    }
-
+    // La configurazione tenant è l'unica sorgente di verità dei moduli.
+    // Un vecchio flag di build nascondeva Fatture e Contabilità soltanto nei
+    // profili locali/IP, anche quando feature e permessi runtime erano validi.
     return this.hasTenantFeature(feature);
   }
 
@@ -785,7 +916,7 @@ export class GlobalService {
 
   getTenantInternalWarehouseConfig(): TenantInternalWarehouseConfig {
     const rawConfig = this.tenantConfig?.internalWarehouseConfig || {};
-    const flow = rawConfig.serviceOrderFlow || {};
+    const flow = rawConfig.materialOrderFlow || {};
     return {
       mobileMode: rawConfig.mobileMode === 'advanced' ? 'advanced' : 'simple',
       barcodeMode:
@@ -794,18 +925,44 @@ export class GlobalService {
           : 'barcode_required',
       internalCodePrefix:
         String(rawConfig.internalCodePrefix || 'MAG').trim() || 'MAG',
-      serviceOrderFlow: {
-        enabled: flow.enabled === true,
-        requireServiceOrderForOutputs:
-          flow.requireServiceOrderForOutputs === true,
-        documentEnabled: flow.documentEnabled === true,
+      materialOrderFlow: {
+        enabled: flow.enabled !== false,
+        employeeRequestsEnabled: flow.employeeRequestsEnabled !== false,
+        schedulingEnabled: flow.schedulingEnabled !== false,
+        calendarCategoryKey: String(flow.calendarCategoryKey || '').trim(),
+        preparationDocumentEnabled: flow.preparationDocumentEnabled !== false,
+        preparationDocumentTitle:
+          String(flow.preparationDocumentTitle || 'Ordine di preparazione materiali').trim() ||
+          'Ordine di preparazione materiali',
+        preparationDocumentStyle:
+          flow.preparationDocumentStyle === 'classic' || flow.preparationDocumentStyle === 'minimal'
+            ? flow.preparationDocumentStyle
+            : 'modern',
+        preparationPrimaryColor: String(flow.preparationPrimaryColor || '').trim(),
+        preparationShowLogo: flow.preparationShowLogo !== false,
+        preparationShowBarcode: flow.preparationShowBarcode !== false,
+        preparationShowInternalChecks: flow.preparationShowInternalChecks !== false,
+        preparationFooterText: String(flow.preparationFooterText || '').trim(),
+        documentEnabled: true,
         documentLabel:
           String(flow.documentLabel || 'Materiale consegnato').trim() ||
           'Materiale consegnato',
         pdfTemplateKey:
           String(flow.pdfTemplateKey || 'warehouse_delivery_default').trim() ||
           'warehouse_delivery_default',
+        customerSignatureEnabled: flow.customerSignatureEnabled !== false,
+        employeeAppSignatureEnabled: flow.employeeAppSignatureEnabled !== false,
+        signatureEmailSource: String(flow.signatureEmailSource || '').trim(),
+        fields: Array.isArray(flow.fields) ? flow.fields : [],
       },
+    };
+  }
+
+  getTenantServiceOrderConfig(): TenantServiceOrderConfig {
+    const config = this.tenantConfig?.serviceOrderConfig || {};
+    return {
+      fields: Array.isArray(config.fields) ? config.fields : [],
+      signatureEmailSource: String(config.signatureEmailSource || '').trim(),
     };
   }
 
@@ -1277,6 +1434,29 @@ export class GlobalService {
     return roleField ? this.readMappedValue(record, roleField) : undefined;
   }
 
+  getRecordValueByFieldKey(
+    scope: 'quote' | 'customer',
+    record: Record<string, any>,
+    fieldKey: string,
+  ): any {
+    const key = String(fieldKey || '').trim();
+    if (!record || !key) return undefined;
+    const field = this.getFieldConfig(scope, key);
+    if (field && this.isCalculatedField(field)) {
+      const calculated = this.calculateMappedFieldValue(
+        field,
+        this.getFieldMappingFields(scope),
+        record,
+      );
+      if (calculated !== undefined) return calculated;
+    }
+    return field
+      ? this.readMappedValue(record, field)
+      : Object.prototype.hasOwnProperty.call(record, key)
+        ? record[key]
+        : undefined;
+  }
+
   getMissingRequiredFields(
     scope: 'quote' | 'customer',
     source: Record<string, any>,
@@ -1433,7 +1613,8 @@ export class GlobalService {
     const mode = String(calculation.mode || '')
       .trim()
       .toLowerCase();
-    if (!['sum', 'sum_minus', 'sum_with_vat', 'vat_amount'].includes(mode)) return undefined;
+    if (!['sum', 'sum_minus', 'sum_with_vat', 'vat_amount'].includes(mode))
+      return undefined;
 
     const sourceFields = this.parseCalculationSourceFields(
       calculation.sourceFields,
@@ -1455,7 +1636,7 @@ export class GlobalService {
       const lastValue = this.parseNumericValue(
         this.readCalculationSourceValue(source, fields, lastSourceField),
       );
-      total = subtotal - (2 * lastValue);
+      total = subtotal - 2 * lastValue;
     } else if (mode === 'sum_with_vat') {
       const vatRate = this.resolveVatRate(source, fields, calculation);
       total = subtotal * (1 + vatRate / 100);

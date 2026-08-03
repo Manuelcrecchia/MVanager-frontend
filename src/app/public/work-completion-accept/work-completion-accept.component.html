@@ -1,0 +1,94 @@
+<div class="quote-accept-page">
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Foglio di fine lavoro</span>
+      <h1>Valutazione e firma del servizio</h1>
+      <p>Compilate personalmente la scheda, verificate la vostra email e firmate il documento.</p>
+    </div>
+  </section>
+
+  <section class="state-card" *ngIf="loading"><div class="spinner"></div><p>Caricamento…</p></section>
+  <section class="state-card error" *ngIf="!loading && !data"><h2>Richiesta non disponibile</h2><p>{{ errorMessage }}</p></section>
+
+  <div class="content-grid" *ngIf="!loading && data">
+    <section class="card summary-card">
+      <div class="summary-head">
+        <div><span class="label">Cliente</span><h2>{{ data.displayName }}</h2></div>
+        <span class="status-pill" [class.success]="data.status === 'accepted'">{{ data.status }}</span>
+      </div>
+
+      <div class="notice success" *ngIf="successMessage">{{ successMessage }}</div>
+      <div class="notice error" *ngIf="errorMessage">{{ errorMessage }}</div>
+      <div class="actions" *ngIf="pdfUrl">
+        <a class="btn btn-secondary" [href]="pdfUrl" target="_blank" rel="noreferrer">Apri il PDF</a>
+        <a class="btn btn-secondary" [href]="pdfUrl" target="_blank" rel="noreferrer" download>Scarica il PDF</a>
+      </div>
+
+      <form class="acceptance-form" *ngIf="pending" (ngSubmit)="submit()">
+        <section *ngFor="let question of questions; let index = index">
+          <h3>{{ index + 1 }}. {{ question.label }}</h3>
+          <label class="check-row" *ngFor="let option of question.options" [for]="optionId(question, option)">
+            <input type="radio" [id]="optionId(question, option)" [name]="'question_' + question.key"
+              [value]="option.value" [(ngModel)]="answers[question.key]" />
+            <span>{{ option.label }}</span>
+          </label>
+        </section>
+
+        <label *ngIf="data.config?.noteEnabled !== false">
+          {{ data.config?.noteLabel || 'Note' }}
+          <textarea name="note" rows="4" [(ngModel)]="note"></textarea>
+        </label>
+
+        <label class="check-row">
+          <input type="checkbox" name="acceptTerms" [(ngModel)]="acceptTerms" />
+          <span>Dichiaro di aver compilato personalmente e di accettare integralmente il foglio di fine lavoro.</span>
+        </label>
+        <label class="check-row">
+          <input type="checkbox" name="privacyAcknowledged" [(ngModel)]="privacyAcknowledged" />
+          <span>Ho preso visione dell’<a href="https://mvtechcore.it/privacy/mvanager" target="_blank">informativa privacy</a>.</span>
+        </label>
+
+        <button *ngIf="!otpRequested && !otpVerified" type="button" class="btn btn-primary" (click)="requestOtp()" [disabled]="busy">
+          Procedi alla verifica via email
+        </button>
+        <div class="otp-panel" *ngIf="otpRequested && !otpVerified">
+          <label>Codice inviato a {{ data.recipientEmail }}
+            <input name="otp" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" [(ngModel)]="otp" />
+          </label>
+          <button type="button" class="btn btn-secondary" (click)="verifyOtp()" [disabled]="busy">Verifica codice</button>
+          <button type="button" class="btn btn-secondary" (click)="requestOtp()" [disabled]="busy">Invia nuovo codice</button>
+        </div>
+        <div class="notice success" *ngIf="otpVerified">Email verificata. Ora potete firmare.</div>
+
+        <p class="helper">La conferma registra data e ora, email verificata, indirizzo IP, dispositivo e impronta SHA-256 del PDF finale.</p>
+        <button *ngIf="otpVerified && !showSignature" type="button" class="btn btn-primary" (click)="openSignature()">Procedi alla firma</button>
+
+        <div class="signature-panel" *ngIf="showSignature">
+          <div class="signature-panel__head"><h3>Firma del cliente</h3>
+            <button type="button" class="btn btn-secondary" (click)="clear()">Cancella firma</button>
+          </div>
+          <div class="signature-panel__canvasWrap">
+            <canvas #signatureCanvas class="signature-canvas"
+              (pointerdown)="start($event)" (pointermove)="move($event)"
+              (pointerup)="end()" (pointerleave)="end()" (pointercancel)="end()"></canvas>
+          </div>
+          <button type="submit" class="btn btn-primary" [disabled]="busy || !hasSignature">
+            {{ busy ? 'Conferma in corso…' : 'Conferma e firma il foglio' }}
+          </button>
+        </div>
+      </form>
+
+      <div class="status-box success" *ngIf="data.status === 'accepted'">
+        <h3>Foglio compilato e firmato</h3>
+        <p>Data conferma: <strong>{{ data.acceptedAt | date:'dd/MM/yyyy HH:mm' }}</strong></p>
+      </div>
+    </section>
+
+    <section class="card preview-card" *ngIf="pdfUrl">
+      <div class="preview-head"><div><h2>Anteprima PDF</h2></div><span class="hash">SHA-256: {{ data.pdfHashSha256 }}</span></div>
+      <div class="pdf-viewer-wrap">
+        <ngx-extended-pdf-viewer [src]="pdfUrl" [showToolbar]="false" [height]="'100%'" backgroundColor="var(--mv-surface)"></ngx-extended-pdf-viewer>
+      </div>
+    </section>
+  </div>
+</div>

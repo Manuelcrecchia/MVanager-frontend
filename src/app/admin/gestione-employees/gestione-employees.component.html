@@ -1,40 +1,33 @@
 <div class="clouds"></div>
 
-<div class="container py-4 page-wrap">
-  <!-- TOP BAR -->
-  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <button type="button" class="btn btn-back-glass" (click)="back()">
-      ⬅ Torna Indietro
-    </button>
-
-    <!-- AZIONI SELEZIONE + INVIO -->
-    <div class="selection-actions d-flex align-items-center gap-2 flex-wrap" *ngIf="globalService.hasPermission('NOTIFICATIONS_MANAGE')">
-      <button type="button"
-        class="btn btn-glass btn-round"
-        (click)="toggleSelectAll()"
-        [disabled]="employees.length === 0"
-      >
-        {{ allSelected ? "Deseleziona tutto" : "Seleziona tutto" }}
-      </button>
-
-      <span class="badge badge-dark">
-        Selezionati: {{ selectedCount }}
-      </span>
-
-      <button type="button"
-        class="btn btn-primary btn-round"
-        (click)="openNotifyModal(notifyModal)"
-        [disabled]="selectedCount === 0"
-      >
-        🔔 Invia notifica
-      </button>
+<div class="bg-light employees-page">
+  <header class="mv-entity-toolbar employees-page-toolbar">
+    <div class="mv-entity-toolbar__title">
+      <h1>{{ employeeViewTitle }}</h1>
+      <button type="button" class="btn mv-toolbar-back mv-mobile-home-back" *ngIf="employeeView === 'directory'" (click)="back()">← Torna indietro</button>
+      <button type="button" class="btn mv-toolbar-primary" *ngIf="employeeView === 'directory' && globalService.hasPermission('EMPLOYEE_CREATE')" (click)="openEmployeeSettings('new')"><i class="fas fa-plus"></i> Nuovo</button>
     </div>
-  </div>
+    <div class="mv-entity-toolbar__controls" *ngIf="employeeView === 'directory'; else settingsToolbarControls">
+      <label class="employee-search-field"><span class="visually-hidden">Cerca dipendente</span><i class="fas fa-search" aria-hidden="true"></i><input class="form-control" type="search" [(ngModel)]="employeeSearch" placeholder="ID, nominativo, email o telefono" /></label>
+      <span class="mv-entity-toolbar__count">{{ filteredEmployees.length }} / {{ employees.length }}</span>
+      <button type="button" class="btn btn-light btn-sm" *ngIf="employeeSearch" (click)="clearEmployeeSearch()">Pulisci</button>
+      <button type="button" class="btn btn-light btn-sm" (click)="toggleShowArchived()">{{ showArchived ? 'Nascondi archivio' : 'Mostra archivio' }}</button>
+    </div>
+    <ng-template #settingsToolbarControls>
+      <div class="mv-entity-toolbar__controls">
+        <button type="button" class="mv-toolbar-back" (click)="setEmployeeView('directory')">&larr; Torna indietro</button>
+      </div>
+    </ng-template>
+  </header>
 
-  <h2 class="text-center page-title mb-4 text-dark">Gestione Dipendenti</h2>
-
-  <div class="employee-card-list" *ngIf="employees.length > 0">
-    <article class="employee-card" *ngFor="let emp of employees">
+  <div class="container" *ngIf="employeeView === 'directory'">
+    <div class="employee-selection-bar" *ngIf="selectedCount > 0 && globalService.hasPermission('NOTIFICATIONS_MANAGE')">
+      <label class="employee-select-all"><input type="checkbox" class="form-check-input" [checked]="allSelected" [indeterminate]="someSelected" (change)="toggleSelectAll()" /> <span>Seleziona tutti</span></label>
+      <span class="mv-entity-toolbar__count">Selezionati: {{ selectedCount }}</span>
+      <button type="button" class="btn btn-primary" (click)="openNotifyModal(notifyModal)">🔔 Invia notifica</button>
+    </div>
+    <div class="employee-card-list" *ngIf="filteredEmployees.length > 0">
+    <article class="employee-card" [class.employee-card--open]="isEmployeeOpen(emp.id)" *ngFor="let emp of filteredEmployees">
       <div class="employee-header-layout">
         <label class="employee-selector">
           <input
@@ -51,29 +44,27 @@
         >
         <span class="employee-main">
           <span class="employee-identity">
-            <span class="employee-name">{{ emp.nome }} {{ emp.cognome }}</span>
             <span class="employee-id">#{{ emp.id }}</span>
+            <span class="employee-name">{{ emp.nome }} {{ emp.cognome }}</span>
+            <span class="badge bg-warning text-dark" *ngIf="emp.active === false">Archiviato</span>
           </span>
         </span>
 
         <span class="chev" [class.chev--open]="isEmployeeOpen(emp.id)">▾</span>
         </button>
-      </div>
-
-      <div class="employee-meta-row">
-        <span *ngIf="emp.email" class="meta-item">
-          <i class="fas fa-envelope"></i>{{ emp.email }}
-        </span>
-        <span *ngIf="emp.cellulare" class="meta-item">
-          <i class="fas fa-phone"></i>{{ emp.cellulare }}
+        <span class="employee-quick-actions">
+          <button type="button" class="btn btn-sm btn-employee-quick action-with-tooltip" (click)="navigateToEmployeeProfile(emp)" title="Scheda dipendente" aria-label="Scheda dipendente" data-tooltip="Scheda dipendente"><i class="fas fa-id-card"></i></button>
+          <button type="button" class="btn btn-sm btn-employee-quick action-with-tooltip mv-note-badge-anchor" (click)="navigateToEmployeeNotes(emp)" title="Note dipendente" aria-label="Note dipendente" data-tooltip="Note dipendente"><i class="fas fa-note-sticky"></i><span class="mv-note-unread-badge" *ngIf="noteUnread.count('employee', emp.id) as unread">{{ unread > 99 ? '99+' : unread }}</span></button>
         </span>
       </div>
 
-      <div class="employee-actions" *ngIf="isEmployeeOpen(emp.id)">
-        <div class="employee-actions-inner">
+      <div class="employee-actions mv-record-actions" *ngIf="isEmployeeOpen(emp.id)">
+        <div class="employee-actions-inner mv-record-actions__inner">
+          <button type="button" *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')" class="btn btn-employee-action mv-record-action mv-record-action--edit action-with-tooltip" (click)="openEmployeeSettings('edit', emp)" title="Modifica dipendente" aria-label="Modifica dipendente" data-tooltip="Modifica dipendente"><i class="fas fa-pen-to-square"></i></button>
+          <button type="button" *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')" class="btn btn-employee-action mv-record-action mv-record-action--evidence action-with-tooltip" (click)="openEmployeeSettings('categories', emp)" title="Categorie dipendente" aria-label="Categorie dipendente" data-tooltip="Categorie dipendente"><i class="fas fa-tags"></i></button>
           <button type="button"
             *ngIf="globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE')"
-            class="btn btn-employee-action btn-employee-permits action-with-tooltip"
+            class="btn btn-employee-action btn-employee-permits mv-record-action mv-record-action--calendar action-with-tooltip"
             (click)="goToPermessiAssenze(emp.id)"
             title="Apri permessi e assenze del dipendente"
             aria-label="Apri permessi e assenze del dipendente"
@@ -84,7 +75,7 @@
 
           <button type="button"
             *ngIf="globalService.hasPermission('EMPLOYEE_DOCS_MANAGE')"
-            class="btn btn-employee-action btn-employee-docs action-with-tooltip"
+            class="btn btn-employee-action btn-employee-docs mv-record-action mv-record-action--signature action-with-tooltip"
             (click)="goToDocument(emp.id)"
             title="Apri i documenti caricati per questo dipendente"
             aria-label="Apri documenti dipendente"
@@ -95,7 +86,7 @@
 
           <button type="button"
             *ngIf="globalService.hasPermission('NOTIFICATIONS_VIEW')"
-            class="btn btn-employee-action btn-employee-notifications action-with-tooltip"
+            class="btn btn-employee-action btn-employee-notifications mv-record-action mv-record-action--evidence action-with-tooltip"
             (click)="openEmpNotifications(emp, empNotifModal)"
             title="Vedi le notifiche inviate a questo dipendente"
             aria-label="Vedi notifiche dipendente"
@@ -105,7 +96,7 @@
           </button>
 
           <button type="button"
-            class="btn btn-employee-action btn-employee-whatsapp action-with-tooltip"
+            class="btn btn-employee-action btn-employee-whatsapp mv-record-action mv-record-action--whatsapp action-with-tooltip"
             (click)="openEmployeeWhatsApp(emp)"
             title="Apri la chat WhatsApp del dipendente senza messaggio precompilato"
             aria-label="Apri WhatsApp"
@@ -116,7 +107,7 @@
 
           <button type="button"
             *ngIf="globalService.hasPermission('EMAIL_VIEW')"
-            class="btn btn-employee-action btn-employee-email action-with-tooltip"
+            class="btn btn-employee-action btn-employee-email mv-record-action mv-record-action--email action-with-tooltip"
             (click)="composeEmployeeEmail(emp)"
             title="Crea una nuova email con il dipendente già come destinatario"
             aria-label="Scrivi email"
@@ -129,9 +120,18 @@
     </article>
   </div>
 
-  <div *ngIf="employees.length === 0" class="alert alert-info text-center mt-3">
-    Nessun dipendente trovato.
+    <div *ngIf="filteredEmployees.length === 0" class="alert alert-info text-center mt-3">
+      Nessun dipendente trovato.
+    </div>
   </div>
+
+  <app-settings-employees
+    *ngIf="employeeView === 'settings'"
+    [embedded]="true"
+    [focusAction]="settingsAction"
+    [focusEmployeeId]="settingsEmployeeId"
+    (employeeCreated)="setEmployeeView('directory')"
+  ></app-settings-employees>
 
   <!-- MODAL INVIO NOTIFICA -->
   <ng-template #notifyModal let-modal>

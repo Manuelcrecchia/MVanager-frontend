@@ -1,0 +1,40 @@
+:host { display: block; min-height: 100vh; background: var(--mv-canvas); }
+
+.permission-sheet {
+  max-width: 920px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--mv-border);
+  border-radius: var(--mv-radius-surface);
+  background: var(--mv-surface);
+  box-shadow: var(--mv-shadow-md);
+}
+
+.permission-sheet__heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 24px;
+  background: linear-gradient(135deg, rgba(13,110,253,.22), rgba(255,122,0,.14));
+}
+
+.permission-sheet__heading h2 { margin: 0 0 5px; color: var(--mv-ink); font-size: 1.4rem; font-weight: 950; }
+.entity-id-pill { flex: 0 0 auto; padding: 6px 11px; border-radius: 999px; background: rgba(15,23,42,.1); color: var(--mv-ink); font-size: .9rem; font-weight: 950; }
+.permission-status { display: inline-flex; border-radius: 999px; padding: 3px 9px; background: var(--mv-warning-soft); color: #8a4b00; font-size: .78rem; font-weight: 900; }
+.permission-status--success { background: var(--mv-success-soft); color: var(--mv-success); }
+.permission-status--danger { background: var(--mv-danger-soft); color: var(--mv-danger); }
+
+.permission-sheet__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--mv-border); }
+.permission-sheet__field { min-width: 0; padding: 18px 20px; background: var(--mv-surface); }
+.permission-sheet__field span, .permission-sheet__field strong { display: block; }
+.permission-sheet__field span { margin-bottom: 5px; color: var(--mv-muted); font-size: .82rem; font-weight: 800; }
+.permission-sheet__field strong { color: var(--mv-ink); overflow-wrap: anywhere; }
+
+.permission-attachments { padding: 20px; border-top: 1px solid var(--mv-border); }
+.permission-attachments h3 { margin: 0 0 12px; color: var(--mv-ink); font-size: 1rem; font-weight: 900; }
+.permission-attachment { display: inline-flex; align-items: center; gap: 8px; margin: 0 8px 8px 0; border: 1px solid var(--mv-border); background: var(--mv-surface-raised); color: var(--mv-ink); font-weight: 800; }
+
+@media (max-width: 680px) {
+  .permission-sheet__grid { grid-template-columns: 1fr; }
+  .permission-sheet__heading { padding: 18px; }
+}

@@ -18,6 +18,7 @@ interface InvoiceLine {
   discountPercent: number;
   vatRate: number;
   vatNature: string;
+  vatLegalReference?: string;
   lineSubtotal?: number;
   lineVat?: number;
   lineTotal?: number;
@@ -47,6 +48,7 @@ interface InvoiceInstallment {
 interface Invoice {
   id?: number;
   direction?: 'outbound' | 'inbound';
+  accountingDirection?: 'outbound' | 'inbound';
   number: string;
   year: number;
   series: string;
@@ -67,6 +69,7 @@ interface Invoice {
   customerEmail?: string;
   customerRecipientType?: 'business' | 'pa' | 'private';
   customerId?: string;
+  supplierId?: number | null;
   paymentTermId?: number | null;
   bankAccountId?: number | null;
   paymentMethod: string;
@@ -87,8 +90,17 @@ interface Invoice {
   pensionFundAmount?: number;
   pensionFundVatRate?: number;
   pensionFundVatNature?: string;
+  pensionFundLegalReference?: string;
   relatedInvoiceNumber?: string;
+  relatedInvoiceId?: number | null;
   relatedInvoiceDate?: string;
+  paReferenceType?: 'order' | 'contract' | 'agreement' | 'reception';
+  paDocumentId?: string;
+  paDocumentDate?: string;
+  paItemNumber?: string;
+  paConventionCode?: string;
+  paCup?: string;
+  paCig?: string;
   creditNoteReason?: string;
   deliveryNoteRefs?: string | any[];
   subtotal?: number;
@@ -181,6 +193,7 @@ interface PaymentScheduleItem {
   installmentId?: number | null;
   installmentNumber?: number | null;
   direction: 'outbound' | 'inbound';
+  accountingDirection?: 'outbound' | 'inbound';
   number: string;
   series: string;
   type: string;
@@ -333,9 +346,18 @@ interface InvoiceSettings {
   bankAccounts: InvoiceBankAccount[];
   serviceItems: InvoiceServiceItem[];
   customerInvoiceDefaults?: InvoiceCustomerInvoiceDefaults;
+  operationalHealth?: InvoiceOperationalHealth;
+}
+
+interface InvoiceOperationalHealth {
+  ready: boolean;
+  managementRequired: boolean;
+  errorCount: number;
+  warningCount: number;
 }
 
 type InvoiceView = 'invoices' | 'payments' | 'ddt' | 'suppliers' | 'economics' | 'settings';
+type EntityPageMode = 'list' | 'new' | 'detail';
 type InvoiceListGroup = { key: string; label: string; items: Invoice[] };
 
 @Component({
@@ -365,6 +387,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   selectedBankAccount: InvoiceBankAccount = this.emptyBankAccount();
   selectedServiceItem: InvoiceServiceItem = this.emptyServiceItem();
   customerInvoiceDefaults: InvoiceCustomerInvoiceDefaults = this.emptyCustomerInvoiceDefaults();
+  operationalHealth: InvoiceOperationalHealth | null = null;
   statusReport: InvoiceStatusReport | null = null;
   events: InvoiceEvent[] = [];
   xmlPreview = '';
@@ -394,6 +417,9 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   economicTo = new Date().toISOString().slice(0, 10);
   supplierSearch = '';
   activeView: InvoiceView = 'invoices';
+  pageMode: EntityPageMode = 'list';
+  showInvoiceArchive = false;
+  showDdtArchive = false;
 
   readonly statuses = [
     { key: '', label: 'Tutte' },
@@ -401,6 +427,9 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     { key: 'issued', label: 'Emesse' },
     { key: 'sent', label: 'Inviate' },
     { key: 'delivered', label: 'Consegnate' },
+    { key: 'not_delivered', label: 'Mancata consegna' },
+    { key: 'deadline_expired', label: 'Decorrenza termini' },
+    { key: 'refused', label: 'Rifiutate dal destinatario' },
     { key: 'rejected', label: 'Scartate' },
     { key: 'paid', label: 'Pagate' },
     { key: 'received', label: 'Ricevute' },
@@ -489,6 +518,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
     this.querySubscription = this.route.queryParamMap.subscribe((params) => {
       this.activeView = this.normalizeView(params.get('view'));
+      this.pageMode = this.normalizePageMode(params.get('mode'));
       const direction = params.get('direction') || '';
       if (this.activeView === 'invoices') {
         this.directionFilter = direction === 'inbound' ? 'inbound' : 'outbound';
@@ -504,6 +534,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
     this.global.loadTenantConfig(true, { showError: false }).finally(() => {
       this.loadCustomers();
+      this.loadSuppliers();
       this.loadInvoiceSettings();
     });
   }
@@ -517,6 +548,14 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   get viewTitle(): string {
+    if (this.activeView === 'invoices' && this.pageMode === 'new') {
+      return this.selected.type === 'PF' ? 'Nuova proforma' : (this.directionFilter === 'inbound' ? 'Nuova fattura acquisto' : 'Nuova fattura vendita');
+    }
+    if (this.activeView === 'invoices' && this.pageMode === 'detail') return 'Scheda fattura';
+    if (this.activeView === 'ddt' && this.pageMode === 'new') return 'Nuovo DDT';
+    if (this.activeView === 'ddt' && this.pageMode === 'detail') return 'Scheda DDT';
+    if (this.activeView === 'suppliers' && this.pageMode === 'new') return 'Nuovo fornitore';
+    if (this.activeView === 'suppliers' && this.pageMode === 'detail') return 'Scheda fornitore';
     if (this.activeView === 'economics') return 'Cruscotto economico';
     if (this.activeView === 'payments') return 'Pagamenti e scadenziario';
     if (this.activeView === 'ddt') return 'Documenti di trasporto';
@@ -536,7 +575,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   partyTitle(invoice: Partial<Invoice> = this.selected): string {
-    return this.isInbound(invoice) ? 'Fornitore' : 'Cliente';
+    return this.isInbound(invoice) || this.isSelfInvoice(invoice) ? 'Fornitore' : 'Cliente';
   }
 
   partySearchLabel(): string {
@@ -544,7 +583,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   partySearchPlaceholder(): string {
-    return this.isInbound()
+    return this.isInbound() || this.isSelfInvoice()
       ? 'Scrivi nome, P.IVA o codice fiscale fornitore'
       : 'Scrivi nome, numero cliente, P.IVA o codice fiscale';
   }
@@ -554,7 +593,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   invoiceListGroups(): InvoiceListGroup[] {
-    const invoices = this.filteredInvoicesByDocumentKind();
+    const invoices = this.visibleInvoices();
     const normalOutbound = invoices.filter((invoice) =>
       !this.isInbound(invoice) && !this.isProforma(invoice) && !this.isCreditOrDebitNote(invoice)
     );
@@ -593,6 +632,40 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     return this.invoices;
   }
 
+  visibleInvoices(): Invoice[] {
+    const archived = new Set(['paid', 'rejected', 'cancelled']);
+    return this.filteredInvoicesByDocumentKind().filter((invoice) =>
+      this.showInvoiceArchive ? archived.has(invoice.status) : !archived.has(invoice.status),
+    );
+  }
+
+  get invoiceVisibleCount(): number {
+    return this.visibleInvoices().length;
+  }
+
+  visibleDdts(): DeliveryNote[] {
+    const archived = new Set(['invoiced', 'cancelled']);
+    return this.ddts.filter((ddt) => this.showDdtArchive ? archived.has(ddt.status) : !archived.has(ddt.status));
+  }
+
+  closeEntityPage(): void {
+    this.pageMode = 'list';
+    this.updatePageModeRoute('list');
+  }
+
+  toggleArchive(): void {
+    if (this.activeView === 'invoices') this.showInvoiceArchive = !this.showInvoiceArchive;
+    if (this.activeView === 'ddt') this.showDdtArchive = !this.showDdtArchive;
+  }
+
+  private updatePageModeRoute(mode: EntityPageMode, entityId?: number): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { mode: mode === 'list' ? null : mode, entityId: entityId || null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
   isCreditOrDebitNote(invoice: Partial<Invoice>): boolean {
     return ['TD04', 'TD05'].includes(this.stringValue(invoice.type).toUpperCase());
   }
@@ -610,7 +683,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   setView(view: InvoiceView, direction?: string): void {
-    const queryParams: Record<string, string | null> = { view, direction: null };
+    const queryParams: Record<string, string | null> = { view, direction: null, mode: null, entityId: null };
     if (direction) queryParams['direction'] = direction;
     this.router.navigate([], {
       relativeTo: this.route,
@@ -622,6 +695,10 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   private normalizeView(value: string | null): InvoiceView {
     if (value === 'payments' || value === 'ddt' || value === 'suppliers' || value === 'economics' || value === 'settings') return value;
     return 'invoices';
+  }
+
+  private normalizePageMode(value: string | null): EntityPageMode {
+    return value === 'new' || value === 'detail' ? value : 'list';
   }
 
   private loadActiveViewData(): void {
@@ -672,6 +749,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       customerEmail: '',
       customerRecipientType: 'business',
       customerId: '',
+      supplierId: null,
       paymentTermId: null,
       bankAccountId: null,
       paymentMethod: 'MP05',
@@ -692,8 +770,17 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       pensionFundAmount: 0,
       pensionFundVatRate: 22,
       pensionFundVatNature: '',
+      pensionFundLegalReference: '',
       relatedInvoiceNumber: '',
+      relatedInvoiceId: null,
       relatedInvoiceDate: '',
+      paReferenceType: 'order',
+      paDocumentId: '',
+      paDocumentDate: '',
+      paItemNumber: '',
+      paConventionCode: '',
+      paCup: '',
+      paCig: '',
       creditNoteReason: '',
       lines: [this.emptyLine()],
       payments: [],
@@ -713,6 +800,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       discountPercent: 0,
       vatRate: 22,
       vatNature: '',
+      vatLegalReference: '',
     };
   }
 
@@ -950,16 +1038,17 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         const amount = Number(item.amount || 0);
         const paidAmount = Number(item.paidAmount || 0);
         const residualAmount = this.scheduleResidual(item);
-        if (item.direction === 'inbound') {
-          summary.toPay = this.round(summary.toPay + amount);
-          summary.paid = this.round(summary.paid + paidAmount);
-          summary.residualPay = this.round(summary.residualPay + residualAmount);
+        const sign = this.isCreditNote(item) ? -1 : 1;
+        if ((item.accountingDirection || item.direction) === 'inbound') {
+          summary.toPay = this.round(summary.toPay + sign * amount);
+          summary.paid = this.round(summary.paid + sign * paidAmount);
+          summary.residualPay = this.round(summary.residualPay + sign * residualAmount);
         } else {
-          summary.toCollect = this.round(summary.toCollect + amount);
-          summary.collected = this.round(summary.collected + paidAmount);
-          summary.residualCollect = this.round(summary.residualCollect + residualAmount);
+          summary.toCollect = this.round(summary.toCollect + sign * amount);
+          summary.collected = this.round(summary.collected + sign * paidAmount);
+          summary.residualCollect = this.round(summary.residualCollect + sign * residualAmount);
         }
-        if (this.isScheduleOverdue(item)) {
+        if (!this.isCreditNote(item) && this.isScheduleOverdue(item)) {
           summary.overdue = this.round(summary.overdue + residualAmount);
         }
         return summary;
@@ -989,14 +1078,17 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   scheduleDebitAmount(item: PaymentScheduleItem): number {
-    return item.direction === 'inbound' ? Number(item.amount || 0) : 0;
+    const debit = (item.accountingDirection || item.direction) === 'inbound' ? !this.isCreditNote(item) : this.isCreditNote(item);
+    return debit ? Number(item.amount || 0) : 0;
   }
 
   scheduleCreditAmount(item: PaymentScheduleItem): number {
-    return item.direction === 'outbound' ? Number(item.amount || 0) : 0;
+    const credit = (item.accountingDirection || item.direction) === 'outbound' ? !this.isCreditNote(item) : this.isCreditNote(item);
+    return credit ? Number(item.amount || 0) : 0;
   }
 
   scheduleItemStatusLabel(item: PaymentScheduleItem): string {
+    if (this.isCreditNote(item)) return 'Credito';
     const status = this.stringValue(item.status).toLowerCase();
     if (this.scheduleResidual(item) <= 0 || status === 'paid') return 'Saldata';
     if (status === 'partial' || Number(item.paidAmount || 0) > 0) return 'Parziale';
@@ -1005,6 +1097,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   scheduleItemStatusClass(item: PaymentScheduleItem): string {
+    if (this.isCreditNote(item)) return 'credit';
     const label = this.scheduleItemStatusLabel(item);
     if (label === 'Saldata') return 'paid';
     if (label === 'Parziale') return 'partial';
@@ -1062,6 +1155,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         this.bankAccounts = res?.bankAccounts || [];
         this.serviceItems = res?.serviceItems || [];
         this.customerInvoiceDefaults = this.normalizeCustomerInvoiceDefaults(res?.customerInvoiceDefaults);
+        this.operationalHealth = res?.operationalHealth || null;
         this.invoiceSettingsLoaded = true;
         this.applyDefaultInvoiceSettings();
         this.startPendingInvoiceFromCustomer();
@@ -1071,28 +1165,9 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         this.bankAccounts = [];
         this.serviceItems = [];
         this.customerInvoiceDefaults = this.emptyCustomerInvoiceDefaults();
+        this.operationalHealth = null;
         this.invoiceSettingsLoaded = true;
         this.startPendingInvoiceFromCustomer();
-      },
-    });
-  }
-
-  importPassiveFromProvider(): void {
-    this.saving = true;
-    this.error = '';
-    this.success = '';
-    this.http.post<any>(this.global.url + 'invoices/import-passive', { size: 50 }).subscribe({
-      next: (res) => {
-        this.saving = false;
-        this.success = `Aggiornamento fatture acquisto completato: ${res?.imported || 0} nuove, ${res?.skipped || 0} ignorate o già presenti`;
-        this.directionFilter = 'inbound';
-        this.loadInvoices();
-        this.loadPaymentSchedule();
-        this.loadSuppliers();
-      },
-      error: (err) => {
-        this.saving = false;
-        this.error = this.errorText(err);
       },
     });
   }
@@ -1108,6 +1183,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.xmlPreview = '';
     this.applyDefaultInvoiceSettings();
     this.loadNextNumber();
+    this.pageMode = 'new';
+    this.updatePageModeRoute('new');
   }
 
   private startPendingInvoiceFromCustomer(): void {
@@ -1134,6 +1211,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.ddtCustomerQuery = '';
     this.ddtCustomerPickerOpen = false;
     this.loadNextDdtNumber();
+    this.pageMode = 'new';
+    this.updatePageModeRoute('new');
   }
 
   newProforma(): void {
@@ -1150,14 +1229,20 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.xmlPreview = '';
     this.applyDefaultInvoiceSettings();
     this.loadNextNumber();
+    this.pageMode = 'new';
+    this.updatePageModeRoute('new');
   }
 
   newSupplier(): void {
     this.selectedSupplier = this.emptySupplier();
+    this.pageMode = 'new';
+    this.updatePageModeRoute('new');
   }
 
   editSupplier(supplier: Supplier): void {
     this.selectedSupplier = { ...this.emptySupplier(), ...supplier };
+    this.pageMode = 'detail';
+    this.updatePageModeRoute('detail', supplier.id);
   }
 
   loadNextDdtNumber(): void {
@@ -1192,6 +1277,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     // La lista contiene già i dati principali. Li mostriamo subito: in questo modo
     // la selezione rimane leggibile anche mentre arrivano righe e pagamenti dal server.
     this.selected = this.withInvoiceDefaults(invoice);
+    this.pageMode = 'detail';
+    this.updatePageModeRoute('detail', invoice.id);
     this.syncInvoiceEmailRecipient();
     this.selectedCustomerCode = this.findSelectedCustomerCode(this.selected);
     this.syncCustomerQueryFromSelection();
@@ -1259,6 +1346,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     if (!ddt.id) return;
     this.error = '';
     this.success = '';
+    this.pageMode = 'detail';
+    this.updatePageModeRoute('detail', ddt.id);
     this.http.post<DeliveryNote>(this.global.url + 'invoices/ddt/get', { id: ddt.id }).subscribe({
       next: (res) => {
         this.selectedDdt = this.withDdtDefaults(res);
@@ -1321,7 +1410,23 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   onCustomerCountryChange(): void {
     this.selected.customerCountry = this.stringValue(this.selected.customerCountry || 'IT').toUpperCase().slice(0, 2) || 'IT';
-    if (!this.stringValue(this.selected.customerSdiCode)) {
+    if (this.selected.customerRecipientType === 'private' || !this.stringValue(this.selected.customerSdiCode)) {
+      this.selected.customerSdiCode = this.defaultSdiForCountry(this.selected.customerCountry);
+    }
+  }
+
+  onCustomerRecipientTypeChange(): void {
+    this.selected.customerRecipientType = this.normalizeRecipientType(this.selected.customerRecipientType);
+    if (this.selected.customerRecipientType === 'private') {
+      this.selected.customerSdiCode = this.defaultSdiForCountry(this.selected.customerCountry);
+    }
+  }
+
+  private prepareRecipientForSubmit(): void {
+    this.selected.customerRecipientType = this.normalizeRecipientType(this.selected.customerRecipientType);
+    this.selected.customerCountry = this.stringValue(this.selected.customerCountry || 'IT').toUpperCase().slice(0, 2) || 'IT';
+    this.selected.customerFiscalCode = this.stringValue(this.selected.customerFiscalCode).toUpperCase();
+    if (this.selected.customerRecipientType === 'private') {
       this.selected.customerSdiCode = this.defaultSdiForCountry(this.selected.customerCountry);
     }
   }
@@ -1340,10 +1445,23 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       this.selected.series = seriesByType[type] || '';
       this.loadNextNumber();
     }
+    if (this.isSelfInvoice()) {
+      this.selected.customerRecipientType = 'business';
+      this.selected.customerId = '';
+      this.selectedCustomerCode = '';
+      this.customerQuery = '';
+    }
   }
 
   onLineVatRateChange(line: InvoiceLine): void {
-    if (Number(line.vatRate || 0) !== 0) line.vatNature = '';
+    if (Number(line.vatRate || 0) !== 0) {
+      line.vatNature = '';
+      line.vatLegalReference = '';
+    }
+  }
+
+  isSelfInvoice(invoice: Partial<Invoice> = this.selected): boolean {
+    return ['TD16', 'TD17', 'TD18', 'TD19'].includes(this.stringValue(invoice.type).toUpperCase());
   }
 
   applyPaymentTerm(): void {
@@ -1405,7 +1523,13 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   filteredCustomers(): InvoiceCustomerOption[] {
     const query = this.normalizeSearch(this.customerQuery);
-    const source = this.customers;
+    const source = this.isSelfInvoice()
+      ? this.suppliers.map((supplier) => ({
+          numeroCliente: `S${supplier.id || ''}`,
+          label: [supplier.id, supplier.name, supplier.vatNumber || supplier.fiscalCode].filter(Boolean).join(' - '),
+          raw: { ...supplier, __invoiceSupplier: true },
+        }))
+      : this.customers;
     if (!query) return [];
     return source
       .filter((customer) => this.normalizeSearch(customer.label).includes(query))
@@ -1416,7 +1540,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.selectedCustomerCode = customer.numeroCliente;
     this.customerQuery = customer.label;
     this.customerPickerOpen = false;
-    this.applyCustomerToInvoice(customer.raw);
+    if (customer.raw?.['__invoiceSupplier']) this.applySupplierToSelfInvoice(customer.raw as Supplier & Record<string, any>);
+    else this.applyCustomerToInvoice(customer.raw);
   }
 
   clearCustomerSelection(): void {
@@ -1514,6 +1639,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   save(): void {
+    this.prepareRecipientForSubmit();
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -1521,6 +1647,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.http.post<Invoice>(this.global.url + 'invoices/' + endpoint, this.selected).subscribe({
       next: (res) => {
         this.selected = this.withInvoiceDefaults(res);
+        this.pageMode = 'detail';
+        this.updatePageModeRoute('detail', res.id);
         this.syncInvoiceEmailRecipient();
         this.saving = false;
         this.success = 'Fattura salvata';
@@ -1537,6 +1665,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   saveAndValidate(): void {
+    this.prepareRecipientForSubmit();
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -1576,6 +1705,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.http.post<DeliveryNote>(this.global.url + 'invoices/ddt/' + endpoint, this.selectedDdt).subscribe({
       next: (res) => {
         this.selectedDdt = this.withDdtDefaults(res);
+        this.pageMode = 'detail';
+        this.updatePageModeRoute('detail', res.id);
         this.saving = false;
         this.success = 'DDT salvato';
         this.loadDdts();
@@ -1780,6 +1911,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.saving = false;
         this.selectedSupplier = { ...this.emptySupplier(), ...res };
+        this.pageMode = 'detail';
+        this.updatePageModeRoute('detail', res.id);
         this.success = 'Fornitore salvato';
         this.loadSuppliers();
       },
@@ -2020,14 +2153,16 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   send(): void {
+    this.prepareRecipientForSubmit();
     this.runInvoiceAction('send', 'Fattura inviata al provider');
   }
 
   sync(): void {
-    this.runInvoiceAction('sync', 'Stato sincronizzato');
+    this.runInvoiceAction('get', 'Dati aggiornati da MVanager');
   }
 
   saveValidateSend(): void {
+    this.prepareRecipientForSubmit();
     if (this.isProforma(this.selected)) {
       this.error = 'La proforma va convertita in fattura prima dell’invio SdI';
       return;
@@ -2091,8 +2226,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async createCreditNote(): Promise<void> {
-    if (!this.selected.id) {
-      this.error = 'Seleziona una fattura prima di creare la nota credito';
+    if (!this.canCreateCreditNote()) {
+      this.error = 'Puoi creare una nota di credito solo da una fattura di vendita già inviata, consegnata o pagata';
       return;
     }
     const reason = await this.appDialog.prompt('Indica il motivo della nota di credito.', `Nota credito fattura ${this.selected.series ? this.selected.series + '/' : ''}${this.selected.number}`, 'Crea nota di credito', { inputLabel: 'Motivo' });
@@ -2104,6 +2239,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.saving = false;
         this.selected = this.withInvoiceDefaults(res);
+        this.pageMode = 'detail';
+        this.updatePageModeRoute('detail', res.id);
         this.xmlPreview = '';
         this.success = 'Nota credito creata';
         this.loadInvoices();
@@ -2168,6 +2305,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   validate(): void {
+    this.prepareRecipientForSubmit();
     this.runInvoiceAction('validate', 'Validazione completata', (res: any) => {
       const warnings = Array.isArray(res?.warnings) && res.warnings.length ? `\n${res.warnings.join('\n')}` : '';
       this.success = res?.valid ? `Fattura valida${warnings}` : 'Validazione completata';
@@ -2534,6 +2672,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     return !!this.selected.id && !this.isProforma(this.selected) && this.selected.provider !== 'winfatt';
   }
 
+  canCreateCreditNote(): boolean {
+    if (!this.selected.id || this.selected.direction === 'inbound') return false;
+    if (this.isProforma(this.selected) || this.isCreditOrDebitNote(this.selected)) return false;
+    return ['sent', 'delivered', 'paid'].includes(this.stringValue(this.selected.status).toLowerCase());
+  }
+
   statusLabel(status: string): string {
     const labels: Record<string, string> = {
       draft: 'Bozza',
@@ -2554,6 +2698,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       unpaid: 'Non pagata',
       partial: 'Parziale',
       paid: 'Pagata',
+      credited: 'Da compensare',
     };
     return labels[status || 'unpaid'] || status || 'Non pagata';
   }
@@ -2573,8 +2718,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     return `outcome-${this.stringValue(severity || 'info')}`;
   }
 
-  linkedDocuments(): Array<{ label: string; detail: string }> {
-    const links: Array<{ label: string; detail: string }> = [];
+  linkedDocuments(): Array<{ label: string; detail: string; invoiceId?: number | null }> {
+    const links: Array<{ label: string; detail: string; invoiceId?: number | null }> = [];
     if (this.selected.relatedInvoiceNumber) {
       links.push({
         label: this.selected.type === 'TD05' ? 'Fattura origine nota debito' : 'Fattura origine nota credito',
@@ -2582,6 +2727,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
           this.selected.relatedInvoiceNumber,
           this.selected.relatedInvoiceDate ? `del ${this.selected.relatedInvoiceDate}` : '',
         ].filter(Boolean).join(' '),
+        invoiceId: this.selected.relatedInvoiceId,
       });
     }
     const rawRefs = this.selected.deliveryNoteRefs;
@@ -2599,6 +2745,11 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       }
     }
     return links;
+  }
+
+  openLinkedInvoice(invoiceId?: number | null): void {
+    if (!invoiceId) return;
+    this.selectInvoice({ id: invoiceId } as Invoice);
   }
 
   supplierLocation(supplier: Supplier): string {
@@ -2862,7 +3013,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   private applyCustomerToInvoice(customer: Record<string, any>): void {
-    const recipientType = this.normalizeRecipientType(this.customerValue(customer, 'customerRecipientType'));
+    const recipientTypeValue = this.stringValue(this.customerValue(customer, 'customerRecipientType'));
+    const customerVatNumber = this.normalizeVatForInvoice(this.customerValue(customer, 'customerVatNumber'));
+    const customerFiscalCode = this.stringValue(this.customerValue(customer, 'customerFiscalCode')).toUpperCase();
+    const recipientType = recipientTypeValue
+      ? this.normalizeRecipientType(recipientTypeValue)
+      : (!customerVatNumber && customerFiscalCode ? 'private' : 'business');
     const firstName = this.stringValue(this.customerValue(customer, 'customerFirstName'));
     const lastName = this.stringValue(this.customerValue(customer, 'customerLastName'));
     const displayName = this.stringValue(
@@ -2872,8 +3028,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.selected.customerId = this.stringValue(customer?.['numeroCliente'] || this.customerValue(customer, 'customerId'));
     this.selected.customerRecipientType = recipientType;
     this.selected.customerName = displayName || [firstName, lastName].filter(Boolean).join(' ');
-    this.selected.customerVatNumber = this.normalizeVatForInvoice(this.customerValue(customer, 'customerVatNumber'));
-    this.selected.customerFiscalCode = this.stringValue(this.customerValue(customer, 'customerFiscalCode')).toUpperCase();
+    this.selected.customerVatNumber = customerVatNumber;
+    this.selected.customerFiscalCode = customerFiscalCode;
     this.selected.customerPec = this.stringValue(this.customerValue(customer, 'customerPec'));
     this.selected.customerEmail = this.stringValue(this.customerValue(customer, 'customerEmail'));
     this.selected.customerAddress = this.stringValue(this.customerAddressPart(customer, 'billing', 'address', 'customerAddress'));
@@ -2888,6 +3044,24 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   private syncInvoiceEmailRecipient(): void {
     this.sendEmailRecipient = this.stringValue(this.selected.customerEmail) || this.stringValue(this.selected.customerPec);
+  }
+
+  private applySupplierToSelfInvoice(supplier: Supplier & Record<string, any>): void {
+    this.selected.supplierId = supplier.id || null;
+    this.selected.customerId = '';
+    this.selected.customerRecipientType = 'business';
+    this.selected.customerName = this.stringValue(supplier.name);
+    this.selected.customerVatNumber = this.stringValue(supplier.vatNumber).toUpperCase();
+    this.selected.customerFiscalCode = this.stringValue(supplier.fiscalCode).toUpperCase();
+    this.selected.customerPec = this.stringValue(supplier.pec);
+    this.selected.customerEmail = this.stringValue(supplier.email);
+    this.selected.customerAddress = this.stringValue(supplier.address);
+    this.selected.customerCity = this.stringValue(supplier.city);
+    this.selected.customerProvince = this.stringValue(supplier.province).toUpperCase();
+    this.selected.customerZip = this.stringValue(supplier.zip);
+    this.selected.customerCountry = this.stringValue(supplier.country || 'IT').toUpperCase();
+    this.selected.customerSdiCode = this.defaultSdiForCountry(this.selected.customerCountry);
+    this.syncInvoiceEmailRecipient();
   }
 
   private applyCustomerToDdt(customer: Record<string, any>): void {
@@ -3044,6 +3218,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       unitPriceInput,
       priceIncludesVat: !!line.priceIncludesVat,
       vatNature: this.stringValue(line.vatNature).toUpperCase(),
+      vatLegalReference: this.stringValue(line.vatLegalReference),
     };
   }
 

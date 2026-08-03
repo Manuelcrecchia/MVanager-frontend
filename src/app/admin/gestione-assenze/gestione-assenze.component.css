@@ -1,14 +1,14 @@
 :root{
   --brand-black:#0b0f14;
-  --brand-orange:#ff8a00;
-  --brand-sky:#2fb7ff;
+  --brand-orange:var(--mv-orange-500);
+  --brand-sky:var(--mv-blue-500);
 
   --glass-border: rgba(255,255,255,0.18);
   --shadow-soft: 0 18px 60px rgba(0,0,0,0.22);
   --shadow-card: 0 10px 30px rgba(0,0,0,0.18);
 
-  --radius-lg: 22px;
-  --radius-md: 16px;
+  --radius-lg: var(--mv-radius-surface);
+  --radius-md: var(--mv-radius-control);
 }
 
 /* Fullscreen background */
@@ -36,10 +36,10 @@ html, body{
 
 /* Buttons: testo sempre nero */
 .container.py-4 .btn{
-  color:#000 !important;
+  color:var(--mv-ink);
   font-weight: 900;
-  border-radius: 999px !important;
-  border: 1px solid rgba(255,255,255,0.22) !important;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.22);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 10px 24px rgba(0,0,0,0.22);
@@ -57,75 +57,75 @@ html, body{
 
 /* Save / Delete */
 .container.py-4 .btn.btn-success{
-  background: linear-gradient(135deg, rgba(46,204,113,0.55), rgba(47,183,255,0.18)) !important;
+  background: linear-gradient(135deg, rgba(46,204,113,0.55), rgba(47,183,255,0.18));
 }
 .container.py-4 .btn.btn-danger{
-  background: linear-gradient(135deg, rgba(255,77,77,0.60), rgba(255,138,0,0.12)) !important;
+  background: linear-gradient(135deg, rgba(255,77,77,0.60), rgba(255,138,0,0.12));
 }
 
 /* ✅ Replace btn-pink with brand gradient (NO ROSA) */
 .btn-pink{
-  background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky)) !important;
-  color:#000 !important;
-  border: 1px solid rgba(255,255,255,0.22) !important;
+  background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky));
+  color:var(--mv-ink);
+  border: 1px solid rgba(255,255,255,0.22);
 }
 .btn-pink:hover{
-  background: linear-gradient(135deg, rgba(255,138,0,0.92), rgba(47,183,255,0.92)) !important;
-  color:#000 !important;
+  background: linear-gradient(135deg, rgba(255,138,0,0.92), rgba(47,183,255,0.92));
+  color:var(--mv-ink);
 }
 
 /* Alerts: chiari + testo nero */
 .alert{
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(0,0,0,0.10) !important;
-  background: rgba(255,255,255,0.92) !important;
-  color:#000 !important;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.92);
+  color:var(--mv-ink);
   box-shadow: var(--shadow-card);
 }
-.alert *{ color:#000 !important; }
+.alert *{ color:var(--mv-ink); }
 
 /* Table wrapper feel */
 .table{
-  border-radius: 0.75rem;
+  border-radius: var(--mv-radius-control);
   overflow: hidden;
   background: rgba(255,255,255,0.94);
-  color:#000;
+  color:var(--mv-ink);
   box-shadow: var(--shadow-soft);
 }
 
 /* Table head: chiaro + testo nero */
 .table thead th{
-  background: rgba(255,255,255,0.98) !important;
-  color:#000 !important;
-  border-color: rgba(0,0,0,0.08) !important;
+  background: rgba(255,255,255,0.98);
+  color:var(--mv-ink);
+  border-color: rgba(0,0,0,0.08);
   font-weight: 950;
   letter-spacing: .15px;
 }
 
 /* Rows + hover */
 .table tbody td{
-  border-color: rgba(0,0,0,0.08) !important;
-  color:#000 !important;
+  border-color: rgba(0,0,0,0.08);
+  color:var(--mv-ink);
 }
 .table-hover tbody tr:hover{
-  background: rgba(47,183,255,0.08) !important;
+  background: rgba(47,183,255,0.08);
 }
 
 /* New row bg-light must stay readable */
 tr.bg-light{
-  background: rgba(255,255,255,0.92) !important;
+  background: rgba(255,255,255,0.92);
 }
 tr.bg-light td{
-  color:#000 !important;
+  color:var(--mv-ink);
 }
 
 /* Inputs/selects: chiari + testo nero */
 .form-control,
 .form-select{
-  border-radius: 999px !important;
+  border-radius: 999px;
   border: 1px solid rgba(0,0,0,0.12);
   background: rgba(255,255,255,0.92);
-  color:#000 !important;
+  color:var(--mv-ink);
   box-shadow: 0 10px 22px rgba(0,0,0,0.10);
 }
 .form-control:focus,
@@ -134,7 +134,7 @@ tr.bg-light td{
   box-shadow: 0 0 0 0.18rem rgba(47,183,255,0.20);
   outline: none;
 }
-.form-select option{ color:#000; }
+.form-select option{ color:var(--mv-ink); }
 
 /* Small icon buttons keep size and spacing */
 .btn.btn-sm{
@@ -162,7 +162,7 @@ tr.bg-light td{
     margin-bottom: 14px;
     padding: 12px;
     border: 1px solid rgba(0,0,0,0.09);
-    border-radius: 16px;
+    border-radius: var(--mv-radius-surface);
     background: rgba(255,255,255,0.94);
     box-shadow: 0 8px 24px rgba(0,0,0,0.08);
   }

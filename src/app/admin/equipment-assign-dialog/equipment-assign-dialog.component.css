@@ -1,12 +1,12 @@
 :host {
   display: block;
-  color: #000 !important;
+  color: var(--mv-ink);
 }
 
 .body {
-  background: rgba(255, 255, 255, 0.95) !important;
-  color: #000 !important;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--mv-ink);
+  border-radius: var(--mv-radius-surface);
   padding: 12px;
 }
 
@@ -21,8 +21,8 @@
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 14px;
-  background: #fff;
+  border-radius: var(--mv-radius-control);
+  background: var(--mv-surface);
   cursor: pointer;
   margin-bottom: 8px;
 }
@@ -36,7 +36,7 @@
 .row-item .meta .plate,
 .dialog-title,
 .muted {
-  color: #000 !important;
+  color: var(--mv-ink);
 }
 
 .row-item .meta .name {
@@ -65,7 +65,7 @@
 }
 
 .plate {
-  color: #555 !important;
+  color: #555;
   font-size: 12px;
 }
 
@@ -73,7 +73,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #111;
+  color: var(--mv-ink);
   font-size: 12px;
   font-weight: 800;
 }
@@ -81,9 +81,9 @@
 .quantity-field input {
   width: 72px;
   border: 1px solid rgba(0, 0, 0, 0.18);
-  border-radius: 10px;
+  border-radius: var(--mv-radius-control);
   padding: 6px 8px;
-  color: #111;
+  color: var(--mv-ink);
   font-weight: 800;
 }
 
@@ -93,7 +93,7 @@
   gap: 10px;
   margin-top: 10px;
   font-size: 13px;
-  color: #333;
+  color: var(--mv-text);
   font-weight: 600;
 }
 

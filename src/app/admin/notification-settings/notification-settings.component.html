@@ -1,12 +1,6 @@
-<div class="notification-settings-page">
-  <div class="top-actions">
-    <button class="btn btn-back-glass" type="button" (click)="back()">
-      &larr; Torna Indietro
-    </button>
-  </div>
-
-  <h2 class="page-title">Notifiche mobile</h2>
-
+<div class="standard-management-page notification-settings-page">
+  <header class="mv-entity-toolbar"><div class="mv-entity-toolbar__title"><h1>Preferenze notifiche</h1></div><div class="mv-entity-toolbar__controls"><button class="btn mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button></div></header>
+  <div class="container standard-management-page__narrow">
   <section class="settings-panel">
     <div class="panel-header">
       <div>
@@ -57,4 +51,5 @@
       {{ saving ? 'Salvataggio...' : 'Salva preferenze' }}
     </button>
   </section>
+</div>
 </div>

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">mvanager</string>
-    <string name="title_activity_main">mvanager</string>
+    <string name="app_name">MVanager</string>
+    <string name="title_activity_main">MVanager</string>
     <string name="package_name">it.mvtechcore.mvanager</string>
     <string name="custom_url_scheme">it.mvtechcore.mvanager</string>
 </resources>

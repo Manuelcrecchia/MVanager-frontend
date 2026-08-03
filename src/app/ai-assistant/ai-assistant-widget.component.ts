@@ -768,9 +768,12 @@ export class AiAssistantWidgetComponent implements OnInit, AfterViewChecked, OnD
   private constrainPosition(position: WidgetPosition): WidgetPosition {
     const margin = 12;
     const size = 58;
+    // Su telefono il FAB non deve mai coprire titolo e pulsante indietro
+    // dell'header, anche se una posizione desktop precedente era stata salvata.
+    const minimumY = window.innerWidth <= 560 ? 132 : margin;
     return {
       x: Math.max(margin, Math.min(window.innerWidth - size - margin, Number(position.x) || margin)),
-      y: Math.max(margin, Math.min(window.innerHeight - size - margin, Number(position.y) || margin)),
+      y: Math.max(minimumY, Math.min(window.innerHeight - size - margin, Number(position.y) || minimumY)),
     };
   }
 

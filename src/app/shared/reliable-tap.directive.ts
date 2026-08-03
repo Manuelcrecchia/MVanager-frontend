@@ -47,12 +47,19 @@ export class ReliableTapDirective implements OnDestroy {
     event.stopPropagation();
     this.lastTouchActivation = Date.now();
     if (this.reliableTap.observed) {
+      // Il listener può navigare e sostituire il pulsante con un controllo
+      // posto sotto lo stesso punto. La guardia deve esistere prima
+      // dell'emissione, altrimenti il click sintetico può aprire quel controllo.
+      this.suppressRetargetedSyntheticClick(event);
       this.reliableTap.emit(event);
       return;
     }
 
     // I template esistenti possono continuare a usare (click): sui dispositivi
     // touch lo attiviamo noi al primo tap, senza dover modificare 800+ pulsanti.
+    // Anche qui la guardia va installata prima: il click applicativo può
+    // navigare sincronicamente e creare un nuovo controllo sotto il dito.
+    this.suppressRetargetedSyntheticClick(event);
     this.dispatchingFallbackClick = true;
     this.host.nativeElement.click();
     this.dispatchingFallbackClick = false;
@@ -76,5 +83,41 @@ export class ReliableTapDirective implements OnDestroy {
       event.stopPropagation();
       this.reliableTap.emit(event);
     }
+  }
+
+  private suppressRetargetedSyntheticClick(pointerEvent: PointerEvent): void {
+    const ownerDocument = this.host.nativeElement.ownerDocument;
+    const expiresAt = Date.now() + 750;
+    const startX = pointerEvent.clientX;
+    const startY = pointerEvent.clientY;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const removeGuard = () => {
+      ownerDocument.removeEventListener('click', guard, true);
+      clearTimeout(timeoutId);
+    };
+    const guard = (event: MouseEvent) => {
+      // È il click programmatico intenzionale usato per eseguire il vecchio
+      // handler (click), non il click residuo da bloccare.
+      if (this.dispatchingFallbackClick && event.target === this.host.nativeElement) return;
+      if (Date.now() >= expiresAt) {
+        removeGuard();
+        return;
+      }
+
+      const isSamePoint = Math.hypot(
+        event.clientX - startX,
+        event.clientY - startY,
+      ) <= 32;
+      if (!isSamePoint) return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      event.stopPropagation();
+      removeGuard();
+    };
+
+    ownerDocument.addEventListener('click', guard, true);
+    timeoutId = setTimeout(removeGuard, 800);
   }
 }

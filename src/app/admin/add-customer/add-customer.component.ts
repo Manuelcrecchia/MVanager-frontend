@@ -18,6 +18,10 @@ import {
   styleUrl: './add-customer.component.css',
 })
 export class AddCustomerComponent {
+  canConfigureVehicleRequirements = false;
+  canConfigureEquipmentRequirements = false;
+  canConfigureEmployeeRequirements = false;
+  canConfigureCustomerDeadlineCategories = false;
   employeeCategories: any[] = [];
   customerDeadlineCategories: any[] = [];
   selectedCustomerDeadlineCategoryIds: number[] = [];
@@ -70,14 +74,29 @@ export class AddCustomerComponent {
         this.globalService.applyFieldDefaults('customer', target);
         this.globalService.applyCalculatedFields('customer', target);
         this.refreshVisibleCustomerFields();
-    });
-    this.loadEmployeeCategories();
-    this.loadCustomerDeadlineCategories();
-    this.loadResourceCategories('vehicle');
-    this.loadResourceCategories('equipment');
-    this.loadEquipmentTargets();
-    this.loadEmployeeTargets();
-    this.loadVehicleTargets();
+        // Queste sezioni non devono mai comparire per inferenza: usiamo i
+        // permessi effettivamente presenti nella sessione appena autenticata.
+        const granted = new Set(this.globalService.permissions);
+        const canManageCustomers = granted.has('CUSTOMERS_MANAGE');
+        this.canConfigureVehicleRequirements = canManageCustomers && this.globalService.isFeatureAvailableInApp('vehicleDeadlines') && granted.has('VEHICLES_VIEW');
+        this.canConfigureEquipmentRequirements = canManageCustomers && this.globalService.isFeatureAvailableInApp('equipmentDeadlines') && granted.has('EQUIPMENT_VIEW');
+        this.canConfigureEmployeeRequirements = canManageCustomers && this.globalService.isFeatureAvailableInApp('employees') && granted.has('EMPLOYEE_VIEW');
+        this.canConfigureCustomerDeadlineCategories = canManageCustomers && this.globalService.isFeatureAvailableInApp('customerDeadlines') && granted.has('CUSTOMER_DEADLINES_VIEW');
+
+        if (this.canConfigureEmployeeRequirements) {
+          this.loadEmployeeCategories();
+          this.loadEmployeeTargets();
+        }
+        if (this.canConfigureCustomerDeadlineCategories) this.loadCustomerDeadlineCategories();
+        if (this.canConfigureVehicleRequirements) {
+          this.loadResourceCategories('vehicle');
+          this.loadVehicleTargets();
+        }
+        if (this.canConfigureEquipmentRequirements) {
+          this.loadResourceCategories('equipment');
+          this.loadEquipmentTargets();
+        }
+      });
   }
 
   loadResourceCategories(resourceType: 'vehicle' | 'equipment'): void {
@@ -115,6 +134,7 @@ export class AddCustomerComponent {
   }
 
   private saveCustomerDeadlineCategories(numeroCliente: string): Promise<any> {
+    if (!this.canConfigureCustomerDeadlineCategories) return Promise.resolve();
     return this.http.post(this.globalService.url + `admin/customer-deadline-categories/customer/${encodeURIComponent(numeroCliente)}`, {
       categoryIds: this.selectedCustomerDeadlineCategoryIds,
     }, { headers: this.globalService.headers }).toPromise();
@@ -483,6 +503,10 @@ export class AddCustomerComponent {
           };
 
           const saveEquipmentRequirementsAndFinalize = () => {
+            if (!this.canConfigureEquipmentRequirements) {
+              finalizeCustomerCreation();
+              return;
+            }
             const equipmentRequirements = this.equipmentRequirementMode === 'specific' ? this.buildEquipmentRequirements() : [];
             if (!numeroCliente) {
               finalizeCustomerCreation();
@@ -503,16 +527,26 @@ export class AddCustomerComponent {
 
           const saveResourceCategoryRequirementsAndFinalize = () => {
             if (!numeroCliente) { saveEquipmentRequirementsAndFinalize(); return; }
-            const vehicleRequirements = this.vehicleRequirementMode === 'category' ? this.buildCategoryRequirements(this.vehicleCategories, this.vehicleRequirementCounts) : [];
-            const equipmentRequirements = this.equipmentRequirementMode === 'category' ? this.buildCategoryRequirements(this.equipmentCategories, this.equipmentCategoryRequirementCounts) : [];
-            Promise.all([
-              this.http.post(this.globalService.url + `admin/resource-categories/vehicle/customer/${numeroCliente}`, { requirements: vehicleRequirements }, { headers: this.globalService.headers }).toPromise(),
-              this.http.post(this.globalService.url + `admin/resource-categories/equipment/customer/${numeroCliente}`, { requirements: equipmentRequirements }, { headers: this.globalService.headers }).toPromise(),
-              this.saveSpecificRequirements('vehicle', numeroCliente),
-            ]).then(saveEquipmentRequirementsAndFinalize).catch(saveEquipmentRequirementsAndFinalize);
+            const requests: Promise<any>[] = [];
+            if (this.canConfigureVehicleRequirements) {
+              const vehicleRequirements = this.vehicleRequirementMode === 'category' ? this.buildCategoryRequirements(this.vehicleCategories, this.vehicleRequirementCounts) : [];
+              requests.push(
+                this.http.post(this.globalService.url + `admin/resource-categories/vehicle/customer/${numeroCliente}`, { requirements: vehicleRequirements }, { headers: this.globalService.headers }).toPromise(),
+                this.saveSpecificRequirements('vehicle', numeroCliente),
+              );
+            }
+            if (this.canConfigureEquipmentRequirements) {
+              const equipmentRequirements = this.equipmentRequirementMode === 'category' ? this.buildCategoryRequirements(this.equipmentCategories, this.equipmentCategoryRequirementCounts) : [];
+              requests.push(this.http.post(this.globalService.url + `admin/resource-categories/equipment/customer/${numeroCliente}`, { requirements: equipmentRequirements }, { headers: this.globalService.headers }).toPromise());
+            }
+            Promise.all(requests).then(saveEquipmentRequirementsAndFinalize).catch(saveEquipmentRequirementsAndFinalize);
           };
 
           const saveRequirementsAndFinalize = () => {
+            if (!this.canConfigureEmployeeRequirements) {
+              saveResourceCategoryRequirementsAndFinalize();
+              return;
+            }
             const requirements = this.employeeRequirementMode === 'category' ? this.buildStaffRequirements() : [];
             if (!numeroCliente) {
               saveResourceCategoryRequirementsAndFinalize();

@@ -1,0 +1,25 @@
+<div class="standard-management-page">
+  <header class="mv-entity-toolbar">
+    <div class="mv-entity-toolbar__title"><h1>Scheda ordine di servizio</h1></div>
+    <div class="mv-entity-toolbar__controls"><button class="btn mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button></div>
+  </header>
+  <div class="container">
+    <div *ngIf="loading" class="alert alert-info text-center">Caricamento in corso...</div>
+    <div *ngIf="!loading && !order" class="alert alert-warning text-center">Ordine di servizio non trovato.</div>
+    <article class="service-order-sheet" *ngIf="order">
+      <div class="sheet-heading">
+        <span class="entity-id-pill">#{{ order.displayId }}</span>
+        <div><h2>{{ customerName }}</h2><span class="badge bg-warning text-dark" *ngIf="order.status === 'ARCHIVED'">Archiviato</span></div>
+      </div>
+      <div class="sheet-grid">
+        <div class="sheet-field"><span>Cliente</span><strong>#{{ order.numeroCliente }} · {{ customerName }}</strong></div>
+        <div class="sheet-field"><span>Creato il</span><strong>{{ order.createdAt | date:'dd/MM/yyyy HH:mm' }}</strong></div>
+        <div class="sheet-field"><span>Programmazione</span><strong>{{ order.scheduledStart ? (order.scheduledStart | date:'dd/MM/yyyy HH:mm') : 'Non ancora aggiunto al calendario' }}</strong></div>
+        <div class="sheet-field" *ngIf="order.scheduledEnd"><span>Fine prevista</span><strong>{{ order.scheduledEnd | date:'dd/MM/yyyy HH:mm' }}</strong></div>
+        <div class="sheet-field"><span>Stato firma</span><strong>{{ order.signedAt ? ('Firmato il ' + (order.signedAt | date:'dd/MM/yyyy HH:mm')) : 'Non firmato' }}</strong></div>
+        <div class="sheet-field sheet-field--wide"><span>Descrizione</span><strong>{{ order.descrizione || '-' }}</strong></div>
+        <div class="sheet-field" *ngFor="let field of customFields"><span>{{ field.label }}</span><strong>{{ field.value }}</strong></div>
+      </div>
+    </article>
+  </div>
+</div>

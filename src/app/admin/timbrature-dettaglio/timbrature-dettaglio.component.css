@@ -1,14 +1,14 @@
 :root{
   --brand-black:#0b0f14;
-  --brand-orange:#ff8a00;
-  --brand-sky:#2fb7ff;
+  --brand-orange:var(--mv-orange-500);
+  --brand-sky:var(--mv-blue-500);
 
   --glass-border: rgba(255,255,255,0.18);
   --shadow-soft: 0 18px 60px rgba(0,0,0,0.22);
   --shadow-card: 0 10px 30px rgba(0,0,0,0.18);
 
-  --radius-lg: 22px;
-  --radius-md: 16px;
+  --radius-lg: var(--mv-radius-surface);
+  --radius-md: var(--mv-radius-control);
 }
 
 /* ✅ SFONDO FULL SCREEN */
@@ -46,7 +46,7 @@ html, body{
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 10px 26px rgba(0,0,0,0.20);
-  color:#000;
+  color:var(--mv-ink);
   font-weight: 950;
   cursor:pointer;
   transition: transform 140ms ease, box-shadow 140ms ease;
@@ -60,10 +60,10 @@ html, body{
 /* ✅ BOTTONI: testo sempre nero, no colori rosa */
 .container.py-4 .btn,
 .modal .btn{
-  color:#000 !important;
+  color:var(--mv-ink);
   font-weight: 900;
-  border-radius: 999px !important;
-  border: 1px solid rgba(255,255,255,0.22) !important;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.22);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 10px 24px rgba(0,0,0,0.22);
@@ -82,30 +82,30 @@ html, body{
 
 /* Info button */
 .container.py-4 .btn.btn-info{
-  background: linear-gradient(135deg, rgba(47,183,255,0.45), rgba(255,255,255,0.12)) !important;
+  background: linear-gradient(135deg, rgba(47,183,255,0.45), rgba(255,255,255,0.12));
 }
 
 /* Add button */
 .container.py-4 .btn.btn-outline-primary{
-  background: linear-gradient(135deg, rgba(255,138,0,0.18), rgba(47,183,255,0.14)) !important;
+  background: linear-gradient(135deg, rgba(255,138,0,0.18), rgba(47,183,255,0.14));
 }
 
 /* Delete button */
 .container.py-4 .btn.btn-outline-danger{
-  background: linear-gradient(135deg, rgba(255,77,77,0.55), rgba(255,138,0,0.10)) !important;
+  background: linear-gradient(135deg, rgba(255,77,77,0.55), rgba(255,138,0,0.10));
 }
 
 /* Stamps buttons */
 .container.py-4 .btn.btn-outline-secondary.btn-sm{
-  background: rgba(255,255,255,0.16) !important;
+  background: rgba(255,255,255,0.16);
 }
 
 /* Date input: chiaro + testo nero */
 .container.py-4 input[type="date"].form-control{
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   border: 1px solid rgba(0,0,0,0.12);
   background: rgba(255,255,255,0.92);
-  color:#000;
+  color:var(--mv-ink);
   box-shadow: 0 10px 22px rgba(0,0,0,0.12);
 }
 .container.py-4 input[type="date"].form-control:focus{
@@ -116,41 +116,41 @@ html, body{
 
 /* ✅ TABLE WRAPPER GLASS */
 .table{
-  border-radius: 16px;
+  border-radius: var(--mv-radius-surface);
   overflow: hidden;
   background: rgba(255,255,255,0.94);
-  color:#000;
+  color:var(--mv-ink);
   box-shadow: var(--shadow-card);
 }
 
 /* Header table-light: testo nero */
 .table thead th{
-  background: rgba(255,255,255,0.98) !important;
-  color:#000 !important;
-  border-color: rgba(0,0,0,0.08) !important;
+  background: rgba(255,255,255,0.98);
+  color:var(--mv-ink);
+  border-color: rgba(0,0,0,0.08);
   font-weight: 950;
   letter-spacing: .15px;
 }
 
 /* Hover row */
 .table-hover tbody tr:hover{
-  background: rgba(47,183,255,0.08) !important;
+  background: rgba(47,183,255,0.08);
 }
 
 /* Row states: soft (leggibile) */
 .table-success{
-  background: rgba(46,204,113,0.16) !important;
+  background: rgba(46,204,113,0.16);
 }
 .table-warning{
-  background: rgba(255,193,7,0.18) !important;
+  background: rgba(255,193,7,0.18);
 }
 .table-danger{
-  background: rgba(255,77,77,0.16) !important;
+  background: rgba(255,77,77,0.16);
 }
 .table-success td,
 .table-warning td,
 .table-danger td{
-  color:#000 !important;
+  color:var(--mv-ink);
 }
 
 @media (max-width: 1099.98px) {
@@ -175,7 +175,7 @@ html, body{
     margin-bottom: 14px;
     padding: 12px;
     border: 1px solid rgba(0, 0, 0, .1);
-    border-radius: 16px;
+    border-radius: var(--mv-radius-surface);
     background: rgba(255, 255, 255, .94);
     box-shadow: var(--shadow-card);
   }
@@ -204,45 +204,45 @@ html, body{
 }
 
 /* Diff colors */
-.text-success{ color: #1e7e34 !important; font-weight: 950; }
-.text-danger{ color: #b02a37 !important; font-weight: 950; }
+.text-success{ color: #1e7e34; font-weight: 950; }
+.text-danger{ color: #b02a37; font-weight: 950; }
 
 /* ✅ BADGE: testo nero sempre */
 .badge{
-  color:#000 !important;
+  color:var(--mv-ink);
   font-weight: 950;
   border: 1px solid rgba(0,0,0,0.10);
 }
 .badge.bg-success{
-  background: rgba(46,204,113,0.65) !important;
+  background: rgba(46,204,113,0.65);
 }
 .badge.bg-danger{
-  background: rgba(255,77,77,0.75) !important;
+  background: rgba(255,77,77,0.75);
 }
 .badge.bg-warning{
-  background: rgba(255,193,7,0.85) !important;
-  color:#000 !important;
+  background: rgba(255,193,7,0.85);
+  color:var(--mv-ink);
 }
 
 /* Loader */
 .spinner-border.text-primary{
-  color: var(--brand-sky) !important;
+  color: var(--brand-sky);
 }
 
 /* ❌ RIMOSSO PINK */
-.table-pink{ background: transparent !important; }
-.text-pink{ color: var(--brand-sky) !important; }
+.table-pink{ background: transparent; }
+.text-pink{ color: var(--brand-sky); }
 
 /* ✅ MODALI GLASS (sia modalTimbratura che note modal) */
 .modal-backdrop.show{
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  background-color: rgba(0,0,0,0.55) !important;
+  background-color: rgba(0,0,0,0.55);
 }
 
 .modal-content{
-  border-radius: var(--radius-lg) !important;
-  border: 1px solid rgba(255,255,255,0.18) !important;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255,255,255,0.18);
   background: rgba(11,15,20,0.88);
   color: rgba(255,255,255,0.92);
   backdrop-filter: blur(18px);
@@ -253,9 +253,9 @@ html, body{
 /* Modal header: brand gradient + testo nero (no blu) */
 .modal-header.bg-primary,
 .modal-header.bg-info{
-  background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky)) !important;
-  color:#000 !important;
-  border-bottom: 1px solid rgba(255,255,255,0.12) !important;
+  background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky));
+  color:var(--mv-ink);
+  border-bottom: 1px solid rgba(255,255,255,0.12);
 }
 
 .modal .modal-title{
@@ -273,17 +273,17 @@ html, body{
 .modal .form-control,
 .stamping-modal-dialog .form-select,
 .stamping-modal-dialog .form-control{
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   border: 1px solid rgba(0,0,0,0.12);
   background: rgba(255,255,255,0.92);
-  color:#000;
+  color:var(--mv-ink);
 }
 .modal .form-select option,
-.stamping-modal-dialog .form-select option{ color:#000; }
+.stamping-modal-dialog .form-select option{ color:var(--mv-ink); }
 
 /* Footer */
 .modal-footer{
-  border-top: 1px solid rgba(255,255,255,0.12) !important;
+  border-top: 1px solid rgba(255,255,255,0.12);
   gap: 10px;
 }
 
@@ -308,9 +308,9 @@ html, body{
 }
 .stamping-modal-dialog--wide { width: min(100%, 800px); }
 .stamping-modal-dialog .modal-content { display: block; }
-.stamping-modal-dialog .btn { color: #000 !important; font-weight: 900; }
-.stamping-modal-dialog .btn.btn-secondary { background: rgba(255,255,255,.16) !important; }
-.stamping-modal-dialog .btn.btn-primary { background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky)) !important; }
+.stamping-modal-dialog .btn { color: var(--mv-ink); font-weight: 900; }
+.stamping-modal-dialog .btn.btn-secondary { background: rgba(255,255,255,.16); }
+.stamping-modal-dialog .btn.btn-primary { background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky)); }
 
 .stamping-toast {
   position: fixed;
@@ -322,7 +322,7 @@ html, body{
   gap: .75rem;
   max-width: min(420px, calc(100vw - 2rem));
   padding: .85rem 1rem;
-  border-radius: 14px;
+  border-radius: var(--mv-radius-control);
   background: #e8fff1;
   color: #124d2a;
   box-shadow: 0 12px 32px rgba(0, 0, 0, .28);
@@ -332,30 +332,30 @@ html, body{
 
 /* Buttons in modal */
 .modal .btn.btn-secondary{
-  background: rgba(255,255,255,0.16) !important;
+  background: rgba(255,255,255,0.16);
 }
 .modal .btn.btn-primary{
-  background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky)) !important;
+  background: linear-gradient(135deg, var(--brand-orange), var(--brand-sky));
 }
 
 /* ✅ TOAST */
 .toast{
-  border-radius: 16px;
+  border-radius: var(--mv-radius-surface);
   background: rgba(255,255,255,0.92);
-  color:#000;
-  border: 1px solid rgba(0,0,0,0.10) !important;
+  color:var(--mv-ink);
+  border: 1px solid rgba(0,0,0,0.10);
   box-shadow: 0 16px 44px rgba(0,0,0,0.35);
 }
-.toast-body{ color:#000; font-weight: 800; }
+.toast-body{ color:var(--mv-ink); font-weight: 800; }
 .toast .btn-close{ filter: none; opacity: .85; }
 
 /* Notes modal content blocks */
 .modal-body .border{
-  border-color: rgba(255,255,255,0.16) !important;
+  border-color: rgba(255,255,255,0.16);
 }
 .modal-body pre{
   background: rgba(255,255,255,0.10);
-  border-radius: 12px;
+  border-radius: var(--mv-radius-control);
   padding: 10px;
   color: rgba(255,255,255,0.92);
   border: 1px solid rgba(255,255,255,0.14);

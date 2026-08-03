@@ -1,37 +1,34 @@
 <div class="bg-light">
 
     <!-- TOOLBAR -->
-    <mat-toolbar
-      class="d-flex flex-wrap justify-content-between align-items-center px-3 py-2 mb-3"
-      color="primary"
-    >
-      <div class="d-flex align-items-center mb-2 mb-md-0">
-        <span class="fs-4 me-3 text-white">Clienti</span>
-        <button class="btn-back me-3" type="button" (click)="back()">
-          &larr; Torna Indietro
-        </button>
+    <header class="customer-page-toolbar mv-entity-toolbar">
+      <div class="customer-title-actions mv-entity-toolbar__title">
+        <h1>Clienti</h1>
+        <button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="back()">← Torna indietro</button>
         <button
           type="button"
-          class="btn-new-customer"
+          class="btn mv-toolbar-primary"
           *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE')"
           (click)="navigateToAddCustomer()"
         >
-          <mat-icon>person_add</mat-icon>
-          <span>Nuovo cliente</span>
+          <i class="fas fa-plus" aria-hidden="true"></i>
+          <span>Nuovo</span>
         </button>
       </div>
 
-      <div class="customer-search-bar">
-        <mat-form-field class="customer-search-field" appearance="fill">
-          <mat-label>Cerca cliente</mat-label>
+      <div class="customer-search-bar mv-entity-toolbar__controls">
+        <label class="customer-search-field">
+          <span class="visually-hidden">Cerca cliente</span>
+          <i class="fas fa-search" aria-hidden="true"></i>
           <input
-            matInput
+            class="form-control"
+            type="search"
             [(ngModel)]="customerSearch"
             (ngModelChange)="applyCustomerSearch()"
             placeholder="Numero, nominativo, email o telefono"
           />
-        </mat-form-field>
-        <span class="customer-search-count">{{ customersFrEnd.length }} / {{ customers.length }}</span>
+        </label>
+        <span class="customer-search-count mv-entity-toolbar__count">{{ customersFrEnd.length }} / {{ customers.length }}</span>
         <button
           type="button"
           class="btn btn-light btn-sm"
@@ -44,7 +41,7 @@
           {{ showArchived ? 'Nascondi archiviati' : 'Mostra archivio' }}
         </button>
       </div>
-    </mat-toolbar>
+    </header>
 
     <!-- LISTA CLIENTI -->
     <div class="container">
@@ -91,13 +88,13 @@
       <div class="row g-3">
         <div class="col-12" *ngFor="let customer of customersFrEnd">
 
+          <div class="customer-card-shell">
           <details appReliableDetails class="customer-card" [class.customer-card--archive-reminder]="isArchiveReminderCustomer(customer)">
 
             <!-- HEADER: apre/chiude tendina -->
             <summary class="customer-header-btn">
               <span class="customer-info">
-                <span class="customer-num">{{ customer.numeroCliente }}</span>
-                <span class="customer-sep">—</span>
+                <span class="customer-num">#{{ customer.numeroCliente }}</span>
                 <span class="customer-nom">{{ getCustomerDisplayName(customer) }}</span>
                 <span class="badge bg-warning text-dark" *ngIf="customer.active === false">Archiviato</span>
               </span>
@@ -128,21 +125,9 @@
               </button>
             </div>
             <div
-              class="customer-actions"
+              class="customer-actions mv-record-actions"
             >
-              <div class="customer-actions-inner">
-                <button
-                  *ngIf="globalService.hasPermission('CUSTOMERS_NOTES_VIEW')"
-                  type="button"
-                  class="btn btn-sm btn-notes action-with-tooltip"
-                  (click)="navigateToNotes(customer.numeroCliente, getCustomerDisplayName(customer))"
-                  title="Apri le note del cliente"
-                  aria-label="Apri le note del cliente"
-                  data-tooltip="Note cliente"
-                >
-                  <mat-icon>sticky_note_2</mat-icon>
-                </button>
-
+              <div class="customer-actions-inner mv-record-actions__inner">
                 <button
                   type="button"
                   *ngIf="
@@ -152,9 +137,8 @@
                     globalService.hasPermission('STAMPING_MANAGE')
                   "
                   mat-raised-button
-                  color="accent"
                   [routerLink]="['/gestioneTagCliente', customer.numeroCliente]"
-                  class="action-with-tooltip"
+                  class="mv-record-action mv-record-action--evidence action-with-tooltip"
                   title="Gestisci i tag del cliente"
                   aria-label="Gestisci tag cliente"
                   data-tooltip="Gestisci tag"
@@ -165,9 +149,8 @@
                 <button type="button"
                   *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
-                  color="accent"
                   (click)="navigateToEditCustomer(customer.numeroCliente)"
-                  class="action-with-tooltip"
+                  class="mv-record-action mv-record-action--edit action-with-tooltip"
                   title="Modifica i dati del cliente"
                   aria-label="Modifica cliente"
                   data-tooltip="Modifica cliente"
@@ -178,9 +161,8 @@
                 <button type="button"
                   *ngIf="canGenerateSalesInvoice(customer)"
                   mat-raised-button
-                  color="primary"
                   (click)="generateSalesInvoice(customer)"
-                  class="action-with-tooltip"
+                  class="mv-record-action mv-record-action--confirm action-with-tooltip"
                   title="Genera una fattura vendita con i dati del cliente già compilati"
                   aria-label="Genera fattura vendita"
                   data-tooltip="Genera fattura vendita"
@@ -191,9 +173,8 @@
                 <button type="button"
                   *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
-                  color="warn"
                   (click)="archiveCustomer(customer)"
-                  class="action-with-tooltip"
+                  class="mv-record-action mv-record-action--danger action-with-tooltip"
                   title="Scarica l'archivio completo del cliente e poi lo archivia"
                   aria-label="Archivia cliente"
                   data-tooltip="Archivia"
@@ -204,9 +185,8 @@
                 <button type="button"
                   *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active === false"
                   mat-raised-button
-                  color="primary"
                   (click)="unarchiveCustomer(customer)"
-                  class="action-with-tooltip"
+                  class="mv-record-action mv-record-action--signature action-with-tooltip"
                   title="Riattiva il cliente archiviato"
                   aria-label="Riattiva cliente"
                   data-tooltip="Riattiva"
@@ -217,9 +197,8 @@
                 <button type="button"
                   *ngIf="globalService.hasPermission('CUSTOMER_DOCS_MANAGE') && customer.active !== false"
                   mat-raised-button
-                  color="primary"
                   (click)="viewDocuments(customer.numeroCliente)"
-                  class="action-with-tooltip"
+                  class="mv-record-action mv-record-action--email action-with-tooltip"
                   title="Apri i documenti caricati per questo cliente"
                   aria-label="Apri documenti cliente"
                   data-tooltip="Documenti cliente"
@@ -230,12 +209,11 @@
                 <button type="button"
                   *ngIf="globalService.hasTenantFeature('workCompletion') && globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
-                  color="primary"
                   (click)="openWorkCompletion(customer)"
-                  class="action-with-tooltip"
-                  title="Compila il foglio di fine lavoro e raccogli la firma del cliente"
-                  aria-label="Compila foglio fine lavoro"
-                  data-tooltip="Foglio fine lavoro"
+                  class="mv-record-action mv-record-action--signature action-with-tooltip"
+                  title="Invia al cliente il link per compilare e firmare il foglio di fine lavoro"
+                  aria-label="Invia foglio fine lavoro"
+                  data-tooltip="Invia foglio fine lavoro"
                 >
                   <mat-icon>assignment_turned_in</mat-icon>
                 </button>
@@ -243,9 +221,8 @@
                 <button type="button"
                   *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
-                  color="accent"
                   (click)="openStaffRequirements(customer)"
-                  class="action-with-tooltip"
+                  class="mv-record-action mv-record-action--evidence action-with-tooltip"
                   title="Imposta categorie e numero di personale richiesto"
                   aria-label="Personale richiesto"
                   data-tooltip="Personale richiesto"
@@ -253,24 +230,10 @@
                   <mat-icon>groups</mat-icon>
                 </button>
 
-                <button
-                  type="button"
-                  mat-raised-button
-                  color="accent"
-                  [routerLink]="['/schedaCliente', customer.numeroCliente]"
-                  class="action-with-tooltip"
-                  title="Apri la scheda riepilogativa del cliente"
-                  aria-label="Apri scheda cliente"
-                  data-tooltip="Scheda cliente"
-                >
-                  <mat-icon>badge</mat-icon>
-                </button>
-
                 <button type="button"
                   mat-raised-button
-                  color="primary"
                   (click)="openCustomerWhatsApp(customer)"
-                  class="action-with-tooltip"
+                  class="mv-record-action mv-record-action--whatsapp action-with-tooltip"
                   title="Apri la chat WhatsApp del cliente senza messaggio precompilato"
                   aria-label="Apri WhatsApp"
                   data-tooltip="Apri WhatsApp"
@@ -281,9 +244,8 @@
                 <button type="button"
                   *ngIf="globalService.hasPermission('EMAIL_VIEW')"
                   mat-raised-button
-                  color="accent"
                   (click)="composeCustomerEmail(customer)"
-                  class="action-with-tooltip"
+                  class="mv-record-action mv-record-action--email action-with-tooltip"
                   title="Crea una nuova email con il cliente già come destinatario"
                   aria-label="Scrivi email"
                   data-tooltip="Scrivi email"
@@ -295,6 +257,27 @@
             </div>
 
           </details>
+
+          <span class="customer-header-actions">
+            <button
+              type="button"
+              class="btn btn-sm btn-customer-quick-action action-with-tooltip"
+              [routerLink]="['/schedaCliente', customer.numeroCliente]"
+              title="Apri la scheda riepilogativa del cliente"
+              aria-label="Apri scheda cliente"
+              data-tooltip="Scheda cliente"
+            ><mat-icon>badge</mat-icon></button>
+            <button
+              *ngIf="globalService.hasPermission('CUSTOMERS_NOTES_VIEW')"
+              type="button"
+              class="btn btn-sm btn-notes btn-customer-quick-action action-with-tooltip mv-note-badge-anchor"
+              (click)="navigateToNotes(customer.numeroCliente, getCustomerDisplayName(customer))"
+              title="Apri le note del cliente"
+              aria-label="Apri le note del cliente"
+              data-tooltip="Note cliente"
+            ><mat-icon>sticky_note_2</mat-icon><span class="mv-note-unread-badge" *ngIf="noteUnread.count('customer', customer.numeroCliente) as unread">{{ unread > 99 ? '99+' : unread }}</span></button>
+          </span>
+          </div>
 
         </div>
 

@@ -12,25 +12,16 @@ declare var bootstrap: any;
   styleUrls: ['./gestione-permessi.component.css'],
 })
 export class GestionePermessiComponent implements OnInit {
-  @ViewChild('permessoModal') modalElement!: ElementRef;
   @ViewChild('creaModal') creaModalElement!: ElementRef;
 
   leaveRequests: any[] = [];
-  historyRequests: any[] = [];
   employees: any[] = [];
-  selectedHistoryEmployeeId = '';
   loading = false;
-  selectedRequest: any = null;
   creaLoading = false;
-  savingAllegati = false;
   categoriePermesso: Array<{ key: string; label: string }> = [];
-
-  modalData: any = {
-    categoria: '',
-    oreGiornaliere: null,
-    oraInizioModificata: '',
-    oraFineModificata: '',
-  };
+  search = '';
+  showArchived = false;
+  private openRequests = new Set<number>();
 
   creaData: any = {
     employeeId: '',
@@ -57,15 +48,18 @@ export class GestionePermessiComponent implements OnInit {
         label: category.label || category.key,
       }));
       const firstCategory = this.categoriePermesso[0]?.key || '';
-      if (!this.modalData.categoria) this.modalData.categoria = firstCategory;
       if (!this.creaData.categoria) this.creaData.categoria = firstCategory;
     });
     this.route.queryParams.subscribe((params) => {
-      this.selectedHistoryEmployeeId = params['employeeId'] || '';
+      const employeeId = params['employeeId'] || '';
+      if (employeeId) this.search = String(employeeId);
       this.loadRequests();
       this.loadEmployees();
-      this.loadHistory();
     });
+  }
+
+  goBack(): void {
+    this.router.navigateByUrl('/homeAdmin');
   }
 
   loadEmployees(): void {
@@ -132,7 +126,7 @@ export class GestionePermessiComponent implements OnInit {
         this.creaLoading = false;
         bootstrap.Modal.getInstance(this.creaModalElement.nativeElement)?.hide();
         this.showToast('✅ Richiesta inviata al dipendente per conferma');
-        this.loadHistory();
+        this.loadRequests();
       },
       error: (err) => {
         this.creaLoading = false;
@@ -161,7 +155,7 @@ export class GestionePermessiComponent implements OnInit {
         this.creaLoading = false;
         bootstrap.Modal.getInstance(this.creaModalElement.nativeElement)?.hide();
         this.showToast('✅ Permesso/assenza salvato');
-        this.loadHistory();
+        this.loadRequests();
       },
       error: (err) => {
         this.creaLoading = false;
@@ -172,9 +166,10 @@ export class GestionePermessiComponent implements OnInit {
 
   loadRequests(): void {
     this.loading = true;
-    this.http.get<any[]>(this.globalService.url + 'permission').subscribe({
+    const suffix = this.showArchived ? '?includeArchived=true' : '';
+    this.http.get<any[]>(this.globalService.url + 'permission' + suffix).subscribe({
       next: (res) => {
-        this.leaveRequests = res.filter((p) => p.status === 'in attesa');
+        this.leaveRequests = res || [];
         this.loading = false;
       },
       error: (err) => {
@@ -185,35 +180,52 @@ export class GestionePermessiComponent implements OnInit {
     });
   }
 
-  loadHistory(): void {
-    const suffix = this.selectedHistoryEmployeeId
-      ? `?employeeId=${this.selectedHistoryEmployeeId}`
-      : '';
-    this.http.get<any[]>(this.globalService.url + 'permission/history' + suffix).subscribe({
-      next: (res) => {
-        this.historyRequests = res || [];
-      },
-      error: (err) => {
-        console.error('Errore nel recupero storico permessi:', err);
-        this.popup.showHttpError(err, 'Errore durante il caricamento dello storico permessi.');
-      },
-    });
+  get filteredRequests(): any[] {
+    const q = this.search.trim().toLowerCase();
+    if (!q) return this.leaveRequests;
+    return this.leaveRequests.filter((request) => [
+      request.displayId,
+      request.id,
+      request.employeeId,
+      request.employee?.nome,
+      request.employee?.cognome,
+      request.employee?.email,
+      request.categoria,
+      request.tipoPermesso,
+      request.status,
+    ].some((value) => String(value || '').toLowerCase().includes(q)));
   }
 
-  onHistoryEmployeeChange(): void {
-    this.loadHistory();
+  toggleShowArchived(): void {
+    this.showArchived = !this.showArchived;
+    this.openRequests.clear();
+    this.loadRequests();
   }
 
-  openModal(req: any): void {
-    this.selectedRequest = req;
-    this.modalData = {
-      categoria: req.categoria || this.categoriePermesso[0]?.key || '',
-      oreGiornaliere: null,
-      oraInizioModificata: req.tipoPermesso === 'parziale' ? (req.oraInizio || '') : '',
-      oraFineModificata: req.tipoPermesso === 'parziale' ? (req.oraFine || '') : '',
-    };
-    const modal = new bootstrap.Modal(this.modalElement.nativeElement);
-    modal.show();
+  toggleRequest(id: number): void {
+    const requestId = Number(id);
+    if (this.openRequests.has(requestId)) this.openRequests.delete(requestId);
+    else this.openRequests.add(requestId);
+  }
+
+  isRequestOpen(id: number): boolean {
+    return this.openRequests.has(Number(id));
+  }
+
+  employeeName(request: any): string {
+    return `${request?.employee?.nome || ''} ${request?.employee?.cognome || ''}`.trim() || `Dipendente #${request?.employeeId || '-'}`;
+  }
+
+  statusLabel(status: string): string {
+    if (status === 'in attesa') return 'In attesa';
+    if (status === 'accettato') return 'Accettato';
+    if (status === 'rifiutato') return 'Rifiutato';
+    if (status === 'modificato') return 'Da confermare';
+    return status || '-';
+  }
+
+  openRequestSheet(request: any): void {
+    this.router.navigate(['/homeAdmin/gestionepermessi/view', request.id]);
   }
 
   confirmAcceptDirect(req: any): void {
@@ -235,64 +247,12 @@ export class GestionePermessiComponent implements OnInit {
       next: (res: any) => {
         this.showToast('✅ Permesso accettato');
         this.loadRequests();
-        this.loadHistory();
       },
       error: (err) => {
         console.error('Errore durante accettazione:', err);
         this.showToast('❌ ' + this.parseServerError(err), true);
       },
     });
-  }
-
-  confirmAccept(): void {
-    if (!this.selectedRequest) return;
-
-    const body: any = {
-      id: this.selectedRequest.id,
-      employeeId: this.selectedRequest.employeeId,
-      categoria: this.modalData.categoria,
-      dataInizio: this.selectedRequest.fromDate,
-      dataFine: this.selectedRequest.toDate,
-      oreGiornaliere: this.modalData.oreGiornaliere,
-    };
-
-    if (this.selectedRequest.tipoPermesso === 'parziale') {
-      body.oraInizioModificata = this.modalData.oraInizioModificata || null;
-      body.oraFineModificata = this.modalData.oraFineModificata || null;
-    }
-
-    this.http
-      .post(this.globalService.url + 'permission/accept', body)
-      .subscribe({
-        next: (res: any) => {
-          const wasModified =
-            this.selectedRequest?.tipoPermesso === 'parziale' &&
-            this.modalData.oraInizioModificata &&
-            this.modalData.oraFineModificata &&
-            (this.modalData.oraInizioModificata !== this.selectedRequest?.oraInizio ||
-              this.modalData.oraFineModificata !== this.selectedRequest?.oraFine);
-
-          this.showToast(
-            wasModified
-              ? `⚠️ Ore modificate inviate al dipendente per conferma`
-              : `✅ Permesso accettato come ${this.modalData.categoria}${
-                  this.modalData.oreGiornaliere
-                    ? ' (' + this.modalData.oreGiornaliere + ' ore)'
-                    : ''
-                }`
-          );
-          const modal = bootstrap.Modal.getInstance(
-            this.modalElement.nativeElement
-          );
-          modal.hide();
-          this.loadRequests();
-          this.loadHistory();
-        },
-        error: (err) => {
-          console.error('Errore durante accettazione:', err);
-          this.showToast('❌ ' + this.parseServerError(err), true);
-        },
-      });
   }
 
   rifiuta(id: number): void {
@@ -302,66 +262,10 @@ export class GestionePermessiComponent implements OnInit {
         next: () => {
           this.showToast('🗑️ Permesso rifiutato');
           this.loadRequests();
-          this.loadHistory();
         },
         error: (err) => {
           console.error('Errore durante rifiuto:', err);
           this.showToast('❌ ' + this.parseServerError(err), true);
-        },
-      });
-  }
-
-  get allegatiParsati(): any[] {
-    if (!this.selectedRequest?.allegati) return [];
-    try {
-      const allegatiStr = this.selectedRequest.allegati;
-      return typeof allegatiStr === 'string' ? JSON.parse(allegatiStr) : allegatiStr;
-    } catch {
-      return [];
-    }
-  }
-
-  saveAllegati(): void {
-    if (!this.selectedRequest) return;
-
-    const allegatiStr = this.selectedRequest.allegati;
-    if (!allegatiStr) {
-      this.showToast('❌ Nessun allegato da salvare', true);
-      return;
-    }
-
-    let allegati: any[] = [];
-    try {
-      allegati = typeof allegatiStr === 'string' ? JSON.parse(allegatiStr) : allegatiStr;
-    } catch {
-      this.showToast('❌ Errore nel parsing degli allegati', true);
-      return;
-    }
-
-    if (!allegati.length) {
-      this.showToast('❌ Nessun allegato da salvare', true);
-      return;
-    }
-
-    this.savingAllegati = true;
-
-    const body = {
-      employeeId: this.selectedRequest.employeeId,
-      requestId: this.selectedRequest.id,
-      allegati: allegati,
-    };
-
-    this.http
-      .post(this.globalService.url + 'permission/save-allegati', body)
-      .subscribe({
-        next: (res: any) => {
-          this.savingAllegati = false;
-          this.showToast(`✅ ${allegati.length} allegato/i salvato/i nella cartella documenti`);
-        },
-        error: (err) => {
-          this.savingAllegati = false;
-          this.showToast('❌ Errore durante il salvataggio degli allegati', true);
-          console.error('Errore saveAllegati:', err);
         },
       });
   }
@@ -387,28 +291,4 @@ export class GestionePermessiComponent implements OnInit {
     return 'Errore imprevisto. Riprova.';
   }
 
-  downloadAllegato(filepath: string, filename: string): void {
-    this.http
-      .get(this.globalService.url + `permission/download-temp-allegato?filepath=${encodeURIComponent(filepath)}`, {
-        responseType: 'blob',
-      })
-      .subscribe({
-        next: (blob: Blob) => {
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = filename;
-          link.click();
-          window.URL.revokeObjectURL(url);
-        },
-        error: (err) => {
-          console.error('Errore download allegato:', err);
-          this.showToast('❌ Errore nel download dell\'allegato', true);
-        },
-      });
-  }
-
-  goBack(): void {
-    this.router.navigate(['/homeAdmin']);
-  }
 }

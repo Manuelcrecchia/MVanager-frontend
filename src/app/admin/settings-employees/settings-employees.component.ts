@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService, TenantEmployeeFieldConfig } from '../../service/global.service';
 import { Router } from '@angular/router';
@@ -12,6 +12,9 @@ interface Employee {
   email: string;
   cellulare: string;
   oreGiornaliereDefault?: string | number | null;
+  warehousePreparationEnabled: boolean;
+  warehouseStockInEnabled: boolean;
+  warehouseStockOutEnabled: boolean;
   active: boolean;
   [key: string]: any;
 }
@@ -22,6 +25,9 @@ interface EmployeeForm {
   email: string;
   cellulare: string;
   oreGiornaliereDefault?: string | number | null;
+  warehousePreparationEnabled: boolean;
+  warehouseStockInEnabled: boolean;
+  warehouseStockOutEnabled: boolean;
   [key: string]: any;
 }
 
@@ -45,7 +51,11 @@ interface EmployeeCategory {
   templateUrl: './settings-employees.component.html',
   styleUrls: ['./settings-employees.component.css'],
 })
-export class SettingsEmployeesComponent implements OnInit {
+export class SettingsEmployeesComponent implements OnInit, OnChanges {
+  @Input() embedded = false;
+  @Input() focusAction: 'new' | 'edit' | 'categories' = 'new';
+  @Input() focusEmployeeId: number | null = null;
+  @Output() employeeCreated = new EventEmitter<void>();
   employeesAdd: EmployeeForm = this.emptyEmployeeAdd();
   employeess: Employee[] = [];
   showArchived = false;
@@ -69,6 +79,9 @@ export class SettingsEmployeesComponent implements OnInit {
     'email',
     'cellulare',
     'oreGiornaliereDefault',
+    'warehousePreparationEnabled',
+    'warehouseStockInEnabled',
+    'warehouseStockOutEnabled',
   ].map((key) => key.toLowerCase()));
 
   constructor(
@@ -79,9 +92,24 @@ export class SettingsEmployeesComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    if (this.embedded && this.focusEmployeeId) this.showArchived = true;
     this.loadEmployeeConfig();
-    this.fetchEmployees();
-    this.fetchCategories();
+    if (!this.embedded || this.focusAction !== 'new') {
+      this.fetchEmployees();
+      this.fetchCategories();
+    }
+  }
+
+  ngOnChanges(_changes: SimpleChanges): void {
+    this.applyFocusedAction();
+  }
+
+  private applyFocusedAction(): void {
+    if (!this.embedded || this.focusAction === 'new') return;
+    const employee = this.employeess.find((item) => Number(item.id) === Number(this.focusEmployeeId));
+    if (!employee) return;
+    if (this.focusAction === 'edit') this.startEditEmployee(employee);
+    if (this.focusAction === 'categories') this.openEmployeeCategories(employee);
   }
 
   private emptyEmployeeAdd(): EmployeeForm {
@@ -91,6 +119,9 @@ export class SettingsEmployeesComponent implements OnInit {
       email: '',
       cellulare: '',
       oreGiornaliereDefault: null,
+      warehousePreparationEnabled: false,
+      warehouseStockInEnabled: false,
+      warehouseStockOutEnabled: false,
     };
   }
 
@@ -235,6 +266,7 @@ export class SettingsEmployeesComponent implements OnInit {
         next: (response) => {
           this.employeess = JSON.parse(response);
           this.fetchEmployeeCategoryAssignments();
+          this.applyFocusedAction();
         },
         error: (error) => {
           console.error('Errore durante il recupero dei dipendenti:', error);
@@ -477,6 +509,9 @@ export class SettingsEmployeesComponent implements OnInit {
       email: this.employeeEdit.email,
       cellulare: this.employeeEdit.cellulare,
       oreGiornaliereDefault: this.employeeEdit.oreGiornaliereDefault,
+      warehousePreparationEnabled: !!this.employeeEdit.warehousePreparationEnabled,
+      warehouseStockInEnabled: !!this.employeeEdit.warehouseStockInEnabled,
+      warehouseStockOutEnabled: !!this.employeeEdit.warehouseStockOutEnabled,
     };
     this.appendEmployeeExtraPayload(body, this.employeeEdit);
 
@@ -488,6 +523,10 @@ export class SettingsEmployeesComponent implements OnInit {
       .subscribe({
         next: () => {
           this.cancelEdit();
+          if (this.embedded && this.focusAction === 'edit') {
+            void this.router.navigate(['/homeAdmin/gestioneemployees']);
+            return;
+          }
           this.fetchEmployees();
         },
         error: (err) => {
@@ -504,6 +543,9 @@ export class SettingsEmployeesComponent implements OnInit {
       email: this.employeesAdd.email,
       cellulare: this.employeesAdd.cellulare,
       oreGiornaliereDefault: this.employeesAdd.oreGiornaliereDefault,
+      warehousePreparationEnabled: !!this.employeesAdd.warehousePreparationEnabled,
+      warehouseStockInEnabled: !!this.employeesAdd.warehouseStockInEnabled,
+      warehouseStockOutEnabled: !!this.employeesAdd.warehouseStockOutEnabled,
     };
     this.appendEmployeeExtraPayload(body, this.employeesAdd);
 
@@ -518,16 +560,21 @@ export class SettingsEmployeesComponent implements OnInit {
           this.isLoading = false;
           this.employeesAdd = this.emptyEmployeeAdd();
           this.hydrateEmployeeExtraDefaults(this.employeesAdd);
-          this.fetchEmployees();
+          if (this.embedded) {
+            this.employeeCreated.emit();
+          } else {
+            this.fetchEmployees();
+          }
         },
         error: (error) => {
           this.isLoading = false;
           console.error("Errore durante l'aggiunta del dipendente:", error);
-          if (error.status === 409) {
-            alert(this.parseServerError(error, 'Un dipendente con questa email esiste già'));
-          } else {
-            alert(this.parseServerError(error, "Errore durante l'aggiunta del dipendente"));
-          }
+          this.appDialog.showHttpError(
+            error,
+            error.status === 409
+              ? 'Un dipendente con questa email esiste già'
+              : "Errore durante l'aggiunta del dipendente",
+          );
         },
       });
   }

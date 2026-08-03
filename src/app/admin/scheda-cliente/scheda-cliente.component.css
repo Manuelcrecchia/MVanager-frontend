@@ -1,14 +1,14 @@
 :root{
   --brand-black:#0b0f14;
-  --brand-orange:#ff8a00;
-  --brand-sky:#2fb7ff;
+  --brand-orange:var(--mv-orange-500);
+  --brand-sky:var(--mv-blue-500);
 
   --glass-border: rgba(255,255,255,0.18);
   --shadow-soft: 0 18px 60px rgba(0,0,0,0.22);
   --shadow-card: 0 10px 30px rgba(0,0,0,0.18);
 
-  --radius-lg: 22px;
-  --radius-md: 16px;
+  --radius-lg: var(--mv-radius-surface);
+  --radius-md: var(--mv-radius-control);
 }
 
 /* Background full screen */
@@ -36,18 +36,18 @@ h2{
 
 /* Override text-primary to brand (only visual) */
 .text-primary{
-  color: var(--brand-sky) !important;
+  color: var(--brand-sky);
 }
 h5.text-primary{
-  color: var(--brand-orange) !important;
+  color: var(--brand-orange);
 }
 
 /* Back button / all buttons: testo nero */
 .container.py-4 .btn{
-  color:#000 !important;
+  color:var(--mv-ink);
   font-weight: 900;
-  border-radius: 999px !important;
-  border: 1px solid rgba(255,255,255,0.22) !important;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.22);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 10px 24px rgba(0,0,0,0.22);
@@ -65,29 +65,29 @@ h5.text-primary{
 
 /* Loading alert: chiaro + testo nero */
 .alert.alert-warning{
-  border-radius: 999px !important;
-  background: rgba(255,255,255,0.92) !important;
-  border: 1px solid rgba(0,0,0,0.10) !important;
-  color:#000 !important;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.92);
+  border: 1px solid rgba(0,0,0,0.10);
+  color:var(--mv-ink);
   box-shadow: var(--shadow-card);
 }
-.alert.alert-warning *{ color:#000 !important; }
+.alert.alert-warning *{ color:var(--mv-ink); }
 
 /* ✅ CARD: da bg-white morto a glass chiaro (ma testo nero) */
 .card.bg-white{
-  border-radius: var(--radius-lg) !important;
-  border: 1px solid rgba(255,255,255,0.16) !important;
-  background: rgba(255,255,255,0.92) !important; /* chiaro */
-  color:#000 !important; /* testo nero */
-  box-shadow: var(--shadow-soft) !important;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.92); /* chiaro */
+  color:var(--mv-ink); /* testo nero */
+  box-shadow: var(--shadow-soft);
 }
 .card.bg-white *{
-  color:#000;
+  color:var(--mv-ink);
 }
 
 /* Card heading */
 .card.bg-white .text-secondary{
-  color: rgba(0,0,0,0.70) !important;
+  color: rgba(0,0,0,0.70);
   font-weight: 950;
 }
 
@@ -104,18 +104,18 @@ h5.text-primary{
 
 /* List group: pulita e leggibile */
 .list-group-item{
-  background: transparent !important;
-  border: none !important;
+  background: transparent;
+  border: none;
   padding-left: 0 !important;
-  color:#000 !important;
+  color:var(--mv-ink);
 }
 .list-group-item i.text-success{
-  color: rgba(46,204,113,0.95) !important;
+  color: rgba(46,204,113,0.95);
 }
 
 /* Muted text inside card: deve essere scuro, non bianco */
 .card.bg-white .text-muted{
-  color: rgba(0,0,0,0.55) !important;
+  color: rgba(0,0,0,0.55);
 }
 
 /* Small tweaks */

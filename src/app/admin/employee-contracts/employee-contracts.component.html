@@ -1,12 +1,10 @@
-<div class="container py-4 page-wrap contracts-page">
-  <div class="top-actions d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-      <button class="btn btn-back-glass" type="button" (click)="back()">
-        &larr; Torna Indietro
-      </button>
+<div class="standard-management-page contracts-page">
+  <header class="mv-entity-toolbar contracts-toolbar">
+    <div class="mv-entity-toolbar__title">
+      <h1>Contratti dipendenti</h1>
       <button
         *ngIf="globalService.hasPermission('EMPLOYEE_CREATE')"
-        class="btn btn-pink"
+        class="btn mv-toolbar-primary"
         type="button"
         (click)="openNewForm()"
         [disabled]="contractConfigMissing || contractFields.length === 0"
@@ -15,7 +13,7 @@
       </button>
     </div>
 
-    <div class="d-flex align-items-center gap-2 flex-wrap">
+    <div class="mv-entity-toolbar__controls contracts-toolbar__controls">
       <input
         class="form-control form-control-glass"
         style="max-width: 220px; min-width: 160px;"
@@ -39,10 +37,10 @@
         />
         <span class="fw-bold" style="font-size: 13px;">Completati</span>
       </label>
+      <button class="btn mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button>
     </div>
-  </div>
-
-  <h2 class="text-center page-title mb-4 text-dark">Contratti dipendenti</h2>
+  </header>
+  <div class="container">
 
   <div class="notice error" *ngIf="errorMessage">{{ errorMessage }}</div>
   <div class="notice error" *ngIf="!errorMessage && contractConfigMissing">
@@ -311,4 +309,5 @@
       </div>
     </div>
   </section>
+</div>
 </div>

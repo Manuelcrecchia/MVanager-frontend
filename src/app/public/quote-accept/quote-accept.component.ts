@@ -39,6 +39,9 @@ interface QuoteAcceptancePayload {
   acceptanceTextVersion: string;
   quoteHashSha256: string;
   signaturePresent?: boolean;
+  otpVerified?: boolean;
+  otpVerifiedAt?: string | null;
+  otpSentAt?: string | null;
   signedPdfAvailable?: boolean;
   quoteMeta: QuoteAcceptanceMeta;
   approvalUrl: string;
@@ -61,10 +64,12 @@ export class QuoteAcceptComponent implements OnInit {
   successMessage = '';
   showSignaturePad = false;
   hasSignature = false;
-  acceptedByName = '';
-  acceptedByPhone = '';
-  acceptedByEmail = '';
+  otp = '';
+  otpRequested = false;
+  otpVerified = false;
+  otpBusy = false;
   acceptTerms = false;
+  privacyAcknowledged = false;
   pdfUrl = '';
   safePdfUrl: SafeResourceUrl | null = null;
   private canvasContext: CanvasRenderingContext2D | null = null;
@@ -83,6 +88,7 @@ export class QuoteAcceptComponent implements OnInit {
     this.route.paramMap.subscribe((params) => {
       this.token = String(params.get('token') || '').trim();
       this.acceptTerms = false;
+      this.privacyAcknowledged = false;
       this.successMessage = '';
       this.errorMessage = '';
       this.showSignaturePad = false;
@@ -212,10 +218,8 @@ export class QuoteAcceptComponent implements OnInit {
     this.submitting = true;
 
     const body = {
-      acceptedByName: this.acceptedByName,
-      acceptedByPhone: this.acceptedByPhone,
-      acceptedByEmail: this.acceptedByEmail,
       acceptTerms: this.acceptTerms ? 'yes' : 'no',
+      privacyAcknowledged: this.privacyAcknowledged ? 'yes' : 'no',
       signatureDataUrl,
       tenantId: this.getPublicTenant(),
     };
@@ -242,6 +246,43 @@ export class QuoteAcceptComponent implements OnInit {
           this.errorMessage = this.parseServerError(err);
           this.submitting = false;
         },
+      });
+  }
+
+  requestOtp(): void {
+    if (this.otpBusy || !this.isPending) return;
+    this.otpBusy = true;
+    this.errorMessage = '';
+    this.http.post<{ message: string }>(this.buildApiUrl('/requestOtp'), { tenantId: this.getPublicTenant() }, { params: this.getTenantParams() })
+      .subscribe({
+        next: (response) => { this.otpRequested = true; this.otpBusy = false; this.successMessage = response.message; },
+        error: (err) => {
+          this.otpBusy = false;
+          if (err?.status === 429) {
+            this.otpRequested = true;
+            this.errorMessage = 'Hai già ricevuto un codice: inseriscilo qui sotto. Il reinvio sarà disponibile tra un minuto.';
+            return;
+          }
+          this.errorMessage = this.parseServerError(err);
+        },
+      });
+  }
+
+  startVerification(): void {
+    if (!this.acceptTerms || !this.privacyAcknowledged) {
+      this.errorMessage = 'Per continuare, conferma prima il preventivo e la presa visione dell’informativa privacy.';
+      return;
+    }
+    this.requestOtp();
+  }
+
+  verifyOtp(): void {
+    if (this.otpBusy || !/^\d{6}$/.test(this.otp)) { this.errorMessage = 'Inserisci il codice di 6 cifre ricevuto via email.'; return; }
+    this.otpBusy = true;
+    this.http.post<{ message: string }>(this.buildApiUrl('/verifyOtp'), { otp: this.otp, tenantId: this.getPublicTenant() }, { params: this.getTenantParams() })
+      .subscribe({
+        next: (response) => { this.otpBusy = false; this.otpVerified = true; this.successMessage = response.message; },
+        error: (err) => { this.otpBusy = false; this.errorMessage = this.parseServerError(err); },
       });
   }
 
@@ -275,20 +316,8 @@ export class QuoteAcceptComponent implements OnInit {
     }
 
     this.acceptance = acceptance;
-    this.acceptedByName =
-      acceptance.acceptedByName ||
-      acceptance.quoteMeta?.displayName ||
-      '';
-    this.acceptedByPhone =
-      acceptance.acceptedByPhone ||
-      acceptance.recipientPhone ||
-      acceptance.quoteMeta?.recipientPhone ||
-      '';
-    this.acceptedByEmail =
-      acceptance.acceptedByEmail ||
-      acceptance.recipientEmail ||
-      acceptance.quoteMeta?.recipientEmail ||
-      '';
+    this.otpVerified = Boolean(acceptance.otpVerified);
+    this.otpRequested = Boolean(acceptance.otpSentAt) && !this.otpVerified;
     this.showSignaturePad = false;
     this.hasSignature = !!acceptance.signaturePresent;
     this.drawing = false;
@@ -379,13 +408,15 @@ export class QuoteAcceptComponent implements OnInit {
   }
 
   private validateAcceptanceForm(): string {
-    if (!this.acceptedByName.trim()) {
-      return 'Inserisci il nome del referente che conferma il preventivo.';
-    }
-
     if (!this.acceptTerms) {
       return "Per procedere devi confermare l'accettazione del preventivo.";
     }
+
+    if (!this.privacyAcknowledged) {
+      return "Per procedere devi prendere visione dell'informativa privacy.";
+    }
+
+    if (!this.otpVerified) return 'Verifica prima il codice inviato via email.';
 
     return '';
   }

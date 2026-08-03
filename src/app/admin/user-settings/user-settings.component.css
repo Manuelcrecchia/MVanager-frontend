@@ -4,7 +4,7 @@
 
 .admin-card {
   background: rgba(255, 255, 255, 0.85);
-  border-radius: 22px;
+  border-radius: var(--mv-radius-surface);
   border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 14px 34px rgba(2, 6, 23, 0.08);
   overflow: hidden;
@@ -17,9 +17,9 @@
 
 .admin-item {
   border: 1px solid rgba(0,0,0,0.09);
-  border-radius: 16px;
+  border-radius: var(--mv-radius-surface);
   padding: 20px;
-  background: #fff;
+  background: var(--mv-surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -38,9 +38,9 @@
 }
 
 .perm-accordion {
-  border-radius: 12px;
+  border-radius: var(--mv-radius-control);
   border: 1px solid rgba(0,0,0,0.09);
-  background: #fff;
+  background: var(--mv-surface);
   overflow: hidden;
 }
 
@@ -89,9 +89,9 @@ details[open] .perm-accordion__chev {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: var(--mv-radius-control);
   border: 1px solid rgba(0,0,0,0.09);
-  background: #fff;
+  background: var(--mv-surface);
   cursor: pointer;
   transition: border-color 0.13s ease, background 0.13s ease;
 }
@@ -110,9 +110,9 @@ details[open] .perm-accordion__chev {
   -webkit-appearance: none;
   width: 18px;
   height: 18px;
-  border-radius: 5px;
+  border-radius: var(--mv-radius-control);
   border: 1.5px solid rgba(0,0,0,0.18);
-  background: #fff;
+  background: var(--mv-surface);
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -131,13 +131,13 @@ details[open] .perm-accordion__chev {
 }
 
 .perm-row input[type="checkbox"]:checked {
-  background: linear-gradient(135deg, #2fb7ff, #ff8a00);
+  background: linear-gradient(135deg, var(--mv-blue-500), var(--mv-orange-500));
   border-color: rgba(0,0,0,0.12);
 }
 
 .perm-row input[type="checkbox"]:checked::after {
-  border-left-color: #fff;
-  border-bottom-color: #fff;
+  border-left-color: var(--mv-surface);
+  border-bottom-color: var(--mv-surface);
   opacity: 1;
 }
 

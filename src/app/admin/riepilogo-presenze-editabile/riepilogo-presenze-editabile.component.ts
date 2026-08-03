@@ -33,6 +33,9 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
   loading = false;
   dipendentiSelezionati: Set<number> = new Set();
   selectedDayIndex = 0;
+  search = '';
+  showArchived = false;
+  viewMode: 'day' | 'month' = 'day';
 
   private noteChanges: { [id: number]: Subject<string> } = {};
 
@@ -51,6 +54,20 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
     return [...keys];
   }
 
+  get filteredDipendenti(): any[] {
+    const query = this.search.trim().toLowerCase();
+    if (!query) return this.dipendenti;
+    return this.dipendenti.filter((employee) =>
+      [employee.id, employee.nome, employee.note]
+        .some((value) => String(value || '').toLowerCase().includes(query)),
+    );
+  }
+
+  get visibleTotalHours(): string {
+    const total = this.filteredDipendenti.reduce((sum, employee) => sum + (parseFloat(employee.totale) || 0), 0);
+    return total.toFixed(2);
+  }
+
   normalizeVoceCategoria(categoria: unknown): string {
     const value = String(categoria || '').trim();
     return value || this.workCategoryLabel;
@@ -59,8 +76,12 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
   constructor(
     private http: HttpClient,
     public globalService: GlobalService,
-    private router: Router
+    private router: Router,
   ) {}
+
+  back(): void {
+    this.router.navigateByUrl('/homeAdmin');
+  }
 
   ngOnInit() {
     this.generaGiorni();
@@ -90,7 +111,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
       // 2️⃣ RIEPILOGO UFFICIALE (base)
       const res: any = await this.http
         .get(
-          `${this.globalService.url}admin/attendance/getMonthly/${this.meseSelezionato}/${this.annoSelezionato}`
+          `${this.globalService.url}admin/attendance/getMonthly/${this.meseSelezionato}/${this.annoSelezionato}${this.showArchived ? '?includeArchived=true' : ''}`
         )
         .toPromise();
 
@@ -246,6 +267,17 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
     } else {
       this.dipendentiSelezionati.add(id);
     }
+  }
+
+  toggleShowArchived() {
+    this.showArchived = !this.showArchived;
+    this.caricaPresenze();
+  }
+
+  toggleAllVisible() {
+    const ids = this.filteredDipendenti.map((employee) => Number(employee.id));
+    const allSelected = ids.length > 0 && ids.every((id) => this.dipendentiSelezionati.has(id));
+    ids.forEach((id) => allSelected ? this.dipendentiSelezionati.delete(id) : this.dipendentiSelezionati.add(id));
   }
 
   cambiaMeseAnno() {
@@ -466,10 +498,6 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
     } finally {
       this.loading = false;
     }
-  }
-
-  back() {
-    this.router.navigate(['/homeAdmin']);
   }
 
   private parseServerError(err: any): string {
