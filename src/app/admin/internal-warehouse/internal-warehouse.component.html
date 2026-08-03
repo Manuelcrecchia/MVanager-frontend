@@ -254,7 +254,7 @@
           <select class="form-select" [(ngModel)]="line.productId" [name]="'adminRequestProduct' + lineIndex" required>
             <option [ngValue]="0">Seleziona prodotto</option>
             <option *ngFor="let product of products" [ngValue]="product.id">
-              {{ product.name }} · disponibili {{ product.quantity }} {{ product.unit }}
+              {{ product.name }} · disponibili {{ productAvailableQuantity(product) }} {{ product.unit }}
             </option>
           </select>
           <input class="form-control" type="number" [attr.min]="quantityMinForProduct(line.productId)" [attr.step]="quantityStepForProduct(line.productId)" [(ngModel)]="line.quantity" [name]="'adminRequestQuantity' + lineIndex" required />
@@ -468,14 +468,22 @@
       </div>
 
       <div class="request-item-list">
-        <div class="request-item" *ngFor="let line of materialOrderForm.items; let lineIndex = index">
+        <div class="request-item flex-wrap" *ngFor="let line of materialOrderForm.items; let lineIndex = index">
           <select class="form-select" [(ngModel)]="line.productId" [name]="'materialProduct' + lineIndex">
             <option [ngValue]="0">Seleziona prodotto</option>
-            <option *ngFor="let product of products" [ngValue]="product.id">{{ product.name }} · disponibili {{ product.quantity }} {{ product.unit }}</option>
+            <option *ngFor="let product of products" [ngValue]="product.id">{{ product.name }} · disponibili {{ productAvailableQuantity(product) }} {{ product.unit }}</option>
           </select>
           <input class="form-control" type="number" [attr.min]="quantityMinForProduct(line.productId)" [attr.step]="quantityStepForProduct(line.productId)" [(ngModel)]="line.quantity" [name]="'materialQuantity' + lineIndex" />
           <input class="form-control" [(ngModel)]="line.note" [name]="'materialNote' + lineIndex" placeholder="Nota riga" />
           <button class="btn btn-outline-danger" type="button" (click)="removeMaterialOrderLine(lineIndex)">Rimuovi</button>
+          <div class="alert mb-0 w-100 d-flex flex-wrap gap-2 px-2 py-1 small" *ngIf="materialOrderLineProduct(line) as product"
+            [class.alert-danger]="materialOrderRequestedQuantityForProduct(product.id) > productAvailableQuantity(product)"
+            [class.alert-info]="materialOrderRequestedQuantityForProduct(product.id) <= productAvailableQuantity(product)">
+            <span>Giacenza fisica: <strong>{{ productPhysicalQuantity(product) }} {{ product.unit }}</strong></span>
+            <span>Riservati: <strong>{{ productReservedQuantity(product) }} {{ product.unit }}</strong></span>
+            <span>Disponibili: <strong>{{ productAvailableQuantity(product) }} {{ product.unit }}</strong></span>
+            <span *ngIf="materialOrderRequestedQuantityForProduct(product.id) > productAvailableQuantity(product)"><strong>Quantità non disponibile</strong></span>
+          </div>
         </div>
       </div>
       <button class="btn btn-outline-secondary" type="button" (click)="addMaterialOrderLine()">Aggiungi prodotto</button>
@@ -487,7 +495,7 @@
         <strong>Documento e firma obbligatori.</strong>
         Alla consegna verrà generato il foglio riepilogativo, che dovrà essere firmato dal cliente o dal dipendente destinatario. In alternativa potrai registrare la firma sulla copia cartacea.
       </div>
-      <button class="btn btn-dark" type="submit" [disabled]="saving">
+      <button class="btn btn-dark" type="submit" [disabled]="saving || !!directMaterialOrderAvailabilityError()">
         {{ materialOrderSourceRequestId ? 'Approva e crea ordine materiali' : 'Crea ordine materiali' }}
       </button>
     </form>
@@ -612,7 +620,7 @@
         <button class="btn btn-outline-secondary" type="button" (click)="materialPreparationPdf(order, 'download')" *ngIf="materialOrderConfig.preparationDocumentEnabled !== false">Scarica PDF</button>
         <button class="btn btn-outline-secondary" type="button" (click)="materialPreparationPdf(order, 'print')" *ngIf="materialOrderConfig.preparationDocumentEnabled !== false">Stampa</button>
         <button class="btn btn-dark" type="button" (click)="markMaterialOrderPrepared(order)" *ngIf="canMarkMaterialOrderPrepared(order)" [disabled]="saving">
-          <i class="fas fa-check me-1"></i> Segna come preparato
+          <i class="fas fa-check me-1"></i> {{ materialOrderPreparationIsExact(order) ? 'Segna come preparato' : 'Forza preparazione' }}
         </button>
         <button class="btn btn-dark" type="button" (click)="deliverMaterialOrder(order)" *ngIf="canDeliverMaterialOrder(order)">
           {{ order.status === 'partially_delivered' ? 'Segna il residuo come consegnato' : 'Segna come consegnato' }}
@@ -938,17 +946,22 @@
 
         <div class="stock-strip">
           <div>
+            <span>Giacenza fisica</span>
+            <strong>{{ productPhysicalQuantity(product) }} <small>{{ product.unit }}</small></strong>
+          </div>
+          <div>
+            <span>Riservati</span>
+            <strong>{{ productReservedQuantity(product) }} <small>{{ product.unit }}</small></strong>
+          </div>
+          <div>
             <span>Disponibili</span>
-            <strong>{{ product.quantity }} <small>{{ product.unit }}</small></strong>
+            <strong>{{ productAvailableQuantity(product) }} <small>{{ product.unit }}</small></strong>
           </div>
           <div>
             <span>Soglia</span>
             <strong>{{ product.minimumQuantity || 0 }}</strong>
           </div>
-          <span class="stock-badge out" *ngIf="!product.active">Archiviato</span>
-          <span class="stock-badge out" *ngIf="product.active && product.isOutOfStock">Esaurito</span>
-          <span class="stock-badge low" *ngIf="product.active && !product.isOutOfStock && product.isLowStock">Sotto scorta</span>
-          <span class="stock-badge ok" *ngIf="product.active && !product.isOutOfStock && !product.isLowStock">Disponibile</span>
+          <span class="stock-badge" [ngClass]="productStockStatusClass(product)">{{ productStockStatusLabel(product) }}</span>
         </div>
 
         <div class="supplier-line" *ngIf="supplierDisplayName(product) || product.supplierCode || product.indicativePrice !== null">
@@ -986,10 +999,12 @@
     <div class="product-sheet-hero">
       <span class="product-image large"><img *ngIf="product.photoUrl" [src]="productImageUrl(product)" [alt]="product.name" /><i *ngIf="!product.photoUrl" class="fas fa-box-open"></i></span>
       <div><span class="section-kicker">PROD-{{ product.id | number : '3.0-0' }}</span><h3>{{ product.name }}</h3><p>{{ product.description || 'Nessuna descrizione' }}</p><span class="barcode-pill"><i class="fas fa-barcode"></i> {{ product.barcode }}</span></div>
-      <span class="request-status" [ngClass]="!product.active || product.isOutOfStock ? 'danger' : product.isLowStock ? 'warning' : 'success'">{{ !product.active ? 'Archiviato' : product.isOutOfStock ? 'Esaurito' : product.isLowStock ? 'Sotto scorta' : 'Disponibile' }}</span>
+      <span class="request-status" [ngClass]="productStockStatusClass(product) === 'out' ? 'danger' : productStockStatusClass(product) === 'low' ? 'warning' : 'success'">{{ productStockStatusLabel(product) }}</span>
     </div>
     <div class="product-sheet-facts">
-      <div><span>Giacenza</span><strong>{{ product.quantity }} {{ product.unit }}</strong></div>
+      <div><span>Giacenza fisica</span><strong>{{ productPhysicalQuantity(product) }} {{ product.unit }}</strong></div>
+      <div><span>Riservati</span><strong>{{ productReservedQuantity(product) }} {{ product.unit }}</strong></div>
+      <div><span>Disponibili</span><strong>{{ productAvailableQuantity(product) }} {{ product.unit }}</strong></div>
       <div><span>Soglia minima</span><strong>{{ product.minimumQuantity }}</strong></div>
       <div><span>Categoria</span><strong>{{ product.category }}</strong></div>
       <div><span>Fornitore</span><strong>{{ supplierDisplayName(product) || 'Non indicato' }}</strong></div>

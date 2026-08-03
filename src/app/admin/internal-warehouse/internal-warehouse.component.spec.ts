@@ -1,4 +1,5 @@
 import { InternalWarehouseComponent } from './internal-warehouse.component';
+import { of } from 'rxjs';
 
 describe('InternalWarehouseComponent reference labels', () => {
   function createComponent(): InternalWarehouseComponent {
@@ -180,6 +181,60 @@ describe('InternalWarehouseComponent reference labels', () => {
     expect(component.canDeliverMaterialOrder({ status: 'ready', items: [item] })).toBeFalse();
   });
 
+  it('distinguishes an exact preparation from one that needs an admin override', () => {
+    const component = createComponent();
+
+    expect(component.materialOrderPreparationIsExact({
+      items: [{ requestedQuantity: 1, preparedQuantity: 0 }],
+    })).toBeFalse();
+    expect(component.materialOrderPreparationIsExact({
+      items: [
+        { requestedQuantity: 1, preparedQuantity: 1 },
+        { requestedQuantity: 2.5, preparedQuantity: 2.5 },
+      ],
+    })).toBeTrue();
+    expect(component.materialOrderPreparationIsExact({ items: [] })).toBeFalse();
+  });
+
+  it('sends the explicit force flag only after confirming an incomplete preparation', async () => {
+    const posts: Array<{ url: string; body: any }> = [];
+    const http = {
+      post: (url: string, body: any) => {
+        posts.push({ url, body });
+        return of({ order: { id: 41, status: 'prepared', items: [] }, forced: true });
+      },
+      get: () => of([]),
+    };
+    const popup = { confirm: async () => true };
+    const router = { navigate: async () => true };
+    const route = { snapshot: { queryParamMap: { get: () => null } } };
+    const global = {
+      url: 'https://tenant.test/',
+      getRecordDisplayName: () => '',
+      hasPermission: () => true,
+    };
+    const component = new InternalWarehouseComponent(
+      http as any,
+      route as any,
+      router as any,
+      global as any,
+      popup as any,
+      {} as any,
+      {} as any,
+    );
+
+    await component.markMaterialOrderPrepared({
+      id: 41,
+      status: 'preparing',
+      items: [{ requestedQuantity: 1, preparedQuantity: 0 }],
+    });
+
+    expect(posts.length).toBe(1);
+    expect(posts[0].url).toBe('https://tenant.test/admin/material-orders/41/mark-prepared');
+    expect(posts[0].body).toEqual({ force: true });
+    expect(component.materialOrderStatusView).toBe('prepared');
+  });
+
   it('increments every warehouse quantity by one', () => {
     const component = createComponent();
     component.products = [
@@ -191,6 +246,69 @@ describe('InternalWarehouseComponent reference labels', () => {
     expect(component.quantityMinForProduct(10)).toBe('1');
     expect(component.quantityStepForProduct(11)).toBe('1');
     expect(component.quantityMinForProduct(11)).toBe('1');
+  });
+
+  it('shows physical, reserved and effectively available product quantities', () => {
+    const component = createComponent();
+    const product = {
+      quantity: 5,
+      physicalQuantity: 5,
+      reservedQuantity: 3,
+      availableQuantity: 2,
+      active: true,
+      isOutOfStock: false,
+      isLowStock: false,
+    } as any;
+
+    expect(component.productPhysicalQuantity(product)).toBe(5);
+    expect(component.productReservedQuantity(product)).toBe(3);
+    expect(component.productAvailableQuantity(product)).toBe(2);
+    expect(component.productStockStatusLabel(product)).toBe('Disponibile');
+  });
+
+  it('labels physically present stock as fully reserved when none remains available', () => {
+    const component = createComponent();
+    const product = {
+      quantity: 1,
+      physicalQuantity: 1,
+      reservedQuantity: 1,
+      availableQuantity: 0,
+      active: true,
+      isOutOfStock: false,
+      isLowStock: false,
+    } as any;
+
+    expect(component.productStockStatusLabel(product)).toBe('Tutto riservato');
+    expect(component.productStockStatusClass(product)).toBe('low');
+  });
+
+  it('blocks a direct material order when requested quantities exceed effective availability', () => {
+    const component = createComponent();
+    component.products = [{
+      id: 10,
+      name: 'Guanti',
+      unit: 'pz',
+      quantity: 5,
+      physicalQuantity: 5,
+      reservedQuantity: 3,
+      availableQuantity: 2,
+    } as any];
+    component.materialOrderSourceRequestId = 0;
+    component.materialOrderForm.items = [
+      { productId: 10, quantity: 2 },
+      { productId: 10, quantity: 1 },
+    ];
+
+    expect(component.materialOrderRequestedQuantityForProduct(10)).toBe(3);
+    expect(component.directMaterialOrderAvailabilityError()).toContain('Guanti: richiesti 3 pz, disponibili 2 pz');
+  });
+
+  it('keeps request-derived partial orders governed by the server-side fresh check', () => {
+    const component = createComponent();
+    component.materialOrderSourceRequestId = 91;
+    component.materialOrderForm.items = [{ productId: 10, quantity: 3 }];
+
+    expect(component.directMaterialOrderAvailabilityError()).toBe('');
   });
 
   it('sets planned delivery end thirty minutes after its start', () => {

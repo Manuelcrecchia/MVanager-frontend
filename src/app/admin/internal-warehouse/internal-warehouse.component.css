@@ -546,7 +546,7 @@
 
 .stock-strip {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(80px, auto) auto;
+  grid-template-columns: repeat(4, minmax(72px, 1fr)) auto;
   gap: 10px;
   align-items: center;
   border-radius: var(--mv-radius-control);

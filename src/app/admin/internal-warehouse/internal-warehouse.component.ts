@@ -47,6 +47,9 @@ interface WarehouseProduct {
   photoUrl?: string | null;
   minimumQuantity: number;
   quantity: number;
+  physicalQuantity?: number;
+  reservedQuantity?: number;
+  availableQuantity?: number;
   favorite: boolean;
   active: boolean;
   isLowStock: boolean;
@@ -884,9 +887,44 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     );
   }
 
+  materialOrderPreparationIsExact(order: any): boolean {
+    const items = Array.isArray(order?.items) ? order.items : [];
+    return items.length > 0 && items.every((item: any) => (
+      Math.abs(Number(item?.preparedQuantity || 0) - Number(item?.requestedQuantity || 0)) < 0.0001
+    ));
+  }
+
   canDeliverMaterialOrder(order: any): boolean {
     return ['prepared', 'partially_delivered'].includes(String(order?.status || '')) &&
       this.materialOrderHasRemaining(order);
+  }
+
+  productPhysicalQuantity(product: WarehouseProduct): number {
+    return Number(product?.physicalQuantity ?? product?.quantity ?? 0);
+  }
+
+  productReservedQuantity(product: WarehouseProduct): number {
+    return Math.max(0, Number(product?.reservedQuantity || 0));
+  }
+
+  productAvailableQuantity(product: WarehouseProduct): number {
+    return Math.max(0, Number(
+      product?.availableQuantity ?? (this.productPhysicalQuantity(product) - this.productReservedQuantity(product)),
+    ));
+  }
+
+  productStockStatusLabel(product: WarehouseProduct): string {
+    if (!product?.active) return 'Archiviato';
+    if (product?.isOutOfStock) return 'Esaurito';
+    if (this.productAvailableQuantity(product) <= 0) return 'Tutto riservato';
+    if (product?.isLowStock) return 'Sotto scorta';
+    return 'Disponibile';
+  }
+
+  productStockStatusClass(product: WarehouseProduct): string {
+    if (!product?.active || product?.isOutOfStock) return 'out';
+    if (this.productAvailableQuantity(product) <= 0 || product?.isLowStock) return 'low';
+    return 'ok';
   }
 
   supplierOrderStatusLabel(status: SupplierOrder['status']): string {
@@ -1146,6 +1184,35 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     if (!this.materialOrderForm.items.length) this.addMaterialOrderLine();
   }
 
+  materialOrderLineProduct(line: any): WarehouseProduct | null {
+    return this.products.find((product) => Number(product.id) === Number(line?.productId)) || null;
+  }
+
+  materialOrderRequestedQuantityForProduct(productId: number): number {
+    return (this.materialOrderForm.items || [])
+      .filter((line: any) => Number(line?.productId) === Number(productId))
+      .reduce((total: number, line: any) => total + Math.max(0, Number(line?.quantity || 0)), 0);
+  }
+
+  directMaterialOrderAvailabilityError(): string {
+    if (this.materialOrderSourceRequestId) return '';
+    const productIds: number[] = [...new Set<number>(
+      (this.materialOrderForm.items || []).map((line: any) => Number(line?.productId)).filter(Boolean),
+    )];
+    const shortages = productIds.map((productId) => {
+      const product = this.products.find((item) => Number(item.id) === productId);
+      if (!product) return null;
+      const requested = this.materialOrderRequestedQuantityForProduct(productId);
+      const available = this.productAvailableQuantity(product);
+      return requested > available + 0.0001
+        ? `${product.name}: richiesti ${requested} ${product.unit}, disponibili ${available} ${product.unit}`
+        : null;
+    }).filter(Boolean);
+    return shortages.length
+      ? `Disponibilità effettiva insufficiente. ${shortages.join('; ')}.`
+      : '';
+  }
+
   addAdminRequestLine(): void {
     this.adminRequestForm.items.push({ productId: 0, quantity: 1 });
   }
@@ -1167,6 +1234,12 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     }
     if (!items.length) {
       this.error = 'Inserisci almeno un prodotto e una quantità.';
+      return;
+    }
+    const availabilityError = this.directMaterialOrderAvailabilityError();
+    if (availabilityError) {
+      this.error = availabilityError;
+      this.popup.showError(availabilityError);
       return;
     }
     this.saving = true;
@@ -1639,18 +1712,24 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
 
   async markMaterialOrderPrepared(order: any): Promise<void> {
     if (!this.canMarkMaterialOrderPrepared(order) || this.saving) return;
+    const forcePreparation = !this.materialOrderPreparationIsExact(order);
     const confirmed = await this.popup.confirm(
-      'Confermi che tutti i prodotti e le quantità dell’ordine sono stati preparati e controllati?',
-      'Segna come preparato',
+      forcePreparation
+        ? 'Le quantità registrate non sono complete. Confermi di aver verificato fisicamente tutti i prodotti e vuoi segnarli comunque come preparati? La giacenza verrà scaricata solo alla consegna.'
+        : 'Confermi che tutti i prodotti e le quantità dell’ordine sono stati preparati e controllati?',
+      forcePreparation ? 'Forza preparazione' : 'Segna come preparato',
       {
-        type: 'info',
-        confirmLabel: 'Conferma preparazione',
+        type: forcePreparation ? 'warning' : 'info',
+        confirmLabel: forcePreparation ? 'Forza e conferma' : 'Conferma preparazione',
         cancelLabel: 'Annulla',
       },
     );
     if (!confirmed) return;
     this.saving = true;
-    this.http.post<{ order?: any }>(this.materialApi(`/${order.id}/mark-prepared`), {}).subscribe({
+    this.http.post<{ order?: any; forced?: boolean }>(
+      this.materialApi(`/${order.id}/mark-prepared`),
+      { force: forcePreparation },
+    ).subscribe({
       next: (result) => {
         this.saving = false;
         this.message = 'Ordine segnato come preparato. Ora puoi segnarlo come consegnato.';
