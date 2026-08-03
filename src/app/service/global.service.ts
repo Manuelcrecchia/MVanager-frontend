@@ -349,7 +349,7 @@ export class GlobalService {
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '5.8';
+  version = '6.0';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -555,8 +555,10 @@ export class GlobalService {
     // Anche il catalogo runtime deve rispettare la gerarchia manage -> view.
     // Alcune configurazioni pubblicate in precedenza esponevano solo il livello
     // di gestione, facendo sparire dal menu la relativa pagina di consultazione.
-    if (available.has('VEHICLE_SETTINGS_MANAGE')) available.add('VEHICLES_VIEW');
-    if (available.has('EQUIPMENT_SETTINGS_MANAGE')) available.add('EQUIPMENT_VIEW');
+    if (available.has('VEHICLE_SETTINGS_MANAGE'))
+      available.add('VEHICLES_VIEW');
+    if (available.has('EQUIPMENT_SETTINGS_MANAGE'))
+      available.add('EQUIPMENT_VIEW');
     if (available.has('INVOICES_MANAGE')) available.add('INVOICES_VIEW');
     if (available.has('ACCOUNTING_MANAGE')) available.add('ACCOUNTING_VIEW');
 
@@ -932,16 +934,21 @@ export class GlobalService {
         calendarCategoryKey: String(flow.calendarCategoryKey || '').trim(),
         preparationDocumentEnabled: flow.preparationDocumentEnabled !== false,
         preparationDocumentTitle:
-          String(flow.preparationDocumentTitle || 'Ordine di preparazione materiali').trim() ||
-          'Ordine di preparazione materiali',
+          String(
+            flow.preparationDocumentTitle || 'Ordine di preparazione materiali',
+          ).trim() || 'Ordine di preparazione materiali',
         preparationDocumentStyle:
-          flow.preparationDocumentStyle === 'classic' || flow.preparationDocumentStyle === 'minimal'
+          flow.preparationDocumentStyle === 'classic' ||
+          flow.preparationDocumentStyle === 'minimal'
             ? flow.preparationDocumentStyle
             : 'modern',
-        preparationPrimaryColor: String(flow.preparationPrimaryColor || '').trim(),
+        preparationPrimaryColor: String(
+          flow.preparationPrimaryColor || '',
+        ).trim(),
         preparationShowLogo: flow.preparationShowLogo !== false,
         preparationShowBarcode: flow.preparationShowBarcode !== false,
-        preparationShowInternalChecks: flow.preparationShowInternalChecks !== false,
+        preparationShowInternalChecks:
+          flow.preparationShowInternalChecks !== false,
         preparationFooterText: String(flow.preparationFooterText || '').trim(),
         documentEnabled: true,
         documentLabel:

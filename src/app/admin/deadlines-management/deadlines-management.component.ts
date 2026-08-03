@@ -1431,6 +1431,22 @@ export class DeadlinesManagementComponent implements OnInit {
     this.deadlineActionPointerId = null;
   }
 
+  onHistoryDayPointerUp(event: PointerEvent, deadlineId: number, dayKey: string): void {
+    if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+      if (this.deadlineActionPointerId !== event.pointerId) return;
+      this.deadlineActionPointerId = null;
+      const movement = Math.hypot(
+        event.clientX - this.deadlineActionPointerStartX,
+        event.clientY - this.deadlineActionPointerStartY,
+      );
+      if (movement > 14) return;
+    } else if (event.button !== 0) {
+      return;
+    }
+
+    this.toggleHistoryDay(deadlineId, dayKey);
+  }
+
   runDeadlineAction(
     deadline: DeadlineRecord,
     action: 'select' | 'plan' | 'open' | 'delete' | 'history',

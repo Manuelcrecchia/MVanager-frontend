@@ -961,22 +961,34 @@
               Nessun evento registrato.
             </div>
 
-            <details
-              appReliableDetails
+            <div
               class="history-day-group"
+              [class.history-day-group-open]="isHistoryDayExpanded(deadline.id, dayGroup.key)"
               *ngFor="let dayGroup of historyDayGroups(deadline.id); trackBy: trackHistoryDayGroup"
             >
-              <summary
+              <button
+                type="button"
                 class="history-day-toggle"
+                (pointerdown)="onDeadlineActionPointerDown($event)"
+                (pointerup)="onHistoryDayPointerUp($event, deadline.id, dayGroup.key)"
+                (pointercancel)="onDeadlineActionPointerCancel()"
+                (keydown.enter)="toggleHistoryDay(deadline.id, dayGroup.key)"
+                (keydown.space)="toggleHistoryDay(deadline.id, dayGroup.key); $event.preventDefault()"
+                [attr.aria-expanded]="isHistoryDayExpanded(deadline.id, dayGroup.key)"
+                [attr.aria-controls]="'deadline-history-' + deadline.id + '-' + dayGroup.key"
               >
                 <span class="history-day-chevron" aria-hidden="true">›</span>
                 <span class="history-day-heading">
                   <strong>{{ historyDayLabel(dayGroup.key) }}</strong>
                   <small>{{ historyDayCountLabel(dayGroup.entries.length) }}</small>
                 </span>
-              </summary>
+              </button>
 
-              <div class="history-day-content">
+              <div
+                class="history-day-content"
+                *ngIf="isHistoryDayExpanded(deadline.id, dayGroup.key)"
+                [id]="'deadline-history-' + deadline.id + '-' + dayGroup.key"
+              >
                 <article
                   class="history-entry"
                   *ngFor="let entry of dayGroup.entries; trackBy: trackHistoryEntry"
@@ -1012,7 +1024,7 @@
                   </div>
                 </article>
               </div>
-            </details>
+            </div>
           </div>
           </article>
         </div>

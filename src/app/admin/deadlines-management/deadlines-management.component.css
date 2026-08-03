@@ -1059,10 +1059,8 @@
   gap: 12px;
   text-align: left;
   cursor: pointer;
-}
-
-.history-day-toggle::-webkit-details-marker {
-  display: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .history-day-toggle:hover,
@@ -1091,7 +1089,7 @@
   transition: transform 160ms ease;
 }
 
-.history-day-group[open] .history-day-chevron {
+.history-day-group-open .history-day-chevron {
   transform: rotate(90deg);
 }
 
