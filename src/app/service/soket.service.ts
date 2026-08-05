@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
-import { Observable } from 'rxjs';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { GlobalService } from './global.service';
 import { TenantService } from './tenant.service';
 import { getRealtimeClientId } from './realtime-client-id';
@@ -13,6 +14,15 @@ export interface ResourceChange {
   actor?: { type?: string; id?: string | number | null } | null;
   originClientId?: string | null;
   occurredAt?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface RealtimeConnectionState {
+  connected: boolean;
+  reconnected: boolean;
+  recovered: boolean;
+  reason?: string;
+  changedAt: string;
 }
 
 @Injectable({
@@ -21,6 +31,14 @@ export interface ResourceChange {
 export class SocketService {
   private socket: Socket | null = null;
   private socketKey = '';
+  private hasConnectedForCurrentSession = false;
+  private readonly connectionStateSubject = new BehaviorSubject<RealtimeConnectionState>({
+    connected: false,
+    reconnected: false,
+    recovered: false,
+    reason: 'not_started',
+    changedAt: new Date().toISOString(),
+  });
 
   constructor(
     private global: GlobalService,
@@ -51,6 +69,14 @@ export class SocketService {
     }
 
     this.socketKey = connectionKey;
+    this.hasConnectedForCurrentSession = false;
+    this.connectionStateSubject.next({
+      connected: false,
+      reconnected: false,
+      recovered: false,
+      reason: 'session_changed',
+      changedAt: new Date().toISOString(),
+    });
     this.socket = io(this.global.url, {
       autoConnect: false,
       auth: {
@@ -61,13 +87,49 @@ export class SocketService {
       query: { tenantId: this.tenantService.tenant },
     });
 
-    this.socket.on('connect_error', (error) => {
-      console.warn('[Socket] Connessione non riuscita:', error.message);
+    const activeSocket = this.socket;
+    activeSocket.on('connect', () => {
+      if (this.socket !== activeSocket) return;
+      const reconnected = this.hasConnectedForCurrentSession;
+      this.hasConnectedForCurrentSession = true;
+      this.connectionStateSubject.next({
+        connected: true,
+        reconnected,
+        recovered: activeSocket.recovered === true,
+        changedAt: new Date().toISOString(),
+      });
     });
 
-    this.socket.on('featureUnavailable', (data) => {
+    activeSocket.on('disconnect', (reason) => {
+      if (this.socket !== activeSocket) return;
+      this.connectionStateSubject.next({
+        connected: false,
+        reconnected: this.hasConnectedForCurrentSession,
+        recovered: false,
+        reason,
+        changedAt: new Date().toISOString(),
+      });
+    });
+
+    activeSocket.on('connect_error', (error) => {
+      if (this.socket !== activeSocket) return;
+      console.warn('[Socket] Connessione non riuscita:', error.message);
+      this.connectionStateSubject.next({
+        connected: false,
+        reconnected: this.hasConnectedForCurrentSession,
+        recovered: false,
+        reason: error.message || 'connect_error',
+        changedAt: new Date().toISOString(),
+      });
+    });
+
+    activeSocket.on('featureUnavailable', (data) => {
       console.warn('[Socket] Funzione non disponibile:', data);
     });
+
+    // Registrare il listener fa avanzare il cursore Socket.IO usato per
+    // recuperare i pacchetti emessi durante una breve disconnessione.
+    activeSocket.on('realtimeReady', () => undefined);
 
     this.connectIfReady(this.socket);
 
@@ -82,6 +144,20 @@ export class SocketService {
     if (!socket.connected) {
       socket.connect();
     }
+  }
+
+  ensureConnected(): void {
+    if (!this.canConnect()) return;
+    this.connectIfReady(this.getSocket());
+  }
+
+  isConnected(): boolean {
+    return this.socket?.connected === true;
+  }
+
+  onConnectionState(): Observable<RealtimeConnectionState> {
+    if (this.canConnect()) this.ensureConnected();
+    return this.connectionStateSubject.asObservable();
   }
 
   // invia aggiornamenti al server
@@ -100,116 +176,6 @@ export class SocketService {
     });
   }
 
-  // ascolta aggiornamenti da altri utenti
-  onShiftUpdate(): Observable<any> {
-    return new Observable((subscriber) => {
-      const socket = this.getSocket();
-      const listener = (data: any) => {
-        if (data?.tenantId && data.tenantId !== this.tenantService.tenant) {
-          return;
-        }
-        subscriber.next(data);
-      };
-      socket.on('shiftUpdated', listener);
-      this.connectIfReady(socket);
-      return () => {
-        socket.off('shiftUpdated', listener);
-      };
-    });
-  }
-
-  onQuoteAcceptanceUpdate(): Observable<any> {
-    return new Observable((subscriber) => {
-      const socket = this.getSocket();
-      const listener = (data: any) => subscriber.next(data);
-      socket.on('quoteAcceptanceUpdated', listener);
-      this.connectIfReady(socket);
-      return () => {
-        socket.off('quoteAcceptanceUpdated', listener);
-      };
-    });
-  }
-
-  onEmployeeContractUpdate(): Observable<any> {
-    return new Observable((subscriber) => {
-      const socket = this.getSocket();
-      const listener = (data: any) => subscriber.next(data);
-      socket.on('employeeContractUpdated', listener);
-      this.connectIfReady(socket);
-      return () => {
-        socket.off('employeeContractUpdated', listener);
-      };
-    });
-  }
-
-  onCustomerArchiveReminderUpdate(): Observable<any> {
-    return new Observable((subscriber) => {
-      const socket = this.getSocket();
-      const listener = (data: any) => {
-        if (data?.tenantId && data.tenantId !== this.tenantService.tenant) {
-          return;
-        }
-        subscriber.next(data);
-      };
-      socket.on('customerArchiveReminderUpdated', listener);
-      this.connectIfReady(socket);
-      return () => {
-        socket.off('customerArchiveReminderUpdated', listener);
-      };
-    });
-  }
-
-  onAdminTodoUpdate(): Observable<any> {
-    return new Observable((subscriber) => {
-      const socket = this.getSocket();
-      const listener = (data: any) => {
-        if (data?.tenantId && data.tenantId !== this.tenantService.tenant) {
-          return;
-        }
-        subscriber.next(data);
-      };
-      socket.on('adminTodoUpdated', listener);
-      this.connectIfReady(socket);
-      return () => {
-        socket.off('adminTodoUpdated', listener);
-      };
-    });
-  }
-
-  onNoteUnreadUpdate(): Observable<any> {
-    return new Observable((subscriber) => {
-      const socket = this.getSocket();
-      const listener = (data: any) => {
-        if (data?.tenantId && data.tenantId !== this.tenantService.tenant) {
-          return;
-        }
-        subscriber.next(data);
-      };
-      socket.on('noteUnreadUpdated', listener);
-      this.connectIfReady(socket);
-      return () => {
-        socket.off('noteUnreadUpdated', listener);
-      };
-    });
-  }
-
-  onInternalWarehouseSummaryUpdate(): Observable<any> {
-    return new Observable((subscriber) => {
-      const socket = this.getSocket();
-      const listener = (data: any) => {
-        if (data?.tenantId && data.tenantId !== this.tenantService.tenant) {
-          return;
-        }
-        subscriber.next(data);
-      };
-      socket.on('internalWarehouseSummaryUpdated', listener);
-      this.connectIfReady(socket);
-      return () => {
-        socket.off('internalWarehouseSummaryUpdated', listener);
-      };
-    });
-  }
-
   onResourceChanged(): Observable<ResourceChange> {
     return new Observable((subscriber) => {
       const socket = this.getSocket();
@@ -221,5 +187,12 @@ export class SocketService {
       this.connectIfReady(socket);
       return () => socket.off('resourceChanged', listener);
     });
+  }
+
+  onResourceChanges(resources: string | string[]): Observable<ResourceChange> {
+    const accepted = new Set(Array.isArray(resources) ? resources : [resources]);
+    return this.onResourceChanged().pipe(
+      filter((change) => accepted.has(change?.resource)),
+    );
   }
 }

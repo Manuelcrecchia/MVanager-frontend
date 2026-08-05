@@ -28,6 +28,14 @@
             placeholder="Numero, nominativo, email o telefono"
           />
         </label>
+        <label class="customer-sort-field">
+          <span>Ordina per</span>
+          <select class="form-select" [(ngModel)]="customerSort" (ngModelChange)="changeCustomerSort()">
+            <option value="alphabetical">Alfabetico</option>
+            <option value="numberAsc">Numero cliente crescente</option>
+            <option value="numberDesc">Numero cliente decrescente</option>
+          </select>
+        </label>
         <span class="customer-search-count mv-entity-toolbar__count">{{ customersFrEnd.length }} / {{ customers.length }}</span>
         <button
           type="button"
@@ -171,6 +179,18 @@
                 </button>
 
                 <button type="button"
+                  *ngIf="canGenerateSalesInvoice(customer)"
+                  mat-raised-button
+                  (click)="manageInvoiceProfile(customer)"
+                  class="mv-record-action mv-record-action--edit action-with-tooltip"
+                  title="Gestisci profilo di fatturazione"
+                  aria-label="Gestisci profilo di fatturazione"
+                  data-tooltip="Profilo fatturazione"
+                >
+                  <mat-icon>tune</mat-icon>
+                </button>
+
+                <button type="button"
                   *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
                   mat-raised-button
                   (click)="archiveCustomer(customer)"
@@ -253,7 +273,8 @@
                   <mat-icon>mail</mat-icon>
                 </button>
 
-              </div>
+  </div>
+
             </div>
 
           </details>
@@ -289,4 +310,72 @@
       </div>
     </div>
 
+ </div>
+
+<div class="invoice-profile-backdrop" *ngIf="profileCustomer" (click)="closeInvoiceProfile()">
+  <section class="invoice-profile-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+    <header><div><span>Profilo di fatturazione</span><h2>{{ getCustomerDisplayName(profileCustomer) }}</h2><small>Preimpostazioni modificabili: non genera una fattura.</small></div><button type="button" class="btn btn-light" (click)="closeInvoiceProfile()">Chiudi</button></header>
+    <p class="text-danger" *ngIf="invoiceProfileError">{{ invoiceProfileError }}</p><p *ngIf="invoiceProfileLoading">Caricamento…</p>
+    <form *ngIf="!invoiceProfileLoading" (ngSubmit)="saveInvoiceProfile()">
+      <h3 class="profile-section-title">Documento e riferimenti</h3>
+      <div class="profile-head-grid">
+        <label>Serie<input [(ngModel)]="invoiceProfile.header.series" name="profileSeries" placeholder="Es. PA" /></label>
+        <label>Tipo documento<select [(ngModel)]="invoiceProfile.header.type" name="profileType"><option value="TD01">TD01 - Fattura</option><option value="TD02">TD02 - Acconto fattura</option><option value="TD03">TD03 - Acconto parcella</option><option value="TD06">TD06 - Parcella</option><option value="TD24">TD24 - Fattura differita</option><option value="TD25">TD25 - Fattura differita triangolare</option><option value="TD26">TD26 - Beni ammortizzabili</option><option value="TD27">TD27 - Autoconsumo/cessioni gratuite</option></select></label>
+        <label>Tipo anagrafica<select [(ngModel)]="invoiceProfile.header.customerRecipientType" name="profileRecipient"><option value="business">Azienda</option><option value="private">Privato</option><option value="pa">Pubblica amministrazione</option></select></label>
+        <label [class.live-invalid]="!!invoiceProfileFieldError('paReferenceType')">Tipo riferimento<select [(ngModel)]="invoiceProfile.header.paReferenceType" name="profileRefType" (ngModelChange)="onInvoiceProfileReferenceTypeChange()"><option value="">Nessun riferimento</option><option value="order">Ordine di acquisto</option><option value="contract">Contratto</option><option value="agreement">Convenzione</option><option value="reception">Ricezione</option></select><small class="field-error" *ngIf="invoiceProfileFieldError('paReferenceType')">{{ invoiceProfileFieldError('paReferenceType') }}</small></label>
+        <label [class.live-invalid]="!!invoiceProfileFieldError('paDocumentId')">Numero documento<input [(ngModel)]="invoiceProfile.header.paDocumentId" name="profileDocumentId" [disabled]="!invoiceProfile.header.paReferenceType" /><small class="field-error" *ngIf="invoiceProfileFieldError('paDocumentId')">{{ invoiceProfileFieldError('paDocumentId') }}</small></label>
+        <label>Data documento<input type="date" [(ngModel)]="invoiceProfile.header.paDocumentDate" name="profileDocumentDate" [disabled]="!invoiceProfile.header.paReferenceType" /></label>
+        <label>Numero voce<input [(ngModel)]="invoiceProfile.header.paItemNumber" name="profileItemNumber" maxlength="20" [disabled]="!invoiceProfile.header.paReferenceType" /></label>
+        <label>Commessa / convenzione<input [(ngModel)]="invoiceProfile.header.paConventionCode" name="profileConvention" maxlength="100" [disabled]="!invoiceProfile.header.paReferenceType" /></label>
+        <label [class.live-invalid]="!!invoiceProfileFieldError('paCup')">CUP<input [(ngModel)]="invoiceProfile.header.paCup" name="profileCup" maxlength="15" [disabled]="!invoiceProfile.header.paReferenceType" /><small class="field-error" *ngIf="invoiceProfileFieldError('paCup')">{{ invoiceProfileFieldError('paCup') }}</small></label>
+        <label [class.live-invalid]="!!invoiceProfileFieldError('paCig')">CIG<input [(ngModel)]="invoiceProfile.header.paCig" name="profileCig" maxlength="15" [disabled]="!invoiceProfile.header.paReferenceType" /><small class="field-error" *ngIf="invoiceProfileFieldError('paCig')">{{ invoiceProfileFieldError('paCig') }}</small></label>
+        <p class="profile-help wide">Se non servono riferimenti lascia “Nessun riferimento”. Se inserisci CIG, CUP o altri dati, indica anche il numero documento.</p>
+      </div>
+
+      <h3 class="profile-section-title">Dati fiscali del cliente</h3>
+      <p class="profile-help">Questi dati provengono dall’anagrafica cliente. Le regole cambiano in base al tipo scelto sopra.</p>
+      <div class="profile-head-grid">
+        <label [class.live-invalid]="!!invoiceProfileFieldError('recipientVat')">Partita IVA<input [value]="invoiceProfileCustomerValue('customerVatNumber')" readonly /><small class="field-error" *ngIf="invoiceProfileFieldError('recipientVat')">{{ invoiceProfileFieldError('recipientVat') }}</small></label>
+        <label [class.live-invalid]="!!invoiceProfileFieldError('recipientFiscalCode')">Codice fiscale{{ invoiceProfile.header.customerRecipientType === 'private' ? ' *' : '' }}<input [value]="invoiceProfileCustomerValue('customerFiscalCode')" readonly /><small class="field-error" *ngIf="invoiceProfileFieldError('recipientFiscalCode')">{{ invoiceProfileFieldError('recipientFiscalCode') }}</small></label>
+        <label [class.live-invalid]="!!invoiceProfileFieldError('recipientSdi')">{{ invoiceProfile.header.customerRecipientType === 'pa' ? 'Codice ufficio PA' : 'Codice SDI' }}<input [value]="invoiceProfileCustomerValue('customerSdiCode')" readonly /><small class="field-error" *ngIf="invoiceProfileFieldError('recipientSdi')">{{ invoiceProfileFieldError('recipientSdi') }}</small></label>
+        <button type="button" class="btn btn-outline-primary profile-edit-customer" (click)="editInvoiceProfileCustomer()">Modifica anagrafica cliente</button>
+      </div>
+
+      <h3 class="profile-section-title">Indirizzo di fatturazione</h3><p class="profile-help">Completa le parti non presenti nei campi cliente configurati in MVControl.</p>
+      <div class="profile-head-grid">
+        <label class="wide" [class.live-invalid]="!!invoiceProfileFieldError('billingAddress')">Via / indirizzo<input [(ngModel)]="invoiceProfile.billing.address" name="profileBillingAddress" /><small class="field-error" *ngIf="invoiceProfileFieldError('billingAddress')">{{ invoiceProfileFieldError('billingAddress') }}</small></label>
+        <label [class.live-invalid]="!!invoiceProfileFieldError('billingCity')">Comune<input [(ngModel)]="invoiceProfile.billing.city" name="profileBillingCity" /><small class="field-error" *ngIf="invoiceProfileFieldError('billingCity')">{{ invoiceProfileFieldError('billingCity') }}</small></label>
+        <label [class.live-invalid]="!!invoiceProfileFieldError('billingProvince')">Provincia<input [(ngModel)]="invoiceProfile.billing.province" name="profileBillingProvince" maxlength="8" /><small class="field-error" *ngIf="invoiceProfileFieldError('billingProvince')">{{ invoiceProfileFieldError('billingProvince') }}</small></label>
+        <label [class.live-invalid]="!!invoiceProfileFieldError('billingZip')">CAP<input [(ngModel)]="invoiceProfile.billing.zip" name="profileBillingZip" /><small class="field-error" *ngIf="invoiceProfileFieldError('billingZip')">{{ invoiceProfileFieldError('billingZip') }}</small></label>
+        <label [class.live-invalid]="!!invoiceProfileFieldError('billingCountry')">Nazione<input [(ngModel)]="invoiceProfile.billing.country" name="profileBillingCountry" maxlength="2" /><small class="field-error" *ngIf="invoiceProfileFieldError('billingCountry')">{{ invoiceProfileFieldError('billingCountry') }}</small></label>
+      </div>
+
+      <h3 class="profile-section-title">Fiscalità</h3>
+      <div class="profile-head-grid">
+        <label class="checkbox-field"><span>Split payment</span><input type="checkbox" [(ngModel)]="invoiceProfile.header.splitPayment" name="profileSplit" (ngModelChange)="onInvoiceProfileSplitChange()" /></label><label>Esigibilità IVA<select [(ngModel)]="invoiceProfile.header.vatExigibility" name="profileExigibility" [disabled]="invoiceProfile.header.splitPayment"><option value="I">Immediata</option><option value="D">Differita</option><option value="S">Split payment</option></select></label>
+        <label class="checkbox-field"><span>Bollo</span><input type="checkbox" [(ngModel)]="invoiceProfile.header.stampDutyEnabled" name="profileStamp" /></label><label *ngIf="invoiceProfile.header.stampDutyEnabled" [class.live-invalid]="!!invoiceProfileFieldError('stampDutyAmount')">Importo bollo<input type="number" step="0.01" [(ngModel)]="invoiceProfile.header.stampDutyAmount" name="profileStampAmount" /><small class="field-error" *ngIf="invoiceProfileFieldError('stampDutyAmount')">{{ invoiceProfileFieldError('stampDutyAmount') }}</small></label>
+        <label class="checkbox-field"><span>Ritenuta</span><input type="checkbox" [(ngModel)]="invoiceProfile.header.withholdingEnabled" name="profileWithholding" /></label><ng-container *ngIf="invoiceProfile.header.withholdingEnabled"><label [class.live-invalid]="!!invoiceProfileFieldError('withholdingType')">Tipo ritenuta<input [(ngModel)]="invoiceProfile.header.withholdingType" name="profileWithholdingType" /><small class="field-error" *ngIf="invoiceProfileFieldError('withholdingType')">{{ invoiceProfileFieldError('withholdingType') }}</small></label><label [class.live-invalid]="!!invoiceProfileFieldError('withholdingReason')">Causale<input [(ngModel)]="invoiceProfile.header.withholdingReason" name="profileWithholdingReason" /><small class="field-error" *ngIf="invoiceProfileFieldError('withholdingReason')">{{ invoiceProfileFieldError('withholdingReason') }}</small></label><label>Aliquota %<input type="number" step="0.01" [(ngModel)]="invoiceProfile.header.withholdingRate" name="profileWithholdingRate" /></label><label [class.live-invalid]="!!invoiceProfileFieldError('withholdingAmount')">Importo<input type="number" step="0.01" [(ngModel)]="invoiceProfile.header.withholdingAmount" name="profileWithholdingAmount" /><small class="field-error" *ngIf="invoiceProfileFieldError('withholdingAmount')">{{ invoiceProfileFieldError('withholdingAmount') }}</small></label></ng-container>
+        <label class="checkbox-field"><span>Cassa previdenziale</span><input type="checkbox" [(ngModel)]="invoiceProfile.header.pensionFundEnabled" name="profilePension" /></label><ng-container *ngIf="invoiceProfile.header.pensionFundEnabled"><label [class.live-invalid]="!!invoiceProfileFieldError('pensionFundType')">Tipo cassa<input [(ngModel)]="invoiceProfile.header.pensionFundType" name="profilePensionType" /><small class="field-error" *ngIf="invoiceProfileFieldError('pensionFundType')">{{ invoiceProfileFieldError('pensionFundType') }}</small></label><label [class.live-invalid]="!!invoiceProfileFieldError('pensionFundRate')">Aliquota %<input type="number" step="0.01" [(ngModel)]="invoiceProfile.header.pensionFundRate" name="profilePensionRate" /><small class="field-error" *ngIf="invoiceProfileFieldError('pensionFundRate')">{{ invoiceProfileFieldError('pensionFundRate') }}</small></label><label [class.live-invalid]="!!invoiceProfileFieldError('pensionFundAmount')">Importo<input type="number" step="0.01" [(ngModel)]="invoiceProfile.header.pensionFundAmount" name="profilePensionAmount" /><small class="field-error" *ngIf="invoiceProfileFieldError('pensionFundAmount')">{{ invoiceProfileFieldError('pensionFundAmount') }}</small></label><label>IVA cassa<input type="number" step="0.01" [(ngModel)]="invoiceProfile.header.pensionFundVatRate" name="profilePensionVat" (ngModelChange)="onInvoiceProfilePensionVatChange()" /></label><label [class.live-invalid]="!!invoiceProfileFieldError('pensionFundVatNature')">Natura IVA cassa<select [(ngModel)]="invoiceProfile.header.pensionFundVatNature" name="profilePensionNature" [disabled]="+invoiceProfile.header.pensionFundVatRate !== 0" (ngModelChange)="onInvoiceProfilePensionNatureChange()"><option *ngFor="let nature of vatNatures" [value]="nature">{{ nature || '-' }}</option></select><small class="field-error" *ngIf="invoiceProfileFieldError('pensionFundVatNature')">{{ invoiceProfileFieldError('pensionFundVatNature') }}</small></label><label *ngIf="+invoiceProfile.header.pensionFundVatRate === 0" class="wide" [class.live-invalid]="!!invoiceProfileFieldError('pensionFundLegalReference')">Riferimento normativo cassa<input [(ngModel)]="invoiceProfile.header.pensionFundLegalReference" name="profilePensionReference" /><small class="field-error" *ngIf="invoiceProfileFieldError('pensionFundLegalReference')">{{ invoiceProfileFieldError('pensionFundLegalReference') }}</small></label></ng-container>
+      </div>
+
+      <h3 class="profile-section-title">Pagamento</h3>
+      <div class="profile-head-grid"><label>Termine pagamento<select [(ngModel)]="invoiceProfile.paymentTermId" name="profilePaymentTerm" (ngModelChange)="onInvoiceProfilePaymentTermChange()"><option [ngValue]="null">Manuale</option><option *ngFor="let term of invoiceProfilePaymentTerms" [ngValue]="term.id">{{ term.name }}</option></select></label><label>Banca<select [(ngModel)]="invoiceProfile.bankAccountId" name="profileBank" (ngModelChange)="onInvoiceProfileBankChange()"><option [ngValue]="null">Nessuna</option><option *ngFor="let account of invoiceProfileBankAccounts" [ngValue]="account.id">{{ account.bankName }} - {{ account.iban }}</option></select></label><label>Metodo pagamento<select [(ngModel)]="invoiceProfile.paymentMethod" name="profilePaymentMethod"><option value="MP01">MP01 - Contanti</option><option value="MP05">MP05 - Bonifico</option><option value="MP08">MP08 - Carta</option><option value="MP12">MP12 - RIBA</option><option value="MP19">MP19 - SEPA Direct Debit</option></select></label><label [class.live-invalid]="!!invoiceProfileFieldError('paymentIban')">IBAN<input [(ngModel)]="invoiceProfile.paymentIban" name="profilePaymentIban" /><small class="field-error" *ngIf="invoiceProfileFieldError('paymentIban')">{{ invoiceProfileFieldError('paymentIban') }}</small></label><label class="wide">Note fattura<textarea [(ngModel)]="invoiceProfile.notes" name="profileNotes" rows="2"></textarea></label></div>
+      <ng-container *ngFor="let kind of ['fixedLines', 'variableLines']"><div class="profile-lines-head"><div><h3>{{ kind === 'fixedLines' ? 'Righe fisse' : 'Righe a quantità variabile' }}</h3><small>{{ kind === 'fixedLines' ? 'Incluse nella fattura fissa.' : 'Calcolate dalle ore del mese.' }}</small></div><button type="button" class="btn btn-outline-primary btn-sm" (click)="addInvoiceProfileLine(kind === 'fixedLines' ? 'fixedLines' : 'variableLines')">Aggiungi riga</button></div>
+        <article class="profile-line" *ngFor="let line of invoiceProfile[kind]; let i = index">
+          <label class="profile-description" [class.live-invalid]="!!invoiceProfileFieldError('description', line)">Descrizione<textarea [(ngModel)]="line.description" [name]="kind + 'Description' + i" rows="2" [placeholder]="'Servizio {{mese}} {{anno}}'"></textarea><small class="field-error" *ngIf="invoiceProfileFieldError('description', line)">{{ invoiceProfileFieldError('description', line) }}</small></label>
+          <label [class.live-invalid]="!!invoiceProfileFieldError('quantity', line)">Q.tà<input type="number" min="0" step="0.01" [(ngModel)]="line.quantity" [name]="kind + 'Quantity' + i" [readonly]="kind === 'variableLines'" /><small class="field-error" *ngIf="invoiceProfileFieldError('quantity', line)">{{ invoiceProfileFieldError('quantity', line) }}</small></label>
+          <label>Unità<input [(ngModel)]="line.unit" [name]="kind + 'Unit' + i" /></label>
+          <label>Sorgente prezzo<select [(ngModel)]="line.priceSource" [name]="kind + 'PriceSource' + i"><option value="fixed">Prezzo fisso</option><option value="customerField">Campo cliente</option></select></label>
+          <label [class.live-invalid]="!!invoiceProfileFieldError('priceField', line)">Campo prezzo<select [(ngModel)]="line.priceField" [name]="kind + 'PriceField' + i" [disabled]="line.priceSource !== 'customerField'"><option value="">Seleziona campo</option><option *ngFor="let field of customerProfilePriceFields()" [value]="field.dbColumn || field.key">{{ field.label }} ({{ field.dbColumn || field.key }})</option></select><small class="field-error" *ngIf="invoiceProfileFieldError('priceField', line)">{{ invoiceProfileFieldError('priceField', line) }}</small></label>
+          <label>Prezzo unitario<input type="number" min="0" step="0.01" [(ngModel)]="line.unitPriceInput" [name]="kind + 'Price' + i" [readonly]="line.priceSource === 'customerField'" /></label>
+          <label>Prezzo IVA inclusa<input type="checkbox" [(ngModel)]="line.priceIncludesVat" [name]="kind + 'PriceGross' + i" /></label>
+          <label [class.live-invalid]="!!invoiceProfileFieldError('discount', line)">Sconto %<input type="number" min="0" max="100" step="0.01" [(ngModel)]="line.discountPercent" [name]="kind + 'Discount' + i" /><small class="field-error" *ngIf="invoiceProfileFieldError('discount', line)">{{ invoiceProfileFieldError('discount', line) }}</small></label>
+          <label>IVA %<input type="number" min="0" step="0.01" [(ngModel)]="line.vatRate" [name]="kind + 'Vat' + i" (ngModelChange)="onInvoiceProfileVatRateChange(line)" /></label>
+          <label [class.live-invalid]="!!invoiceProfileFieldError('vatNature', line)">Natura<select [(ngModel)]="line.vatNature" [name]="kind + 'Nature' + i" [disabled]="+line.vatRate !== 0" (ngModelChange)="onInvoiceProfileNatureChange(line)"><option *ngFor="let nature of vatNatures" [value]="nature">{{ nature || '-' }}</option></select><small class="field-error" *ngIf="invoiceProfileFieldError('vatNature', line)">{{ invoiceProfileFieldError('vatNature', line) }}</small></label>
+          <label class="profile-reference" [class.live-invalid]="!!invoiceProfileFieldError('vatLegalReference', line)">Riferimento normativo<input [(ngModel)]="line.vatLegalReference" [name]="kind + 'Reference' + i" [readonly]="+line.vatRate !== 0" /><small class="field-error" *ngIf="invoiceProfileFieldError('vatLegalReference', line)">{{ invoiceProfileFieldError('vatLegalReference', line) }}</small></label>
+          <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeInvoiceProfileLine(kind === 'fixedLines' ? 'fixedLines' : 'variableLines', i)">Rimuovi</button>
+        </article>
+      </ng-container><footer><button type="button" class="btn btn-light" (click)="closeInvoiceProfile()">Annulla</button><button type="submit" class="btn btn-primary" [disabled]="invoiceProfileSaving || invoiceProfileHasErrors()" [title]="invoiceProfileHasErrors() ? 'Correggi i campi evidenziati in rosso' : ''">{{ invoiceProfileSaving ? 'Salvataggio…' : 'Salva profilo' }}</button></footer>
+    </form>
+  </section>
 </div>

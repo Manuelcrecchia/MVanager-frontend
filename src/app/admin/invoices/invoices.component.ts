@@ -1,10 +1,11 @@
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import JSZip from 'jszip';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+import { inferRecipientTypeFromTaxIds, resolveCustomerTaxIdentifiers } from '../customer-tax-id.util';
 
 interface InvoiceLine {
   id?: number;
@@ -94,7 +95,7 @@ interface Invoice {
   relatedInvoiceNumber?: string;
   relatedInvoiceId?: number | null;
   relatedInvoiceDate?: string;
-  paReferenceType?: 'order' | 'contract' | 'agreement' | 'reception';
+  paReferenceType?: '' | 'order' | 'contract' | 'agreement' | 'reception';
   paDocumentId?: string;
   paDocumentDate?: string;
   paItemNumber?: string;
@@ -371,6 +372,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   private pendingCustomerInvoiceId = '';
   private invoiceSettingsLoaded = false;
   private draftSaveConfirmationTimeout?: ReturnType<typeof setTimeout>;
+  private profilePrefillMessageTimeout?: ReturnType<typeof setTimeout>;
 
   invoices: Invoice[] = [];
   selected: Invoice = this.emptyInvoice();
@@ -568,6 +570,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.querySubscription?.unsubscribe();
     if (this.draftSaveConfirmationTimeout) clearTimeout(this.draftSaveConfirmationTimeout);
+    if (this.profilePrefillMessageTimeout) clearTimeout(this.profilePrefillMessageTimeout);
   }
 
   back(): void {
@@ -676,6 +679,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   closeEntityPage(): void {
+    this.clearProfilePrefillMessage();
     this.pageMode = 'list';
     this.updatePageModeRoute('list');
   }
@@ -804,7 +808,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       relatedInvoiceNumber: '',
       relatedInvoiceId: null,
       relatedInvoiceDate: '',
-      paReferenceType: 'order',
+      paReferenceType: '',
       paDocumentId: '',
       paDocumentDate: '',
       paItemNumber: '',
@@ -1204,6 +1208,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   newInvoice(): void {
     this.clearDraftSaveConfirmation();
+    this.clearProfilePrefillMessage();
     this.selected = this.emptyInvoice();
     this.syncInvoiceEmailRecipient();
     this.selectedCustomerCode = '';
@@ -1227,13 +1232,114 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.newInvoice();
     this.selectCustomer(customer);
     this.applyCustomerInvoiceDefaults(customer.raw);
-    this.success = 'Nuova fattura vendita precompilata dal cliente selezionato';
+    void this.applySavedCustomerInvoiceProfile(customer.raw);
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { fromCustomer: null, customerId: null },
+      // La pulizia dei parametri del cliente avviene subito dopo newInvoice():
+      // conservare esplicitamente mode=new evita che questa seconda navigazione
+      // vinca la corsa e riporti l'utente alla lista fatture.
+      queryParams: { fromCustomer: null, customerId: null, mode: 'new', entityId: null },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
+  }
+
+  private async applySavedCustomerInvoiceProfile(customer: Record<string, any>): Promise<void> {
+    const customerId = this.stringValue(customer?.['numeroCliente'] || this.customerValue(customer, 'customerId'));
+    if (!customerId) return;
+    try {
+      const profile: any = await firstValueFrom(this.http.get<any>(this.global.url + `invoices/customer-profile/${encodeURIComponent(customerId)}`));
+      if (!profile?.enabled) { this.showProfilePrefillMessage('Nuova fattura vendita precompilata dal cliente selezionato'); return; }
+      const fixed = Array.isArray(profile.fixedLines) ? profile.fixedLines.filter((line: any) => line?.enabled !== false) : [];
+      const variable = Array.isArray(profile.variableLines) ? profile.variableLines.filter((line: any) => line?.enabled !== false) : [];
+      let includeVariable = false;
+      let period = '';
+      if (variable.length) {
+        const choice = await this.appDialog.prompt('Digita “fissa” per le sole righe fisse oppure “dinamica” per includere le ore del mese.', fixed.length ? 'dinamica' : 'dinamica', 'Tipo fattura', { inputLabel: 'Scelta' });
+        if (choice === null) return;
+        includeVariable = String(choice).trim().toLowerCase() !== 'fissa';
+        if (includeVariable) {
+          period = await this.appDialog.prompt('Indica il mese di competenza nel formato AAAA-MM.', new Date().toISOString().slice(0, 7), 'Ore mensili', { inputLabel: 'Mese' }) || '';
+          if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) { this.error = 'Mese non valido: usa il formato AAAA-MM.'; return; }
+        }
+      }
+      let hours = 0;
+      if (includeVariable && period) {
+        const [year, month] = period.split('-');
+        const summary: any = await firstValueFrom(this.http.get<any>(this.global.url + `admin/attendance/getMonthlyByCustomer/${month}/${year}`));
+        hours = Number((summary?.clienti || []).find((row: any) => String(row.numeroCliente) === customerId)?.totale || 0);
+      }
+      const monthLabel = period ? new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' }).format(new Date(`${period}-01T12:00:00`)) : '';
+      const lines = [...fixed, ...(includeVariable ? variable : [])].map((line: any, index: number) => {
+        const dynamic = index >= fixed.length && includeVariable;
+        const vatRate = Number(line.vatRate || 0);
+        const fieldPrice = line.priceSource === 'customerField'
+          ? Number(String(this.customerConfiguredValue(customer, this.stringValue(line.priceField))).replace(',', '.'))
+          : NaN;
+        const unitPriceInput = Number.isFinite(fieldPrice) ? fieldPrice : Number(line.unitPriceInput || 0);
+        return this.withLineDefaults({ ...this.emptyLine(), ...line, unitPriceInput, quantity: dynamic ? hours : Number(line.quantity || 1), description: this.stringValue(line.description).replace(/{{\s*mese\s*}}/gi, monthLabel).replace(/{{\s*anno\s*}}/gi, period ? period.slice(0, 4) : '') , vatNature: vatRate === 0 ? this.stringValue(line.vatNature) : '', vatLegalReference: vatRate === 0 ? this.stringValue(line.vatLegalReference || this.defaultVatLegalReference(line.vatNature)) : '' });
+      });
+      if (lines.length) this.selected.lines = lines;
+      const header = profile.header || {};
+      this.selected.type = this.stringValue(header.type || this.selected.type || 'TD01').toUpperCase();
+      this.selected.series = this.stringValue(header.series || this.selected.series);
+      this.selected.customerRecipientType = this.normalizeRecipientType(header.customerRecipientType || this.selected.customerRecipientType);
+      this.selected.splitPayment = !!header.splitPayment;
+      this.selected.vatExigibility = this.normalizeVatExigibility(header.splitPayment ? 'S' : header.vatExigibility, header.splitPayment ? 'S' : 'I');
+      this.selected.stampDutyEnabled = !!header.stampDutyEnabled;
+      this.selected.stampDutyAmount = Number(header.stampDutyAmount || 0);
+      this.selected.withholdingEnabled = !!header.withholdingEnabled;
+      this.selected.withholdingType = this.stringValue(header.withholdingType || 'RT01');
+      this.selected.withholdingReason = this.stringValue(header.withholdingReason || 'A');
+      this.selected.withholdingRate = Number(header.withholdingRate || 0);
+      this.selected.withholdingAmount = Number(header.withholdingAmount || 0);
+      this.selected.pensionFundEnabled = !!header.pensionFundEnabled;
+      this.selected.pensionFundType = this.stringValue(header.pensionFundType || 'TC01');
+      this.selected.pensionFundRate = Number(header.pensionFundRate || 0);
+      this.selected.pensionFundAmount = Number(header.pensionFundAmount || 0);
+      this.selected.pensionFundVatRate = Number(header.pensionFundVatRate ?? 22);
+      this.selected.pensionFundVatNature = this.stringValue(header.pensionFundVatNature);
+      this.selected.pensionFundLegalReference = this.stringValue(header.pensionFundLegalReference);
+      this.selected.paReferenceType = header.paReferenceType || '';
+      this.selected.paDocumentId = this.stringValue(header.paDocumentId);
+      this.selected.paDocumentDate = this.stringValue(header.paDocumentDate);
+      this.selected.paItemNumber = this.stringValue(header.paItemNumber);
+      this.selected.paConventionCode = this.stringValue(header.paConventionCode);
+      this.selected.paCup = this.stringValue(header.paCup);
+      this.selected.paCig = this.stringValue(header.paCig);
+      this.onCustomerRecipientTypeChange();
+      const billing = profile.billing || {};
+      // Il profilo completa soltanto le parti mancanti dall'anagrafica/mapping MVControl.
+      this.selected.customerAddress = this.stringValue(this.selected.customerAddress || billing.address);
+      this.selected.customerCity = this.stringValue(this.selected.customerCity || billing.city);
+      this.selected.customerProvince = this.stringValue(this.selected.customerProvince || billing.province).toUpperCase();
+      this.selected.customerZip = this.stringValue(this.selected.customerZip || billing.zip);
+      this.selected.customerCountry = this.stringValue(this.selected.customerCountry || billing.country || 'IT').toUpperCase();
+      this.selected.paymentTermId = profile.paymentTermId ?? this.selected.paymentTermId;
+      this.selected.bankAccountId = profile.bankAccountId ?? this.selected.bankAccountId;
+      if (this.selected.paymentTermId) this.applyPaymentTerm();
+      if (this.selected.bankAccountId) this.applyBankAccount();
+      this.selected.paymentMethod = this.stringValue(profile.paymentMethod || this.selected.paymentMethod);
+      this.selected.paymentIban = this.stringValue(profile.paymentIban || this.selected.paymentIban);
+      this.selected.notes = this.stringValue(profile.notes || this.selected.notes);
+      if (this.selected.series) this.loadNextNumber();
+      this.showProfilePrefillMessage(includeVariable ? `Fattura dinamica precompilata con ${hours.toFixed(2)} ore di ${monthLabel}.` : 'Fattura fissa precompilata dal profilo cliente.');
+    } catch (err: any) { this.error = err?.error?.error || 'Profilo fatturazione non applicato.'; }
+  }
+
+  private showProfilePrefillMessage(message: string): void {
+    this.clearProfilePrefillMessage();
+    this.success = message;
+    this.profilePrefillMessageTimeout = setTimeout(() => {
+      if (this.success === message) this.success = '';
+      this.profilePrefillMessageTimeout = undefined;
+    }, 4500);
+  }
+
+  private clearProfilePrefillMessage(): void {
+    if (this.profilePrefillMessageTimeout) clearTimeout(this.profilePrefillMessageTimeout);
+    this.profilePrefillMessageTimeout = undefined;
+    if (/precompilat[ao]/i.test(this.success)) this.success = '';
   }
 
   newDdt(): void {
@@ -1456,6 +1562,102 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     } else if (this.selected.customerRecipientType === 'private' || !this.stringValue(this.selected.customerSdiCode)) {
       this.selected.customerSdiCode = this.defaultSdiForCountry(this.selected.customerCountry);
     }
+  }
+
+  onPaReferenceTypeChange(): void {
+    if (this.selected.paReferenceType) return;
+    this.selected.paDocumentId = '';
+    this.selected.paDocumentDate = '';
+    this.selected.paItemNumber = '';
+    this.selected.paConventionCode = '';
+    this.selected.paCup = '';
+    this.selected.paCig = '';
+  }
+
+  invoiceFieldError(field: string): string {
+    const value = (key: keyof Invoice) => this.stringValue(this.selected[key]);
+    const country = value('customerCountry').toUpperCase() || 'IT';
+    const recipientType = this.normalizeRecipientType(this.selected.customerRecipientType);
+    const vat = value('customerVatNumber').replace(/^IT/i, '').replace(/\D/g, '');
+    const fiscalCode = value('customerFiscalCode').toUpperCase();
+    const sdi = value('customerSdiCode').toUpperCase();
+    const hasReference = ['paDocumentId', 'paDocumentDate', 'paItemNumber', 'paConventionCode', 'paCup', 'paCig']
+      .some((key) => !!value(key as keyof Invoice));
+
+    switch (field) {
+      case 'number': return value('number') ? ((`${value('series')}${value('series') ? '/' : ''}${value('number')}`).length <= 20 ? '' : 'Serie e numero possono contenere al massimo 20 caratteri') : 'Numero obbligatorio';
+      case 'issueDate': return /^\d{4}-\d{2}-\d{2}$/.test(value('issueDate')) ? '' : 'Data fattura obbligatoria';
+      case 'dueDate': return !value('dueDate') || /^\d{4}-\d{2}-\d{2}$/.test(value('dueDate')) ? '' : 'Data di scadenza non valida';
+      case 'paReferenceType': return hasReference && !value('paReferenceType') ? 'Seleziona il tipo di riferimento' : '';
+      case 'paDocumentId': return hasReference && !value('paDocumentId') ? 'Numero documento obbligatorio con CUP, CIG o altri riferimenti' : '';
+      case 'paCup': return !value('paCup') || /^[A-Z0-9]{1,15}$/i.test(value('paCup')) ? '' : 'CUP: massimo 15 caratteri alfanumerici';
+      case 'paCig': return !value('paCig') || /^[A-Z0-9]{1,15}$/i.test(value('paCig')) ? '' : 'CIG: massimo 15 caratteri alfanumerici';
+      case 'customerName': return value('customerName') ? '' : 'Cliente obbligatorio';
+      case 'customerVatNumber':
+        if (!vat && !fiscalCode) return 'Inserisci Partita IVA o Codice fiscale';
+        return country === 'IT' && vat && !this.isValidItalianVatNumber(vat) ? 'Partita IVA italiana non valida' : '';
+      case 'customerFiscalCode':
+        if (recipientType === 'private' && !fiscalCode) return 'Codice fiscale obbligatorio per il privato';
+        if (!vat && !fiscalCode) return 'Inserisci Codice fiscale o Partita IVA';
+        return fiscalCode && !/^(?:\d{11}|[A-Z0-9]{16})$/.test(fiscalCode) ? 'Codice fiscale non valido: 11 cifre o 16 caratteri' : '';
+      case 'customerSdiCode':
+        if (recipientType === 'private') return '';
+        if (recipientType === 'pa') return /^[A-Z0-9]{6}$/.test(sdi) ? '' : 'Codice ufficio PA obbligatorio di 6 caratteri';
+        if (country !== 'IT') return sdi === 'XXXXXXX' ? '' : 'Per un cliente estero usa XXXXXXX';
+        return !sdi || /^[A-Z0-9]{7}$/.test(sdi) ? '' : 'Codice SDI non valido: servono 7 caratteri';
+      case 'customerPec': return !value('customerPec') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value('customerPec')) ? '' : 'PEC non valida';
+      case 'customerEmail': return !value('customerEmail') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value('customerEmail')) ? '' : 'Email non valida';
+      case 'customerAddress': return value('customerAddress') ? '' : 'Indirizzo obbligatorio';
+      case 'customerCity': return value('customerCity') ? '' : 'Comune obbligatorio';
+      case 'customerProvince': return country !== 'IT' || /^[A-Z]{2}$/.test(value('customerProvince').toUpperCase()) ? '' : 'Inserisci la sigla di 2 lettere, ad esempio PE';
+      case 'customerZip': return value('customerZip') ? (country !== 'IT' || /^\d{5}$/.test(value('customerZip')) ? '' : 'Il CAP italiano deve avere 5 cifre') : 'CAP obbligatorio';
+      case 'customerCountry': return /^[A-Z]{2}$/.test(country) ? '' : 'Nazione: usa il codice di 2 lettere, ad esempio IT';
+      case 'stampDutyAmount': return !this.selected.stampDutyEnabled || Number(this.selected.stampDutyAmount || 0) > 0 ? '' : 'Importo bollo obbligatorio';
+      case 'withholdingType': return !this.selected.withholdingEnabled || /^RT0[1-6]$/.test(value('withholdingType').toUpperCase()) ? '' : 'Tipo ritenuta valido da RT01 a RT06';
+      case 'withholdingReason': return !this.selected.withholdingEnabled || /^[A-Z]$/.test(value('withholdingReason').toUpperCase()) ? '' : 'La causale deve essere una lettera';
+      case 'withholdingAmount': return !this.selected.withholdingEnabled || Number(this.selected.withholdingAmount || 0) > 0 ? '' : 'Importo ritenuta obbligatorio';
+      case 'pensionFundType': return !this.selected.pensionFundEnabled || /^TC(?:0[1-9]|1[0-9]|2[0-2])$/.test(value('pensionFundType').toUpperCase()) ? '' : 'Tipo cassa valido da TC01 a TC22';
+      case 'pensionFundRate': return !this.selected.pensionFundEnabled || Number(this.selected.pensionFundRate || 0) > 0 ? '' : 'Aliquota cassa obbligatoria';
+      case 'pensionFundAmount': return !this.selected.pensionFundEnabled || Number(this.selected.pensionFundAmount || 0) > 0 ? '' : 'Importo cassa obbligatorio';
+      case 'pensionFundVatNature': return !this.selected.pensionFundEnabled || Number(this.selected.pensionFundVatRate || 0) !== 0 || value('pensionFundVatNature') ? '' : 'Natura IVA obbligatoria con aliquota zero';
+      case 'pensionFundLegalReference': return !this.selected.pensionFundEnabled || Number(this.selected.pensionFundVatRate || 0) !== 0 || value('pensionFundLegalReference') ? '' : 'Riferimento normativo obbligatorio';
+      case 'paymentIban': return !value('paymentIban') || /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/i.test(value('paymentIban').replace(/\s/g, '')) ? '' : 'IBAN non valido';
+      default: return '';
+    }
+  }
+
+  invoiceLineError(line: InvoiceLine, field: string): string {
+    if (field === 'description') return this.stringValue(line.description) ? '' : 'Descrizione obbligatoria';
+    if (field === 'quantity') return Number(line.quantity || 0) > 0 ? '' : 'La quantità deve essere maggiore di zero';
+    if (field === 'discount') return Number(line.discountPercent || 0) >= 0 && Number(line.discountPercent || 0) <= 100 ? '' : 'Sconto compreso tra 0 e 100';
+    if (field === 'vatNature') return Number(line.vatRate || 0) !== 0 || this.stringValue(line.vatNature) ? '' : 'Natura obbligatoria con IVA zero';
+    if (field === 'vatLegalReference') return Number(line.vatRate || 0) !== 0 || this.stringValue(line.vatLegalReference) ? '' : 'Riferimento normativo obbligatorio';
+    return '';
+  }
+
+  invoiceHasLiveErrors(): boolean {
+    const fields = [
+      'number', 'issueDate', 'dueDate', 'paReferenceType', 'paDocumentId', 'paCup', 'paCig', 'customerName',
+      'customerVatNumber', 'customerFiscalCode', 'customerSdiCode', 'customerPec', 'customerEmail',
+      'customerAddress', 'customerCity', 'customerProvince', 'customerZip', 'customerCountry',
+      'stampDutyAmount', 'withholdingType', 'withholdingReason', 'withholdingAmount',
+      'pensionFundType', 'pensionFundRate', 'pensionFundAmount', 'pensionFundVatNature',
+      'pensionFundLegalReference', 'paymentIban',
+    ];
+    if (fields.some((field) => !!this.invoiceFieldError(field))) return true;
+    return (this.selected.lines || []).some((line) => ['description', 'quantity', 'discount', 'vatNature', 'vatLegalReference']
+      .some((field) => !!this.invoiceLineError(line, field)));
+  }
+
+  private isValidItalianVatNumber(value: string): boolean {
+    if (!/^\d{11}$/.test(value)) return false;
+    let total = 0;
+    for (let index = 0; index < 11; index += 1) {
+      let digit = Number(value[index]);
+      if (index % 2 === 1) { digit *= 2; if (digit > 9) digit -= 9; }
+      total += digit;
+    }
+    return total % 10 === 0;
   }
 
   private prepareRecipientForSubmit(): void {
@@ -2924,7 +3126,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     const label = [
       numeroCliente,
       this.global.getRecordDisplayName('customer', customer) || customer?.['ragioneSociale'] || customer?.['nome'] || 'Cliente',
-      this.customerValue(customer, 'customerVatNumber') || this.customerValue(customer, 'customerFiscalCode'),
+      this.customerValue(customer, 'customerVatNumber') || this.customerValue(customer, 'customerFiscalCode') || this.customerValue(customer, 'customerTaxOrVatNumber'),
     ].filter(Boolean).join(' - ');
     return { numeroCliente, label, raw: customer };
   }
@@ -3066,8 +3268,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       codiceCliente: () => customer?.['numeroCliente'] || this.customerValue(customer, 'customerId'),
       ragioneSociale: () => this.global.getRecordDisplayName('customer', customer) || this.customerValue(customer, 'customerTitle'),
       cliente: () => this.global.getRecordDisplayName('customer', customer) || this.customerValue(customer, 'customerTitle'),
-      partitaIva: () => this.customerValue(customer, 'customerVatNumber'),
-      codiceFiscale: () => this.customerValue(customer, 'customerFiscalCode'),
+      partitaIva: () => this.customerTaxIdentifiers(customer).vatNumber,
+      codiceFiscale: () => this.customerTaxIdentifiers(customer).fiscalCode,
       indirizzo: () => this.customerAddressPart(customer, 'billing', 'address', 'customerAddress'),
       comune: () => this.customerAddressPart(customer, 'billing', 'city', 'customerCity'),
       provincia: () => this.customerAddressPart(customer, 'billing', 'province', 'customerProvince'),
@@ -3090,11 +3292,21 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   private applyCustomerToInvoice(customer: Record<string, any>): void {
     const recipientTypeValue = this.stringValue(this.customerValue(customer, 'customerRecipientType'));
-    const customerVatNumber = this.normalizeVatForInvoice(this.customerValue(customer, 'customerVatNumber'));
-    const customerFiscalCode = this.stringValue(this.customerValue(customer, 'customerFiscalCode')).toUpperCase();
+    const explicitVat = this.customerValue(customer, 'customerVatNumber');
+    const explicitFiscal = this.customerValue(customer, 'customerFiscalCode');
+    const combinedTaxId = this.customerValue(customer, 'customerTaxOrVatNumber');
     const recipientType = recipientTypeValue
       ? this.normalizeRecipientType(recipientTypeValue)
-      : (!customerVatNumber && customerFiscalCode ? 'private' : 'business');
+      : inferRecipientTypeFromTaxIds(explicitVat, explicitFiscal, combinedTaxId);
+    const taxIds = resolveCustomerTaxIdentifiers({
+      recipientType,
+      country: this.customerAddressPart(customer, 'billing', 'country', 'customerCountry') || 'IT',
+      vatNumber: explicitVat,
+      fiscalCode: explicitFiscal,
+      combinedTaxId,
+    });
+    const customerVatNumber = this.normalizeVatForInvoice(taxIds.vatNumber);
+    const customerFiscalCode = this.stringValue(taxIds.fiscalCode).toUpperCase();
     const firstName = this.stringValue(this.customerValue(customer, 'customerFirstName'));
     const lastName = this.stringValue(this.customerValue(customer, 'customerLastName'));
     const displayName = this.stringValue(
@@ -3158,8 +3370,14 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
     this.selectedDdt.customerId = this.stringValue(customer?.['numeroCliente'] || this.customerValue(customer, 'customerId'));
     this.selectedDdt.customerName = name;
-    this.selectedDdt.customerVatNumber = this.normalizeVatForInvoice(this.customerValue(customer, 'customerVatNumber'));
-    this.selectedDdt.customerFiscalCode = this.stringValue(this.customerValue(customer, 'customerFiscalCode')).toUpperCase();
+    const explicitVat = this.customerValue(customer, 'customerVatNumber');
+    const explicitFiscal = this.customerValue(customer, 'customerFiscalCode');
+    const combinedTaxId = this.customerValue(customer, 'customerTaxOrVatNumber');
+    const recipientTypeValue = this.stringValue(this.customerValue(customer, 'customerRecipientType'));
+    const recipientType = recipientTypeValue ? this.normalizeRecipientType(recipientTypeValue) : inferRecipientTypeFromTaxIds(explicitVat, explicitFiscal, combinedTaxId);
+    const taxIds = resolveCustomerTaxIdentifiers({ recipientType, country, vatNumber: explicitVat, fiscalCode: explicitFiscal, combinedTaxId });
+    this.selectedDdt.customerVatNumber = this.normalizeVatForInvoice(taxIds.vatNumber);
+    this.selectedDdt.customerFiscalCode = this.stringValue(taxIds.fiscalCode).toUpperCase();
     this.selectedDdt.customerAddress = address;
     this.selectedDdt.customerCity = city;
     this.selectedDdt.customerProvince = province;
@@ -3201,6 +3419,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       customerLastName: ['cognomePrivato', 'lastName', 'cognomePersona'],
       customerVatNumber: ['partitaIva', 'piva', 'vatNumber', 'customerVatNumber'],
       customerFiscalCode: ['codiceFiscale', 'fiscalCode', 'customerFiscalCode'],
+      customerTaxOrVatNumber: ['cfpi', 'codiceFiscalePartitaIva', 'taxOrVatNumber', 'customerTaxOrVatNumber'],
       customerSdiCode: ['codiceSdi', 'sdiCode', 'customerSdiCode'],
       customerPec: ['pec', 'customerPec'],
       customerEmail: ['email', 'mail'],
@@ -3225,8 +3444,9 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     const normalizedFiscalCode = this.stringValue(invoice.customerFiscalCode).toUpperCase();
     const normalizedName = this.stringValue(invoice.customerName).toLowerCase();
     return this.customers.find((customer) => {
-      const vat = this.onlyDigits(this.customerValue(customer.raw, 'customerVatNumber'));
-      const fiscalCode = this.stringValue(this.customerValue(customer.raw, 'customerFiscalCode')).toUpperCase();
+      const taxIds = this.customerTaxIdentifiers(customer.raw);
+      const vat = this.onlyDigits(taxIds.vatNumber);
+      const fiscalCode = this.stringValue(taxIds.fiscalCode).toUpperCase();
       const name = this.stringValue(this.global.getRecordDisplayName('customer', customer.raw)).toLowerCase();
       return (
         (normalizedVat && vat === normalizedVat) ||
@@ -3241,8 +3461,9 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     const normalizedFiscalCode = this.stringValue(ddt.customerFiscalCode).toUpperCase();
     const normalizedName = this.stringValue(ddt.customerName).toLowerCase();
     return this.customers.find((customer) => {
-      const vat = this.onlyDigits(this.customerValue(customer.raw, 'customerVatNumber'));
-      const fiscalCode = this.stringValue(this.customerValue(customer.raw, 'customerFiscalCode')).toUpperCase();
+      const taxIds = this.customerTaxIdentifiers(customer.raw);
+      const vat = this.onlyDigits(taxIds.vatNumber);
+      const fiscalCode = this.stringValue(taxIds.fiscalCode).toUpperCase();
       const name = this.stringValue(this.global.getRecordDisplayName('customer', customer.raw)).toLowerCase();
       return (
         (normalizedVat && vat === normalizedVat) ||
@@ -3250,6 +3471,21 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         (normalizedName && name === normalizedName)
       );
     })?.numeroCliente || '';
+  }
+
+  private customerTaxIdentifiers(customer: Record<string, any>) {
+    const explicitVat = this.customerValue(customer, 'customerVatNumber');
+    const explicitFiscal = this.customerValue(customer, 'customerFiscalCode');
+    const combinedTaxId = this.customerValue(customer, 'customerTaxOrVatNumber');
+    const recipientTypeValue = this.stringValue(this.customerValue(customer, 'customerRecipientType'));
+    const recipientType = recipientTypeValue ? this.normalizeRecipientType(recipientTypeValue) : inferRecipientTypeFromTaxIds(explicitVat, explicitFiscal, combinedTaxId);
+    return resolveCustomerTaxIdentifiers({
+      recipientType,
+      country: this.customerAddressPart(customer, 'billing', 'country', 'customerCountry') || 'IT',
+      vatNumber: explicitVat,
+      fiscalCode: explicitFiscal,
+      combinedTaxId,
+    });
   }
 
   private withInvoiceDefaults(invoice: Partial<Invoice> = {}): Invoice {

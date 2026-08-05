@@ -101,9 +101,10 @@
 
       <form class="invoice-form" (ngSubmit)="save()">
         <div class="form-grid compact">
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('number')">
             Numero
             <input [(ngModel)]="selected.number" name="number" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('number')">{{ invoiceFieldError('number') }}</small>
           </label>
           <label>
             Serie
@@ -115,13 +116,15 @@
               <option *ngFor="let item of documentTypes" [value]="item.key">{{ item.label }}</option>
             </select>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('issueDate')">
             Data
             <input type="date" [(ngModel)]="selected.issueDate" name="issueDate" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('issueDate')">{{ invoiceFieldError('issueDate') }}</small>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('dueDate')">
             Scadenza
             <input type="date" [(ngModel)]="selected.dueDate" name="dueDate" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('dueDate')">{{ invoiceFieldError('dueDate') }}</small>
           </label>
         </div>
 
@@ -142,40 +145,45 @@
 
         <h2>Riferimenti ordine, contratto e PA</h2>
         <div class="form-grid">
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('paReferenceType')">
             Tipo riferimento
-            <select [(ngModel)]="selected.paReferenceType" name="paReferenceType" [disabled]="!canEdit()">
+            <select [(ngModel)]="selected.paReferenceType" name="paReferenceType" [disabled]="!canEdit()" (ngModelChange)="onPaReferenceTypeChange()">
+              <option value="">Nessun riferimento</option>
               <option value="order">Ordine di acquisto</option>
               <option value="contract">Contratto</option>
               <option value="agreement">Convenzione</option>
               <option value="reception">Ricezione</option>
             </select>
+            <small class="field-error" *ngIf="invoiceFieldError('paReferenceType')">{{ invoiceFieldError('paReferenceType') }}</small>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('paDocumentId')">
             Numero documento
-            <input [(ngModel)]="selected.paDocumentId" name="paDocumentId" maxlength="20" [readonly]="!canEdit()" />
+            <input [(ngModel)]="selected.paDocumentId" name="paDocumentId" maxlength="20" [disabled]="!canEdit() || !selected.paReferenceType" />
+            <small class="field-error" *ngIf="invoiceFieldError('paDocumentId')">{{ invoiceFieldError('paDocumentId') }}</small>
           </label>
           <label>
             Data documento
-            <input type="date" [(ngModel)]="selected.paDocumentDate" name="paDocumentDate" [readonly]="!canEdit()" />
+            <input type="date" [(ngModel)]="selected.paDocumentDate" name="paDocumentDate" [disabled]="!canEdit() || !selected.paReferenceType" />
           </label>
           <label>
             Numero voce
-            <input [(ngModel)]="selected.paItemNumber" name="paItemNumber" maxlength="20" [readonly]="!canEdit()" />
+            <input [(ngModel)]="selected.paItemNumber" name="paItemNumber" maxlength="20" [disabled]="!canEdit() || !selected.paReferenceType" />
           </label>
           <label>
             Commessa / convenzione
-            <input [(ngModel)]="selected.paConventionCode" name="paConventionCode" maxlength="100" [readonly]="!canEdit()" />
+            <input [(ngModel)]="selected.paConventionCode" name="paConventionCode" maxlength="100" [disabled]="!canEdit() || !selected.paReferenceType" />
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('paCup')">
             CUP
-            <input [(ngModel)]="selected.paCup" name="paCup" maxlength="15" [readonly]="!canEdit()" />
+            <input [(ngModel)]="selected.paCup" name="paCup" maxlength="15" [disabled]="!canEdit() || !selected.paReferenceType" />
+            <small class="field-error" *ngIf="invoiceFieldError('paCup')">{{ invoiceFieldError('paCup') }}</small>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('paCig')">
             CIG
-            <input [(ngModel)]="selected.paCig" name="paCig" maxlength="15" [readonly]="!canEdit()" />
+            <input [(ngModel)]="selected.paCig" name="paCig" maxlength="15" [disabled]="!canEdit() || !selected.paReferenceType" />
+            <small class="field-error" *ngIf="invoiceFieldError('paCig')">{{ invoiceFieldError('paCig') }}</small>
           </label>
-          <p class="wide form-help">Campi facoltativi. Se inserisci CIG, CUP o un altro riferimento, indica anche il numero del documento richiesto dal tracciato FatturaPA.</p>
+          <p class="wide form-help">Se non servono riferimenti lascia “Nessun riferimento”. Se inserisci CIG, CUP o altri dati, indica anche il numero documento richiesto dal tracciato FatturaPA.</p>
         </div>
 
         <h2>{{ partyTitle() }}</h2>
@@ -221,52 +229,63 @@
               <option value="private">Privato</option>
             </select>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('customerName')">
             Ragione sociale
             <input [(ngModel)]="selected.customerName" name="customerName" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('customerName')">{{ invoiceFieldError('customerName') }}</small>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('customerVatNumber')">
             Partita IVA
             <input [(ngModel)]="selected.customerVatNumber" name="customerVatNumber" [readonly]="!canEdit()" (ngModelChange)="onCustomerVatNumberChange()" />
+            <small class="field-error" *ngIf="invoiceFieldError('customerVatNumber')">{{ invoiceFieldError('customerVatNumber') }}</small>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('customerFiscalCode')">
             Codice fiscale{{ selected.customerRecipientType === 'private' ? ' *' : '' }}
             <input [(ngModel)]="selected.customerFiscalCode" name="customerFiscalCode" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('customerFiscalCode')">{{ invoiceFieldError('customerFiscalCode') }}</small>
           </label>
-          <label *ngIf="!isSelfInvoice()">
+          <label *ngIf="!isSelfInvoice()" [class.live-invalid]="!!invoiceFieldError('customerSdiCode')">
             {{ selected.customerRecipientType === 'pa' ? 'Codice ufficio PA' : 'Codice SDI (facoltativo)' }}
             <input [(ngModel)]="selected.customerSdiCode" name="customerSdiCode" [attr.maxlength]="selected.customerRecipientType === 'pa' ? 6 : 7" [readonly]="!canEdit() || selected.customerRecipientType === 'private'" />
             <small *ngIf="selected.customerRecipientType === 'private'">Impostato automaticamente per il consumatore finale</small>
             <small *ngIf="selected.customerRecipientType === 'business'">Se vuoto, viene usato automaticamente 0000000</small>
             <small *ngIf="selected.customerRecipientType === 'pa'">Codice univoco dell'ufficio destinatario, 6 caratteri</small>
+            <small class="field-error" *ngIf="invoiceFieldError('customerSdiCode')">{{ invoiceFieldError('customerSdiCode') }}</small>
           </label>
-          <label *ngIf="!isSelfInvoice()">
+          <label *ngIf="!isSelfInvoice()" [class.live-invalid]="!!invoiceFieldError('customerPec')">
             PEC (facoltativa)
             <input type="email" [(ngModel)]="selected.customerPec" name="customerPec" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('customerPec')">{{ invoiceFieldError('customerPec') }}</small>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('customerEmail')">
             Email
             <input type="email" [(ngModel)]="selected.customerEmail" name="customerEmail" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('customerEmail')">{{ invoiceFieldError('customerEmail') }}</small>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('customerAddress')">
             Indirizzo
             <input [(ngModel)]="selected.customerAddress" name="customerAddress" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('customerAddress')">{{ invoiceFieldError('customerAddress') }}</small>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('customerCity')">
             Comune
             <input [(ngModel)]="selected.customerCity" name="customerCity" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('customerCity')">{{ invoiceFieldError('customerCity') }}</small>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('customerProvince')">
             Provincia
             <input [(ngModel)]="selected.customerProvince" name="customerProvince" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('customerProvince')">{{ invoiceFieldError('customerProvince') }}</small>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('customerZip')">
             CAP
             <input [(ngModel)]="selected.customerZip" name="customerZip" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('customerZip')">{{ invoiceFieldError('customerZip') }}</small>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('customerCountry')">
             Nazione
             <input [(ngModel)]="selected.customerCountry" name="customerCountry" maxlength="2" [readonly]="!canEdit()" (ngModelChange)="onCustomerCountryChange()" />
+            <small class="field-error" *ngIf="invoiceFieldError('customerCountry')">{{ invoiceFieldError('customerCountry') }}</small>
           </label>
         </div>
 
@@ -289,20 +308,20 @@
           </div>
           <div class="line-row" *ngFor="let line of selected.lines; let i = index">
             <label class="line-field"><span>Codice</span><input [(ngModel)]="line.serviceCode" [name]="'serviceCode' + i" list="invoice-service-codes" [readonly]="!canEdit()" (change)="applyServiceToLine(line)" /></label>
-            <label class="line-field"><span>Descrizione</span><input [(ngModel)]="line.description" [name]="'description' + i" [readonly]="!canEdit()" /></label>
-            <label class="line-field"><span>Quantità</span><input type="number" step="0.000001" [(ngModel)]="line.quantity" [name]="'quantity' + i" [readonly]="!canEdit()" /></label>
+            <label class="line-field" [class.live-invalid]="!!invoiceLineError(line, 'description')"><span>Descrizione</span><input [(ngModel)]="line.description" [name]="'description' + i" [readonly]="!canEdit()" [title]="invoiceLineError(line, 'description')" /></label>
+            <label class="line-field" [class.live-invalid]="!!invoiceLineError(line, 'quantity')"><span>Quantità</span><input type="number" step="0.000001" [(ngModel)]="line.quantity" [name]="'quantity' + i" [readonly]="!canEdit()" [title]="invoiceLineError(line, 'quantity')" /></label>
             <label class="line-field"><span>Unità</span><input [(ngModel)]="line.unit" [name]="'unit' + i" [readonly]="!canEdit()" /></label>
             <label class="line-field"><span>Prezzo</span><input type="number" step="0.000001" [(ngModel)]="line.unitPriceInput" [name]="'unitPriceInput' + i" [readonly]="!canEdit()" (ngModelChange)="syncLinePriceMode(line)" /></label>
             <label class="line-field"><span>Tipo prezzo</span><select [(ngModel)]="line.priceIncludesVat" [name]="'priceIncludesVat' + i" [disabled]="!canEdit()" (ngModelChange)="syncLinePriceMode(line)">
               <option [ngValue]="false">IVA escl.</option>
               <option [ngValue]="true">IVA incl.</option>
             </select></label>
-            <label class="line-field"><span>Sconto %</span><input type="number" step="0.01" [(ngModel)]="line.discountPercent" [name]="'discount' + i" [readonly]="!canEdit()" /></label>
+            <label class="line-field" [class.live-invalid]="!!invoiceLineError(line, 'discount')"><span>Sconto %</span><input type="number" step="0.01" [(ngModel)]="line.discountPercent" [name]="'discount' + i" [readonly]="!canEdit()" [title]="invoiceLineError(line, 'discount')" /></label>
             <label class="line-field"><span>IVA %</span><input type="number" step="0.01" [(ngModel)]="line.vatRate" [name]="'vat' + i" [readonly]="!canEdit()" (ngModelChange)="onLineVatRateChange(line); syncLinePriceMode(line)" /></label>
-            <label class="line-field"><span>Natura IVA</span><select [(ngModel)]="line.vatNature" [name]="'nature' + i" [disabled]="!canEdit() || +line.vatRate !== 0" (ngModelChange)="onLineVatNatureChange(line)">
+            <label class="line-field" [class.live-invalid]="!!invoiceLineError(line, 'vatNature')"><span>Natura IVA</span><select [(ngModel)]="line.vatNature" [name]="'nature' + i" [disabled]="!canEdit() || +line.vatRate !== 0" (ngModelChange)="onLineVatNatureChange(line)" [title]="invoiceLineError(line, 'vatNature')">
               <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
             </select></label>
-            <label class="line-field" *ngIf="+line.vatRate === 0"><span>Riferimento normativo</span><input [(ngModel)]="line.vatLegalReference" [name]="'vatLegalReference' + i" maxlength="100" [readonly]="!canEdit()" placeholder="Es. Esente art. 10 DPR 633/72" /></label>
+            <label class="line-field" *ngIf="+line.vatRate === 0" [class.live-invalid]="!!invoiceLineError(line, 'vatLegalReference')"><span>Riferimento normativo</span><input [(ngModel)]="line.vatLegalReference" [name]="'vatLegalReference' + i" maxlength="100" [readonly]="!canEdit()" placeholder="Es. Esente art. 10 DPR 633/72" [title]="invoiceLineError(line, 'vatLegalReference')" /></label>
             <button type="button" class="icon-btn danger" (click)="removeLine(i)" [disabled]="!canEdit()">
               <i class="fas fa-trash"></i>
             </button>
@@ -331,59 +350,68 @@
             <span>Bollo</span>
             <input type="checkbox" [(ngModel)]="selected.stampDutyEnabled" name="stampDutyEnabled" [disabled]="!canEdit()" />
           </label>
-          <label *ngIf="selected.stampDutyEnabled">
+          <label *ngIf="selected.stampDutyEnabled" [class.live-invalid]="!!invoiceFieldError('stampDutyAmount')">
             Importo bollo
             <input type="number" step="0.01" [(ngModel)]="selected.stampDutyAmount" name="stampDutyAmount" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('stampDutyAmount')">{{ invoiceFieldError('stampDutyAmount') }}</small>
           </label>
           <label class="checkbox-field">
             <span>Ritenuta</span>
             <input type="checkbox" [(ngModel)]="selected.withholdingEnabled" name="withholdingEnabled" [disabled]="!canEdit()" />
           </label>
-          <label *ngIf="selected.withholdingEnabled">
+          <label *ngIf="selected.withholdingEnabled" [class.live-invalid]="!!invoiceFieldError('withholdingType')">
             Tipo ritenuta
             <input [(ngModel)]="selected.withholdingType" name="withholdingType" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('withholdingType')">{{ invoiceFieldError('withholdingType') }}</small>
           </label>
-          <label *ngIf="selected.withholdingEnabled">
+          <label *ngIf="selected.withholdingEnabled" [class.live-invalid]="!!invoiceFieldError('withholdingReason')">
             Causale
             <input [(ngModel)]="selected.withholdingReason" name="withholdingReason" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('withholdingReason')">{{ invoiceFieldError('withholdingReason') }}</small>
           </label>
           <label *ngIf="selected.withholdingEnabled">
             Aliquota ritenuta
             <input type="number" step="0.01" [(ngModel)]="selected.withholdingRate" name="withholdingRate" [readonly]="!canEdit()" />
           </label>
-          <label *ngIf="selected.withholdingEnabled">
+          <label *ngIf="selected.withholdingEnabled" [class.live-invalid]="!!invoiceFieldError('withholdingAmount')">
             Importo ritenuta
             <input type="number" step="0.01" [(ngModel)]="selected.withholdingAmount" name="withholdingAmount" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('withholdingAmount')">{{ invoiceFieldError('withholdingAmount') }}</small>
           </label>
           <label class="checkbox-field">
             <span>Cassa previdenziale</span>
             <input type="checkbox" [(ngModel)]="selected.pensionFundEnabled" name="pensionFundEnabled" [disabled]="!canEdit()" />
           </label>
-          <label *ngIf="selected.pensionFundEnabled">
+          <label *ngIf="selected.pensionFundEnabled" [class.live-invalid]="!!invoiceFieldError('pensionFundType')">
             Tipo cassa
             <input [(ngModel)]="selected.pensionFundType" name="pensionFundType" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('pensionFundType')">{{ invoiceFieldError('pensionFundType') }}</small>
           </label>
-          <label *ngIf="selected.pensionFundEnabled">
+          <label *ngIf="selected.pensionFundEnabled" [class.live-invalid]="!!invoiceFieldError('pensionFundRate')">
             Aliquota cassa
             <input type="number" step="0.01" [(ngModel)]="selected.pensionFundRate" name="pensionFundRate" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('pensionFundRate')">{{ invoiceFieldError('pensionFundRate') }}</small>
           </label>
-          <label *ngIf="selected.pensionFundEnabled">
+          <label *ngIf="selected.pensionFundEnabled" [class.live-invalid]="!!invoiceFieldError('pensionFundAmount')">
             Importo cassa
             <input type="number" step="0.01" [(ngModel)]="selected.pensionFundAmount" name="pensionFundAmount" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('pensionFundAmount')">{{ invoiceFieldError('pensionFundAmount') }}</small>
           </label>
           <label *ngIf="selected.pensionFundEnabled">
             IVA cassa
             <input type="number" step="0.01" [(ngModel)]="selected.pensionFundVatRate" name="pensionFundVatRate" [readonly]="!canEdit()" (ngModelChange)="onPensionFundVatRateChange()" />
           </label>
-          <label *ngIf="selected.pensionFundEnabled">
+          <label *ngIf="selected.pensionFundEnabled" [class.live-invalid]="!!invoiceFieldError('pensionFundVatNature')">
             Natura IVA cassa
             <select [(ngModel)]="selected.pensionFundVatNature" name="pensionFundVatNature" [disabled]="!canEdit() || +(selected.pensionFundVatRate || 0) !== 0">
               <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
             </select>
+            <small class="field-error" *ngIf="invoiceFieldError('pensionFundVatNature')">{{ invoiceFieldError('pensionFundVatNature') }}</small>
           </label>
-          <label *ngIf="selected.pensionFundEnabled && +(selected.pensionFundVatRate || 0) === 0">
+          <label *ngIf="selected.pensionFundEnabled && +(selected.pensionFundVatRate || 0) === 0" [class.live-invalid]="!!invoiceFieldError('pensionFundLegalReference')">
             Riferimento normativo cassa
             <input [(ngModel)]="selected.pensionFundLegalReference" name="pensionFundLegalReference" maxlength="100" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('pensionFundLegalReference')">{{ invoiceFieldError('pensionFundLegalReference') }}</small>
           </label>
         </div>
 
@@ -408,9 +436,10 @@
               <option *ngFor="let item of paymentMethods" [value]="item.key">{{ item.label }}</option>
             </select>
           </label>
-          <label>
+          <label [class.live-invalid]="!!invoiceFieldError('paymentIban')">
             IBAN
             <input [(ngModel)]="selected.paymentIban" name="paymentIban" [readonly]="!canEdit()" />
+            <small class="field-error" *ngIf="invoiceFieldError('paymentIban')">{{ invoiceFieldError('paymentIban') }}</small>
           </label>
           <label class="wide">
             Note
@@ -434,14 +463,14 @@
                 <input type="email" [(ngModel)]="sendEmailRecipient" name="sendEmailRecipient" placeholder="cliente@azienda.it" [disabled]="saving" />
               </label>
               <div class="action-group__buttons">
-                <button type="submit" class="primary-btn draft-save-button" [class.draft-save-button--confirmed]="!!draftSaveConfirmation" [disabled]="saving || !canEdit()">
+                <button type="submit" class="primary-btn draft-save-button" [class.draft-save-button--confirmed]="!!draftSaveConfirmation" [disabled]="saving || !canEdit() || invoiceHasLiveErrors()" [title]="invoiceHasLiveErrors() ? 'Correggi i campi evidenziati in rosso' : ''">
                   <i class="fas" [ngClass]="saving ? 'fa-spinner fa-spin' : (draftSaveConfirmation ? 'fa-check' : 'fa-save')"></i>
                   {{ saving ? 'Salvataggio...' : (draftSaveConfirmation ? 'Bozza salvata' : 'Salva bozza') }}
                 </button>
                 <span class="draft-save-confirmation" *ngIf="draftSaveConfirmation" role="status" aria-live="polite">
                   <i class="fas fa-check-circle"></i>{{ draftSaveConfirmation }}
                 </span>
-                <button type="button" class="primary-btn action-primary-wide" (click)="saveValidateSend()" [disabled]="saving || isProforma(selected) || (selected.id && !canSendElectronic())">Invia SDI + email</button>
+                <button type="button" class="primary-btn action-primary-wide" (click)="saveValidateSend()" [disabled]="saving || invoiceHasLiveErrors() || isProforma(selected) || (selected.id && !canSendElectronic())">Invia SDI + email</button>
                 <button type="button" class="ghost-btn" (click)="downloadPdf()" [disabled]="saving || !selected.id">PDF</button>
               </div>
             </section>

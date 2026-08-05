@@ -20,7 +20,9 @@ interface NoteUnreadSummary {
 @Injectable({ providedIn: 'root' })
 export class NoteUnreadService {
   private summary: NoteUnreadSummary = { total: 0, byType: {} };
-  private socketSubscription?: Subscription;
+  private resourceSubscription?: Subscription;
+  private connectionSubscription?: Subscription;
+  private pollingSubscription?: Subscription;
   private refreshSubscription?: Subscription;
   private sessionKey = '';
 
@@ -35,15 +37,30 @@ export class NoteUnreadService {
     if (!this.global.token) return;
     const nextSessionKey = `${this.tenant.tenant}|${this.global.token}`;
     if (this.sessionKey === nextSessionKey) return;
-    this.socketSubscription?.unsubscribe();
+    this.resourceSubscription?.unsubscribe();
+    this.connectionSubscription?.unsubscribe();
+    this.pollingSubscription?.unsubscribe();
     this.refreshSubscription?.unsubscribe();
     this.summary = { total: 0, byType: {} };
     this.sessionKey = nextSessionKey;
     this.refresh();
-    this.socketSubscription = this.socket.onNoteUnreadUpdate().subscribe(() => {
-      this.refreshSubscription?.unsubscribe();
-      this.refreshSubscription = timer(150).subscribe(() => this.refresh());
+    this.resourceSubscription = this.socket.onResourceChanged().subscribe((change) => {
+      if (['customer_notes', 'quote_notes', 'employee_notes', 'note_unread', 'candidates']
+        .includes(change?.resource)) {
+        this.scheduleRefresh();
+      }
     });
+    this.connectionSubscription = this.socket.onConnectionState().subscribe((state) => {
+      if (state.connected && state.reconnected) this.scheduleRefresh(0);
+    });
+    // Se una sospensione supera il recupero Socket.IO, il riepilogo periodico
+    // riallinea comunque il bollino con lo stato persistito nel database.
+    this.pollingSubscription = timer(60_000, 60_000).subscribe(() => this.refresh());
+  }
+
+  private scheduleRefresh(delayMs = 150): void {
+    this.refreshSubscription?.unsubscribe();
+    this.refreshSubscription = timer(delayMs).subscribe(() => this.refresh());
   }
 
   refresh(): void {

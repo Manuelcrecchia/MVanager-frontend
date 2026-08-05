@@ -1523,11 +1523,61 @@
         .homeadmin-root .mobile-todo-panel .todo-panel-header {
           flex-direction: row;
           align-items: center;
-          padding: 16px;
+          gap: 8px;
+          min-height: 58px;
+          padding: 0;
         }
 
-        .homeadmin-root .mobile-todo-panel .todo-panel-header h3 {
+        .homeadmin-root .mobile-todo-toggle {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto auto;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          min-height: 58px;
+          padding: 0 16px;
+          border: 0;
+          background: transparent;
+          color: var(--brand-black);
+          text-align: left;
+        }
+
+        .homeadmin-root .mobile-todo-toggle-title {
+          overflow: hidden;
           font-size: 1rem;
+          font-weight: 950;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .homeadmin-root .mobile-todo-count {
+          min-width: 28px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          background: rgba(13, 110, 253, 0.12);
+          color: var(--brand-blue);
+          font-size: 0.78rem;
+          font-weight: 950;
+          text-align: center;
+        }
+
+        .homeadmin-root .mobile-todo-chevron {
+          color: var(--brand-blue);
+          transition: transform 180ms ease;
+        }
+
+        .homeadmin-root .mobile-todo-chevron.is-expanded {
+          transform: rotate(180deg);
+        }
+
+        .homeadmin-root .mobile-todo-content {
+          border-top: 1px solid rgba(15, 23, 42, 0.08);
+        }
+
+        .homeadmin-root .mobile-todo-actions {
+          display: flex;
+          justify-content: flex-end;
+          padding: 10px 16px 0;
         }
 
         .homeadmin-root .mobile-todo-panel .todo-form {
@@ -1973,42 +2023,57 @@
 
             <section class="todo-panel mobile-todo-panel" *ngIf="shouldShowHomeCategories && canUseTodoView()" aria-label="Todo list universale">
               <div class="todo-panel-header">
-                <h3>Todo list universale</h3>
-                <button class="todo-refresh-btn" type="button" (click)="loadAdminTodos()" title="Aggiorna">
-                  <i class="fas fa-sync-alt"></i>
+                <button
+                  class="mobile-todo-toggle"
+                  type="button"
+                  (click)="toggleMobileTodo()"
+                  [attr.aria-expanded]="mobileTodoExpanded"
+                  aria-controls="mobile-todo-content"
+                >
+                  <span class="mobile-todo-toggle-title">Todo list</span>
+                  <span class="mobile-todo-count" [attr.aria-label]="openAdminTodosCount + ' attività da fare'">{{ openAdminTodosCount }}</span>
+                  <i class="fas fa-chevron-down mobile-todo-chevron" [class.is-expanded]="mobileTodoExpanded" aria-hidden="true"></i>
                 </button>
               </div>
 
-              <div class="todo-form" *ngIf="canUseTodoManage()">
-                <input
-                  class="todo-input"
-                  type="text"
-                  maxlength="255"
-                  placeholder="Nuova attività"
-                  [value]="newTodoTitle"
-                  (input)="newTodoTitle = $any($event.target).value"
-                  (keydown.enter)="addAdminTodo()"
-                />
-                <button class="todo-add-btn" type="button" (click)="addAdminTodo()" [disabled]="todoSaving || !newTodoTitle.trim()" title="Aggiungi">
-                  <i class="fas fa-plus"></i>
-                </button>
+              <div class="mobile-todo-content" id="mobile-todo-content" *ngIf="mobileTodoExpanded">
+                <div class="mobile-todo-actions">
+                  <button class="todo-refresh-btn" type="button" (click)="loadAdminTodos()" title="Aggiorna" aria-label="Aggiorna todo list">
+                    <i class="fas fa-sync-alt"></i>
+                  </button>
+                </div>
+
+                <div class="todo-form" *ngIf="canUseTodoManage()">
+                  <input
+                    class="todo-input"
+                    type="text"
+                    maxlength="255"
+                    placeholder="Nuova attività"
+                    [value]="newTodoTitle"
+                    (input)="newTodoTitle = $any($event.target).value"
+                    (keydown.enter)="addAdminTodo()"
+                  />
+                  <button class="todo-add-btn" type="button" (click)="addAdminTodo()" [disabled]="todoSaving || !newTodoTitle.trim()" title="Aggiungi">
+                    <i class="fas fa-plus"></i>
+                  </button>
+                </div>
+
+                <p class="todo-error" *ngIf="todoError">{{ todoError }}</p>
+                <p class="todo-empty" *ngIf="todoLoading">Caricamento attività...</p>
+                <p class="todo-empty" *ngIf="!todoLoading && adminTodos.length === 0">Nessuna attività presente.</p>
+
+                <ul class="todo-list" *ngIf="!todoLoading && adminTodos.length > 0">
+                  <li class="todo-item" *ngFor="let todo of adminTodos" [class.is-completed]="todo.completed">
+                    <button class="todo-check" type="button" (click)="toggleAdminTodo(todo)" [disabled]="!canUseTodoManage()" [attr.title]="todo.completed ? 'Segna da fare' : 'Completa'">
+                      <i class="fas fa-check"></i>
+                    </button>
+                    <span class="todo-title">{{ todo.title }}</span>
+                    <button class="todo-delete-btn" *ngIf="canUseTodoManage()" type="button" (click)="deleteAdminTodo(todo)" title="Elimina">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </li>
+                </ul>
               </div>
-
-              <p class="todo-error" *ngIf="todoError">{{ todoError }}</p>
-              <p class="todo-empty" *ngIf="todoLoading">Caricamento attività...</p>
-              <p class="todo-empty" *ngIf="!todoLoading && adminTodos.length === 0">Nessuna attività presente.</p>
-
-              <ul class="todo-list" *ngIf="!todoLoading && adminTodos.length > 0">
-                <li class="todo-item" *ngFor="let todo of adminTodos" [class.is-completed]="todo.completed">
-                  <button class="todo-check" type="button" (click)="toggleAdminTodo(todo)" [disabled]="!canUseTodoManage()" [attr.title]="todo.completed ? 'Segna da fare' : 'Completa'">
-                    <i class="fas fa-check"></i>
-                  </button>
-                  <span class="todo-title">{{ todo.title }}</span>
-                  <button class="todo-delete-btn" *ngIf="canUseTodoManage()" type="button" (click)="deleteAdminTodo(todo)" title="Elimina">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </li>
-              </ul>
             </section>
 
             <section class="deadline-permission-notice" *ngIf="shouldShowHomeCategories && showPermissionSetupNotice">

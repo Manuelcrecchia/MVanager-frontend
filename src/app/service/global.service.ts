@@ -349,7 +349,7 @@ export class GlobalService {
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '6.0';
+  version = '6.1';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;

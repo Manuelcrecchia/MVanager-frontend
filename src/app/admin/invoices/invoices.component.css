@@ -401,6 +401,23 @@ label {
   grid-column: 1 / -1;
 }
 
+.live-invalid > input:not([type='checkbox']),
+.live-invalid > select,
+.live-invalid > textarea,
+.line-field.live-invalid > input,
+.line-field.live-invalid > select {
+  border-color: #dc3545 !important;
+  background: #fff5f5 !important;
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.1);
+}
+
+.field-error {
+  color: #b4232f !important;
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
 .line-table {
   margin: 10px 0;
   overflow-x: auto;

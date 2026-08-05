@@ -194,6 +194,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   todoLoading = false;
   todoSaving = false;
   todoError = '';
+  mobileTodoExpanded = false;
   unassignedPermissionLabels: string[] = [];
   emailHealthIssues: EmailHealthIssue[] = [];
   emailHealthNoticeVisible = false;
@@ -542,7 +543,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   private bindInternalWarehouseSummaryUpdates(): void {
     if (!this.internalWarehouseSummarySubscription) {
       this.internalWarehouseSummarySubscription = this.socketService
-        .onInternalWarehouseSummaryUpdate()
+        .onResourceChanges(['internal_warehouse', 'material_orders'])
         .subscribe(() => this.loadInternalWarehouseSummary());
     }
 
@@ -572,8 +573,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     }
 
     this.quoteAcceptanceSubscription = this.socketService
-      .onQuoteAcceptanceUpdate()
-      .subscribe((update: any) => {
+      .onResourceChanges('quotes')
+      .subscribe((change) => {
+        const update: any = change.metadata || {};
+        if (!update.kind) return;
         this.loadPendingQuoteReviews();
 
         const numeroPreventivo = update?.numeroPreventivo || '';
@@ -599,8 +602,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     }
 
     this.employeeContractSubscription = this.socketService
-      .onEmployeeContractUpdate()
-      .subscribe((update: any) => {
+      .onResourceChanges('employee_contracts')
+      .subscribe((change) => {
+        const update: any = change.metadata || {};
+        if (!update.kind) return;
         this.loadPendingEmployeeContractReviews();
 
         const contractNumber = update?.contractNumber || '';
@@ -624,8 +629,17 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     if (this.customerArchiveReminderSubscription) return;
 
     this.customerArchiveReminderSubscription = this.socketService
-      .onCustomerArchiveReminderUpdate()
-      .subscribe((update: any) => {
+      .onResourceChanges('customers')
+      .subscribe((change) => {
+        const update: any = change.metadata || {};
+        if (update?.kind === 'resolved') {
+          const notificationId = Number(update?.notificationId);
+          const numeroCliente = String(update?.numeroCliente || '').trim();
+          this.customerArchiveReminderQueue = this.customerArchiveReminderQueue.filter((item) =>
+            item.notificationId !== notificationId && item.numeroCliente !== numeroCliente,
+          );
+          return;
+        }
         if (update?.kind !== 'created') return;
         this.enqueueCustomerArchiveReminder({
           notificationId: Number(update?.notificationId),
@@ -1651,8 +1665,9 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     }
 
     this.adminTodoSubscription = this.socketService
-      .onAdminTodoUpdate()
-      .subscribe((update: any) => {
+      .onResourceChanges('todos')
+      .subscribe((change) => {
+        const update: any = { action: change.action, ...(change.metadata || {}) };
         if (update?.tenantId && update.tenantId !== this.tenantService.tenant) {
           return;
         }
@@ -1700,6 +1715,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   get completedAdminTodosCount(): number {
     return this.adminTodos.filter((todo) => todo.completed).length;
+  }
+
+  toggleMobileTodo(): void {
+    this.mobileTodoExpanded = !this.mobileTodoExpanded;
   }
 
   canUseTodoView(): boolean {

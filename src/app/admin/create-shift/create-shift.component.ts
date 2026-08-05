@@ -286,7 +286,8 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     this.loadVehiclesCache();
     this.loadEquipmentTargetsCache();
 
-    this.socketService.onShiftUpdate().pipe(takeUntil(this.destroy$)).subscribe((update: any) => {
+    this.socketService.onResourceChanges('shifts').pipe(takeUntil(this.destroy$)).subscribe((change) => {
+      const update: any = change.metadata || {};
       if (update.date && update.date !== this.formatDate(this.selectedDate)) {
         return;
       }

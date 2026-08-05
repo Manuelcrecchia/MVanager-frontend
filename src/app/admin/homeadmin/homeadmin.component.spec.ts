@@ -51,6 +51,16 @@ describe('HomeAdminComponent', () => {
     expect(component.selectedHomeCategoryId).toBe('internalWarehouse');
   });
 
+  it('keeps the mobile todo collapsed by default and toggles it on demand', () => {
+    const component = createComponent();
+
+    expect(component.mobileTodoExpanded).toBeFalse();
+    component.toggleMobileTodo();
+    expect(component.mobileTodoExpanded).toBeTrue();
+    component.toggleMobileTodo();
+    expect(component.mobileTodoExpanded).toBeFalse();
+  });
+
   it('keeps the mobile submenu open when the browser viewport resizes while scrolling', () => {
     const component = createComponent({ url: '/homeAdmin' });
     component.isDesktopHome = false;

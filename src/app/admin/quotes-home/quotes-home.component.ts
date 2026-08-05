@@ -224,8 +224,10 @@ export class QuotesHomeComponent implements OnDestroy {
     }
 
     this.quoteAcceptanceSubscription = this.socketService
-      .onQuoteAcceptanceUpdate()
-      .subscribe((update: any) => {
+      .onResourceChanges('quotes')
+      .subscribe((change) => {
+        const update: any = change.metadata || {};
+        if (!update.kind) return;
         this.loadQuotes();
 
         const numeroPreventivo = update?.numeroPreventivo || '';

@@ -496,7 +496,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     if (this.activeTab === 'material-orders') this.loadMaterialOrders();
     if (this.activeTab === 'movements') this.loadMovementReport();
     this.internalWarehouseUpdateSub = this.socketService
-      .onInternalWarehouseSummaryUpdate()
+      .onResourceChanges(['internal_warehouse', 'material_orders'])
       .subscribe(() => {
         this.loadSummary();
         this.loadProductRequests();
