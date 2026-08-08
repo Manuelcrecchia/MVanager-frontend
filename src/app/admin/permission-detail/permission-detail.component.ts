@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
+import { AttachmentViewerService } from '../../shared/attachment-viewer/attachment-viewer.service';
 
 @Component({
   selector: 'app-permission-detail',
@@ -10,6 +11,7 @@ import { GlobalService } from '../../service/global.service';
 })
 export class PermissionDetailComponent implements OnInit {
   request: any | null = null;
+  requestId = 0;
   loading = true;
   errorMessage = '';
   private categoryLabels = new Map<string, string>();
@@ -19,6 +21,7 @@ export class PermissionDetailComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     public globalService: GlobalService,
+    private attachmentViewer: AttachmentViewerService,
   ) {}
 
   ngOnInit(): void {
@@ -28,14 +31,14 @@ export class PermissionDetailComponent implements OnInit {
       }
     });
 
-    const requestId = Number(this.route.snapshot.paramMap.get('id'));
-    if (!requestId) {
+    this.requestId = Number(this.route.snapshot.paramMap.get('id'));
+    if (!this.requestId) {
       this.loading = false;
       this.errorMessage = 'Permesso non trovato.';
       return;
     }
 
-    this.http.get<any>(this.globalService.url + `permission/detail/${requestId}`).subscribe({
+    this.http.get<any>(this.globalService.url + `permission/detail/${this.requestId}`).subscribe({
       next: (request) => {
         this.request = request;
         this.loading = false;
@@ -83,19 +86,18 @@ export class PermissionDetailComponent implements OnInit {
     }
   }
 
-  downloadAttachment(attachment: any): void {
-    if (!attachment?.filepath) return;
-    this.http.get(
-      this.globalService.url + `permission/download-temp-allegato?filepath=${encodeURIComponent(attachment.filepath)}`,
-      { responseType: 'blob' },
-    ).subscribe((blob) => {
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = attachment.filename || 'allegato';
-      link.click();
-      window.URL.revokeObjectURL(url);
-    });
+  openAttachment(attachment: any, index: number): void {
+    if (!this.requestId || index < 0) return;
+    this.attachmentViewer.open(
+      {
+        originalName: attachment?.filename || `allegato-${index + 1}`,
+        size: Number(attachment?.size || 0),
+      },
+      this.http.get(
+        this.globalService.url + `permission/${this.requestId}/attachments/${index}`,
+        { responseType: 'blob' },
+      ),
+    );
   }
 
   back(): void {

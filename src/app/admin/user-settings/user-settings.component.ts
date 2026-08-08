@@ -56,12 +56,10 @@ export class UserSettingsComponent implements OnInit {
 
   private permissionDeps: Record<string, string[]> = {
     // Note: richiedono prima la VIEW della sezione padre
-    QUOTES_VIEW: ['CUSTOMERS_VIEW'],
     QUOTES_NOTES_VIEW: ['QUOTES_VIEW'],
     CUSTOMERS_NOTES_VIEW: ['CUSTOMERS_VIEW'],
-    INVOICES_VIEW: ['CUSTOMERS_VIEW'],
     ACCOUNTING_VIEW: ['INVOICES_VIEW'],
-    SERVICE_ORDERS_VIEW: ['CUSTOMERS_VIEW', 'CALENDAR_VIEW'],
+    SERVICE_ORDERS_VIEW: ['CUSTOMERS_VIEW'],
 
     // Gestione preventivi/clienti
     QUOTES_MANAGE: ['QUOTES_VIEW'],
@@ -73,6 +71,7 @@ export class UserSettingsComponent implements OnInit {
     CUSTOMER_DOCS_MANAGE: ['CUSTOMERS_VIEW'],
     CUSTOMERS_NOTES_MANAGE: ['CUSTOMERS_NOTES_VIEW'], // → transitivo: CUSTOMERS_VIEW
     CUSTOMERS_HOURS_VIEW: ['CUSTOMERS_VIEW'],
+    CUSTOMERS_HOURS_MANAGE: ['CUSTOMERS_HOURS_VIEW'],
 
     // Operatività
     SHIFTS_VIEW: ['EMPLOYEE_VIEW', 'CALENDAR_VIEW'],
@@ -100,7 +99,7 @@ export class UserSettingsComponent implements OnInit {
     EMPLOYEE_EDIT: ['EMPLOYEE_VIEW'],
     EMPLOYEE_DELETE: ['EMPLOYEE_VIEW'],
     EMPLOYEE_DOCS_MANAGE: ['EMPLOYEE_VIEW'],
-    EMPLOYEE_PERMITS_MANAGE: ['EMPLOYEE_VIEW', 'CALENDAR_VIEW'],
+    EMPLOYEE_PERMITS_MANAGE: ['EMPLOYEE_VIEW'],
     EMPLOYEE_DEADLINES_VIEW: ['EMPLOYEE_VIEW'],
     EMPLOYEE_DEADLINES_CREATE: ['EMPLOYEE_DEADLINES_VIEW'],
     EMPLOYEE_DEADLINES_EDIT: ['EMPLOYEE_DEADLINES_VIEW'],
@@ -383,8 +382,11 @@ export class UserSettingsComponent implements OnInit {
           'CUSTOMERS_MANAGE',
           'CUSTOMERS_NOTES_VIEW',
           'CUSTOMERS_NOTES_MANAGE',
-          'CUSTOMERS_HOURS_VIEW',
         ]),
+      },
+      {
+        title: 'Riepilogo ore clienti',
+        items: pick(['CUSTOMERS_HOURS_VIEW', 'CUSTOMERS_HOURS_MANAGE']),
       },
       { title: 'Turni', items: pick(['SHIFTS_VIEW', 'SHIFTS_MANAGE']) },
       {

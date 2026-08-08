@@ -170,7 +170,7 @@
 
       <div class="access-work-panel__general">
         <mat-form-field appearance="fill" *ngIf="getAccessFieldByRole('customerWorkDurationMinutes') as durationField">
-          <mat-label>Durata lavoro (ore)</mat-label>
+          <mat-label>Ore totali di lavoro richieste</mat-label>
           <input
             matInput
             type="number"
@@ -180,6 +180,9 @@
             [ngModel]="getAccessDurationHours(durationField)"
             (ngModelChange)="updateAccessDurationHours(durationField, $event)"
           />
+          <mat-hint>
+            Totale tra tutti i dipendenti: 2 dipendenti × 30 min = 1 ora.
+          </mat-hint>
         </mat-form-field>
       </div>
 

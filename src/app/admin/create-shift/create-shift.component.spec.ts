@@ -70,4 +70,42 @@ describe('CreateShiftComponent', () => {
 
     expect(component.getCustomerAccessWarning(app)).toBe('');
   });
+
+  it('reports a one-hour job as uncovered when the only employee covers half an hour', () => {
+    const component = createComponent();
+    const app = { id: 'job-1', duration: 60, requiredEmployees: 1 };
+    component.assignedShifts[app.id] = [10];
+    component.assignedEmployeeDurations[app.id] = { 10: 30 };
+
+    expect(component.isComplete(app)).toBeFalse();
+    expect(component.getCoverageWarning(app)).toContain('00.30 su 01.00');
+  });
+
+  it('reports a one-hour job as covered by two employees for half an hour each', () => {
+    const component = createComponent();
+    const app = { id: 'job-2', duration: 60, requiredEmployees: 1 };
+    component.assignedShifts[app.id] = [10, 11];
+    component.assignedEmployeeDurations[app.id] = { 10: 30, 11: 30 };
+
+    expect(component.isComplete(app)).toBeTrue();
+    expect(component.getCoverageWarning(app)).toBe('');
+  });
+
+  it('uses the customer total work hours instead of the single-employee shift duration', () => {
+    const component = createComponent();
+    const app = {
+      id: '457',
+      title: '457 - regvesrbv',
+      duration: 30,
+      requiredEmployees: 1,
+      customer: { durataLavoroMinuti: 60 },
+    };
+    component.assignedShifts[app.id] = [10];
+
+    expect(component.isComplete(app)).toBeFalse();
+    expect(component.getCoverageWarning(app)).toContain('00.30 su 01.00');
+
+    component.assignedShifts[app.id] = [10, 11];
+    expect(component.isComplete(app)).toBeTrue();
+  });
 });

@@ -208,6 +208,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
   appointments: any[] = [];
   assignedShifts: { [appointmentId: string]: number[] } = {};
+  assignedEmployeeDurations: { [appointmentId: string]: { [employeeId: number]: number } } = {};
   assignedCapisquadra: { [appointmentId: string]: number[] } = {};
   assignedCapisquadraNotes: { [appointmentId: string]: { [employeeId: number]: string } } = {};
   assignedVehicles: { [appointmentId: string]: number[] } = {};
@@ -824,7 +825,9 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         startTime: this.getShiftTime(app),
         duration: Number(app.duration) || 0,
         requiredEmployees: this.getAppointmentRequiredEmployees(app),
+        requiredCoverageMinutes: this.getRequiredCoverageMinutes(app),
         assignedEmployeeIds: assignedIds,
+        assignedEmployeeMinutes: assignedIds.map((id) => this.getAssignedEmployeeMinutes(app, id)),
         assignedEmployees: assignedIds
           .map((id) => this.employeeList.find((employee) => Number(employee?.id) === id))
           .filter(Boolean)
@@ -3333,21 +3336,29 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   }
 
   private getAppointmentWorkDuration(app: any, customer: Record<string, any> | null = null): number {
-    const configuredDuration = [
-      this.parseRouteCustomerWorkDurationMinutes(
-        this.globalService.getRecordValueByRole('customer', customer || {}, 'customerWorkDurationMinutes'),
-      ),
-      this.parseRouteCustomerWorkDurationMinutes(customer?.['durataLavoroMinuti']),
-      this.parseRouteCustomerWorkDurationMinutes(customer?.['durataLavoro']),
-      this.parseRouteCustomerWorkDurationMinutes(customer?.['durataIntervento']),
-      this.parseRouteCustomerWorkDurationMinutes(customer?.['durataStandard']),
+    const configuredDuration = this.getConfiguredTotalWorkMinutes(app, customer);
+    const appointmentDuration = this.parseRouteDurationMinutes(app?.duration);
+    return Math.max(15, configuredDuration || appointmentDuration || 60);
+  }
+
+  private getConfiguredTotalWorkMinutes(app: any, customer: Record<string, any> | null = null): number {
+    const minutesValue = [
+      this.globalService.getRecordValueByRole('customer', customer || {}, 'customerWorkDurationMinutes'),
+      customer?.['durataLavoroMinuti'],
       app?.workDurationMinutes,
       app?.durataLavoroMinuti,
     ]
-      .map((value) => typeof value === 'number' ? value : this.parseRouteDurationMinutes(value))
+      .map((value) => this.parseRouteDurationMinutes(value))
       .find((value) => value > 0);
-    const appointmentDuration = this.parseRouteDurationMinutes(app?.duration);
-    return Math.max(15, configuredDuration || appointmentDuration || 60);
+    if (minutesValue) return minutesValue;
+
+    return [
+      this.parseRouteCustomerWorkDurationMinutes(customer?.['durataLavoro']),
+      this.parseRouteCustomerWorkDurationMinutes(customer?.['durataIntervento']),
+      this.parseRouteCustomerWorkDurationMinutes(customer?.['durataStandard']),
+    ]
+      .map((value) => typeof value === 'number' ? value : this.parseRouteDurationMinutes(value))
+      .find((value) => value > 0) || 0;
   }
 
   private parseRouteDurationMinutes(value: any): number {
@@ -4791,12 +4802,15 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         appointmentId: app.isExtra ? null : app.originalAppointmentId || app.id,
         data: dateStr,
         employeeIds: this.assignedShifts[app.id] || [],
+        employeeDurations: this.getAssignedEmployeeDurations(app),
         capisquadra: this.assignedCapisquadra[app.id] || [],
         capisquadraNotesMap: this.assignedCapisquadraNotes[app.id] || {},
         title: app.title,
         description: app.description,
         startDate: start,
         duration: app.duration || 60,
+        requiredEmployees: this.getAppointmentRequiredEmployees(app),
+        requiredCoverageMinutes: this.getRequiredCoverageMinutes(app),
         sortOrderByEmployee: app.sortOrderByEmployee || {},
         vehicleIds: this.assignedVehicles[app.id] || [],
         equipmentKeys: this.normalizeEquipmentAssignments(this.assignedEquipment[app.id] || []),
@@ -4938,9 +4952,71 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   }
 
   isComplete(app: any): boolean {
-    if (app.forceConfirmed) return true;
     const assigned = this.assignedShifts[app.id] || [];
-    return assigned.length > 0;
+    if (!assigned.length) return false;
+
+    const requiredMinutes = this.getRequiredCoverageMinutes(app);
+    if (requiredMinutes <= 0) return true;
+
+    return this.getCoveredMinutes(app) >= requiredMinutes;
+  }
+
+  getCoverageWarning(app: any): string {
+    if (this.isComplete(app)) return '';
+
+    const requiredMinutes = this.getRequiredCoverageMinutes(app);
+    const coveredMinutes = this.getCoveredMinutes(app);
+    if (coveredMinutes <= 0) {
+      return `Lavoro non coperto: servono ${this.formatDuration(requiredMinutes)}.`;
+    }
+
+    return `Lavoro coperto solo per ${this.formatDuration(coveredMinutes)} su ${this.formatDuration(requiredMinutes)} richieste.`;
+  }
+
+  private getRequiredCoverageMinutes(app: any): number {
+    const configuredTotal = this.getConfiguredTotalWorkMinutes(
+      app,
+      this.getAppointmentCustomer(app),
+    );
+    if (configuredTotal > 0) return configuredTotal;
+
+    const duration = Math.max(0, Number(app?.duration) || 0);
+    return duration * this.getAppointmentRequiredEmployees(app);
+  }
+
+  private getCoveredMinutes(app: any): number {
+    return (this.assignedShifts[app.id] || []).reduce(
+      (total, employeeId) => total + this.getAssignedEmployeeMinutes(app, employeeId),
+      0,
+    );
+  }
+
+  private getAssignedEmployeeMinutes(app: any, employeeId: number): number {
+    const override = this.assignedEmployeeDurations[app.id]?.[employeeId];
+    if (override !== null && override !== undefined && Number.isFinite(Number(override))) {
+      return Math.max(0, Number(override));
+    }
+    return Math.max(0, Number(app?.duration) || 0);
+  }
+
+  private getAssignedEmployeeDurations(app: any): { [employeeId: number]: number } {
+    return Object.fromEntries(
+      (this.assignedShifts[app.id] || []).map((employeeId) => [
+        employeeId,
+        this.getAssignedEmployeeMinutes(app, employeeId),
+      ]),
+    );
+  }
+
+  private loadAssignedEmployeeDurations(appId: string, employees: any[]): void {
+    const durations: { [employeeId: number]: number } = {};
+    for (const employee of employees || []) {
+      const override = this.getShiftEmployeeLink(employee)?.durationOverride;
+      if (override !== null && override !== undefined && Number.isFinite(Number(override))) {
+        durations[Number(employee.id)] = Math.max(0, Number(override));
+      }
+    }
+    this.assignedEmployeeDurations[appId] = durations;
   }
 
   goBack(): void {
@@ -4979,6 +5055,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
     this.appointments = [];
     this.assignedShifts = {};
+    this.assignedEmployeeDurations = {};
     this.assignedCapisquadra = {};
     this.assignedCapisquadraNotes = {};
     this.assignedVehicles = {};
@@ -5108,6 +5185,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
             this.assignedShifts[extraId] = (s.employees || []).map(
               (e: any) => e.id,
             );
+            this.loadAssignedEmployeeDurations(extraId, s.employees || []);
 
             // Carica caposquadra e note
             this.assignedCapisquadra[extraId] = (s.employees || [])
@@ -5186,6 +5264,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
               this.assignedShifts[newId] = (s.employees || []).map(
                 (e: any) => e.id,
               );
+              this.loadAssignedEmployeeDurations(newId, s.employees || []);
 
               // Carica caposquadra e note
               this.assignedCapisquadra[newId] = (s.employees || [])
@@ -5240,6 +5319,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
             this.assignedShifts[app.id] = (s.employees || []).map(
               (e: any) => e.id,
             );
+            this.loadAssignedEmployeeDurations(app.id, s.employees || []);
 
             // Carica caposquadra e note
             this.assignedCapisquadra[app.id] = (s.employees || [])
@@ -5363,6 +5443,11 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
         this.assignedShifts[app.id] = result.employees || result;
+        const selected = new Set(this.assignedShifts[app.id].map((id: any) => Number(id)));
+        const currentDurations = this.assignedEmployeeDurations[app.id] || {};
+        this.assignedEmployeeDurations[app.id] = Object.fromEntries(
+          Object.entries(currentDurations).filter(([employeeId]) => selected.has(Number(employeeId))),
+        );
         this.assignedCapisquadra[app.id] = result.capisquadra || [];
         this.assignedCapisquadraNotes[app.id] = result.capisquadraNotesMap || {};
         this.markAppointmentManualForRoutePlanner(app.id);

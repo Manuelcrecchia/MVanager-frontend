@@ -1039,7 +1039,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             label: 'Riepilogo ore clienti',
             icon: 'fas fa-user-clock',
             permission: 'CUSTOMERS_HOURS_VIEW',
-            feature: 'customers',
+            feature: 'customerHours',
             action: () => this.goToRiepilogoOreClienti(),
             desktopPath: 'riepilogo-ore-clienti',
           },

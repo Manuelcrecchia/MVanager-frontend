@@ -188,7 +188,7 @@
 
         <h2>{{ partyTitle() }}</h2>
         <div class="form-grid">
-          <div class="wide form-field-group">
+          <div class="wide form-field-group" *ngIf="canSearchInvoiceParty()">
             <span>{{ partySearchLabel() }}</span>
             <div class="customer-picker">
               <input
@@ -221,6 +221,9 @@
               </div>
             </div>
           </div>
+          <p class="wide form-help" *ngIf="!canSearchInvoiceParty()">
+            Anagrafica Clienti non attiva: compila manualmente i dati del destinatario.
+          </p>
           <label *ngIf="!isSelfInvoice()">
             Tipo anagrafica
             <select [(ngModel)]="selected.customerRecipientType" name="customerRecipientType" [disabled]="!canEdit()" (ngModelChange)="onCustomerRecipientTypeChange()">

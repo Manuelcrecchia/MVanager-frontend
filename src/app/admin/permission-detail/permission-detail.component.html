@@ -33,10 +33,15 @@
 
       <section class="permission-attachments" *ngIf="attachments.length">
         <h3>Allegati</h3>
-        <button type="button" class="btn permission-attachment" *ngFor="let attachment of attachments" (click)="downloadAttachment(attachment)">
-          <i class="fas fa-paperclip" aria-hidden="true"></i>
-          {{ attachment.filename || 'Allegato' }}
-        </button>
+        <input
+          type="button"
+          class="btn permission-attachment"
+          *ngFor="let attachment of attachments; let attachmentIndex = index"
+          [value]="'📎 ' + (attachment.filename || 'Allegato')"
+          (pointerup)="openAttachment(attachment, attachmentIndex)"
+          (keydown.enter)="openAttachment(attachment, attachmentIndex)"
+          (keydown.space)="openAttachment(attachment, attachmentIndex)"
+        />
       </section>
     </article>
   </div>

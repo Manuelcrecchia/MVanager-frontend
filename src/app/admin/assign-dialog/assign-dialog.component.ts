@@ -214,9 +214,9 @@ export class AssignDialogComponent implements OnInit {
       msg += "\nVuoi salvare comunque?";
       const proceed = await this.appDialog.confirm(msg, 'Dipendenti già occupati', { confirmLabel: 'Salva comunque' });
       if (!proceed) return;
+      this.forceConfirmed = true;
     }
 
-    this.forceConfirmed = true;
     const result = {
       employees: this.selectedEmployees,
       capisquadra: this.selectedCapisquadra,

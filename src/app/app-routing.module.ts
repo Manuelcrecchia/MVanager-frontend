@@ -255,7 +255,7 @@ const routes: Routes = [
         path: 'riepilogo-ore-clienti',
         component: RiepilogoOreClientiComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'CUSTOMERS_HOURS_VIEW' },
+        data: { permission: 'CUSTOMERS_HOURS_VIEW', feature: 'customerHours' },
       },
       {
         path: 'gestioneusers',
@@ -850,7 +850,7 @@ const routes: Routes = [
     path: 'riepilogo-ore-clienti',
     component: RiepilogoOreClientiComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'CUSTOMERS_HOURS_VIEW' },
+    data: { permission: 'CUSTOMERS_HOURS_VIEW', feature: 'customerHours' },
   },
 
   // turni

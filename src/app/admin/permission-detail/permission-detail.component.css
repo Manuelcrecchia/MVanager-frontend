@@ -32,7 +32,7 @@
 
 .permission-attachments { padding: 20px; border-top: 1px solid var(--mv-border); }
 .permission-attachments h3 { margin: 0 0 12px; color: var(--mv-ink); font-size: 1rem; font-weight: 900; }
-.permission-attachment { display: inline-flex; align-items: center; gap: 8px; margin: 0 8px 8px 0; border: 1px solid var(--mv-border); background: var(--mv-surface-raised); color: var(--mv-ink); font-weight: 800; }
+.permission-attachment { display: inline-flex; width: auto; align-items: center; gap: 8px; margin: 0 8px 8px 0; border: 1px solid var(--mv-border); background: var(--mv-surface-raised); color: var(--mv-ink); font-weight: 800; }
 
 @media (max-width: 680px) {
   .permission-sheet__grid { grid-template-columns: 1fr; }

@@ -346,8 +346,6 @@
             </select>
           </div>
 
-          <div *ngIf="!isComplete(a)" class="text-danger shift-job-warning">❗</div>
-
           <button type="button"
             *ngIf="a.isExtra"
             class="btn btn-sm btn-outline-danger"
@@ -355,6 +353,15 @@
           >
             ❌
           </button>
+          </div>
+
+          <div
+            *ngIf="getCoverageWarning(a) as coverageWarning"
+            class="text-danger shift-job-warning"
+            role="alert"
+            [title]="coverageWarning"
+          >
+            ❗ {{ coverageWarning }}
           </div>
 
           <div

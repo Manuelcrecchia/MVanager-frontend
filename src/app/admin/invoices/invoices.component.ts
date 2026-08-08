@@ -561,7 +561,11 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
 
     this.global.loadTenantConfig(true, { showError: false }).finally(() => {
-      this.loadCustomers();
+      if (this.global.hasTenantFeature('customers')) {
+        this.loadCustomers();
+      } else {
+        this.customers = [];
+      }
       this.loadSuppliers();
       this.loadInvoiceSettings();
     });
@@ -616,6 +620,10 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     return this.isInbound() || this.isSelfInvoice()
       ? 'Scrivi nome, P.IVA o codice fiscale fornitore'
       : 'Scrivi nome, numero cliente, P.IVA o codice fiscale';
+  }
+
+  canSearchInvoiceParty(): boolean {
+    return this.isInbound() || this.isSelfInvoice() || this.global.hasTenantFeature('customers');
   }
 
   partyFallback(invoice: Partial<Invoice> = this.selected): string {
@@ -1774,7 +1782,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   filteredCustomers(): InvoiceCustomerOption[] {
     const query = this.normalizeSearch(this.customerQuery);
-    const source = this.isSelfInvoice()
+    const source = this.isInbound() || this.isSelfInvoice()
       ? this.suppliers.map((supplier) => ({
           numeroCliente: `S${supplier.id || ''}`,
           label: [supplier.id, supplier.name, supplier.vatNumber || supplier.fiscalCode].filter(Boolean).join(' - '),
