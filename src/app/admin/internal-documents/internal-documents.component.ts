@@ -267,8 +267,8 @@ export class InternalDocumentsComponent implements OnInit {
         const uploadedCount = files.length - failed.length;
         alert(
           uploadedCount > 0
-            ? `${uploadedCount} documento/i caricati, ${failed.length} non caricati.`
-            : 'Errore upload',
+            ? `${uploadedCount} documento/i caricati, ${failed.length} non caricati.\n${failed.join('\n')}`
+            : `Errore upload:\n${failed.join('\n')}`,
         );
         return;
       }
@@ -290,7 +290,10 @@ export class InternalDocumentsComponent implements OnInit {
           next: () => finishOne(),
           error: (err) => {
             console.error('UPLOAD ERROR:', err);
-            failed.push(file.name);
+            const message = typeof err?.error?.error === 'string'
+              ? err.error.error
+              : 'Caricamento non riuscito';
+            failed.push(`${file.name}: ${message}`);
             finishOne();
           },
         });
