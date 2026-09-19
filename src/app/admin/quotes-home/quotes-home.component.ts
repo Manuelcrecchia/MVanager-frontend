@@ -153,9 +153,9 @@ export class QuotesHomeComponent implements OnDestroy {
         next: (response) => {
           const allQuotes = Array.isArray(response) ? response : [];
 
-          const filteredQuotes = this.showCompletedQuotes
-            ? allQuotes
-            : allQuotes.filter((q) => !this.isQuoteCompleted(q));
+          const filteredQuotes = allQuotes.filter(
+            (q) => this.isQuoteCompleted(q) === this.showCompletedQuotes,
+          );
 
           this.allQuotes = filteredQuotes.sort((a, b) =>
             String(b.numeroPreventivo || '').localeCompare(
