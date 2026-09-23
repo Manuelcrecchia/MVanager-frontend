@@ -50,6 +50,7 @@ import { AddQuoteComponent } from './admin/add-quote/add-quote.component';
 import { EditQuoteComponent } from './admin/edit-quote/edit-quote.component';
 import { FileDirective } from './file.directive';
 import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
+import { PdfViewerModule } from 'ng2-pdf-viewer';
 import { AddCustomerComponent } from './admin/add-customer/add-customer.component';
 import { ListCustomerComponent } from './admin/list-customer/list-customer.component';
 import { PopupComponentComponent } from './componenti/popup/popup-component/popup-component.component';
@@ -227,6 +228,7 @@ registerLocaleData(localeIt);
     MatAutocompleteModule,
     MatExpansionModule,
     NgxExtendedPdfViewerModule,
+    PdfViewerModule,
     MatNativeDateModule,
     MatDatepickerModule,
     MatDialogModule,

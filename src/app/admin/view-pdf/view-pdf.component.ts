@@ -1,16 +1,30 @@
-import { Component, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Capacitor } from '@capacitor/core';
 import { GlobalService } from '../../service/global.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { CustomerModelService } from '../../service/customer-model.service';
+import { NativePdfViewer } from '../../service/native-pdf-viewer';
 
 @Component({
   selector: 'app-view-pdf',
   templateUrl: './view-pdf.component.html',
   styleUrls: ['./view-pdf.component.css'],
 })
-export class ViewPdfComponent implements OnInit {
+export class ViewPdfComponent implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('pdfShell', { static: true }) pdfShell?: ElementRef<HTMLElement>;
+
   pdfSrc: string = '';
+  pdfZoom: string | number = 'page-width';
+  currentPdfZoom = 1;
+  readonly mobilePdfViewer =
+    Capacitor.getPlatform() !== 'web' ||
+    (typeof window !== 'undefined' &&
+      window.matchMedia('(max-width: 900px), (pointer: coarse)').matches);
+  readonly nativeIosPdfViewer =
+    Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
+  readonly mobileWebPdfViewer = this.mobilePdfViewer && !this.nativeIosPdfViewer;
+  readonly maxPdfZoom = this.mobilePdfViewer ? 2 : 4;
   downloadName = 'document.pdf';
   documentTitle = 'Preventivo';
   documentType: 'quote' | 'employeeContract' = 'quote';
@@ -22,6 +36,14 @@ export class ViewPdfComponent implements OnInit {
   confirmEmployeeMode = false;
   loadingPdf = false;
   private currentPdfBlob: Blob | null = null;
+  private blockingPdfPinch = false;
+  private pdfPinchStartDistance = 0;
+  private pdfPinchLastDistance = 0;
+  mobilePinchPreview = 1;
+  mobilePinchOrigin = '50% 50%';
+  mobilePdfPage = 1;
+  mobilePdfPages = 0;
+  nativePdfOpening = false;
 
   constructor(
     private globalService: GlobalService,
@@ -102,8 +124,138 @@ export class ViewPdfComponent implements OnInit {
     });
   }
 
+  ngAfterViewInit(): void {
+    if (!this.mobileWebPdfViewer) return;
+
+    const shell = this.pdfShell?.nativeElement;
+    shell?.addEventListener('touchstart', this.blockNativePdfPinch, {
+      capture: true,
+      passive: false,
+    });
+    shell?.addEventListener('touchmove', this.blockNativePdfPinch, {
+      capture: true,
+      passive: false,
+    });
+    shell?.addEventListener('touchend', this.blockNativePdfPinch, {
+      capture: true,
+      passive: false,
+    });
+    shell?.addEventListener('touchcancel', this.blockNativePdfPinch, {
+      capture: true,
+      passive: false,
+    });
+  }
+
   ngOnDestroy(): void {
+    const shell = this.pdfShell?.nativeElement;
+    shell?.removeEventListener('touchstart', this.blockNativePdfPinch, true);
+    shell?.removeEventListener('touchmove', this.blockNativePdfPinch, true);
+    shell?.removeEventListener('touchend', this.blockNativePdfPinch, true);
+    shell?.removeEventListener('touchcancel', this.blockNativePdfPinch, true);
     this.releasePdfUrl();
+  }
+
+  onPdfZoomFactorChange(scale: number): void {
+    if (Number.isFinite(scale) && scale > 0) {
+      this.currentPdfZoom = scale;
+    }
+  }
+
+  zoomPdf(direction: -1 | 1, steps = 1): void {
+    const step = 0.25;
+    const next = Math.min(
+      this.maxPdfZoom,
+      Math.max(
+        0.5,
+        Math.round((this.currentPdfZoom + direction * step * steps) * 100) / 100,
+      ),
+    );
+    this.currentPdfZoom = next;
+    if (!this.mobilePdfViewer) {
+      this.pdfZoom = next;
+    }
+  }
+
+  resetPdfZoom(): void {
+    this.currentPdfZoom = 1;
+    if (!this.mobilePdfViewer) {
+      this.pdfZoom = 'page-width';
+    }
+  }
+
+  get pdfZoomLabel(): string {
+    return `${Math.round(this.currentPdfZoom * 100)}%`;
+  }
+
+  onMobilePdfLoaded(pdf: { numPages?: number }): void {
+    this.mobilePdfPages = Number(pdf?.numPages) || 0;
+    this.mobilePdfPage = Math.min(Math.max(this.mobilePdfPage, 1), this.mobilePdfPages || 1);
+  }
+
+  changeMobilePdfPage(direction: -1 | 1): void {
+    this.mobilePdfPage = Math.min(
+      this.mobilePdfPages || 1,
+      Math.max(1, this.mobilePdfPage + direction),
+    );
+  }
+
+  async openNativePdf(): Promise<void> {
+    if (!this.nativeIosPdfViewer || !this.currentPdfBlob || this.nativePdfOpening) return;
+
+    this.nativePdfOpening = true;
+    try {
+      const base64Data = await this.blobToBase64(this.currentPdfBlob);
+      await NativePdfViewer.present({
+        base64Data,
+        fileName: this.downloadName,
+        title: this.documentTitle,
+      });
+    } catch (error) {
+      console.error('Errore visualizzatore PDF nativo:', error);
+      alert('Impossibile aprire il PDF. Riprova.');
+    } finally {
+      this.nativePdfOpening = false;
+    }
+  }
+
+  private readonly blockNativePdfPinch = (event: TouchEvent): void => {
+    if (event.touches.length >= 2) {
+      const distance = this.touchDistance(event.touches[0], event.touches[1]);
+      if (!this.blockingPdfPinch) {
+        this.pdfPinchStartDistance = distance;
+      }
+      this.pdfPinchLastDistance = distance;
+      this.mobilePinchPreview = Math.min(
+        this.maxPdfZoom / this.currentPdfZoom,
+        Math.max(0.5 / this.currentPdfZoom, distance / this.pdfPinchStartDistance),
+      );
+      this.mobilePinchOrigin = `${(event.touches[0].clientX + event.touches[1].clientX) / 2}px ${(event.touches[0].clientY + event.touches[1].clientY) / 2}px`;
+      this.blockingPdfPinch = true;
+    }
+
+    if (!this.blockingPdfPinch) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    if ((event.type === 'touchend' || event.type === 'touchcancel') && event.touches.length < 2) {
+      if (event.type === 'touchend' && this.pdfPinchStartDistance > 0) {
+        const ratio = this.pdfPinchLastDistance / this.pdfPinchStartDistance;
+        const next = Math.min(
+          this.maxPdfZoom,
+          Math.max(0.5, Math.round(this.currentPdfZoom * ratio * 100) / 100),
+        );
+        this.currentPdfZoom = next;
+      }
+      this.mobilePinchPreview = 1;
+      this.blockingPdfPinch = false;
+      this.pdfPinchStartDistance = 0;
+      this.pdfPinchLastDistance = 0;
+    }
+  };
+
+  private touchDistance(first: Touch, second: Touch): number {
+    return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
   }
 
   back() {
@@ -336,12 +488,38 @@ export class ViewPdfComponent implements OnInit {
   private setPdfBlob(blob: Blob): void {
     this.currentPdfBlob = new Blob([blob], { type: 'application/pdf' });
     this.releasePdfUrl();
+    if (this.nativeIosPdfViewer) {
+      // PDFKit receives the bytes directly: WebKit must not create or render a
+      // blob URL on iOS, otherwise pinch zoom can still trigger its memory cap.
+      this.pdfSrc = 'native-pdf';
+      setTimeout(() => void this.openNativePdf());
+      return;
+    }
     this.pdfSrc = URL.createObjectURL(this.currentPdfBlob);
+  }
+
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error || new Error('Lettura PDF fallita'));
+      reader.onload = () => {
+        const value = String(reader.result || '');
+        const separator = value.indexOf(',');
+        if (separator < 0) {
+          reject(new Error('Formato PDF non valido'));
+          return;
+        }
+        resolve(value.slice(separator + 1));
+      };
+      reader.readAsDataURL(blob);
+    });
   }
 
   private releasePdfUrl(): void {
     if (!this.pdfSrc) return;
-    URL.revokeObjectURL(this.pdfSrc);
+    if (this.pdfSrc.startsWith('blob:')) {
+      URL.revokeObjectURL(this.pdfSrc);
+    }
     this.pdfSrc = '';
   }
 

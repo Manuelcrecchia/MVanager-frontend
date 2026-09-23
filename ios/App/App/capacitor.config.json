@@ -35,6 +35,7 @@
 		"PreferencesPlugin",
 		"PushNotificationsPlugin",
 		"NativeBiometric",
-		"InspectionAlarmKitPlugin"
+		"InspectionAlarmKitPlugin",
+		"NativePdfViewerPlugin"
 	]
 }

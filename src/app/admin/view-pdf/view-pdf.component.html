@@ -4,13 +4,15 @@
     <div class="mv-entity-toolbar__controls"><button type="button" class="btn mv-toolbar-back" (click)="back()">&larr; Torna indietro</button></div>
   </header>
 
-  <div class="pdf-shell">
+  <div class="pdf-shell" [class.pdf-shell--mobile]="mobileWebPdfViewer" #pdfShell>
     <div *ngIf="loadingPdf" class="pdf-loading">
       Caricamento documento...
     </div>
 
+    <ng-container *ngIf="pdfSrc && mobileWebPdfViewer" [ngTemplateOutlet]="customToolbar"></ng-container>
+
     <ngx-extended-pdf-viewer
-      *ngIf="pdfSrc"
+      *ngIf="pdfSrc && !mobilePdfViewer"
       #pdfViewer
       class="ngx-extended-pdf-viewer pdf-viewer"
       [src]="pdfSrc"
@@ -19,8 +21,41 @@
       [height]="'100%'"
       [customToolbar]="customToolbar"
       [filenameForDownload]="downloadName"
+      [showSidebarButton]="false"
+      [sidebarVisible]="false"
+      [pageViewMode]="'multiple'"
+      [scrollMode]="0"
+      [spread]="'off'"
+      [zoom]="pdfZoom"
+      [minZoom]="0.5"
+      [maxZoom]="maxPdfZoom"
+      (currentZoomFactor)="onPdfZoomFactorChange($event)"
     >
     </ngx-extended-pdf-viewer>
+
+    <pdf-viewer
+      *ngIf="pdfSrc && mobileWebPdfViewer"
+      class="mobile-pdf-viewer"
+      [src]="pdfSrc"
+      [show-all]="false"
+      [page]="mobilePdfPage"
+      [original-size]="false"
+      [autoresize]="true"
+      [render-text]="false"
+      [zoom-scale]="'page-width'"
+      [zoom]="1"
+      [style.width.%]="currentPdfZoom * 100"
+      [style.transform]="'scale(' + mobilePinchPreview + ')'"
+      [style.transform-origin]="mobilePinchOrigin"
+      (after-load-complete)="onMobilePdfLoaded($event)"
+    ></pdf-viewer>
+
+    <div *ngIf="pdfSrc && nativeIosPdfViewer" class="native-pdf-placeholder">
+      <span>Il documento viene visualizzato con il lettore PDF nativo di iPhone.</span>
+      <button type="button" class="btn btn-pdf-action btn-sky" (click)="openNativePdf()" [disabled]="nativePdfOpening">
+        {{ nativePdfOpening ? 'Apertura...' : 'Apri il PDF' }}
+      </button>
+    </div>
   </div>
 
   <div class="confirm-panel" *ngIf="confirmCustomerMode && pdfSrc">
@@ -54,6 +89,20 @@
       </div>
 
       <div class="pdf-toolbar-actions">
+        <div *ngIf="mobilePdfViewer && mobilePdfPages > 1" class="pdf-page-actions" aria-label="Pagine PDF">
+          <button type="button" class="btn-pdf-page" (click)="changeMobilePdfPage(-1)" [disabled]="mobilePdfPage <= 1" aria-label="Pagina precedente">‹</button>
+          <span>{{ mobilePdfPage }} / {{ mobilePdfPages }}</span>
+          <button type="button" class="btn-pdf-page" (click)="changeMobilePdfPage(1)" [disabled]="mobilePdfPage >= mobilePdfPages" aria-label="Pagina successiva">›</button>
+        </div>
+
+        <div class="pdf-zoom-actions" aria-label="Controlli zoom PDF">
+          <button type="button" class="btn-pdf-zoom" (click)="zoomPdf(-1)" aria-label="Riduci zoom">−</button>
+          <button type="button" class="btn-pdf-zoom pdf-zoom-value" (click)="resetPdfZoom()" aria-label="Adatta alla larghezza">
+            {{ pdfZoomLabel }}
+          </button>
+          <button type="button" class="btn-pdf-zoom" (click)="zoomPdf(1)" aria-label="Aumenta zoom">+</button>
+        </div>
+
         <button type="button" mat-raised-button class="btn-pdf-action btn-sky" (click)="printPdf()">
           🖨️ Stampa
         </button>
