@@ -158,6 +158,9 @@ export class CandidatesComponent implements OnInit {
   successMessage = '';
   duplicateMatches: DuplicateMatch[] = [];
   noteText = '';
+  editingNoteId: number | null = null;
+  editingNoteText = '';
+  noteSaving = false;
   discardReasonKey = '';
   interviewStart = '';
   interviewEnd = '';
@@ -300,6 +303,7 @@ export class CandidatesComponent implements OnInit {
   }
 
   openNewForm(): void {
+    this.cancelEditNote();
     this.form = this.createEmptyForm();
     this.selectedCandidate = null;
     this.notes = [];
@@ -324,6 +328,7 @@ export class CandidatesComponent implements OnInit {
   }
 
   selectCandidate(candidate: Candidate): void {
+    this.cancelEditNote();
     this.errorMessage = '';
     this.successMessage = '';
     this.http.get<{
@@ -417,6 +422,57 @@ export class CandidatesComponent implements OnInit {
       },
       error: () => {
         this.errorMessage = 'Errore salvataggio nota.';
+      },
+    });
+  }
+
+  startEditNote(note: CandidateNote): void {
+    if (!this.canManageNotes) return;
+    this.editingNoteId = note.id;
+    this.editingNoteText = note.testo || '';
+  }
+
+  cancelEditNote(): void {
+    this.editingNoteId = null;
+    this.editingNoteText = '';
+  }
+
+  saveEditedNote(note: CandidateNote): void {
+    if (!this.selectedCandidate || !this.canManageNotes || this.noteSaving) return;
+    const testo = this.editingNoteText.trim();
+    if (!testo) return;
+    this.noteSaving = true;
+    this.http.put<CandidateNote>(this.api(`${this.selectedCandidate.id}/notes/${note.id}`), { testo })
+      .subscribe({
+        next: (updatedNote) => {
+          this.notes = this.notes.map((item) => item.id === updatedNote.id ? updatedNote : item);
+          this.noteSaving = false;
+          this.cancelEditNote();
+          this.successMessage = 'Nota aggiornata.';
+        },
+        error: (err) => {
+          this.noteSaving = false;
+          this.errorMessage = err?.error?.error || 'Errore modifica nota.';
+        },
+      });
+  }
+
+  async deleteNote(note: CandidateNote): Promise<void> {
+    if (!this.selectedCandidate || !this.canManageNotes || this.noteSaving) return;
+    if (!await this.appDialog.confirm('Eliminare definitivamente questa nota?')) return;
+    this.noteSaving = true;
+    this.http.delete<{ success: boolean; id: number }>(
+      this.api(`${this.selectedCandidate.id}/notes/${note.id}`),
+    ).subscribe({
+      next: () => {
+        this.notes = this.notes.filter((item) => item.id !== note.id);
+        this.noteSaving = false;
+        if (this.editingNoteId === note.id) this.cancelEditNote();
+        this.successMessage = 'Nota eliminata.';
+      },
+      error: (err) => {
+        this.noteSaving = false;
+        this.errorMessage = err?.error?.error || 'Errore eliminazione nota.';
       },
     });
   }
@@ -625,6 +681,39 @@ export class CandidatesComponent implements OnInit {
 
   attachmentTypeLabel(key: string | undefined | null): string {
     return this.config.attachmentTypes.find((type) => type.key === key)?.label || String(key || '');
+  }
+
+  candidateFieldDisplayValue(field: CandidateFieldConfig): string {
+    if (!this.selectedCandidate) return '-';
+    const coreKey = CORE_ROLE_MAP[String(field.displayRole || '')];
+    const value = coreKey
+      ? this.selectedCandidate[coreKey as keyof Candidate]
+      : this.selectedCandidate.customFields?.[field.key];
+
+    if (String(field.type || '').toLowerCase() === 'boolean') {
+      return value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true'
+        ? 'Sì'
+        : 'No';
+    }
+    if (value === undefined || value === null || value === '') return '-';
+    if (Array.isArray(value)) return value.filter((item) => item !== null && item !== '').join(', ') || '-';
+    if (typeof value === 'object') return JSON.stringify(value);
+
+    const type = String(field.type || '').toLowerCase();
+    if (type === 'date') {
+      const raw = String(value);
+      const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+      if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+    }
+    return String(value);
+  }
+
+  isCoreCandidateField(field: CandidateFieldConfig): boolean {
+    return !!CORE_ROLE_MAP[String(field.displayRole || '')];
+  }
+
+  hasCandidateDetailFields(section: CandidateFieldSection): boolean {
+    return section.fields.some((field) => !this.isCoreCandidateField(field));
   }
 
   private ensureValidStatusFilter(): void {

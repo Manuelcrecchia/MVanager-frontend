@@ -254,6 +254,25 @@
           <div><span>Colloquio</span><strong>{{ selectedCandidate.interviewStartAt ? (selectedCandidate.interviewStartAt | date:'dd/MM/yyyy HH:mm') : '-' }}</strong></div>
         </div>
 
+        <section
+          class="candidate-detail-section"
+          *ngFor="let section of fieldSections; trackBy: trackBySection"
+        >
+          <ng-container *ngIf="hasCandidateDetailFields(section)">
+            <div class="candidate-detail-section__head">
+              <h4>{{ section.label }}</h4>
+            </div>
+            <div class="detail-grid detail-grid--configured">
+              <ng-container *ngFor="let field of section.fields; trackBy: trackByField">
+                <div *ngIf="!isCoreCandidateField(field)">
+                  <span>{{ field.label || field.key }}</span>
+                  <strong>{{ candidateFieldDisplayValue(field) }}</strong>
+                </div>
+              </ng-container>
+            </div>
+          </ng-container>
+        </section>
+
         <div class="action-strip" *ngIf="!selectedCandidate.employeeId">
           <ng-container *ngIf="!selectedCandidate.discardedAt; else reopenBlock">
             <select class="form-select" [(ngModel)]="discardReasonKey">
@@ -303,8 +322,27 @@
         </div>
         <div class="note-list">
           <div class="note-item" *ngFor="let note of notes; trackBy: trackById">
-            <strong>{{ note.data }} {{ note.ora }}</strong>
-            <p>{{ note.testo }}</p>
+            <div class="note-item__head">
+              <strong>{{ note.data }} {{ note.ora }}</strong>
+              <div class="note-item__actions" *ngIf="canManageNotes">
+                <button class="icon-btn" type="button" (click)="startEditNote(note)" [disabled]="noteSaving" aria-label="Modifica nota" title="Modifica nota">
+                  <i class="fas fa-pen"></i>
+                </button>
+                <button class="icon-btn danger" type="button" (click)="deleteNote(note)" [disabled]="noteSaving" aria-label="Elimina nota" title="Elimina nota">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+            <ng-container *ngIf="editingNoteId !== note.id; else noteEditor">
+              <p>{{ note.testo }}</p>
+            </ng-container>
+            <ng-template #noteEditor>
+              <textarea class="note-edit-textarea" rows="3" [(ngModel)]="editingNoteText" [disabled]="noteSaving"></textarea>
+              <div class="note-edit-actions">
+                <button class="btn btn-pink btn-sm" type="button" (click)="saveEditedNote(note)" [disabled]="noteSaving || !editingNoteText.trim()">Salva</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" (click)="cancelEditNote()" [disabled]="noteSaving">Annulla</button>
+              </div>
+            </ng-template>
           </div>
           <div class="empty-state" *ngIf="!notes.length">Nessuna nota</div>
         </div>

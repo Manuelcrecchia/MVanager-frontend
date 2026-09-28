@@ -297,6 +297,27 @@
   text-transform: uppercase;
 }
 
+.candidate-detail-section__head {
+  padding: 4px 16px 0;
+}
+
+.candidate-detail-section__head h4 {
+  margin: 0;
+  color: var(--mv-text);
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: capitalize;
+}
+
+.detail-grid--configured {
+  padding-top: 10px;
+}
+
+.detail-grid--configured:empty,
+.candidate-detail-section__head:empty {
+  display: none;
+}
+
 .action-strip,
 .interview-box {
   padding: 0 16px 16px;
@@ -344,6 +365,35 @@
 .note-item p {
   margin: 0;
   white-space: pre-wrap;
+}
+
+.note-item__head,
+.note-item__actions,
+.note-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.note-item__head {
+  justify-content: space-between;
+}
+
+.note-item__actions .icon-btn {
+  width: 30px;
+  height: 30px;
+}
+
+.note-edit-textarea {
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: var(--mv-radius-control);
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.note-edit-actions {
+  justify-content: flex-end;
 }
 
 .note-form {
