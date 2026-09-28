@@ -283,11 +283,11 @@
           <button
             type="button"
             class="btn-invia"
-            [disabled]="sending || (!nuovaNota.trim() && nuoviAllegati.length === 0)"
+            [disabled]="sending || processingAttachments || (!nuovaNota.trim() && nuoviAllegati.length === 0)"
             (click)="addNota()"
           >
-            <mat-icon>{{ sending ? 'autorenew' : 'send' }}</mat-icon>
-            <span>{{ sending ? 'Invio...' : 'Aggiungi nota' }}</span>
+            <mat-icon>{{ sending || processingAttachments ? 'autorenew' : 'send' }}</mat-icon>
+            <span>{{ processingAttachments ? 'Ottimizzo immagini...' : (sending ? ('Invio ' + (uploadProgress === null ? '' : uploadProgress + '%') + '...') : 'Aggiungi nota') }}</span>
           </button>
         </div>
 

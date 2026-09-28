@@ -1,10 +1,11 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
 import { Component, HostListener, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { Location } from '@angular/common';
 import { DomSanitizer, SafeUrl, SafeResourceUrl } from '@angular/platform-browser';
 import { NoteUnreadService } from '../../service/note-unread.service';
+import { optimizeNoteImageForUpload } from '../../shared/note-image-upload';
 
 export interface AllegatoNota {
   nome: string;
@@ -52,8 +53,11 @@ export class QuoteNotesComponent implements OnInit {
   nuoviAllegati: AllegatoNota[] = [];
   loading = false;
   sending = false;
+  uploadProgress: number | null = null;
+  processingAttachments = false;
   isDragging = false;
   private dragCounter = 0;
+  private pendingAttachmentBatches = 0;
 
   get canManageNotes(): boolean {
     return !/^X-\d{6,}$/i.test(String(this.numeroPreventivo || '').trim()) &&
@@ -189,13 +193,21 @@ export class QuoteNotesComponent implements OnInit {
     input.value = '';
   }
 
-  private processFiles(files: File[]) {
-    files.forEach((file) => {
-      this.nuoviAllegati.push({
-        nome: file.name, mimeType: file.type || this.mimeFromName(file.name),
-        size: file.size, file, blob: file, previewUrl: URL.createObjectURL(file),
-      });
-    });
+  private async processFiles(files: File[]) {
+    this.pendingAttachmentBatches++;
+    this.processingAttachments = true;
+    try {
+      for (const original of files) {
+        const file = await optimizeNoteImageForUpload(original);
+        this.nuoviAllegati.push({
+          nome: file.name, mimeType: file.type || this.mimeFromName(file.name),
+          size: file.size, file, blob: file, previewUrl: URL.createObjectURL(file),
+        });
+      }
+    } finally {
+      this.pendingAttachmentBatches--;
+      this.processingAttachments = this.pendingAttachmentBatches > 0;
+    }
   }
 
   removeAllegato(index: number) {
@@ -205,8 +217,9 @@ export class QuoteNotesComponent implements OnInit {
   }
 
   addNota() {
-    if (!this.nuovaNota.trim() && this.nuoviAllegati.length === 0) return;
+    if (this.processingAttachments || (!this.nuovaNota.trim() && this.nuoviAllegati.length === 0)) return;
     this.sending = true;
+    this.uploadProgress = 0;
     const body = new FormData();
     body.append('numeroPreventivo', this.numeroPreventivo);
     body.append('operatore', this.globalService.userCode);
@@ -218,22 +231,41 @@ export class QuoteNotesComponent implements OnInit {
       .post<NotaPreventivo>(
         this.globalService.url + 'quotes/notes/add',
         body,
-        { headers: this.globalService.headers.delete('Content-Type') },
+        {
+          headers: this.globalService.headers.delete('Content-Type'),
+          observe: 'events',
+          reportProgress: true,
+        },
       )
       .subscribe({
-        next: (res) => {
-          this.nuoviAllegati.forEach((attachment) => {
-            if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+        next: (event) => {
+          if (event.type === HttpEventType.UploadProgress) {
+            this.uploadProgress = event.total
+              ? Math.round((event.loaded / event.total) * 100)
+              : null;
+            return;
+          }
+          if (!(event instanceof HttpResponse) || !event.body) return;
+          const res = event.body;
+          // La miniatura server viene generata in differita. Riutilizziamo subito
+          // i blob locali cosi la nota appena inserita e visibile senza un nuovo download.
+          res.allegati.forEach((attachment, index) => {
+            const local = this.nuoviAllegati[index];
+            if (!local) return;
+            attachment.blob = local.blob;
+            attachment.previewUrl = local.previewUrl;
           });
           this.note.push(res);
           this.prepareStoredAttachments([res]);
           this.nuovaNota = '';
           this.nuoviAllegati = [];
           this.sending = false;
+          this.uploadProgress = null;
         },
         error: () => {
           alert('Errore durante il salvataggio della nota');
           this.sending = false;
+          this.uploadProgress = null;
         },
       });
   }
