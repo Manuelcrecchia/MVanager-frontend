@@ -129,4 +129,70 @@ describe('CreateShiftComponent', () => {
     expect(dialogConfig.data.startDate).toEqual(new Date(2026, 7, 17, 10, 0));
     expect(dialogConfig.data.endDate).toEqual(new Date(2026, 7, 17, 11, 0));
   });
+
+  it('filters customers while the user types an extra-job title', () => {
+    const component = createComponent();
+    component.extraCustomerOptions = [
+      { numeroCliente: '121', tipoCliente: 'O', displayName: 'DORMITORIO' },
+      { numeroCliente: '205', tipoCliente: 'S', displayName: 'Magazzino Centro' },
+    ];
+    const app = {
+      id: 'extra-1',
+      isExtra: true,
+      title: 'dormi',
+      extraCustomerAutocompleteOpen: true,
+    };
+
+    expect(component.getFilteredExtraCustomers(app)).toEqual([
+      { numeroCliente: '121', tipoCliente: 'O', displayName: 'DORMITORIO' },
+    ]);
+  });
+
+  it('links a selected customer and clears the link when the title is edited', () => {
+    const component = createComponent();
+    spyOn<any>(component, 'scheduleAutosave');
+    (component as any).socketService = { emitUpdate: jasmine.createSpy('emitUpdate') };
+    const app: any = { id: 'extra-2', isExtra: true, title: 'dormi' };
+    const customer = {
+      numeroCliente: '121',
+      tipoCliente: 'O',
+      displayName: 'DORMITORIO',
+    };
+
+    component.selectExtraCustomer(app, customer);
+
+    expect(app.title).toBe('121 - DORMITORIO');
+    expect(app.selectedCustomerNumero).toBe('121');
+    expect(app.selectedCustomerType).toBe('O');
+
+    component.onTitleChange(app, 'Dormitorio notte');
+    expect(app.selectedCustomerNumero).toBeNull();
+  });
+
+  it('includes the selected customer only in the final extra-shift save', () => {
+    const component = createComponent();
+    const post = jasmine.createSpy('post').and.callFake((_url: string, body: any) => ({
+      subscribe: (handlers: any) => handlers.next(),
+    }));
+    (component as any).http = { post };
+    (component as any).socketService = { emitUpdate: jasmine.createSpy('emitUpdate') };
+    (component as any).router = { navigate: jasmine.createSpy('navigate') };
+    spyOn(window, 'alert');
+    component.selectedDate = new Date(2026, 7, 6);
+    component.appointments = [{
+      id: 'extra-3',
+      shiftId: 88,
+      isExtra: true,
+      title: '121 - DORMITORIO',
+      selectedCustomerNumero: '121',
+      startDate: new Date(2026, 7, 6, 8, 0),
+      duration: 60,
+    }];
+
+    component.finalSave();
+
+    const requestBody = post.calls.mostRecent().args[1];
+    expect(requestBody.shifts[0].appointmentId).toBeNull();
+    expect(requestBody.shifts[0].customerNumero).toBe('121');
+  });
 });

@@ -1012,6 +1012,90 @@
   min-width: 0;
 }
 
+.extra-customer-autocomplete {
+  position: relative;
+  margin-bottom: 4px;
+}
+
+.extra-customer-dropdown {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: var(--mv-radius-control);
+  background: var(--mv-surface);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+}
+
+.extra-customer-option {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--mv-text);
+  text-align: left;
+}
+
+.extra-customer-option:hover,
+.extra-customer-option:focus {
+  background: rgba(37, 99, 235, 0.09);
+  outline: none;
+}
+
+.extra-customer-option strong {
+  flex: 0 0 auto;
+  color: var(--mv-blue-600);
+}
+
+.extra-customer-option span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extra-customer-empty {
+  padding: 9px;
+  color: var(--mv-muted);
+  font-size: 0.82rem;
+}
+
+.extra-customer-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.11);
+  color: #166534;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.extra-customer-clear {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(22, 101, 52, 0.13);
+  color: #166534;
+  font-size: 15px;
+  line-height: 1;
+}
+
 .shift-job-card .btn-sm {
   width: 32px;
   height: 32px;

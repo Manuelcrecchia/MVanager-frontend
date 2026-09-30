@@ -21,11 +21,11 @@
         <div class="row g-3">
           <div class="col-md-6">
             <label for="nome" class="form-label fw-bold">Nome</label>
-            <input type="text" id="nome" name="nome" [(ngModel)]="employeesAdd.nome" class="form-control form-control-glass" required />
+            <input type="text" id="nome" name="nome" [(ngModel)]="employeesAdd.nome" (ngModelChange)="scheduleCandidateDuplicateCheck()" class="form-control form-control-glass" required />
           </div>
           <div class="col-md-6">
             <label for="cognome" class="form-label fw-bold">Cognome</label>
-            <input type="text" id="cognome" name="cognome" [(ngModel)]="employeesAdd.cognome" class="form-control form-control-glass" required />
+            <input type="text" id="cognome" name="cognome" [(ngModel)]="employeesAdd.cognome" (ngModelChange)="scheduleCandidateDuplicateCheck()" class="form-control form-control-glass" required />
           </div>
           <div class="col-md-6">
             <label for="email" class="form-label fw-bold">Email</label>
@@ -101,8 +101,19 @@
             </ng-container>
           </div>
         </div>
+        <div class="alert alert-warning mt-3" *ngIf="candidateNameMatches.length">
+          <strong>Attenzione: questa persona è già presente tra i candidati.</strong>
+          <div *ngFor="let match of candidateNameMatches">
+            {{ match.label }}<span *ngIf="match.discarded"> · candidato scartato/archiviato</span><span *ngIf="match.employeeId"> · già collegato a un dipendente</span>
+          </div>
+          <p class="mb-2 mt-2">Per evitare doppioni, apri la scheda del candidato e usa “Aggiungi come dipendente”.</p>
+          <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-dark btn-sm" (click)="openCandidates()">Vai ai candidati</button>
+            <button type="button" class="btn btn-warning btn-sm" (click)="addEmployees(true)" [disabled]="isLoading">Crea comunque</button>
+          </div>
+        </div>
         <div class="d-flex justify-content-center mt-4">
-          <button type="submit" class="btn btn-primary btn-round">➕ Aggiungi Dipendente</button>
+          <button type="submit" class="btn btn-primary btn-round" [disabled]="isLoading || checkingCandidateDuplicates">➕ Aggiungi Dipendente</button>
         </div>
       </form>
     </div>

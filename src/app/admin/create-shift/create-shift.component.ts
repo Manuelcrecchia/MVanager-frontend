@@ -55,6 +55,12 @@ interface EquipmentAssignment {
   quantity: number;
 }
 
+interface ExtraShiftCustomerOption {
+  numeroCliente: string;
+  tipoCliente: string;
+  displayName: string;
+}
+
 interface RoutePlannerTeam {
   index: number;
   name: string;
@@ -215,6 +221,8 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   assignedEquipment: { [appointmentId: string]: EquipmentAssignment[] } = {};
   vehiclesCache: any[] = [];
   equipmentTargetsCache: any[] = [];
+  extraCustomerOptions: ExtraShiftCustomerOption[] = [];
+  extraCustomerOptionsLoading = false;
   loading = false;
   employeeList: any[] = [];
   previousWeekShiftList: { cliente: string; dipendenti: string[] }[] = [];
@@ -257,6 +265,8 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
   private autosaveTimers: { [jobId: string]: any } = {};
   private autosaveDelayMs = 700;
+  private autosaveInFlight = 0;
+  private pendingFinalSaveForce: boolean | null = null;
   private routePlannerRequestId = 0;
   private routePlannerManagedAppointmentIds = new Set<string>();
   private routePlannerManualEmployeeIdsByAppointment = new Map<string, Set<number>>();
@@ -286,6 +296,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     this.loadAppointments();
     this.loadVehiclesCache();
     this.loadEquipmentTargetsCache();
+    this.loadExtraCustomerOptions();
 
     this.socketService.onResourceChanges('shifts').pipe(takeUntil(this.destroy$)).subscribe((change) => {
       const update: any = change.metadata || {};
@@ -459,6 +470,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     console.log('AUTOSAVE PAYLOAD ->', payload);
     console.log('assignedCapisquadraNotes[' + app.id + '] =', this.assignedCapisquadraNotes[app.id]);
 
+    this.autosaveInFlight += 1;
     this.http
 	      .post<any>(this.globalService.url + 'shifts/autosave', payload)
 	      .subscribe({
@@ -470,8 +482,19 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 	        error: (err) => {
           console.error('Autosave fallito:', err);
           alert(this.parseServerError(err));
+          this.finishAutosaveRequest();
         },
+        complete: () => this.finishAutosaveRequest(),
       });
+  }
+
+  private finishAutosaveRequest(): void {
+    this.autosaveInFlight = Math.max(0, this.autosaveInFlight - 1);
+    if (this.autosaveInFlight > 0 || this.pendingFinalSaveForce === null) return;
+
+    const forceSave = this.pendingFinalSaveForce;
+    this.pendingFinalSaveForce = null;
+    this.finalSave(forceSave);
   }
 
   private normalizeEquipmentAssignments(value: any): EquipmentAssignment[] {
@@ -4604,6 +4627,14 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
   onTitleChange(app: any, value: string) {
     app.title = value;
+    if (
+      app.isExtra &&
+      app.selectedCustomerNumero &&
+      value !== app.selectedCustomerLabel
+    ) {
+      this.clearExtraCustomerSelection(app);
+    }
+    if (app.isExtra) app.extraCustomerAutocompleteOpen = true;
     this.markAppointmentManualForRoutePlanner(app.id);
     this.scheduleAutosave(app);
 
@@ -4612,6 +4643,84 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       date: this.formatDate(this.selectedDate),
       data: { id: app.id, title: value },
     });
+  }
+
+  onExtraCustomerFocus(app: any): void {
+    app.extraCustomerAutocompleteOpen = true;
+  }
+
+  onExtraCustomerBlur(app: any): void {
+    setTimeout(() => {
+      app.extraCustomerAutocompleteOpen = false;
+    }, 120);
+  }
+
+  getFilteredExtraCustomers(app: any): ExtraShiftCustomerOption[] {
+    if (!app?.isExtra || !app.extraCustomerAutocompleteOpen) return [];
+
+    const currentTitle = String(app.title || '').trim();
+    const query = this.normalizeExtraCustomerSearch(
+      currentTitle === 'Nuovo lavoro extra' ? '' : currentTitle,
+    );
+
+    return this.extraCustomerOptions
+      .filter((customer) => (
+        !query || this.normalizeExtraCustomerSearch(this.extraCustomerLabel(customer)).includes(query)
+      ))
+      .slice(0, 12);
+  }
+
+  extraCustomerLabel(customer: ExtraShiftCustomerOption): string {
+    return [customer?.numeroCliente, customer?.displayName]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join(' - ');
+  }
+
+  selectExtraCustomer(
+    app: any,
+    customer: ExtraShiftCustomerOption,
+    event?: MouseEvent,
+  ): void {
+    event?.preventDefault();
+    const label = this.extraCustomerLabel(customer);
+    app.selectedCustomerNumero = customer.numeroCliente;
+    app.selectedCustomerType = customer.tipoCliente;
+    app.selectedCustomerLabel = label;
+    this.onTitleChange(app, label);
+    app.extraCustomerAutocompleteOpen = false;
+  }
+
+  removeExtraCustomerSelection(app: any, event?: MouseEvent): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.clearExtraCustomerSelection(app);
+    this.markAppointmentManualForRoutePlanner(app.id);
+    this.scheduleAutosave(app);
+  }
+
+  getExtraCustomerCategoryLabel(app: any): string {
+    const customerType = String(app?.selectedCustomerType || '').trim().toLowerCase();
+    if (!customerType) return '';
+    const category = this.globalService.getAppointmentCategoryDetails().find((item) => (
+      item.forShifts === true &&
+      String(item.customerType || '').trim().toLowerCase() === customerType
+    ));
+    return String(category?.label || category?.key || '').trim();
+  }
+
+  private clearExtraCustomerSelection(app: any): void {
+    app.selectedCustomerNumero = null;
+    app.selectedCustomerType = null;
+    app.selectedCustomerLabel = null;
+  }
+
+  private normalizeExtraCustomerSearch(value: unknown): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase('it-IT')
+      .trim();
   }
 
   onDescriptionChange(app: any, value: string) {
@@ -4796,6 +4905,18 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       alert(`Per "${missingLeader.title || 'Intervento presidi'}" assegna almeno un dipendente e indicalo come caposquadra.`);
       return;
     }
+
+    Object.keys(this.autosaveTimers).forEach((jobId) => {
+      const timer = this.autosaveTimers[jobId];
+      if (timer) clearTimeout(timer);
+      this.autosaveTimers[jobId] = null;
+    });
+
+    if (this.autosaveInFlight > 0) {
+      this.pendingFinalSaveForce = this.pendingFinalSaveForce === true || forceSave;
+      return;
+    }
+
     const dateStr = this.formatDate(this.selectedDate);
 
     const payload = this.appointments.map((app) => {
@@ -4808,6 +4929,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       return {
         shiftId: app.shiftId || null,
         appointmentId: app.isExtra ? null : app.originalAppointmentId || app.id,
+        customerNumero: app.isExtra ? app.selectedCustomerNumero || null : null,
         data: dateStr,
         employeeIds: this.assignedShifts[app.id] || [],
         employeeDurations: this.getAssignedEmployeeDurations(app),
@@ -4887,6 +5009,23 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       next: (res) => (this.equipmentTargetsCache = res || []),
       error: () => (this.equipmentTargetsCache = []),
     });
+  }
+
+  loadExtraCustomerOptions(): void {
+    this.extraCustomerOptionsLoading = true;
+    this.http
+      .get<ExtraShiftCustomerOption[]>(this.globalService.url + 'shifts/customer-options')
+      .subscribe({
+        next: (customers) => {
+          this.extraCustomerOptions = Array.isArray(customers) ? customers : [];
+          this.extraCustomerOptionsLoading = false;
+        },
+        error: (err) => {
+          console.error('Errore caricamento clienti per lavoro extra:', err);
+          this.extraCustomerOptions = [];
+          this.extraCustomerOptionsLoading = false;
+        },
+      });
   }
 
   formatDate(date: Date): string {

@@ -38,6 +38,14 @@ interface EmployeeForm {
   [key: string]: any;
 }
 
+interface CandidateNameMatch {
+  id: number;
+  label: string;
+  statusKey?: string | null;
+  discarded?: boolean;
+  employeeId?: number | null;
+}
+
 interface EmployeeCertification {
   id?: number;
   title: string;
@@ -76,6 +84,10 @@ export class SettingsEmployeesComponent implements OnInit, OnChanges {
   selectedEmployeeCategoryIds: number[] = [];
   employeeSearch = '';
   categorySearch = '';
+  candidateNameMatches: CandidateNameMatch[] = [];
+  checkingCandidateDuplicates = false;
+  private candidateDuplicateTimer: ReturnType<typeof setTimeout> | null = null;
+  private candidateDuplicateRequest = 0;
 
   editingIndex: number | null = null;
   employeeEdit: any = {};
@@ -552,7 +564,45 @@ export class SettingsEmployeesComponent implements OnInit, OnChanges {
       });
   }
 
-  addEmployees() {
+  scheduleCandidateDuplicateCheck(): void {
+    if (this.candidateDuplicateTimer) clearTimeout(this.candidateDuplicateTimer);
+    this.candidateDuplicateTimer = setTimeout(() => this.checkCandidateDuplicates(), 400);
+  }
+
+  checkCandidateDuplicates(): void {
+    const nome = String(this.employeesAdd.nome || '').trim();
+    const cognome = String(this.employeesAdd.cognome || '').trim();
+    const requestId = ++this.candidateDuplicateRequest;
+    if (!nome || !cognome) {
+      this.candidateNameMatches = [];
+      this.checkingCandidateDuplicates = false;
+      return;
+    }
+
+    this.checkingCandidateDuplicates = true;
+    this.http.post<{ matches: CandidateNameMatch[] }>(
+      this.globalService.url + 'employees/candidate-duplicate-check',
+      { nome, cognome },
+      { headers: this.globalService.headers },
+    ).subscribe({
+      next: (response) => {
+        if (requestId !== this.candidateDuplicateRequest) return;
+        this.candidateNameMatches = response.matches || [];
+        this.checkingCandidateDuplicates = false;
+      },
+      error: () => {
+        if (requestId !== this.candidateDuplicateRequest) return;
+        this.candidateNameMatches = [];
+        this.checkingCandidateDuplicates = false;
+      },
+    });
+  }
+
+  openCandidates(): void {
+    void this.router.navigate(['/homeAdmin/candidates']);
+  }
+
+  addEmployees(forceCandidateDuplicate = false) {
     const body: Record<string, any> = {
       nome: this.employeesAdd.nome,
       cognome: this.employeesAdd.cognome,
@@ -565,6 +615,7 @@ export class SettingsEmployeesComponent implements OnInit, OnChanges {
       customerWarehouseInventoryEnabled: !!this.employeesAdd.customerWarehouseInventoryEnabled,
       customerWarehouseLoadEnabled: !!this.employeesAdd.customerWarehouseLoadEnabled,
       customerWarehouseUnloadEnabled: !!this.employeesAdd.customerWarehouseUnloadEnabled,
+      forceCandidateDuplicate,
     };
     this.appendEmployeeExtraPayload(body, this.employeesAdd);
 
@@ -578,6 +629,7 @@ export class SettingsEmployeesComponent implements OnInit, OnChanges {
         next: () => {
           this.isLoading = false;
           this.employeesAdd = this.emptyEmployeeAdd();
+          this.candidateNameMatches = [];
           this.hydrateEmployeeExtraDefaults(this.employeesAdd);
           if (this.embedded) {
             this.employeeCreated.emit();
@@ -588,6 +640,11 @@ export class SettingsEmployeesComponent implements OnInit, OnChanges {
         error: (error) => {
           this.isLoading = false;
           console.error("Errore durante l'aggiunta del dipendente:", error);
+          const responseBody = this.parseServerBody(error);
+          if (Array.isArray(responseBody?.candidateMatches)) {
+            this.candidateNameMatches = responseBody.candidateMatches;
+            return;
+          }
           this.appDialog.showHttpError(
             error,
             error.status === 409
@@ -598,15 +655,16 @@ export class SettingsEmployeesComponent implements OnInit, OnChanges {
       });
   }
 
-  private parseServerError(error: any, fallback: string): string {
+  private parseServerBody(error: any): any {
     try {
-      const body = typeof error?.error === 'string'
-        ? JSON.parse(error.error)
-        : error?.error;
-      return body?.error || fallback;
+      return typeof error?.error === 'string' ? JSON.parse(error.error) : error?.error;
     } catch {
-      return fallback;
+      return null;
     }
+  }
+
+  private parseServerError(error: any, fallback: string): string {
+    return this.parseServerBody(error)?.error || fallback;
   }
 
   private normalizeSearch(value: unknown): string {

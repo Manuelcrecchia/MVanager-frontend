@@ -238,6 +238,12 @@
       </div>
 
       <div *ngIf="loading" class="text-center">Caricamento...</div>
+      <div *ngIf="!loading" class="text-center mb-3">
+        <button type="button" class="btn btn-outline-primary btn-sm add-extra-btn" (click)="addExtra()">
+          <i class="fas fa-plus"></i>
+          Aggiungi lavoro extra
+        </button>
+      </div>
       <div
         *ngIf="!loading && appointments.length === 0"
         class="alert alert-info"
@@ -246,13 +252,6 @@
       </div>
 
       <div *ngIf="!loading && appointments.length > 0" class="list-group">
-        <div class="text-center mb-3">
-          <button type="button" class="btn btn-outline-primary btn-sm add-extra-btn" (click)="addExtra()">
-            <i class="fas fa-plus"></i>
-            Aggiungi lavoro extra
-          </button>
-        </div>
-
         <div
           *ngFor="let a of appointments"
           class="list-group-item shift-job-card"
@@ -273,14 +272,62 @@
                   Posticipa
                 </button>
               </div>
-              <input
-                *ngIf="a.isExtra"
-                type="text"
-                class="form-control form-control-sm mb-1"
-                [(ngModel)]="a.title"
-                (ngModelChange)="onTitleChange(a, $event)"
-                placeholder="Titolo lavoro extra"
-              />
+              <div *ngIf="a.isExtra" class="extra-customer-autocomplete">
+                <input
+                  type="text"
+                  class="form-control form-control-sm"
+                  [(ngModel)]="a.title"
+                  (ngModelChange)="onTitleChange(a, $event)"
+                  (focus)="onExtraCustomerFocus(a)"
+                  (blur)="onExtraCustomerBlur(a)"
+                  autocomplete="off"
+                  placeholder="Titolo lavoro extra o cerca un cliente"
+                />
+
+                <div
+                  *ngIf="a.extraCustomerAutocompleteOpen"
+                  class="extra-customer-dropdown"
+                >
+                  <div *ngIf="extraCustomerOptionsLoading" class="extra-customer-empty">
+                    Caricamento clienti...
+                  </div>
+                  <ng-container *ngIf="!extraCustomerOptionsLoading">
+                    <button
+                      *ngFor="let customer of getFilteredExtraCustomers(a)"
+                      type="button"
+                      class="extra-customer-option"
+                      (mousedown)="selectExtraCustomer(a, customer, $event)"
+                    >
+                      <strong>{{ customer.numeroCliente }}</strong>
+                      <span>{{ customer.displayName }}</span>
+                    </button>
+                    <div
+                      *ngIf="getFilteredExtraCustomers(a).length === 0"
+                      class="extra-customer-empty"
+                    >
+                      Nessun cliente trovato. Il turno resterà un lavoro extra.
+                    </div>
+                  </ng-container>
+                </div>
+
+                <div *ngIf="a.selectedCustomerNumero" class="extra-customer-selected">
+                  <span>
+                    Cliente collegato
+                    <ng-container *ngIf="getExtraCustomerCategoryLabel(a) as categoryLabel">
+                      · evento {{ categoryLabel }}
+                    </ng-container>
+                  </span>
+                  <button
+                    type="button"
+                    class="extra-customer-clear"
+                    (click)="removeExtraCustomerSelection(a, $event)"
+                    aria-label="Rimuovi collegamento al cliente"
+                    title="Rimuovi collegamento al cliente"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
             </div>
             <div>
               <textarea
