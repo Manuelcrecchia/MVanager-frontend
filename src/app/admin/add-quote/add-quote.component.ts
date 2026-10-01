@@ -1,3 +1,5 @@
+import { OfflineService, isOfflinePending } from '../../offline/offline.service';
+import { watchDraft, DraftHandle } from '../../offline/offline-draft';
 import { HttpClient } from '@angular/common/http';
 import { Component, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
@@ -50,10 +52,20 @@ export class AddQuoteComponent {
   visibleQuoteSections: QuoteFieldSection[] = [];
   validationErrors: Record<string, string> = {};
 
+  private draft?: DraftHandle;
+  ngOnDestroy(): void { this.draft?.stop(); }
+  private protectDraft(): void {
+    if (this.draft) return;
+    this.draft = watchDraft(this.offline, () => ({ ...this.quoteModelService }), value => {
+      Object.assign(this.quoteModelService, value); this.refreshVisibleQuoteFields();
+    });
+  }
+
   constructor(
     public globalService: GlobalService,
     public quoteModelService: QuoteModelService,
     private http: HttpClient,
+    private offline: OfflineService,
     private router: Router,
     private popup: PopupServiceService,
     private location: Location,
@@ -75,6 +87,7 @@ export class AddQuoteComponent {
         this.refreshVisibleQuoteFields();
         this.loadQuoteRooms();
         this.loadQuotePhrases();
+        this.protectDraft();
       });
   }
 
@@ -111,10 +124,16 @@ export class AddQuoteComponent {
       })
       .subscribe({
         next: () => {
+          this.draft?.clear();
           this.quoteModelService.resetQuoteModel();
           this.router.navigateByUrl('/homeAdmin/quotesHome', { replaceUrl: true });
         },
         error: (err) => {
+          if (isOfflinePending(err)) {
+            this.popup.text = err.error.error;
+            this.popup.openPopup('Salvataggio sul dispositivo', 'warning');
+            return;
+          }
           this.popup.text = this.parseError(err).toUpperCase();
           this.popup.openPopup();
         },
@@ -572,6 +591,7 @@ export class AddQuoteComponent {
   }
 
   back() {
+    this.draft?.stop();
     this.quoteModelService.resetQuoteModel();
     this.router.navigateByUrl('/homeAdmin/quotesHome');
   }
@@ -579,6 +599,7 @@ export class AddQuoteComponent {
   @HostListener('window:popstate', ['$event'])
   onBrowserBackBtnClose(event: Event): void {
     event.preventDefault();
+    this.draft?.stop();
     this.quoteModelService.resetQuoteModel();
     this.location.replaceState('/homeAdmin/quotesHome');
     this.router.navigateByUrl('/homeAdmin/quotesHome');

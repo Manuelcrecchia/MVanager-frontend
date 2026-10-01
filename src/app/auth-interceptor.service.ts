@@ -1,3 +1,4 @@
+import { OfflineService } from './offline/offline.service';
 import { Injectable } from '@angular/core';
 import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
@@ -15,6 +16,7 @@ export class AuthInterceptorService implements HttpInterceptor {
     private globalService: GlobalService,
     private tenantService: TenantService,
     private popup: PopupServiceService,
+    private offline: OfflineService,
   ) {}
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
@@ -27,8 +29,9 @@ export class AuthInterceptorService implements HttpInterceptor {
     }
     const cloned = req.clone({ headers });
 
-    return next.handle(cloned).pipe(
+    return this.offline.intercept(cloned, request => next.handle(request)).pipe(
       catchError((err: HttpErrorResponse) => {
+        if (err.error?.code === 'OFFLINE_PENDING') return throwError(() => err);
         if (err.status === 401) {
           this.popup.showHttpError(err, 'Sessione scaduta. Effettua di nuovo il login.', 'Sessione scaduta');
           this.globalService.logout();

@@ -1,3 +1,5 @@
+import { OfflineService, isOfflinePending } from '../../offline/offline.service';
+import { watchDraft, DraftHandle } from '../../offline/offline-draft';
 import { downloadFile } from '../../shared/file-download';
 import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
 import { Component, HostListener, OnInit } from '@angular/core';
@@ -139,10 +141,22 @@ export class CustomerNotesComponent implements OnInit {
       : this.globalService.hasPermission('CUSTOMERS_NOTES_MANAGE');
   }
 
+  private draft?: DraftHandle;
+  private destroyed = false;
+  ngOnDestroy(): void { this.destroyed = true; this.draft?.stop(); }
+  private protectDraft(): void {
+    if (this.destroyed) return;
+    this.draft = watchDraft(this.offline, () => ({ testo: this.nuovaNota, allegati: this.nuoviAllegati.map(a => ({ ...a, previewUrl: undefined })) }), value => {
+      this.nuovaNota = value.testo || '';
+      this.nuoviAllegati = (value.allegati || []).map((a: any) => ({ ...a, previewUrl: a.blob instanceof Blob ? URL.createObjectURL(a.blob) : undefined }));
+    });
+  }
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private http: HttpClient,
+    private offline: OfflineService,
     public globalService: GlobalService,
     private location: Location,
     private sanitizer: DomSanitizer,
@@ -150,6 +164,7 @@ export class CustomerNotesComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.protectDraft();
     this.entityType = this.route.snapshot.queryParamMap.get('entity') === 'employee' ? 'employee' : 'customer';
     this.fallbackReturnUrl = this.entityType === 'employee'
       ? '/homeAdmin/gestioneemployees'
@@ -280,13 +295,15 @@ export class CustomerNotesComponent implements OnInit {
           });
           this.note.push(res);
           this.prepareStoredAttachments([res]);
+          const clearedDraft = this.draft?.clear();
           this.nuovaNota = '';
           this.nuoviAllegati = [];
+          void clearedDraft?.then(() => this.protectDraft());
           this.sending = false;
           this.uploadProgress = null;
         },
-        error: () => {
-          alert('Errore durante il salvataggio della nota');
+        error: (err) => {
+          alert(isOfflinePending(err) ? err.error.error : 'Errore durante il salvataggio della nota');
           this.sending = false;
           this.uploadProgress = null;
         },

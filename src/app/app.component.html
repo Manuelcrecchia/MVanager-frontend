@@ -1,3 +1,4 @@
+<app-offline-status></app-offline-status>
 <div class="subscription-notice" *ngIf="subscriptionNotice as notice" [class.urgent]="notice.tone === 'urgent'" [class.subscription-notice--admin-shell]="isAdminShellRoute()" role="alert">
   <strong>{{ notice.tone === 'urgent' ? '⚠️ Attenzione pagamento' : 'Promemoria abbonamento' }}</strong>
   <span>{{ notice.message }}</span>

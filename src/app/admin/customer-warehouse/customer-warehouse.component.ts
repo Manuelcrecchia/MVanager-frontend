@@ -1,3 +1,4 @@
+import { OfflineFieldDraftDirective } from '../../offline/offline-field-draft.directive';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit } from '@angular/core';
@@ -9,7 +10,7 @@ import { PopupServiceService } from '../../componenti/popup/popup-service.servic
 @Component({
   selector: 'app-customer-warehouse',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [OfflineFieldDraftDirective, CommonModule, FormsModule],
   templateUrl: './customer-warehouse.component.html',
   styleUrls: ['./customer-warehouse.component.css'],
 })

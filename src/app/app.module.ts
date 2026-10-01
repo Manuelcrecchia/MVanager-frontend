@@ -1,3 +1,7 @@
+import { OfflineFieldDraftDirective } from './offline/offline-field-draft.directive';
+import { OFFLINE_SESSION } from './offline/offline.service';
+import { OfflineStatusComponent } from './offline/offline-status.component';
+import { TenantService } from './service/tenant.service';
 import { ErrorHandler, NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 
@@ -201,6 +205,8 @@ registerLocaleData(localeIt);
     ReliableDetailsDirective,
   ],
   imports: [
+    OfflineStatusComponent,
+    OfflineFieldDraftDirective,
     BrowserModule,
     AppRoutingModule,
     MatSlideToggleModule,
@@ -237,6 +243,7 @@ registerLocaleData(localeIt);
     ReliableTapDirective,
   ],
   providers: [
+    { provide: OFFLINE_SESSION, deps: [GlobalService, TenantService], useFactory: (global: GlobalService, tenant: TenantService) => () => ({ baseUrl: global.url, tenant: tenant.tenant, token: global.token, role: 'admin' }) },
     provideHttpClient(withFetch(), withInterceptorsFromDi()),
     {
       provide: HTTP_INTERCEPTORS,

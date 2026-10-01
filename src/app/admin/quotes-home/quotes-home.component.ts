@@ -469,7 +469,7 @@ private loadQuotes(silent = false) {
           this.quoteModel.resetQuoteModel();
           Object.assign(this.quoteModel as any, quoteJson);
 
-          this.router.navigateByUrl('/homeAdmin/editQuote');
+          this.router.navigate(['/homeAdmin/editQuote', numeroPreventivo]);
         },
         error: (err) => {
           console.error('Errore navigateToEditQuote:', err);

@@ -17,6 +17,18 @@
     </div>
   </section>
 
+  <section class="quote-section" *ngIf="draftConflict" aria-label="Confronto bozza locale">
+    <h2>Il preventivo è cambiato sul server</h2>
+    <p>La tua bozza è conservata. Confronta le differenze prima di scegliere quali dati usare; il pulsante Salva effettuerà un nuovo controllo della versione.</p>
+    <div class="table-responsive">
+      <table class="table"><thead><tr><th>Campo</th><th>Versione server</th><th>Bozza locale</th></tr></thead>
+        <tbody><tr *ngFor="let difference of draftDifferences"><th>{{ difference.label }}</th><td>{{ difference.server }}</td><td>{{ difference.local }}</td></tr></tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-primary" (click)="resolveDraftConflict(true)">Ho confrontato: usa i dati della bozza</button>
+    <button type="button" class="btn btn-outline-secondary" (click)="resolveDraftConflict(false)">Scarta la bozza e mantieni il server</button>
+  </section>
+
   <form #form="ngForm" class="quote-form">
     <div
       class="alert alert-warning"

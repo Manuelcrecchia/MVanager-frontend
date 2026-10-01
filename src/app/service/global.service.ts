@@ -1,3 +1,4 @@
+import { fetchOperationalConfig } from '../offline/offline-config-fetch';
 import { Injectable } from '@angular/core';
 import { HttpHeaders } from '@angular/common/http';
 import { Capacitor } from '@capacitor/core';
@@ -593,12 +594,14 @@ export class GlobalService {
     }
 
     const url = this.url + `tenant/config${force ? '?refresh=true' : ''}`;
-    this.tenantConfigPromise = fetch(url, {
+    const configToken = this.token;
+    const configTenant = this.tenantService.tenant;
+    this.tenantConfigPromise = fetchOperationalConfig(url, {
       headers: {
         Authorization: `Bearer ${this.token}`,
         'X-Tenant-Id': this.tenantService.tenant,
       },
-    })
+    }, 'admin')
       .then((res) => {
         if (!res.ok) {
           const error = new Error(
@@ -610,6 +613,7 @@ export class GlobalService {
         return res.json();
       })
       .then((config: TenantBackendConfig) => {
+        if (this.token !== configToken || this.tenantService.tenant !== configTenant) return this.tenantConfig;
         this.tenantConfig = config || null;
         return this.tenantConfig;
       })

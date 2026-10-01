@@ -1,3 +1,5 @@
+import { OfflineService, isOfflinePending } from '../../offline/offline.service';
+import { watchDraft, DraftHandle } from '../../offline/offline-draft';
 import { HttpClient } from '@angular/common/http';
 import { Component, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -50,10 +52,47 @@ export class EditQuoteComponent {
   visibleQuoteSections: QuoteFieldSection[] = [];
   validationErrors: Record<string, string> = {};
 
+  private draft?: DraftHandle;
+  private destroyed = false;
+  draftConflict: { server: Record<string, any>; local: Record<string, any> } | null = null;
+  get draftDifferences(): { label: string; server: string; local: string }[] {
+    if (!this.draftConflict) return [];
+    const { server, local } = this.draftConflict;
+    const technical = ['numeroPreventivo', 'offlineRevision', 'updatedAt', 'createdAt', 'complete', 'codiceOperatore'];
+    return [...new Set([...Object.keys(server), ...Object.keys(local)])]
+      .filter(key => !technical.includes(key) && JSON.stringify(server[key]) !== JSON.stringify(local[key]))
+      .map(key => ({ label: this.visibleQuoteFields.find(field => field.dbColumn === key || field.key === key)?.label || key,
+        server: typeof server[key] === 'string' ? server[key] : JSON.stringify(server[key] ?? ''),
+        local: typeof local[key] === 'string' ? local[key] : JSON.stringify(local[key] ?? '') }));
+  }
+  resolveDraftConflict(useLocal: boolean): void {
+    if (!this.draftConflict) return;
+    const { server, local } = this.draftConflict;
+    Object.assign(this.quoteModelService, useLocal ? { ...server, ...local,
+      numeroPreventivo: server['numeroPreventivo'], updatedAt: server['updatedAt'], offlineRevision: server['offlineRevision'] } : server);
+    this.draftConflict = null;
+    this.refreshVisibleQuoteFields();
+    this.draft?.flush();
+  }
+  ngOnDestroy(): void { this.destroyed = true; this.draft?.stop(); }
+  private protectDraft(): void {
+    if (this.draft || this.destroyed) return;
+    this.draft = watchDraft(this.offline, () => this.draftConflict?.local || ({ ...this.quoteModelService }), value => {
+      const server = { ...this.quoteModelService } as Record<string, any>;
+      if (String(value.numeroPreventivo) !== String(server['numeroPreventivo'])) return;
+      if (value.offlineRevision !== server['offlineRevision'] || value.updatedAt !== server['updatedAt']) {
+        this.draftConflict = { server, local: value };
+        return;
+      }
+      Object.assign(this.quoteModelService, value); this.refreshVisibleQuoteFields();
+    });
+  }
+
   constructor(
     public quoteModelService: QuoteModelService,
     public globalService: GlobalService,
     private http: HttpClient,
+    private offline: OfflineService,
     private router: Router,
     private route: ActivatedRoute,
     private popup: PopupServiceService,
@@ -66,6 +105,10 @@ export class EditQuoteComponent {
       this.route.snapshot.queryParamMap.get('numeroPreventivo') ||
       this.quoteModelService.numeroPreventivo;
 
+    if (!this.route.snapshot.paramMap.get('numeroPreventivo') && !this.route.snapshot.queryParamMap.get('numeroPreventivo') && numeroPreventivo) {
+      void this.router.navigate(['/homeAdmin/editQuote', numeroPreventivo], { replaceUrl: true });
+      return;
+    }
     this.globalService.loadTenantConfig(false, { showError: false }).then(() => {
       this.refreshVisibleQuoteFields();
       this.loadQuoteRooms();
@@ -99,6 +142,7 @@ export class EditQuoteComponent {
               this.quoteModelService as unknown as Record<string, any>,
             );
             this.refreshVisibleQuoteFields();
+            this.protectDraft();
           } catch (err) {
             console.error('Errore parsing preventivo:', err);
           }
@@ -110,6 +154,11 @@ export class EditQuoteComponent {
   }
 
   editQuote() {
+    if (this.draftConflict) {
+      this.popup.text = 'Confronta prima la bozza locale con la versione attuale del preventivo.';
+      this.popup.openPopup('Versioni da confrontare', 'warning');
+      return;
+    }
     const source = this.quoteModelService as unknown as Record<string, any>;
     this.validationErrors = {};
     const missingFields = this.globalService.getMissingRequiredFields('quote', source);
@@ -136,6 +185,7 @@ export class EditQuoteComponent {
       source,
     );
 
+    (body as any).expectedRevision = source['offlineRevision'];
     this.http
       .post(this.globalService.url + 'quotes/edit', body, {
         headers: this.globalService.headers,
@@ -143,10 +193,16 @@ export class EditQuoteComponent {
       })
       .subscribe({
         next: () => {
+          this.draft?.clear();
           this.quoteModelService.resetQuoteModel();
           this.router.navigateByUrl('/homeAdmin/quotesHome', { replaceUrl: true });
         },
         error: (err) => {
+          if (isOfflinePending(err)) {
+            this.popup.text = err.error.error;
+            this.popup.openPopup('Salvataggio sul dispositivo', 'warning');
+            return;
+          }
           this.popup.text = this.parseError(err).toUpperCase();
           this.popup.openPopup();
         },
@@ -604,6 +660,7 @@ export class EditQuoteComponent {
   }
 
   back() {
+    this.draft?.stop();
     this.quoteModelService.resetQuoteModel();
     this.router.navigateByUrl('/homeAdmin/quotesHome');
   }
@@ -611,6 +668,7 @@ export class EditQuoteComponent {
   @HostListener('window:popstate', ['$event'])
   onBrowserBackBtnClose(event: Event): void {
     event.preventDefault();
+    this.draft?.stop();
     this.quoteModelService.resetQuoteModel();
     this.location.replaceState('/homeAdmin/quotesHome');
     this.router.navigateByUrl('/homeAdmin/quotesHome');
