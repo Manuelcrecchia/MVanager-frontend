@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Observable } from 'rxjs';
-import { saveAs } from 'file-saver';
+import { Observable, Subscription } from 'rxjs';
+import { downloadFile, fileDownloadIO } from '../file-download';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 export type AttachmentPreviewKind = 'pdf' | 'image' | 'video' | 'audio' | 'text' | 'unsupported';
@@ -28,6 +28,8 @@ export interface AttachmentViewerState {
 
 @Injectable({ providedIn: 'root' })
 export class AttachmentViewerService {
+  private sourceSubscription?: Subscription;
+  private generation = 0;
   state: AttachmentViewerState = this.emptyState();
 
   constructor(
@@ -37,6 +39,7 @@ export class AttachmentViewerService {
 
   open(attachment: ViewableAttachment, source: Observable<Blob>): void {
     this.close();
+    const generation = this.generation;
     const name = attachment.originalName || attachment.storedName || 'Allegato';
     this.state = {
       ...this.emptyState(),
@@ -46,11 +49,12 @@ export class AttachmentViewerService {
       size: Number(attachment.size || 0),
     };
 
-    source.subscribe({
-      next: (blob) => this.showBlob(blob, name),
+    this.sourceSubscription = source.subscribe({
+      next: (blob) => { if (generation === this.generation) this.showBlob(blob, name); },
       error: (error) => {
         console.error('Errore apertura allegato:', error);
         this.parseError(error).then((message) => {
+          if (generation !== this.generation) return;
           this.state = { ...this.state, loading: false, error: message };
         });
       },
@@ -70,13 +74,16 @@ export class AttachmentViewerService {
   }
 
   close(): void {
+    this.generation++;
+    this.sourceSubscription?.unsubscribe();
+    this.sourceSubscription = undefined;
     if (this.state.objectUrl) URL.revokeObjectURL(this.state.objectUrl);
     this.state = this.emptyState();
   }
 
   download(): void {
     if (!this.state.blob) return;
-    saveAs(this.state.blob, this.state.name || 'allegato');
+    void downloadFile(this.state.blob, this.state.name || 'allegato', message => this.popup.showError(message));
   }
 
   get canPrint(): boolean {
@@ -113,11 +120,15 @@ export class AttachmentViewerService {
   }
 
   get canShare(): boolean {
-    return !!this.state.blob && typeof navigator.share === 'function';
+    return !!this.state.blob && (fileDownloadIO.native() || typeof navigator.share === 'function');
   }
 
   async share(): Promise<void> {
     const viewer = this.state;
+    if (viewer.blob && fileDownloadIO.native()) {
+      await downloadFile(viewer.blob, viewer.name || 'allegato', message => this.popup.showError(message));
+      return;
+    }
     if (!viewer.blob || !this.canShare) {
       this.popup.showError(
         window.isSecureContext
@@ -154,6 +165,7 @@ export class AttachmentViewerService {
   }
 
   private showBlob(blob: Blob, name: string): void {
+    if (this.state.objectUrl) URL.revokeObjectURL(this.state.objectUrl);
     const mimeType = this.mimeType(blob, name);
     const namedBlob = new File([blob], name, { type: mimeType });
     const objectUrl = URL.createObjectURL(namedBlob);

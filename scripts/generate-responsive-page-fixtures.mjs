@@ -5,6 +5,17 @@ const root = process.cwd();
 const appRoot = join(root, 'src', 'app');
 const output = join(appRoot, 'shared', 'generated-responsive-page-fixtures.ts');
 
+async function readStyles(file, ancestors = []) {
+  if (ancestors.includes(file)) throw new Error('Import CSS circolare: ' + file);
+  let css = await readFile(file, 'utf8');
+  for (const match of [...css.matchAll(/@import\s+["']([^"']+)["'];/g)]) {
+    if (!match[1].startsWith('.')) throw new Error('Import CSS non locale: ' + match[1]);
+    const imported = await readStyles(join(dirname(file), match[1]), [...ancestors, file]);
+    css = css.replace(match[0], imported);
+  }
+  return css;
+}
+
 async function walk(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(entries.map(async entry => {
@@ -34,7 +45,7 @@ const fixtures = await Promise.all(htmlFiles.map(async htmlFile => {
     // Angular sostituisce le interpolazioni prima del rendering. Lasciarne il
     // codice sorgente nel DOM del fixture falserebbe soprattutto icone e badge.
     html: (await readFile(htmlFile, 'utf8')).replace(/{{[\s\S]*?}}/g, 'Valore'),
-    css: styleFile ? await readFile(styleFile, 'utf8') : '',
+    css: styleFile ? await readStyles(styleFile) : '',
   };
 }));
 

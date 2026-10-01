@@ -1,3 +1,4 @@
+import { downloadFile } from '../../shared/file-download';
 import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
 import { Component, HostListener, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -45,6 +46,11 @@ export interface NotaCliente {
   styleUrl: './customer-notes.component.css',
 })
 export class CustomerNotesComponent implements OnInit {
+
+  readonly realtimeResources = ["customer_notes","employee_notes"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadNote(true);
+  }
   private fallbackReturnUrl = '/homeAdmin/listCustomer';
   numeroCliente = '';
   entityType: 'customer' | 'employee' = 'customer';
@@ -160,9 +166,9 @@ export class CustomerNotesComponent implements OnInit {
     this.loadNote();
   }
 
-  loadNote() {
+  loadNote(silent = false) {
     if (!this.numeroCliente) return;
-    this.loading = true;
+    if (!silent) this.loading = true;
     this.http
       .post<NotaCliente[]>(
         this.globalService.url + (this.entityType === 'employee' ? 'employees/notes/getAll' : 'customers/notes/getAll'),
@@ -289,10 +295,10 @@ export class CustomerNotesComponent implements OnInit {
 
   downloadAllegato(allegato: AllegatoNota) {
     this.withObjectUrl(allegato, (url) => {
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = allegato.nome;
-      link.click();
+      // Object URL from the authenticated response, never a remote URL.
+      fetch(url).then(response => response.blob())
+        .then(blob => downloadFile(blob, allegato.nome))
+        .catch(() => alert('Impossibile scaricare l’allegato.'));
     }, false, false);
   }
 

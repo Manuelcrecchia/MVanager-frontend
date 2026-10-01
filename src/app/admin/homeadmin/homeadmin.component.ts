@@ -89,6 +89,11 @@ interface EmailHealthIssue {
   styleUrls: ['./homeadmin.component.css'],
 })
 export class HomeAdminComponent implements OnInit, OnDestroy {
+
+  readonly realtimeResources = ["quotes","customers","employees","employee_contracts","candidates","deadlines","email","internal_warehouse","material_orders","leave_requests","todos"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadActiveCandidatesCount(); this.loadDeadlineSummary(); this.loadPendingQuoteReviews(); this.loadPendingEmployeeContractReviews(); this.loadEmailUnreadSummary(); this.loadInternalWarehouseSummary();
+  }
   private quoteAcceptanceSubscription?: Subscription;
   private employeeContractSubscription?: Subscription;
   private customerArchiveReminderSubscription?: Subscription;
@@ -2179,10 +2184,6 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     const currentUrl = this.router.url.split('#')[0];
 
     if (currentUrl === targetUrl) {
-      this.router.navigateByUrl('/homeAdmin', { skipLocationChange: true }).then(() => {
-        this.isDesktopContentActive = true;
-        this.router.navigateByUrl(targetUrl);
-      });
       return;
     }
 

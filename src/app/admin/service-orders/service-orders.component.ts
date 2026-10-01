@@ -1,3 +1,4 @@
+import { downloadFile, fileDownloadIO } from '../../shared/file-download';
 import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { HttpClient } from '@angular/common/http';
@@ -11,6 +12,11 @@ import { AutomaticAddInspectionToCalendarService } from '../../service/automatic
   styleUrls: ['./service-orders.component.css'],
 })
 export class ServiceOrdersComponent implements OnInit, OnDestroy {
+
+  readonly realtimeResources = ["service_orders"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    if (this.loadInFlight) return false; this.loadOrders(true);
+  }
   orders: any[] = [];
   search = '';
   loading = false;
@@ -262,6 +268,10 @@ export class ServiceOrdersComponent implements OnInit, OnDestroy {
     this.http.get(this.global.url + `service-orders/${order.id}/paper-preview`, { responseType: 'blob' }).subscribe({
       next: (blob) => {
         this.generatingSignatureId = 0;
+        if (fileDownloadIO.native()) {
+          void downloadFile(blob, `ordine-servizio-${order.id}.pdf`);
+          return;
+        }
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -337,11 +347,7 @@ export class ServiceOrdersComponent implements OnInit, OnDestroy {
   }
 
   private saveSignatureEvidence(receipt: string, order: any): void {
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([receipt], { type: 'text/plain;charset=utf-8' }));
-    link.download = `dati-prova-ordine-servizio-${order.numeroOrdine || order.id}.txt`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+    void downloadFile(new Blob([receipt], { type: 'text/plain;charset=utf-8' }), `dati-prova-ordine-servizio-${order.numeroOrdine || order.id}.txt`);
   }
 
   private printSignatureEvidence(receipt: string): void {

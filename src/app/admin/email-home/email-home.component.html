@@ -76,7 +76,7 @@
 
     <div
       class="message-row"
-      *ngFor="let message of messages"
+      *ngFor="let message of messages; trackBy: trackMessage"
       [class.unread]="!message.read"
       [class.active]="selectedMessage?.id === message.id"
       [class.failed]="isFailedMessage(message)"

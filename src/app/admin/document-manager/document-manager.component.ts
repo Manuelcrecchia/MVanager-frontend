@@ -1,3 +1,4 @@
+import { downloadFile } from '../../shared/file-download';
 import {
   AfterViewInit,
   Component,
@@ -22,6 +23,11 @@ import { ContactRequirementPromptService } from '../../service/contact-requireme
   styleUrls: ['./document-manager.component.css'],
 })
 export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestroy {
+
+  readonly realtimeResources = ["documents"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadFolders(); this.loadFiles();
+  }
   @ViewChildren('fileNameBox') fileNameBoxes?: QueryList<ElementRef<HTMLElement>>;
 
   userId: string = '';
@@ -730,12 +736,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
       })
       .subscribe({
         next: (blob) => {
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = this.displayFileName(fileOrName);
-          a.click();
-          window.URL.revokeObjectURL(url);
+          void downloadFile(blob, this.displayFileName(fileOrName));
         },
         error: (err) => {
           console.error('Errore download file:', err);

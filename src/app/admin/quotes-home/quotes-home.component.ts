@@ -1,3 +1,4 @@
+import { downloadFile } from '../../shared/file-download';
 import { HttpClient } from '@angular/common/http';
 import { Component, HostListener, Input, OnDestroy, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -20,6 +21,12 @@ import { NoteUnreadService } from '../../service/note-unread.service';
   styleUrl: './quotes-home.component.css',
 })
 export class QuotesHomeComponent implements OnDestroy {
+
+  readonly realtimeResources = ["quotes"];
+  readonly realtimeHandledLocally = true;
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadQuotes(true);
+  }
   @Input() color: any;
   numeroClienteSelezionato = '';
   showCompletedQuotes = false;
@@ -144,7 +151,7 @@ export class QuotesHomeComponent implements OnDestroy {
     this.quoteAcceptanceSubscription?.unsubscribe();
   }
 
-  private loadQuotes() {
+private loadQuotes(silent = false) {
     this.http
       .get<any[]>(this.globalService.url + 'quotes/getAll', {
         headers: this.globalService.headers,
@@ -167,7 +174,11 @@ export class QuotesHomeComponent implements OnDestroy {
 
           this.applyQuoteSearch();
 
-          if (this.quotesFrEnd.length > 0) {
+          const selectedQuote = this.numeroClienteSelezionato;
+          if (selectedQuote && this.allQuotes.some((quote) => quote.numeroPreventivo === selectedQuote)) {
+            this.pdfTsSelezionato = true;
+            this.numeroClienteSelezionato = selectedQuote;
+          } else if (!silent && this.quotesFrEnd.length > 0) {
             this.pdfTsSelezionato = true;
             this.numeroClienteSelezionato =
               this.quotesFrEnd[0].numeroPreventivo;
@@ -176,7 +187,7 @@ export class QuotesHomeComponent implements OnDestroy {
             this.numeroClienteSelezionato = '';
           }
 
-          this.focusQuoteFromNotificationIfNeeded();
+          if (!silent) this.focusQuoteFromNotificationIfNeeded();
         },
         error: (err) => {
           console.error('Errore caricamento preventivi:', err);
@@ -232,8 +243,7 @@ export class QuotesHomeComponent implements OnDestroy {
       .onResourceChanges('quotes')
       .subscribe((change) => {
         const update: any = change.metadata || {};
-        if (!update.kind) return;
-        this.loadQuotes();
+        this.loadQuotes(true);
 
         const numeroPreventivo = update?.numeroPreventivo || '';
         if (update?.kind === 'accepted') {
@@ -340,12 +350,7 @@ export class QuotesHomeComponent implements OnDestroy {
 
   private saveAcceptanceEvidence(numeroPreventivo: string, receipt: string): void {
     const blob = new Blob([`DATI DI PROVA DELLA FIRMA\n\n${receipt}\n`], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `dati-prova-firma-preventivo-${numeroPreventivo}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
+    void downloadFile(blob, `dati-prova-firma-preventivo-${numeroPreventivo}.txt`);
   }
 
   printAcceptanceEvidence(numeroPreventivo: string): void {

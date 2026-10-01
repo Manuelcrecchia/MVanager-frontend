@@ -43,6 +43,8 @@ interface AdminOption {
   styleUrls: ['./email-settings.component.css'],
 })
 export class EmailSettingsComponent implements OnInit {
+  readonly realtimeResources = ["email","admins"];
+  refreshRealtimeData(): void { this.loadAll(true); }
   accounts: EmailAccount[] = [];
   admins: AdminOption[] = [];
   loading = false;
@@ -84,8 +86,8 @@ export class EmailSettingsComponent implements OnInit {
     };
   }
 
-  loadAll() {
-    this.loading = true;
+  loadAll(silent = false) {
+    if (!silent) this.loading = true;
     Promise.all([
       this.http.get<EmailAccount[]>(this.globalService.url + 'admin/email/accounts').toPromise(),
       this.http.get<AdminOption[]>(this.globalService.url + 'admin/email/admins').toPromise(),

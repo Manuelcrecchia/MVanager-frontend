@@ -1,3 +1,4 @@
+import { downloadFile } from '../../shared/file-download';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
@@ -138,6 +139,11 @@ const CORE_ROLE_MAP: Record<string, keyof CandidateForm> = {
   styleUrls: ['./candidates.component.css'],
 })
 export class CandidatesComponent implements OnInit {
+
+  readonly realtimeResources = ["candidates"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadCandidates(this.scope, true);
+  }
   config: CandidateConfig = this.defaultConfig();
   employeeCategories: EmployeeCategory[] = [];
   candidates: Candidate[] = [];
@@ -285,10 +291,10 @@ export class CandidatesComponent implements OnInit {
       });
   }
 
-  loadCandidates(scope: 'active' | 'discarded' = this.scope): void {
+loadCandidates(scope: 'active' | 'discarded' = this.scope, silent = false): void {
     this.scope = scope;
     this.ensureValidStatusFilter();
-    this.loading = true;
+    if (!silent) this.loading = true;
     this.http.get<Candidate[]>(this.api(`getAll?scope=${scope}`))
       .subscribe({
         next: (rows) => {
@@ -641,15 +647,7 @@ export class CandidatesComponent implements OnInit {
         const file = new File([blob], attachment.originalName || 'allegato', {
           type: attachment.mimeType || blob.type || 'application/octet-stream',
         });
-        const url = URL.createObjectURL(file);
-        const opened = window.open(url, '_blank');
-        if (!opened) {
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = attachment.originalName || 'allegato';
-          link.click();
-        }
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        void downloadFile(file, attachment.originalName || 'allegato');
       },
       error: () => {
         this.errorMessage = 'Errore apertura allegato.';

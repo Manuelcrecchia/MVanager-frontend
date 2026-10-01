@@ -80,6 +80,11 @@ type AccountingPageMode = 'list' | 'new' | 'detail';
   styleUrl: './accounting.component.css',
 })
 export class AccountingComponent implements OnInit, OnDestroy {
+
+  readonly realtimeResources = ["accounting","invoices"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadCurrentTab(true);
+  }
   trackStableInteractiveItem(index: number, item: any): string | number {
     return item?.id ?? item?.key ?? item?.code ?? item?.name ?? index;
   }
@@ -184,14 +189,14 @@ export class AccountingComponent implements OnInit, OnDestroy {
     this.router.navigateByUrl('/homeAdmin');
   }
 
-  loadCurrentTab(): void {
-    this.clearMessages();
-    if (this.activeTab === 'dashboard') this.loadDashboard();
-    if (this.activeTab === 'accounts') this.loadAccounts();
-    if (this.activeTab === 'entries') this.loadEntries();
-    if (this.activeTab === 'ledger') this.loadLedger();
-    if (this.activeTab === 'vat') this.loadVatRegister();
-    if (this.activeTab === 'reports') this.loadReports();
+  loadCurrentTab(silent = false): void {
+    if (!silent) this.clearMessages();
+    if (this.activeTab === 'dashboard') this.loadDashboard(silent);
+    if (this.activeTab === 'accounts') this.loadAccounts(undefined, silent);
+    if (this.activeTab === 'entries') this.loadEntries(silent);
+    if (this.activeTab === 'ledger') this.loadLedger(silent);
+    if (this.activeTab === 'vat') this.loadVatRegister(silent);
+    if (this.activeTab === 'reports') this.loadReports(silent);
   }
 
   refreshAll(): void {
@@ -220,8 +225,8 @@ export class AccountingComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadDashboard(): void {
-    this.loading = true;
+  loadDashboard(silent = false): void {
+    if (!silent) this.loading = true;
     this.http.get<any>(this.api('dashboard'), { params: this.filterParams() }).subscribe({
       next: (data) => {
         this.reports = data?.reports || null;
@@ -232,8 +237,8 @@ export class AccountingComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadAccounts(done?: () => void): void {
-    this.loading = true;
+  loadAccounts(done?: () => void, silent = false): void {
+    if (!silent) this.loading = true;
     this.http.get<AccountingAccount[]>(this.api('accounts')).subscribe({
       next: (accounts) => {
         this.accounts = accounts || [];
@@ -247,8 +252,8 @@ export class AccountingComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadEntries(): void {
-    this.loading = true;
+  loadEntries(silent = false): void {
+    if (!silent) this.loading = true;
     this.ensureAccounts(() => {
       this.http.get<AccountingEntry[]>(this.api('entries'), { params: this.filterParams() }).subscribe({
         next: (entries) => {
@@ -260,8 +265,8 @@ export class AccountingComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadLedger(): void {
-    this.loading = true;
+  loadLedger(silent = false): void {
+    if (!silent) this.loading = true;
     this.ensureAccounts(() => {
       let params = this.filterParams();
       if (this.ledger.accountId) params = params.set('accountId', String(this.ledger.accountId));
@@ -279,8 +284,8 @@ export class AccountingComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadReports(): void {
-    this.loading = true;
+  loadReports(silent = false): void {
+    if (!silent) this.loading = true;
     this.http.get<AccountingReport>(this.api('reports'), { params: this.filterParams() }).subscribe({
       next: (report) => {
         this.reports = report;
@@ -290,8 +295,8 @@ export class AccountingComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadVatRegister(): void {
-    this.loading = true;
+  loadVatRegister(silent = false): void {
+    if (!silent) this.loading = true;
     this.http.get<VatRegister>(this.api('vat-register'), { params: this.filterParams() }).subscribe({
       next: (data) => {
         this.vatRegister = data || this.vatRegister;

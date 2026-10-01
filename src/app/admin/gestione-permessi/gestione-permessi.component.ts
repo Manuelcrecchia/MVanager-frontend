@@ -12,6 +12,11 @@ declare var bootstrap: any;
   styleUrls: ['./gestione-permessi.component.css'],
 })
 export class GestionePermessiComponent implements OnInit {
+
+  readonly realtimeResources = ["leave_requests"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadRequests(true);
+  }
   @ViewChild('creaModal') creaModalElement!: ElementRef;
 
   leaveRequests: any[] = [];
@@ -164,8 +169,8 @@ export class GestionePermessiComponent implements OnInit {
     });
   }
 
-  loadRequests(): void {
-    this.loading = true;
+loadRequests(silent = false): void {
+    if (!silent) this.loading = true;
     const suffix = this.showArchived ? '?includeArchived=true' : '';
     this.http.get<any[]>(this.globalService.url + 'permission' + suffix).subscribe({
       next: (res) => {

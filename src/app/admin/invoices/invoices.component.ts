@@ -1,3 +1,4 @@
+import { downloadFile } from '../../shared/file-download';
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -376,6 +377,12 @@ type InvoiceListGroup = { key: string; label: string; items: Invoice[] };
   styleUrl: './invoices.component.css',
 })
 export class InvoicesComponent implements OnInit, OnDestroy {
+
+  readonly realtimeResources = ["invoices","accounting"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    if (this.activeView === 'settings') return;
+    this.loadActiveViewData(true);
+  }
   @ViewChild('invoiceEditor') private invoiceEditor?: ElementRef<HTMLElement>;
   private querySubscription?: Subscription;
   private pendingCustomerInvoiceId = '';
@@ -752,9 +759,9 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     return value === 'new' || value === 'detail' ? value : 'list';
   }
 
-  private loadActiveViewData(): void {
+  private loadActiveViewData(silent = false): void {
     if (this.activeView === 'invoices') {
-      this.loadInvoices();
+      this.loadInvoices(silent);
       return;
     }
     if (this.activeView === 'payments') {
@@ -762,11 +769,11 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.activeView === 'economics') {
-      this.loadEconomicSummary();
+      this.loadEconomicSummary(silent);
       return;
     }
     if (this.activeView === 'ddt') {
-      this.loadDdts();
+      this.loadDdts(silent);
       return;
     }
     if (this.activeView === 'settings') {
@@ -994,9 +1001,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     };
   }
 
-  loadInvoices(): void {
-    this.loading = true;
-    this.error = '';
+  loadInvoices(silent = false): void {
+    if (!silent) { this.loading = true; this.error = ''; }
     const params = new URLSearchParams();
     if (this.statusFilter) params.set('status', this.statusFilter);
     if (this.directionFilter) params.set('direction', this.directionFilter);
@@ -1007,7 +1013,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         this.invoices = res || [];
         this.loading = false;
         const entityId = Number(this.route.snapshot.queryParamMap.get('entityId') || 0);
-        if (this.activeView === 'invoices' && this.pageMode === 'detail' && entityId && Number(this.selected.id || 0) !== entityId) {
+        if (!silent && this.activeView === 'invoices' && this.pageMode === 'detail' && entityId && Number(this.selected.id || 0) !== entityId) {
           const target = this.invoices.find((item) => Number(item.id) === entityId);
           if (target) this.selectInvoice(target);
         }
@@ -1033,7 +1039,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadDdts(): void {
+  loadDdts(silent = false): void {
     const params = new URLSearchParams();
     if (this.ddtStatusFilter) params.set('status', this.ddtStatusFilter);
     if (this.ddtSearch.trim()) params.set('search', this.ddtSearch.trim());
@@ -1042,7 +1048,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.ddts = res || [];
         const entityId = Number(this.route.snapshot.queryParamMap.get('entityId') || 0);
-        if (this.pageMode === 'detail' && entityId && Number(this.selectedDdt.id || 0) !== entityId) {
+        if (!silent && this.pageMode === 'detail' && entityId && Number(this.selectedDdt.id || 0) !== entityId) {
           const target = this.ddts.find((item) => Number(item.id) === entityId);
           if (target) this.selectDdt(target);
         }
@@ -1178,9 +1184,8 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     return dueDate < today;
   }
 
-  loadEconomicSummary(): void {
-    this.loading = true;
-    this.error = '';
+  loadEconomicSummary(silent = false): void {
+    if (!silent) { this.loading = true; this.error = ''; }
     const params = new URLSearchParams();
     if (this.economicFrom) params.set('startDate', this.economicFrom);
     if (this.economicTo) params.set('endDate', this.economicTo);
@@ -2675,12 +2680,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.http.post(this.global.url + 'invoices/pdf', { id: this.selected.id }, { responseType: 'blob' }).subscribe({
       next: (blob) => {
         this.saving = false;
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `fattura-${this.selected.number || this.selected.id}.pdf`;
-        anchor.click();
-        URL.revokeObjectURL(url);
+        void downloadFile(blob, `fattura-${this.selected.number || this.selected.id}.pdf`);
       },
       error: (err) => {
         this.saving = false;
@@ -2699,12 +2699,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.http.post(this.global.url + 'invoices/ddt/pdf', { id: this.selectedDdt.id }, { responseType: 'blob' }).subscribe({
       next: (blob) => {
         this.saving = false;
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `ddt-${this.selectedDdt.number || this.selectedDdt.id}.pdf`;
-        anchor.click();
-        URL.revokeObjectURL(url);
+        void downloadFile(blob, `ddt-${this.selectedDdt.number || this.selectedDdt.id}.pdf`);
       },
       error: (err) => {
         this.saving = false;

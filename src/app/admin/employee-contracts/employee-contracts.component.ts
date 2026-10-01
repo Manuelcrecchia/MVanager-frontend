@@ -96,6 +96,11 @@ function contractFieldKey(field: Partial<TenantFieldMappingFieldConfig> | null |
   styleUrls: ['./employee-contracts.component.css'],
 })
 export class EmployeeContractsComponent implements OnInit {
+
+  readonly realtimeResources = ["employee_contracts"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadContracts(true);
+  }
   contracts: EmployeeContract[] = [];
   filteredContracts: EmployeeContract[] = [];
   form: EmployeeContractForm = this.createEmptyForm();
@@ -141,8 +146,8 @@ export class EmployeeContractsComponent implements OnInit {
     });
   }
 
-  loadContracts(): void {
-    this.loading = true;
+loadContracts(silent = false): void {
+    if (!silent) this.loading = true;
     this.errorMessage = '';
 
     this.http
@@ -155,7 +160,7 @@ export class EmployeeContractsComponent implements OnInit {
             (a, b) => Number(b.id || 0) - Number(a.id || 0),
           );
           this.refreshContractList();
-          this.focusContractFromNotificationIfNeeded();
+          if (!silent) this.focusContractFromNotificationIfNeeded();
           this.loading = false;
         },
         error: (err) => {

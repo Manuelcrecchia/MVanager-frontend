@@ -4,6 +4,8 @@ const sharedPlugins = [
   '@capacitor/app',
   '@capacitor/app-launcher',
   '@capacitor/barcode-scanner',
+  '@capacitor/filesystem',
+  '@capacitor/share',
   '@capacitor/preferences',
   '@capacitor/push-notifications',
   'capacitor-native-biometric',

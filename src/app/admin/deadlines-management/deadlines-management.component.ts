@@ -1,3 +1,4 @@
+import { downloadFile, fileDownloadIO } from '../../shared/file-download';
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -175,6 +176,11 @@ interface AssetInterventionCorrectionItem {
   styleUrls: ['./deadlines-management.component.css'],
 })
 export class DeadlinesManagementComponent implements OnInit {
+
+  readonly realtimeResources = ["deadlines","customer_asset_interventions","customers","employees","vehicles","equipment"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadEntities(); this.loadDeadlines(); if (this.kind === 'customerAsset') this.loadAssetInterventionVerbali();
+  }
   @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>;
   @ViewChild('deadlineForm') deadlineForm?: ElementRef<HTMLElement>;
   assetInterventionVerbali: AssetInterventionVerbale[] = [];
@@ -821,15 +827,11 @@ export class DeadlinesManagementComponent implements OnInit {
     const endpoint = `admin/deadlines/export-pdf?kind=${encodeURIComponent(this.kind)}&month=${encodeURIComponent(this.selectedMonth)}&mode=${encodeURIComponent(mode)}${customerIds ? `&customerIds=${encodeURIComponent(customerIds)}` : ''}`;
     this.http.get(this.globalService.url + endpoint, { responseType: 'blob' }).subscribe({
       next: (blob) => {
-        const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-        const anchor = document.createElement('a');
-        anchor.href = url;
+
         const suffix = this.kind === 'customerAsset'
           ? (mode === 'customers' ? 'clienti' : 'presidi')
           : this.kind;
-        anchor.download = `scadenze_${suffix}_${this.selectedMonth}.pdf`;
-        anchor.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        void downloadFile(new Blob([blob], { type: 'application/pdf' }), `scadenze_${suffix}_${this.selectedMonth}.pdf`);
         this.exportingPdf = false;
         this.showPdfExport = false;
       },
@@ -1374,11 +1376,7 @@ export class DeadlinesManagementComponent implements OnInit {
   }
 
   private saveAssetInterventionSignatureEvidence(receipt: string, appointmentId: number): void {
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([receipt], { type: 'text/plain;charset=utf-8' }));
-    link.download = `dati-prova-verbale-intervento-presidi-${appointmentId}.txt`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+    void downloadFile(new Blob([receipt], { type: 'text/plain;charset=utf-8' }), `dati-prova-verbale-intervento-presidi-${appointmentId}.txt`);
   }
 
   private printAssetInterventionSignatureEvidence(receipt: string): void {
@@ -1507,15 +1505,12 @@ export class DeadlinesManagementComponent implements OnInit {
     const url = this.globalService.url + `admin/customer-asset-interventions/${appointmentId}/pdf`;
     this.http.get(url, { headers: this.globalService.headers, responseType: 'blob' }).subscribe({
       next: (blob) => {
-        const objectUrl = URL.createObjectURL(blob);
-        if (download) {
-          const link = document.createElement('a');
-          link.href = objectUrl;
-          link.download = `verbale-intervento-presidi-${appointmentId}.pdf`;
-          link.click();
-        } else {
-          window.open(objectUrl, '_blank', 'noopener');
+        if (download || fileDownloadIO.native()) {
+          void downloadFile(blob, `verbale-intervento-presidi-${appointmentId}.pdf`);
+          return;
         }
+        const objectUrl = URL.createObjectURL(blob);
+        window.open(objectUrl, '_blank', 'noopener');
         setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
       },
       error: (err) => this.popup.showHttpError(err, 'Impossibile aprire il verbale.'),

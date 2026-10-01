@@ -1,3 +1,4 @@
+import { downloadFile } from '../../shared/file-download';
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
@@ -10,6 +11,14 @@ import { Router } from '@angular/router';
   styleUrls: ['./riepilogo-presenze-editabile.component.css'],
 })
 export class RiepilogoPresenzeEditabileComponent implements OnInit {
+
+  readonly realtimeResources = ["attendance","stamping","shifts","leave_requests"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    if (this.pendingSaves || this.pendingNotes.size || document.activeElement?.matches('input:not([type="search"]), textarea, select') || this.loading) return false;
+    return this.caricaPresenze(true);
+  }
+  private pendingSaves = 0;
+  private pendingNotes = new Set<number>();
   mesi = [
     { nome: 'Gennaio', valore: '01' },
     { nome: 'Febbraio', valore: '02' },
@@ -101,8 +110,10 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
     });
   }
 
-  async caricaPresenze() {
-    this.loading = true;
+async caricaPresenze(silent = false): Promise<void | boolean> {
+    const period = this.meseSelezionato + '/' + this.annoSelezionato + '/' + this.showArchived;
+    const before = JSON.stringify(this.dipendenti);
+    if (!silent) this.loading = true;
 
     try {
       // 1️⃣ GIORNI DEL MESE
@@ -134,12 +145,8 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
         if (!d.note) d.note = '';
       });
 
-      // 4️⃣ ASSEGNO AL TEMPLATE
-      this.dipendenti = dipTmp;
-      this.dipendentiSelezionati = new Set(dipTmp.map((d: any) => d.id));
-
       // ✅ NORMALIZZAZIONE: assicura che il totale abbia sempre 2 decimali
-      this.dipendenti.forEach((d: any) => {
+      dipTmp.forEach((d: any) => {
         if (d.totale) {
           d.totale = this.formatOreStr(d.totale);
         }
@@ -147,7 +154,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
 
       // 5️⃣ INIZIALIZZO VOCI GIORNO (struttura per giornate miste)
       // Ogni giorno può avere multiple voci: [{categoria: 'O', ore: '4'}, {categoria: 'P', ore: '4'}]
-      this.dipendenti.forEach((d) => {
+      dipTmp.forEach((d: any) => {
         d.vociGiorno = []; // Array di array: vociGiorno[giornoIndex] = [{categoria, ore}, ...]
 
         for (let i = 0; i < this.giorni.length; i++) {
@@ -188,7 +195,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
         .toPromise();
 
       (edits || []).forEach((cell: any) => {
-        const dip = this.dipendenti.find((d) => d.id === cell.employeeId);
+        const dip = dipTmp.find((d: any) => d.id === cell.employeeId);
         if (!dip) return;
 
         const index = cell.giorno - 1;
@@ -240,7 +247,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
       });
 
       // Ricalcola totale dopo aver applicato gli override celle
-      this.dipendenti.forEach((d) => this.ricalcolaTotale(d));
+      dipTmp.forEach((d: any) => this.ricalcolaTotale(d));
 
       // 7️⃣ APPLICO NOTE MANUALI (AttendanceEditableNote)
       const noteEdits: any = await this.http
@@ -250,9 +257,15 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
         .toPromise();
 
       (noteEdits || []).forEach((n: any) => {
-        const dip = this.dipendenti.find((d) => d.id === n.employeeId);
+        const dip = dipTmp.find((d: any) => d.id === n.employeeId);
         if (dip) dip.note = n.nota ?? '';
       });
+      if (period !== this.meseSelezionato + '/' + this.annoSelezionato + '/' + this.showArchived) return;
+      if (silent && (this.pendingSaves || this.pendingNotes.size || before !== JSON.stringify(this.dipendenti) || document.activeElement?.matches('input:not([type="search"]), textarea, select'))) return false;
+      this.dipendenti = dipTmp;
+      this.dipendentiSelezionati = silent
+        ? new Set([...this.dipendentiSelezionati].filter(id => dipTmp.some((d: any) => d.id === id)))
+        : new Set(dipTmp.map((d: any) => d.id));
     } catch (err) {
       console.error('❌ Errore caricamento presenze editabili:', err);
       alert('Errore durante il caricamento delle presenze');
@@ -334,6 +347,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
     this.sincronizzaTipologie(d, i);
     this.ricalcolaTotale(d);
 
+    this.pendingSaves++;
     this.http
       .post(`${this.globalService.url}admin/attendanceEdit/saveEditableCell`, {
         employeeId: d.id,
@@ -346,8 +360,9 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
         ore: primaVoce?.ore || '',
       })
       .subscribe({
-        next: () => {},
+        next: () => { this.pendingSaves--; },
         error: (err) => {
+          this.pendingSaves--;
           console.error('Errore salvataggio cella:', err);
           alert(this.parseServerError(err));
         },
@@ -422,6 +437,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
   // 🔵 AUTOSAVE NOTE con debounce
   onNotaChange(dip: any) {
     const id = dip.id;
+    this.pendingNotes.add(id);
 
     if (!this.noteChanges[id]) {
       this.noteChanges[id] = new Subject<string>();
@@ -449,6 +465,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
         .toPromise();
 
       console.log('✔ Nota salvata');
+      if (dip.note === nota) this.pendingNotes.delete(dip.id);
     } catch (err) {
       console.error('❌ Errore salvataggio nota editabile:', err);
       alert(this.parseServerError(err));
@@ -486,12 +503,7 @@ export class RiepilogoPresenzeEditabileComponent implements OnInit {
       );
 
       const filename = `Presenze_${this.annoSelezionato}-${this.meseSelezionato}_EDITABILE.pdf`;
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      window.URL.revokeObjectURL(url);
+      void downloadFile(blob, filename);
     } catch (err) {
       console.error('Errore generazione/scarico PDF EDITABILE:', err);
       alert('Errore durante la generazione o il download del PDF editabile.');

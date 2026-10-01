@@ -154,12 +154,6 @@ export class AppComponent {
     });
   }
 
-  get realtimeNotice(): string {
-    const change = this.realtimeSync.pendingChange$.value;
-    if (!change) return '';
-    return 'Questi dati sono stati modificati da un altro utente.';
-  }
-
   @HostListener('window:focus')
   onWindowFocus(): void {
     this.refreshTenantConfigFromServer();

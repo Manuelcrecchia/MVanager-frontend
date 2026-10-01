@@ -10,6 +10,8 @@ interface ManagedCategory { id?: number; name: string; description?: string; cer
 
 @Component({ selector: 'app-category-settings', templateUrl: './category-settings.component.html', styleUrls: ['./category-settings.component.css'] })
 export class CategorySettingsComponent implements OnInit {
+  readonly realtimeResources = ["deadlines","employees"];
+  refreshRealtimeData(): void { this.load(true); }
   selectedType: CategoryType = 'customer';
   categories: ManagedCategory[] = [];
   draft: ManagedCategory = this.emptyDraft();
@@ -70,9 +72,9 @@ export class CategorySettingsComponent implements OnInit {
     this.reset();
     this.load();
   }
-  load(): void {
+  load(silent = false): void {
     if (!this.canManage(this.selectedType)) return;
-    this.loading = true;
+    if (!silent) this.loading = true;
     this.http.get<ManagedCategory[]>(this.global.url + this.endpoint()).subscribe({
       next: (items) => { this.categories = Array.isArray(items) ? items.map((item) => ({ ...item, certifications: item.certifications || [] })) : []; this.loading = false; },
       error: () => { this.error = `Impossibile caricare le categorie ${this.title}.`; this.loading = false; },

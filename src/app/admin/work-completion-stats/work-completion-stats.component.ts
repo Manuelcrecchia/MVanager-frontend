@@ -47,6 +47,11 @@ interface StatsResponse {
   styleUrls: ['./work-completion-stats.component.css'],
 })
 export class WorkCompletionStatsComponent implements OnInit {
+
+  readonly realtimeResources = ["work_completion"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadStats(true);
+  }
   loading = false;
   error = '';
   from = '';
@@ -86,8 +91,8 @@ export class WorkCompletionStatsComponent implements OnInit {
     this.to = this.toDateInput(today);
   }
 
-  loadStats(): void {
-    this.loading = true;
+loadStats(silent = false): void {
+    if (!silent) this.loading = true;
     this.error = '';
     this.stats = null;
 

@@ -25,6 +25,11 @@ interface AdminRow {
   styleUrls: ['./user-settings.component.css'],
 })
 export class UserSettingsComponent implements OnInit {
+
+  readonly realtimeResources = ["admins"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.fetchAdmins();
+  }
   // Lista permessi disponibili (presa dal backend)
   permissionOptions: PermissionOption[] = [];
 

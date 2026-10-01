@@ -1,3 +1,4 @@
+import { downloadFile } from '../../shared/file-download';
 import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
 import { Component, HostListener, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -44,6 +45,11 @@ export interface NotaPreventivo {
   styleUrl: './quote-notes.component.css',
 })
 export class QuoteNotesComponent implements OnInit {
+
+  readonly realtimeResources = ["quote_notes"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadNote(true);
+  }
   private readonly fallbackReturnUrl = '/homeAdmin/quotesHome';
   numeroPreventivo = '';
   displayName = '';
@@ -145,9 +151,9 @@ export class QuoteNotesComponent implements OnInit {
     this.loadNote();
   }
 
-  loadNote() {
+  loadNote(silent = false) {
     if (!this.numeroPreventivo) return;
-    this.loading = true;
+    if (!silent) this.loading = true;
     this.http
       .post<NotaPreventivo[]>(
         this.globalService.url + 'quotes/notes/getAll',
@@ -272,7 +278,10 @@ export class QuoteNotesComponent implements OnInit {
 
   downloadAllegato(allegato: AllegatoNota) {
     this.withObjectUrl(allegato, (url) => {
-      const link = document.createElement('a'); link.href = url; link.download = allegato.nome; link.click();
+      // Object URL from the authenticated response, never a remote URL.
+      fetch(url).then(response => response.blob())
+        .then(blob => downloadFile(blob, allegato.nome))
+        .catch(() => alert('Impossibile scaricare l’allegato.'));
     }, false, false);
   }
 

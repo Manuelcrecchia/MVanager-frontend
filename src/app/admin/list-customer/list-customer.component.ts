@@ -3,7 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { CustomerModelService } from '../../service/customer-model.service';
 import { Component, Input } from '@angular/core';
-import { saveAs } from 'file-saver';
+import { downloadFile as saveAs } from '../../shared/file-download';
 import { forkJoin, Subscription } from 'rxjs';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { NoteUnreadService } from '../../service/note-unread.service';
@@ -16,6 +16,12 @@ import { SocketService } from '../../service/soket.service';
   styleUrl: './list-customer.component.css',
 })
 export class ListCustomerComponent {
+
+  readonly realtimeResources = ["customers"];
+  readonly realtimeHandledLocally = true;
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.getCustomers(true);
+  }
   customers: any[] = [];
   customersFrEnd: any[] = [];
   employeeCategories: any[] = [];

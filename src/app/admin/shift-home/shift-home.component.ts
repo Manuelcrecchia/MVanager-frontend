@@ -74,6 +74,11 @@ interface RoutePlannerTeam {
   styleUrl: './shift-home.component.css',
 })
 export class ShiftHomeComponent implements OnInit, OnDestroy {
+
+  readonly realtimeResources = ["shifts","appointments","employees"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadShifts(true);
+  }
   trackStableInteractiveItem(index: number, item: any): string | number {
     return item?.id ?? item?.key ?? item?.name ?? item ?? index;
   }
@@ -415,18 +420,19 @@ export class ShiftHomeComponent implements OnInit, OnDestroy {
     return `${m} minuti`;
   }
 
-  loadShifts(): void {
+loadShifts(silent = false): void {
     const dateStr = this.formatDate(this.selectedDate);
 
     this.http
       .get<any[]>(`${this.globalService.url}shifts/byDate/${dateStr}`)
       .subscribe({
         next: (data: any[]) => {
+          if (dateStr !== this.formatDate(this.selectedDate)) return;
           const shiftsArray = Array.isArray(data) ? data : [];
 
           this.shifts = shiftsArray;
           this.groupedByEmployee = this.organizeByEmployee(shiftsArray);
-          if (this.routePlannerOpen) {
+          if (this.routePlannerOpen && !silent) {
             this.generateRoutePreview();
           }
 
@@ -434,9 +440,9 @@ export class ShiftHomeComponent implements OnInit, OnDestroy {
             .map((name) => this.getEmpId(name))
             .filter((id) => id > 0);
 
-          this.selectedEmployees = allIds.filter((id) =>
-            this.isEmployeePublished(id),
-          );
+          this.selectedEmployees = silent
+            ? this.selectedEmployees.filter((id) => allIds.includes(id))
+            : allIds.filter((id) => this.isEmployeePublished(id));
 
           this.updateSelectAllState();
         },

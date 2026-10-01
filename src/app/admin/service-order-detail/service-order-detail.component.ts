@@ -9,6 +9,11 @@ import { GlobalService } from '../../service/global.service';
   styleUrls: ['./service-order-detail.component.css'],
 })
 export class ServiceOrderDetailComponent implements OnInit {
+
+  readonly realtimeResources = ["service_orders"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadDetail();
+  }
   order: any | null = null;
   loading = true;
   private fieldLabels: Record<string, string> = {};
@@ -21,6 +26,10 @@ export class ServiceOrderDetailComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadDetail();
+  }
+
+  private loadDetail(): void {
     this.http.get<any>(this.global.url + 'service-orders/config').subscribe({
       next: (config) => {
         for (const field of Array.isArray(config?.fields) ? config.fields : []) {

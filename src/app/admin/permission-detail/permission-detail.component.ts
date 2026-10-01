@@ -10,6 +10,11 @@ import { AttachmentViewerService } from '../../shared/attachment-viewer/attachme
   styleUrls: ['./permission-detail.component.css'],
 })
 export class PermissionDetailComponent implements OnInit {
+
+  readonly realtimeResources = ["leave_requests"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadDetail();
+  }
   request: any | null = null;
   requestId = 0;
   loading = true;
@@ -25,6 +30,10 @@ export class PermissionDetailComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadDetail();
+  }
+
+  private loadDetail(): void {
     this.globalService.loadTenantConfig(false, { showError: false }).then(() => {
       for (const category of this.globalService.getLeaveCategories()) {
         this.categoryLabels.set(String(category.key), String(category.label || category.key));

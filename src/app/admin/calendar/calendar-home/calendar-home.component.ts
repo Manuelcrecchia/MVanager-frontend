@@ -83,6 +83,11 @@ type EditScope = 'single' | 'series';
   styleUrl: './calendar-home.component.css',
 })
 export class CalendarHomeComponent implements OnInit {
+
+  readonly realtimeResources = ["appointments","quotes","customers","shifts"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadAll();
+  }
   trackCalendarWeek(index: number, week: Date[]): number {
     return week?.[0]?.getTime() ?? index;
   }

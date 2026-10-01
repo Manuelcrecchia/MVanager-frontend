@@ -1,158 +1,70 @@
-import {
-  adminRouteRequiresRealtimeConfirmation,
-  adminRouteUsesResource,
-  RealtimeSyncService,
-} from './realtime-sync.service';
-import { BehaviorSubject } from 'rxjs';
+import { fakeAsync, tick, flushMicrotasks } from '@angular/core/testing';
+import { RealtimeSyncService } from './realtime-sync.service';
+import { getRealtimeClientId } from './realtime-client-id';
 
-describe('RealtimeSyncService route matching', () => {
-  it('refreshes the dashboard for every changed resource', () => {
-    expect(adminRouteUsesResource('/homeAdmin', 'appointments')).toBeTrue();
-    expect(adminRouteUsesResource('/homeAdmin', 'invoices')).toBeTrue();
+describe('RealtimeSyncService in-place updates', () => {
+  let service: any;
+  let child: any;
+  let shell: any;
+  let router: any;
+  const context = (view: any, children?: any): any => ({
+    getContext: () => view ? { outlet: { isActivated: true, component: view }, children: children || { getContext: () => null } } : null,
   });
-
-  it('matches the main realtime areas', () => {
-    expect(adminRouteUsesResource('/homeAdmin/calendarHome', 'appointments')).toBeTrue();
-    expect(adminRouteUsesResource('/homeAdmin/listCustomer', 'customers')).toBeTrue();
-    expect(adminRouteUsesResource('/homeAdmin/quotesHome', 'quotes')).toBeTrue();
-    expect(adminRouteUsesResource('/homeAdmin/gestionepermessi', 'leave_requests')).toBeTrue();
-    expect(adminRouteUsesResource('/homeAdmin/invoices', 'invoices')).toBeTrue();
-    expect(adminRouteUsesResource('/homeAdmin/accounting', 'invoices')).toBeTrue();
-    expect(adminRouteUsesResource('/homeAdmin/service-orders', 'service_orders')).toBeTrue();
-    expect(adminRouteUsesResource('/homeAdmin/customer-assets', 'deadlines')).toBeTrue();
-    expect(adminRouteUsesResource('/homeAdmin/internal-warehouse', 'internal_warehouse')).toBeTrue();
+  beforeEach(() => {
+    child = { realtimeResources: ['quotes', 'customers'], refreshRealtimeData: jasmine.createSpy('child') };
+    shell = { realtimeResources: ['quotes'], refreshRealtimeData: jasmine.createSpy('shell') };
+    router = { navigateByUrl: jasmine.createSpy('navigate'), navigate: jasmine.createSpy('navigate') };
+    service = new RealtimeSyncService(router, {} as any, { token: 'token' } as any, {} as any, {} as any, context(shell, context(child)));
   });
-
-  it('aggiorna le pagine note solo per modifiche ai contenuti, non per le conferme di lettura', () => {
-    expect(adminRouteUsesResource('/homeAdmin/quote-notes', 'quote_notes')).toBeTrue();
-    expect(adminRouteUsesResource('/homeAdmin/customer-notes', 'customer_notes')).toBeTrue();
-    expect(adminRouteUsesResource('/homeAdmin/quote-notes', 'note_unread')).toBeFalse();
-    expect(adminRouteUsesResource('/homeAdmin/customer-notes', 'note_unread')).toBeFalse();
-  });
-
-  it('does not confuse the homeAdmin shell with an admins change', () => {
-    expect(adminRouteUsesResource('/homeAdmin/invoices', 'admins')).toBeFalse();
-    expect(adminRouteUsesResource('/homeAdmin/gestioneusers', 'admins')).toBeTrue();
-  });
-
-  it('delegates customer-list changes to its silent granular refresh', () => {
-    const service = Object.create(RealtimeSyncService.prototype) as RealtimeSyncService;
-    (service as any).router = { url: '/homeAdmin/listCustomer' };
-
-    expect((service as any).hasGranularHandler({
-      tenantId: 'sami',
-      resource: 'customers',
-      action: 'archived',
-    })).toBeTrue();
-  });
-
-  it('aggiorna silenziosamente tutte le schermate di consultazione anche con filtri attivi', () => {
-    expect(adminRouteRequiresRealtimeConfirmation('/homeAdmin/listCustomer')).toBeFalse();
-    expect(adminRouteRequiresRealtimeConfirmation('/homeAdmin/invoices?search=rossi')).toBeFalse();
-    expect(adminRouteRequiresRealtimeConfirmation('/homeAdmin/calendarHome')).toBeFalse();
-    expect(adminRouteRequiresRealtimeConfirmation('/homeAdmin/internal-warehouse')).toBeFalse();
-  });
-
-  it('mostra la conferma solo sulle schermate che possono contenere modifiche non salvate', () => {
-    expect(adminRouteRequiresRealtimeConfirmation('/homeAdmin/customer/edit/42')).toBeTrue();
-    expect(adminRouteRequiresRealtimeConfirmation('/homeAdmin/invoices/new')).toBeTrue();
-    expect(adminRouteRequiresRealtimeConfirmation('/homeAdmin/shifts/create')).toBeTrue();
-    expect(adminRouteRequiresRealtimeConfirmation('/homeAdmin/settings')).toBeTrue();
-  });
-
-  it('su una lista pianifica il refresh e non pubblica un aggiornamento pendente', () => {
-    const service = Object.create(RealtimeSyncService.prototype) as RealtimeSyncService;
-    const pending = new BehaviorSubject<any>(null);
-    const schedule = jasmine.createSpy('scheduleCurrentRouteRefresh');
-    Object.assign(service as any, {
-      router: { url: '/homeAdmin/invoices' },
-      pendingChange$: pending,
-      currentRouteUses: () => true,
-      hasGranularHandler: () => false,
-      isEditingRoute: () => false,
-      scheduleCurrentRouteRefresh: schedule,
-    });
-
-    (service as any).handleChange({ tenantId: 'sami', resource: 'invoices', action: 'updated' });
-
-    expect(schedule).toHaveBeenCalledWith(250);
-    expect(pending.value).toBeNull();
-  });
-
-  it('su una scheda di modifica non forza il refresh e protegge i dati inseriti', () => {
-    const service = Object.create(RealtimeSyncService.prototype) as RealtimeSyncService;
-    const pending = new BehaviorSubject<any>(null);
-    const schedule = jasmine.createSpy('scheduleCurrentRouteRefresh');
-    Object.assign(service as any, {
-      router: { url: '/homeAdmin/customer/edit/42' },
-      pendingChange$: pending,
-      currentRouteUses: () => true,
-      hasGranularHandler: () => false,
-      isEditingRoute: () => true,
-      scheduleCurrentRouteRefresh: schedule,
-    });
-    const change = { tenantId: 'sami', resource: 'customers', action: 'updated' };
-
-    (service as any).handleChange(change);
-
-    expect(schedule).not.toHaveBeenCalled();
-    expect(pending.value).toEqual(change);
-  });
-
-  it('ricarica subito gli avvisi MVanager su qualunque pagina', () => {
-    const service = Object.create(RealtimeSyncService.prototype) as RealtimeSyncService;
-    const showAfterLogin = jasmine.createSpy('showAfterLogin').and.resolveTo();
-    Object.assign(service as any, {
-      router: { url: '/homeAdmin/invoices/new' },
-      serviceAnnouncements: { showAfterLogin },
-    });
-
-    (service as any).handleChange({
-      tenantId: 'sami',
-      resource: 'service_announcements',
-      action: 'available',
-      metadata: { apps: ['mvanager'] },
-    });
-
-    expect(showAfterLogin).toHaveBeenCalled();
-  });
-
-  it('ignora gli avvisi destinati soltanto ai dipendenti', () => {
-    const service = Object.create(RealtimeSyncService.prototype) as RealtimeSyncService;
-    const showAfterLogin = jasmine.createSpy('showAfterLogin').and.resolveTo();
-    Object.assign(service as any, { serviceAnnouncements: { showAfterLogin } });
-
-    (service as any).handleChange({
-      tenantId: 'sami',
-      resource: 'service_announcements',
-      action: 'available',
-      metadata: { apps: ['mvdipendenti'] },
-    });
-
-    expect(showAfterLogin).not.toHaveBeenCalled();
-  });
-
-  it('distingue i filtri dai controlli di un modulo di modifica', () => {
-    const service = Object.create(RealtimeSyncService.prototype) as RealtimeSyncService;
-    const search = document.createElement('input');
-    search.type = 'search';
-    const filter = document.createElement('select');
-    const form = document.createElement('form');
-    const editor = document.createElement('input');
-    form.appendChild(editor);
-    document.body.append(search, filter, form);
-
-    try {
-      search.focus();
-      expect((service as any).hasFocusedEditorControl()).toBeFalse();
-      filter.focus();
-      expect((service as any).hasFocusedEditorControl()).toBeFalse();
-      editor.focus();
-      expect((service as any).hasFocusedEditorControl()).toBeTrue();
-    } finally {
-      search.remove();
-      filter.remove();
-      form.remove();
-    }
-  });
+  it('coalesces different resources without losing a refresh or navigating', fakeAsync(() => {
+    service.handleChange({ resource: 'quotes' });
+    service.handleChange({ resource: 'customers' });
+    tick(120); flushMicrotasks();
+    expect(child.refreshRealtimeData).toHaveBeenCalledTimes(1);
+    expect(shell.refreshRealtimeData).toHaveBeenCalledTimes(1);
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(router.navigateByUrl).not.toHaveBeenCalled();
+  }));
+  it('handles standalone/mobile outlets without depending on URL spelling', fakeAsync(() => {
+    service.outletContexts = context(child);
+    service.handleChange({ resource: 'customers' });
+    tick(120);
+    expect(child.refreshRealtimeData).toHaveBeenCalledTimes(1);
+  }));
+  it('does not refresh unrelated resources or echo this client', fakeAsync(() => {
+    service.handleChange({ resource: 'invoices' });
+    service.handleChange({ resource: 'quotes', originClientId: getRealtimeClientId() });
+    tick(120);
+    expect(child.refreshRealtimeData).not.toHaveBeenCalled();
+  }));
+  it('drops pending work for destroyed components', fakeAsync(() => {
+    service.handleChange({ resource: 'quotes' });
+    service.outletContexts = context(null);
+    tick(120);
+    expect(child.refreshRealtimeData).not.toHaveBeenCalled();
+  }));
+  it('retries a busy editor without losing the invalidation', fakeAsync(() => {
+    child.refreshRealtimeData.and.returnValues(false, undefined);
+    service.handleChange({ resource: 'customers' });
+    tick(120); flushMicrotasks();
+    tick(1000); flushMicrotasks();
+    expect(child.refreshRealtimeData).toHaveBeenCalledTimes(2);
+  }));
+  it('does not duplicate local handlers but includes them in recovery', fakeAsync(() => {
+    child.realtimeHandledLocally = true;
+    service.handleChange({ resource: 'customers' });
+    tick(120);
+    expect(child.refreshRealtimeData).not.toHaveBeenCalled();
+    service.handleConnectionState({ connected: true, reconnected: true, recovered: false });
+    tick(120); flushMicrotasks();
+    expect(child.refreshRealtimeData).toHaveBeenCalledTimes(1);
+    expect(router.navigateByUrl).not.toHaveBeenCalled();
+  }));
+  it('does not restart the timer indefinitely under continuous events', fakeAsync(() => {
+    service.handleChange({ resource: 'customers' });
+    tick(100);
+    service.handleChange({ resource: 'customers' });
+    tick(20); flushMicrotasks();
+    expect(child.refreshRealtimeData).toHaveBeenCalledTimes(1);
+  }));
 });

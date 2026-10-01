@@ -1,3 +1,4 @@
+import { downloadFile } from '../../shared/file-download';
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
@@ -9,6 +10,12 @@ import { Router } from '@angular/router';
   styleUrls: ['./riepilogo-ore-clienti.component.css'],
 })
 export class RiepilogoOreClientiComponent implements OnInit {
+
+  readonly realtimeResources = ["attendance","stamping","shifts"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    if (document.activeElement?.matches('input:not([type="search"]), textarea, select') || this.savingCells.size || this.loading) return false;
+    return this.caricaDati(true);
+  }
   mesi = [
     { nome: 'Gennaio', valore: '01' },
     { nome: 'Febbraio', valore: '02' },
@@ -83,8 +90,10 @@ export class RiepilogoOreClientiComponent implements OnInit {
     });
   }
 
-  async caricaDati() {
-    this.loading = true;
+async caricaDati(silent = false): Promise<void | boolean> {
+    const period = this.meseSelezionato + '/' + this.annoSelezionato + '/' + this.showArchived;
+    const before = JSON.stringify(this.clienti);
+    if (!silent) this.loading = true;
 
     try {
       this.generaGiorni();
@@ -95,9 +104,13 @@ export class RiepilogoOreClientiComponent implements OnInit {
         )
         .toPromise();
 
+      if (period !== this.meseSelezionato + '/' + this.annoSelezionato + '/' + this.showArchived) return;
+      if (silent && (this.savingCells.size || before !== JSON.stringify(this.clienti) || document.activeElement?.matches('input:not([type="search"]), textarea, select'))) return false;
       this.clienti = res?.clienti || [];
-      this.clientiSelezionati = new Set(this.clienti.map((customer) => String(customer.numeroCliente)));
-      this.espanso.clear();
+      if (!silent) {
+        this.clientiSelezionati = new Set(this.clienti.map((customer) => String(customer.numeroCliente)));
+        this.espanso.clear();
+      }
       this.errorMessage = '';
     } catch (err) {
       console.error('❌ Errore caricamento ore clienti:', err);
@@ -239,11 +252,6 @@ export class RiepilogoOreClientiComponent implements OnInit {
       .map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(';'))
       .join('\n');
     const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Ore_clienti_${this.annoSelezionato}-${this.meseSelezionato}.csv`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    void downloadFile(blob, `Ore_clienti_${this.annoSelezionato}-${this.meseSelezionato}.csv`);
   }
 }

@@ -9,12 +9,18 @@ PODS:
     - Capacitor
     - OSBarcodeLib (= 2.0.1)
   - CapacitorCordova (7.6.8)
+  - CapacitorFilesystem (7.1.8):
+    - Capacitor
+    - IONFilesystemLib (~> 1.1.1)
   - CapacitorNativeBiometric (0.0.1):
     - Capacitor
   - CapacitorPreferences (7.0.4):
     - Capacitor
   - CapacitorPushNotifications (7.0.7):
     - Capacitor
+  - CapacitorShare (7.0.4):
+    - Capacitor
+  - IONFilesystemLib (1.1.2)
   - MvanagerInspectionAlarmKit (0.0.1):
     - Capacitor
   - OSBarcodeLib (2.0.1)
@@ -25,13 +31,16 @@ DEPENDENCIES:
   - "CapacitorAppLauncher (from `../../node_modules/@capacitor/app-launcher`)"
   - "CapacitorBarcodeScanner (from `../../node_modules/@capacitor/barcode-scanner`)"
   - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
+  - "CapacitorFilesystem (from `../../node_modules/@capacitor/filesystem`)"
   - CapacitorNativeBiometric (from `../../node_modules/capacitor-native-biometric`)
   - "CapacitorPreferences (from `../../node_modules/@capacitor/preferences`)"
   - "CapacitorPushNotifications (from `../../node_modules/@capacitor/push-notifications`)"
+  - "CapacitorShare (from `../../node_modules/@capacitor/share`)"
   - MvanagerInspectionAlarmKit (from `../../plugins/inspection-alarm-kit`)
 
 SPEC REPOS:
   trunk:
+    - IONFilesystemLib
     - OSBarcodeLib
 
 EXTERNAL SOURCES:
@@ -45,12 +54,16 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/barcode-scanner"
   CapacitorCordova:
     :path: "../../node_modules/@capacitor/ios"
+  CapacitorFilesystem:
+    :path: "../../node_modules/@capacitor/filesystem"
   CapacitorNativeBiometric:
     :path: "../../node_modules/capacitor-native-biometric"
   CapacitorPreferences:
     :path: "../../node_modules/@capacitor/preferences"
   CapacitorPushNotifications:
     :path: "../../node_modules/@capacitor/push-notifications"
+  CapacitorShare:
+    :path: "../../node_modules/@capacitor/share"
   MvanagerInspectionAlarmKit:
     :path: "../../plugins/inspection-alarm-kit"
 
@@ -60,12 +73,15 @@ SPEC CHECKSUMS:
   CapacitorAppLauncher: a4f8a38922f861e585d887185ef28432e17c3eca
   CapacitorBarcodeScanner: 2d699fe5b8731cdfa3db03a4062e68b9a75c5c72
   CapacitorCordova: e61ee8c40101b8cd011d0224261606a290c082cf
+  CapacitorFilesystem: c63fc54df41e5a6761785a7f3c49dc696c22e296
   CapacitorNativeBiometric: 78cf21304251a512e4597437325b5e9b0cd9f7b3
   CapacitorPreferences: 69d9991307507aeab8ef8019c10b9babfda0e9ca
   CapacitorPushNotifications: 0527809a9619ed775439d5ab2c2d996122b48319
+  CapacitorShare: 25f7fc5dd0e4edbde5d6801c6de5d14a8b450a41
+  IONFilesystemLib: 21a63377696b2d8fab5632ecfb7d2ac67bddb68a
   MvanagerInspectionAlarmKit: 6d854ff7b4acbda2c8a3ba3b1a0d2f87b87da02b
   OSBarcodeLib: 57987d2eb1f916f701f4554e20e349b3cb83f023
 
-PODFILE CHECKSUM: 8f3e5e95b9a6e19891ce6596c00b2d6a1e9b7ffe
+PODFILE CHECKSUM: 04fc7ee9dbaa1097bd000c0d26a52f2c25d019be
 
 COCOAPODS: 1.16.2

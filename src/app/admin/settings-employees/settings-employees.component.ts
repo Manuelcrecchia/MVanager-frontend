@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChange
 import { HttpClient } from '@angular/common/http';
 import { GlobalService, TenantEmployeeFieldConfig } from '../../service/global.service';
 import { Router } from '@angular/router';
-import { saveAs } from 'file-saver';
+import { downloadFile as saveAs } from '../../shared/file-download';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 interface Employee {

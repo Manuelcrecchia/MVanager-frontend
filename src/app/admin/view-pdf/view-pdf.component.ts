@@ -1,3 +1,4 @@
+import { downloadFile } from '../../shared/file-download';
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Capacitor } from '@capacitor/core';
 import { GlobalService } from '../../service/global.service';
@@ -524,12 +525,7 @@ export class ViewPdfComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private downloadBlob(blob: Blob): void {
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = this.downloadName;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    void downloadFile(blob, this.downloadName);
   }
 
   private printBlob(blob: Blob): void {

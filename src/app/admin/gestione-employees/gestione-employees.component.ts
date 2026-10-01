@@ -12,6 +12,11 @@ import { NoteUnreadService } from '../../service/note-unread.service';
   styleUrls: ['./gestione-employees.component.css'],
 })
 export class GestioneEmployeesComponent implements OnInit {
+
+  readonly realtimeResources = ["employees"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.getEmployees();
+  }
   employees: any[] = [];
   employeeView: 'directory' | 'settings' = 'directory';
   employeeSearch = '';

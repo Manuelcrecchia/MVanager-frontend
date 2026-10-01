@@ -1,3 +1,4 @@
+import { downloadFile, fileDownloadIO } from '../../shared/file-download';
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -242,6 +243,16 @@ interface SupplierOrder {
   styleUrls: ['./internal-warehouse.component.css'],
 })
 export class InternalWarehouseComponent implements OnInit, OnDestroy {
+
+  readonly realtimeResources = ["internal_warehouse","material_orders"];
+  readonly realtimeHandledLocally = true;
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadSummary(); this.loadProductRequests();
+    if (this.activeTab === 'material-orders') this.loadMaterialOrders(true);
+    if (this.activeTab === 'orders') this.loadSupplierOrders();
+    if (['list', 'in', 'out', 'products'].includes(this.activeTab)) this.loadProducts(true);
+    if (this.activeTab === 'movements') this.loadMovementReport();
+  }
   trackStableInteractiveItem(index: number, item: any): string | number {
     return item?.id ?? item?.key ?? item?.numeroCliente ?? item?.productId ?? item?.code ?? item?.name ?? index;
   }
@@ -514,11 +525,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     this.internalWarehouseUpdateSub = this.socketService
       .onResourceChanges(['internal_warehouse', 'material_orders'])
       .subscribe(() => {
-        this.loadSummary();
-        this.loadProductRequests();
-        if (this.activeTab === 'material-orders') this.loadMaterialOrders();
-        if (['list', 'in', 'out', 'products'].includes(this.activeTab)) this.loadProducts();
-        if (this.activeTab === 'movements') this.loadMovementReport();
+        this.refreshRealtimeData();
       });
   }
 
@@ -1260,7 +1267,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     return `${this.global.url}admin/material-orders${path}`;
   }
 
-  loadMaterialOrders(): void {
+  loadMaterialOrders(silent = false): void {
     const scope = this.showArchivedMaterialOrders ? 'archive' : 'active';
     this.http.get<any[]>(this.materialApi(`?scope=${scope}`)).subscribe({
       next: (orders) => {
@@ -1272,6 +1279,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
       },
       error: (err) => this.handleError(err, 'Impossibile caricare gli ordini materiali.'),
     });
+    if (silent) return;
     this.http.get<any>(this.materialApi('/config')).subscribe({
       next: (config) => {
         this.materialOrderConfig = config || {};
@@ -2042,15 +2050,11 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   }
 
   private usePreparationPdf(blob: Blob, filename: string, action: 'open' | 'download' | 'print'): void {
-    const url = URL.createObjectURL(blob);
-    if (action === 'download') {
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (action === 'download' || fileDownloadIO.native()) {
+      void downloadFile(blob, filename);
       return;
     }
+    const url = URL.createObjectURL(blob);
     if (action === 'print') {
       const frame = document.createElement('iframe');
       frame.style.position = 'fixed';
@@ -2155,13 +2159,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
         ].join('\n');
         const action = await this.popup.evidence(receipt);
         if (action === 'save') {
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(
-            new Blob([receipt], { type: 'text/plain;charset=utf-8' }),
-          );
-          link.download = `dati-prova-consegna-materiali-${delivery.numeroConsegna || delivery.id}.txt`;
-          link.click();
-          URL.revokeObjectURL(link.href);
+          void downloadFile(new Blob([receipt], { type: 'text/plain;charset=utf-8' }), `dati-prova-consegna-materiali-${delivery.numeroConsegna || delivery.id}.txt`);
         }
         if (action === 'print') {
           const printWindow = window.open('', '_blank', 'width=850,height=700');
@@ -2584,13 +2582,13 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadProducts(): void {
+  loadProducts(silent = false): void {
     if (!this.canView) return;
     if (this.filters.stock === 'low') this.activeSummaryFilter = 'low';
     else if (this.filters.stock === 'out') this.activeSummaryFilter = 'out';
     else if (this.filters.sort === 'quantity_desc') this.activeSummaryFilter = 'quantity';
     else this.activeSummaryFilter = 'all';
-    this.loading = true;
+    if (!silent) this.loading = true;
     let params = new HttpParams();
     Object.entries(this.filters).forEach(([key, value]) => {
       if (value) params = params.set(key, value);
@@ -2606,7 +2604,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
           return true;
         });
         const selectedId = Number(this.route.snapshot.queryParamMap.get('entityId') || 0);
-        if (this.productView === 'detail' && selectedId) {
+        if (!silent && this.productView === 'detail' && selectedId) {
           const selected = this.products.find((item) => item.id === selectedId);
           if (selected) this.selectProduct(selected);
         }
@@ -3440,12 +3438,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     const path = kind === 'products' ? '/export/products.csv' : '/export/movements.csv';
     this.http.get(this.api(path), { responseType: 'blob' }).subscribe({
       next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = kind === 'products' ? 'magazzino-prodotti.csv' : 'magazzino-movimenti.csv';
-        link.click();
-        URL.revokeObjectURL(url);
+        void downloadFile(blob, kind === 'products' ? 'magazzino-prodotti.csv' : 'magazzino-movimenti.csv');
       },
       error: (err) => this.handleError(err, 'Impossibile esportare il CSV.'),
     });

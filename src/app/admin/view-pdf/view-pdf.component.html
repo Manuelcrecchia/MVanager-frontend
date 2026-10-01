@@ -33,22 +33,17 @@
     >
     </ngx-extended-pdf-viewer>
 
-    <pdf-viewer
+    <app-mobile-pdf-viewer
       *ngIf="pdfSrc && mobileWebPdfViewer"
       class="mobile-pdf-viewer"
       [src]="pdfSrc"
-      [show-all]="false"
       [page]="mobilePdfPage"
-      [original-size]="false"
-      [autoresize]="true"
-      [render-text]="false"
-      [zoom-scale]="'page-width'"
-      [zoom]="1"
       [style.width.%]="currentPdfZoom * 100"
       [style.transform]="'scale(' + mobilePinchPreview + ')'"
       [style.transform-origin]="mobilePinchOrigin"
-      (after-load-complete)="onMobilePdfLoaded($event)"
-    ></pdf-viewer>
+      (loaded)="onMobilePdfLoaded($event)"
+      (download)="downloadPdf()"
+    ></app-mobile-pdf-viewer>
 
     <div *ngIf="pdfSrc && nativeIosPdfViewer" class="native-pdf-placeholder">
       <span>Il documento viene visualizzato con il lettore PDF nativo di iPhone.</span>

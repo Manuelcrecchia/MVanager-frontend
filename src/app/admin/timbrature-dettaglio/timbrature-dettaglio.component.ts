@@ -10,6 +10,11 @@ import { PopupServiceService } from '../../componenti/popup/popup-service.servic
   styleUrls: ['./timbrature-dettaglio.component.css'],
 })
 export class TimbratureDettaglioComponent implements OnInit {
+
+  readonly realtimeResources = ["stamping","attendance"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadTimbrature(true);
+  }
   employeeId!: number;
   employee: any;
   date!: string;
@@ -55,8 +60,8 @@ export class TimbratureDettaglioComponent implements OnInit {
   }
 
   // 🔹 Carica timbrature
-  loadTimbrature() {
-    this.loading = true;
+loadTimbrature(silent = false) {
+    if (!silent) this.loading = true;
     this.http
       .get<any>(
         `${this.global.url}admin/stamping/${this.employeeId}/${this.date}`,

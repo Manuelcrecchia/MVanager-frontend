@@ -9,16 +9,10 @@ describe('Responsive pages – all templates and contents', () => {
 
   afterAll(() => {
     jasmine.DEFAULT_TIMEOUT_INTERVAL = initialTimeout;
-    window.resizeTo(500, 900);
   });
 
   for (const page of RESPONSIVE_PAGE_FIXTURES) {
     it(`${page.name} stays within the page from 280px to 1920px`, () => {
-      if (window.innerWidth !== 500) {
-        pending(`Eseguire con il profilo ChromeHeadlessMobile (viewport attuale: ${window.innerWidth}px).`);
-        return;
-      }
-
       // Un iframe rende davvero disponibili anche viewport inferiori al limite
       // minimo di 500px imposto da Chrome desktop. Le media query vengono quindi
       // valutate alla larghezza esatta sottoposta ad audit.
@@ -81,6 +75,7 @@ describe('Responsive pages – all templates and contents', () => {
       try {
         for (let width = 280; width <= 1920; width += 1) {
           frame.style.width = `${width}px`;
+          expect(frame.contentWindow!.innerWidth).withContext('Viewport effettivo del test').toBe(width);
 
           const overflow = stage.scrollWidth - stage.clientWidth;
           if (overflow <= 1) continue;

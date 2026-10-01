@@ -15,6 +15,11 @@ interface WarehouseStampingLocation {
   styleUrls: ['./timbrature-home.component.css'],
 })
 export class TimbratureHomeComponent implements OnInit {
+
+  readonly realtimeResources = ["stamping","employees","attendance"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadEmployees(true);
+  }
   employees: any[] = [];
   selectedDate: string = '';
   loading: boolean = false;
@@ -65,8 +70,8 @@ export class TimbratureHomeComponent implements OnInit {
   }
 
   // 🔹 Carica dipendenti e controlla errori
-  loadEmployees(): void {
-    this.loading = true;
+loadEmployees(silent = false): void {
+    if (!silent) this.loading = true;
     this.http
       .get<any>(
         `${this.global.url}admin/stamping/employees?date=${this.selectedDate}`
@@ -74,7 +79,7 @@ export class TimbratureHomeComponent implements OnInit {
       .subscribe({
         next: (res) => {
           this.employees = res.employees || [];
-          this.applyStampingConfig(res.stampingConfig || this.stampingConfig);
+          if (!silent) this.applyStampingConfig(res.stampingConfig || this.stampingConfig);
           this.loading = false;
         },
         error: (err) => {

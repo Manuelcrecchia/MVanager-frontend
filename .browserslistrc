@@ -1,0 +1,5 @@
+# Include the system WebView shipped with Android 8.1 (API 27).
+# Keep the same compilation baseline as MVanager Dipendenti.
+Chrome >= 61
+Safari >= 11
+iOS >= 11

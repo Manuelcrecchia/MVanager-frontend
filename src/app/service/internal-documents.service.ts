@@ -1,3 +1,4 @@
+import { downloadFile } from '../shared/file-download';
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../service/global.service';
@@ -36,15 +37,7 @@ export class InternalDocumentsService {
       const file = new File([blob], name || 'documento', {
         type: blob.type || 'application/octet-stream',
       });
-      const url = URL.createObjectURL(file);
-      const opened = window.open(url, '_blank');
-      if (!opened) {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = name || 'documento';
-        link.click();
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      void downloadFile(file, name || 'documento');
     });
   }
 

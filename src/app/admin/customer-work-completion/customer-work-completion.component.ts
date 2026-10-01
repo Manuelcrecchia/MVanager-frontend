@@ -1,3 +1,4 @@
+import { downloadFile, fileDownloadIO } from '../../shared/file-download';
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -10,6 +11,11 @@ import { PopupServiceService } from '../../componenti/popup/popup-service.servic
   styleUrls: ['./customer-work-completion.component.css'],
 })
 export class CustomerWorkCompletionComponent implements OnInit {
+
+  readonly realtimeResources = ["work_completion"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadDetail();
+  }
   numeroCliente = '';
   customer: any = null;
   displayName = '';
@@ -31,6 +37,10 @@ export class CustomerWorkCompletionComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadDetail();
+  }
+
+  private loadDetail(): void {
     this.numeroCliente = String(this.route.snapshot.paramMap.get('numeroCliente') || '').trim();
     if (!this.numeroCliente) {
       this.error = 'Cliente non valido.';
@@ -96,11 +106,7 @@ export class CustomerWorkCompletionComponent implements OnInit {
   }
 
   private saveEvidence(receipt: string): void {
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([receipt], { type: 'text/plain;charset=utf-8' }));
-    link.download = `dati-prova-foglio-fine-lavoro-${this.numeroCliente}.txt`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+    void downloadFile(new Blob([receipt], { type: 'text/plain;charset=utf-8' }), `dati-prova-foglio-fine-lavoro-${this.numeroCliente}.txt`);
   }
 
   private printEvidence(receipt: string): void {
@@ -164,6 +170,10 @@ export class CustomerWorkCompletionComponent implements OnInit {
     ).subscribe({
       next: (blob) => {
         this.saving = false;
+        if (fileDownloadIO.native()) {
+          void downloadFile(blob, `fine-lavoro-${this.numeroCliente}.pdf`);
+          return;
+        }
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
         setTimeout(() => URL.revokeObjectURL(url), 60_000);

@@ -45,6 +45,11 @@ interface ResourceCategory {
   styleUrls: ['./vehicles-settings.component.css'],
 })
 export class VehiclesSettingsComponent implements OnInit {
+
+  readonly realtimeResources = ["vehicles","equipment"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    if (this.mode === 'vehicle') this.loadVehicles(true); else this.loadEquipmentTargets();
+  }
   mode: SettingsMode = 'vehicle';
   vehicles: Vehicle[] = [];
   loading = false;
@@ -167,8 +172,8 @@ export class VehiclesSettingsComponent implements OnInit {
     this.router.navigateByUrl('/homeAdmin');
   }
 
-  loadVehicles() {
-    this.loading = true;
+  loadVehicles(silent = false) {
+    if (!silent) this.loading = true;
     this.http
       .get<Vehicle[]>(this.globalService.url + 'vehicles/getAll')
       .subscribe({

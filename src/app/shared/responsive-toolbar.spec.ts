@@ -137,23 +137,29 @@ describe('Responsive entity toolbar', () => {
   });
 
   it('keeps every audited header inside its bounds from 280px to 1920px', () => {
-    if (window.innerWidth !== 500) {
-      pending(`Eseguire con il profilo ChromeHeadlessMobile (viewport attuale: ${window.innerWidth}px).`);
-      return;
-    }
-
     fixture.detectChanges();
 
-    const host = fixture.nativeElement as HTMLElement;
-    const stage = host.querySelector<HTMLElement>('.responsive-audit-stage')!;
+    // Resize an actual viewport: resizeTo is ignored by some headless versions,
+    // and narrowing an element alone does not activate mobile media queries.
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'display:block;height:900px;border:0';
+    document.body.appendChild(frame);
+    const doc = frame.contentDocument!;
+    const style = doc.createElement('style');
+    style.textContent = Array.from(document.styleSheets).flatMap(sheet => {
+      try { return Array.from(sheet.cssRules, rule => rule.cssText); } catch { return []; }
+    }).join('\n');
+    doc.head.appendChild(style);
+    doc.body.style.margin = '0';
+    const root = doc.createElement('app-root');
+    const host = (fixture.nativeElement as HTMLElement).cloneNode(true) as HTMLElement;
+    root.appendChild(host);
+    doc.body.appendChild(root);
 
+    try {
     for (let width = 280; width <= 1920; width += 1) {
-      if (width < 500) {
-        stage.style.width = `${width}px`;
-      } else {
-        window.resizeTo(width, 900);
-        stage.style.width = '100%';
-      }
+      frame.style.width = `${width}px`;
+      expect(frame.contentWindow!.innerWidth).withContext('Viewport effettivo del test').toBe(width);
 
       const toolbars = Array.from(
         host.querySelectorAll<HTMLElement>('[data-audit-toolbar]'),
@@ -166,7 +172,7 @@ describe('Responsive entity toolbar', () => {
           toolbar.querySelectorAll<HTMLElement>(
             'h1, button, label, input, select, .btn-group, .mv-entity-toolbar__controls',
           ),
-        ).filter((element) => getComputedStyle(element).display !== 'none');
+        ).filter((element) => frame.contentWindow!.getComputedStyle(element).display !== 'none');
 
         expect(toolbar.scrollWidth)
           .withContext(`${name}: overflow interno a ${width}px`)
@@ -182,6 +188,9 @@ describe('Responsive entity toolbar', () => {
             .toBeLessThanOrEqual(toolbarRect.right + 1);
         }
       }
+    }
+    } finally {
+      frame.remove();
     }
   });
 });

@@ -34,6 +34,8 @@ interface QuotePhrase {
   styleUrls: ['./quote-settings.component.css'],
 })
 export class QuoteSettingsComponent implements OnInit {
+  readonly realtimeResources = ["settings"];
+  refreshRealtimeData(): void { this.loadPhrases(); this.loadRooms(); }
   // Data
   rooms: QuoteRoom[] = [];
   phrases: QuotePhrase[] = [];

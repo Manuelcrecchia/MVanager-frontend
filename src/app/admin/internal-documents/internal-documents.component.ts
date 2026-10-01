@@ -1,3 +1,4 @@
+import { downloadFile } from '../../shared/file-download';
 import { Component, OnInit } from '@angular/core';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { Router } from '@angular/router';
@@ -10,6 +11,11 @@ import { GlobalService } from '../../service/global.service';
   styleUrls: ['./internal-documents.component.css'],
 })
 export class InternalDocumentsComponent implements OnInit {
+
+  readonly realtimeResources = ["internal_documents"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadFolders(); this.loadFiles();
+  }
   folders: string[] = [];
   selectedFolder: string = '';
   files: any[] = [];
@@ -90,6 +96,7 @@ export class InternalDocumentsComponent implements OnInit {
   }
 
   loadFolders(): void {
+    const requestedFolder = this.selectedFolder;
     this.http
       .post(
         this.globalService.url + 'admin/internal-documents/folders',
@@ -101,6 +108,7 @@ export class InternalDocumentsComponent implements OnInit {
       )
       .subscribe({
         next: (res) => {
+          if (requestedFolder !== this.selectedFolder) return;
           try {
             this.folders = JSON.parse(res) || [];
           } catch {
@@ -108,6 +116,7 @@ export class InternalDocumentsComponent implements OnInit {
           }
         },
         error: (err) => {
+          if (requestedFolder !== this.selectedFolder) return;
           console.error('FOLDERS ERROR:', err);
           this.folders = [];
         },
@@ -183,6 +192,7 @@ export class InternalDocumentsComponent implements OnInit {
   // ============ FILES ============
 
   loadFiles(): void {
+    const requestedFolder = this.selectedFolder;
     const body = { folder: this.selectedFolder };
 
     this.http
@@ -192,6 +202,7 @@ export class InternalDocumentsComponent implements OnInit {
       })
       .subscribe({
         next: (res) => {
+          if (requestedFolder !== this.selectedFolder) return;
           try {
             this.files = JSON.parse(res) || [];
           } catch {
@@ -199,6 +210,7 @@ export class InternalDocumentsComponent implements OnInit {
           }
         },
         error: (err) => {
+          if (requestedFolder !== this.selectedFolder) return;
           console.error('LIST ERROR:', err);
           this.files = [];
           alert('Errore caricamento files');
@@ -370,12 +382,7 @@ export class InternalDocumentsComponent implements OnInit {
       )
       .subscribe({
         next: (blob) => {
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = this.displayFileName(fileOrName);
-          a.click();
-          window.URL.revokeObjectURL(url);
+          void downloadFile(blob, this.displayFileName(fileOrName));
         },
         error: (err) => {
           console.error('DOWNLOAD ERROR:', err);

@@ -4,6 +4,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
 @Component({
   selector: 'app-customer-warehouse',
@@ -13,6 +14,22 @@ import { GlobalService } from '../../service/global.service';
   styleUrls: ['./customer-warehouse.component.css'],
 })
 export class CustomerWarehouseComponent implements OnInit, OnDestroy {
+
+  readonly realtimeResources = ["customer_warehouse"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    if (this.loading || this.reopeningOperationId) return false;
+    const search = this.search;
+    this.http.get<any>(this.global.url + 'admin/customer-warehouse/practices', {
+      params: search ? { q: search } : {},
+    }).subscribe({ next: res => { if (search === this.search) this.practices = res?.practices || []; } });
+    const selectedId = this.selected?.id;
+    const request = this.practiceRequest;
+    if (selectedId) this.http.get<any>(this.global.url + `admin/customer-warehouse/practices/${selectedId}`, { params: { history: '1' } }).subscribe({
+      next: res => {
+        if (request === this.practiceRequest && this.selected?.id === selectedId) this.selected = res.practice;
+      },
+    });
+  }
   practices: any[] = [];
   selected: any = null;
   search = '';
@@ -47,7 +64,7 @@ export class CustomerWarehouseComponent implements OnInit, OnDestroy {
   historyPieceId: number | null = null;
   private historyRequest = 0;
 
-  constructor(private http: HttpClient, public global: GlobalService, private router: Router) {}
+  constructor(private http: HttpClient, public global: GlobalService, private router: Router, private popup: PopupServiceService) {}
 
   ngOnInit(): void { this.loadConfig(); this.load(); }
   ngOnDestroy(): void { this.historyRequest++; this.practiceRequest++; }
@@ -253,9 +270,12 @@ export class CustomerWarehouseComponent implements OnInit, OnDestroy {
     });
   }
 
-  requestSignature(): void {
-    if (!this.selected) return;
-    const note = window.prompt('Nota facoltativa per la richiesta di firma:', '') ?? '';
+  async requestSignature(): Promise<void> {
+    if (!this.selected || this.loading) return;
+    const id = this.selected.id;
+    const request = this.practiceRequest;
+    const note = await this.popup.prompt('Nota facoltativa per la richiesta di firma:');
+    if (note == null || this.loading || request !== this.practiceRequest || this.selected?.id !== id) return;
     this.loading = true;
     this.http.post<any>(this.global.url + `admin/customer-warehouse/practices/${this.selected.id}/signature-request`, { note }).subscribe({
       next: () => { this.message = 'Firma richiesta.'; this.open(this.selected); },
@@ -287,10 +307,12 @@ export class CustomerWarehouseComponent implements OnInit, OnDestroy {
     });
   }
 
-  completeSignature(): void {
-    if (!this.selected) return;
-    const note = window.prompt('Riferimento della firma acquisita (es. copia cartacea allegata):', '') ?? '';
-    if (!note.trim()) return;
+  async completeSignature(): Promise<void> {
+    if (!this.selected || this.loading) return;
+    const id = this.selected.id;
+    const request = this.practiceRequest;
+    const note = await this.popup.prompt('Riferimento della firma acquisita (es. copia cartacea allegata):');
+    if (!note?.trim() || this.loading || request !== this.practiceRequest || this.selected?.id !== id) return;
     this.loading = true;
     this.http.post<any>(this.global.url + `admin/customer-warehouse/practices/${this.selected.id}/signature-complete`, { note }).subscribe({
       next: () => { this.message = 'Firma registrata sulla revisione corrente.'; this.open(this.selected); },

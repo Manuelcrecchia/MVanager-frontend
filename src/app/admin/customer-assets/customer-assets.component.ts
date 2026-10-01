@@ -1,3 +1,4 @@
+import { downloadFile } from '../../shared/file-download';
 import { Component, OnInit } from '@angular/core';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { HttpClient } from '@angular/common/http';
@@ -16,6 +17,11 @@ interface CustomerAssetGroup { id: string; label: string; assets: CustomerAsset[
   styleUrls: ['./customer-assets.component.css'],
 })
 export class CustomerAssetsComponent implements OnInit {
+
+  readonly realtimeResources = ["deadlines","customer_asset_interventions","customers"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.load(true);
+  }
   assets: CustomerAsset[] = [];
   customers: CustomerOption[] = [];
   editing: CustomerAsset | null = null;
@@ -135,8 +141,8 @@ export class CustomerAssetsComponent implements OnInit {
       removedAttachmentIds: [] as string[],
     };
   }
-  load(): void {
-    this.loading = true; this.error = '';
+load(silent = false): void {
+    if (!silent) { this.loading = true; this.error = ''; }
     const archiveQuery = this.showArchived ? '?archived=1' : '';
     this.http.get<CustomerAsset[]>(this.global.url + 'admin/deadlines/customer-assets/registry' + archiveQuery).subscribe({ next: r => {
       this.assets = (Array.isArray(r) ? r : [])
@@ -315,10 +321,7 @@ export class CustomerAssetsComponent implements OnInit {
       this.global.url + `admin/deadlines/customer-assets/registry/${this.editing.id}/attachments/${attachment.id}`,
       { responseType: 'blob' },
     ).subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url; link.download = attachment.originalName; link.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, attachment.originalName);
     });
   }
   private syncAttachmentFiles(): void {

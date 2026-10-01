@@ -9,6 +9,11 @@ import { GlobalService, TenantEmployeeFieldConfig } from '../../service/global.s
   styleUrls: ['./scheda-dipendente.component.css'],
 })
 export class SchedaDipendenteComponent implements OnInit {
+
+  readonly realtimeResources = ["employees"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadDetail();
+  }
   employee: any | null = null;
   loading = true;
 
@@ -20,6 +25,10 @@ export class SchedaDipendenteComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadDetail();
+  }
+
+  private loadDetail(): void {
     const employeeId = Number(this.route.snapshot.paramMap.get('employeeId'));
     if (!employeeId) {
       this.loading = false;

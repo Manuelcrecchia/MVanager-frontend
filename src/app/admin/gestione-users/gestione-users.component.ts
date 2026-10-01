@@ -26,6 +26,11 @@ interface NotificationRow {
   styleUrls: ['./gestione-users.component.css'],
 })
 export class GestioneUsersComponent implements OnInit {
+
+  readonly realtimeResources = ["admins"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.getAdmins();
+  }
   admins: AdminRow[] = [];
   selected = new Set<number>();
 

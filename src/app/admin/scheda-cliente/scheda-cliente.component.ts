@@ -11,6 +11,11 @@ import { Router } from '@angular/router';
   styleUrls: ['./scheda-cliente.component.css'],
 })
 export class SchedaClienteComponent implements OnInit {
+
+  readonly realtimeResources = ["customers"];
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadDetail();
+  }
   cliente: any | null = null;
   loading = true;
   loadError = '';
@@ -22,6 +27,10 @@ export class SchedaClienteComponent implements OnInit {
     private route: ActivatedRoute
   ) {}
   ngOnInit(): void {
+    this.loadDetail();
+  }
+
+  private loadDetail(): void {
     const numeroCliente = this.route.snapshot.paramMap.get('numeroCliente');
     if (!numeroCliente) {
       this.loading = false;

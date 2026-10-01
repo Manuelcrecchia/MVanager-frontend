@@ -1,7 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { downloadFile } from '../../shared/file-download';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
+import { SocketService } from '../../service/soket.service';
+import { Subscription } from 'rxjs';
 
 type MailFolder = 'unread' | 'inbox' | 'outbox' | 'drafts' | 'sent' | 'trash';
 
@@ -76,7 +79,14 @@ interface InternalEmailDocument {
   templateUrl: './email-home.component.html',
   styleUrls: ['./email-home.component.css'],
 })
-export class EmailHomeComponent implements OnInit {
+export class EmailHomeComponent implements OnInit, OnDestroy {
+
+  readonly realtimeResources = ["email"];
+  trackMessage(_index: number, message: EmailMessage): number { return message.id; }
+  readonly realtimeHandledLocally = true;
+  refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.refreshAccountsPreservingSelection(); this.loadMessages(true);
+  }
   accounts: EmailAccount[] = [];
   messages: EmailMessage[] = [];
   selectedMessage: EmailMessage | null = null;
@@ -89,6 +99,7 @@ export class EmailHomeComponent implements OnInit {
   messageTotal = 0;
   hasMoreMessages = false;
   private messageLoadToken = 0;
+  private emailRealtimeSubscription?: Subscription;
   sending = false;
   composeOpen = false;
   composeDraftId: number | null = null;
@@ -148,10 +159,22 @@ export class EmailHomeComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     public globalService: GlobalService,
+    private socketService: SocketService,
   ) {}
 
   ngOnInit(): void {
     this.loadAccounts();
+    this.emailRealtimeSubscription = this.socketService
+      .onResourceChanges('email')
+      .subscribe(() => {
+        this.refreshAccountsPreservingSelection();
+        this.loadMessages(true);
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.messageLoadToken++;
+    this.emailRealtimeSubscription?.unsubscribe();
   }
 
   back() {
@@ -176,19 +199,30 @@ export class EmailHomeComponent implements OnInit {
     });
   }
 
-  loadMessages() {
-    this.messageLoadToken += 1;
-    this.loading = true;
-    this.loadingMore = false;
-    this.messages = [];
-    this.messageTotal = 0;
-    this.hasMoreMessages = false;
-    this.fetchMessagePage(0, this.messageLoadToken);
+  private refreshAccountsPreservingSelection(): void {
+    this.http.get<EmailAccount[]>(this.globalService.url + 'admin/email/accounts/accessible').subscribe({
+      next: (accounts) => {
+        this.accounts = accounts || [];
+      },
+      error: (err) => console.error('Errore aggiornamento account email:', err),
+    });
   }
 
-  private fetchMessagePage(offset: number, token: number) {
+  loadMessages(silent = false) {
+    this.messageLoadToken += 1;
+    if (!silent) {
+      this.loading = true;
+      this.loadingMore = false;
+      this.messages = [];
+      this.messageTotal = 0;
+      this.hasMoreMessages = false;
+    }
+    this.fetchMessagePage(0, this.messageLoadToken, silent, []);
+  }
+
+  private fetchMessagePage(offset: number, token: number, silent = false, buffered: EmailMessage[] = []) {
     const append = offset > 0;
-    if (append) this.loadingMore = true;
+    if (append && !silent) this.loadingMore = true;
 
     const params: string[] = [`folder=${this.selectedFolder}`];
     if (this.selectedAccountId) params.push(`accountId=${this.selectedAccountId}`);
@@ -218,9 +252,8 @@ export class EmailHomeComponent implements OnInit {
                 hasMore: !!res?.hasMore,
               };
 
-          this.messages = append
-            ? [...this.messages, ...page.items]
-            : page.items;
+          const combined = [...buffered, ...page.items];
+          if (!silent || !page.hasMore) this.messages = combined;
           this.messageTotal = page.total;
           this.hasMoreMessages = page.hasMore;
           this.loading = false;
@@ -229,19 +262,18 @@ export class EmailHomeComponent implements OnInit {
           if (page.hasMore) {
             window.setTimeout(() => {
               if (token === this.messageLoadToken) {
-                this.fetchMessagePage(this.messages.length, token);
+                this.fetchMessagePage(combined.length, token, silent, combined);
               }
             }, 80);
           }
 
-          if (this.selectedMessage) {
-            const refreshed = this.messages.find((m) => m.id === this.selectedMessage?.id);
-            if (!refreshed) this.selectedMessage = null;
-          }
+          // The reading pane is a separate snapshot: pagination or a changed
+          // search must never close a message the user is currently reading.
         },
         error: (err) => {
+          if (token !== this.messageLoadToken) return;
           console.error('Errore caricamento email:', err);
-          alert(err?.error?.error || 'Errore caricamento email');
+          if (!silent) alert(err?.error?.error || 'Errore caricamento email');
           this.loading = false;
           this.loadingMore = false;
         },
@@ -920,12 +952,7 @@ export class EmailHomeComponent implements OnInit {
   downloadAttachment(attachment: EmailAttachment) {
     this.fetchAttachmentBlob(attachment).subscribe({
       next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = attachment.filename || 'allegato';
-        a.click();
-        URL.revokeObjectURL(url);
+        void downloadFile(blob, attachment.filename || 'allegato');
       },
       error: (err) => {
         console.error('Errore download allegato:', err);
