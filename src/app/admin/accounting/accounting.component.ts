@@ -89,6 +89,10 @@ export class AccountingComponent implements OnInit, OnDestroy {
     return item?.id ?? item?.key ?? item?.code ?? item?.name ?? index;
   }
 
+  get canManage(): boolean {
+    return this.global.hasPermission('ACCOUNTING_MANAGE');
+  }
+
   activeTab = 'dashboard';
   pageMode: AccountingPageMode = 'list';
   accountSearch = '';
@@ -210,6 +214,7 @@ export class AccountingComponent implements OnInit, OnDestroy {
   }
 
   syncFromInvoices(): void {
+    if (!this.canManage) return;
     this.saving = true;
     this.clearMessages();
     this.http.post<any>(this.api('sync'), {}).subscribe({
@@ -307,6 +312,7 @@ export class AccountingComponent implements OnInit, OnDestroy {
   }
 
   newAccount(): void {
+    if (!this.canManage) return;
     this.selectedAccount = this.emptyAccount();
     this.pageMode = 'new';
   }
@@ -317,6 +323,7 @@ export class AccountingComponent implements OnInit, OnDestroy {
   }
 
   saveAccount(): void {
+    if (!this.canManage) return;
     this.saving = true;
     this.clearMessages();
     this.http.post<AccountingAccount>(this.api('accounts/save'), this.selectedAccount).subscribe({
@@ -335,6 +342,7 @@ export class AccountingComponent implements OnInit, OnDestroy {
   }
 
   async deleteAccount(account: AccountingAccount): Promise<void> {
+    if (!this.canManage) return;
     if (!account.id || account.systemKey) return;
     if (!await this.appDialog.confirm(`Eliminare o disattivare il conto ${account.code} - ${account.name}?`)) return;
     this.saving = true;
@@ -362,6 +370,7 @@ export class AccountingComponent implements OnInit, OnDestroy {
   }
 
   saveManualEntry(): void {
+    if (!this.canManage) return;
     this.saving = true;
     this.clearMessages();
     this.http.post<AccountingEntry>(this.api('entries/save'), this.manualEntry).subscribe({
@@ -379,6 +388,7 @@ export class AccountingComponent implements OnInit, OnDestroy {
   }
 
   async deleteEntry(entry: AccountingEntry): Promise<void> {
+    if (!this.canManage) return;
     if (!entry.id || entry.locked || entry.sourceType !== 'manual') return;
     if (!await this.appDialog.confirm('Eliminare questa scrittura di prima nota?')) return;
     this.saving = true;

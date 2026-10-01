@@ -369,7 +369,7 @@ export class ViewPdfComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   confirmAndCreateEmployee(): void {
-    if (!this.globalService.hasPermission('EMPLOYEE_CREATE')) {
+    if (!this.globalService.hasPermission('EMPLOYEE_CREATE') || !this.globalService.hasPermission('EMPLOYEE_CONTRACTS_MANAGE')) {
       alert('Permesso creazione dipendenti non disponibile per questa azienda.');
       this.back();
       return;
@@ -454,7 +454,8 @@ export class ViewPdfComponent implements OnInit, AfterViewInit, OnDestroy {
     this.confirmEmployeeMode =
       this.signedPdfMode &&
       (params['confirmEmployee'] === '1' || params['confirmEmployee'] === 'true') &&
-      this.globalService.hasPermission('EMPLOYEE_CREATE');
+      this.globalService.hasPermission('EMPLOYEE_CREATE') &&
+      this.globalService.hasPermission('EMPLOYEE_CONTRACTS_MANAGE');
 
     const contractNumber = String(params['contractNumber'] || employeeContractId).trim();
     const displayName = String(params['displayName'] || '').trim();

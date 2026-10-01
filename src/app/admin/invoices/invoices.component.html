@@ -3,9 +3,9 @@
     <div class="invoice-title-group mv-entity-toolbar__title">
       <h1>{{ viewTitle }}</h1>
       <button type="button" class="btn mv-toolbar-back mv-mobile-home-back" *ngIf="pageMode === 'list'" (click)="back()"><i class="fas fa-arrow-left"></i> Torna indietro</button>
-      <button type="button" class="primary-btn mv-toolbar-primary" *ngIf="activeView === 'invoices' && pageMode === 'list'" (click)="newInvoice()"><i class="fas fa-plus"></i> Nuova</button>
-      <button type="button" class="primary-btn mv-toolbar-primary" *ngIf="activeView === 'ddt' && pageMode === 'list'" (click)="newDdt()"><i class="fas fa-plus"></i> Nuovo</button>
-      <button type="button" class="primary-btn mv-toolbar-primary" *ngIf="activeView === 'suppliers' && pageMode === 'list'" (click)="newSupplier()"><i class="fas fa-plus"></i> Nuovo</button>
+      <button type="button" class="primary-btn mv-toolbar-primary" *ngIf="activeView === 'invoices' && pageMode === 'list'" (click)="newInvoice()" [disabled]="!canManage"><i class="fas fa-plus"></i> Nuova</button>
+      <button type="button" class="primary-btn mv-toolbar-primary" *ngIf="activeView === 'ddt' && pageMode === 'list'" (click)="newDdt()" [disabled]="!canManage"><i class="fas fa-plus"></i> Nuovo</button>
+      <button type="button" class="primary-btn mv-toolbar-primary" *ngIf="activeView === 'suppliers' && pageMode === 'list'" (click)="newSupplier()" [disabled]="!canManage"><i class="fas fa-plus"></i> Nuovo</button>
     </div>
     <div class="mv-entity-toolbar__controls" *ngIf="activeView === 'invoices' && pageMode === 'list'">
       <label class="invoice-toolbar-search"><i class="fas fa-search"></i><input type="search" [(ngModel)]="search" (keyup.enter)="loadInvoices()" [placeholder]="invoiceSearchPlaceholder()" /></label>
@@ -51,9 +51,9 @@
           </select>
         </div>
         <div class="invoice-secondary-actions">
-          <button type="button" class="ghost-btn" (click)="newProforma()"><i class="fas fa-file-invoice"></i> Proforma</button>
-          <button type="button" class="ghost-btn" *ngIf="directionFilter === 'outbound'" (click)="importSalesHistory()" [disabled]="saving"><i class="fas fa-file-import"></i> Import storico</button>
-          <button type="button" class="ghost-btn" *ngIf="directionFilter === 'inbound'" (click)="importPassive()" [disabled]="saving"><i class="fas fa-download"></i> Import XML</button>
+          <button type="button" class="ghost-btn" (click)="newProforma()" [disabled]="!canManage"><i class="fas fa-file-invoice"></i> Proforma</button>
+          <button type="button" class="ghost-btn" *ngIf="directionFilter === 'outbound'" (click)="importSalesHistory()" [disabled]="!canManage || saving"><i class="fas fa-file-import"></i> Import storico</button>
+          <button type="button" class="ghost-btn" *ngIf="directionFilter === 'inbound'" (click)="importPassive()" [disabled]="!canManage || saving"><i class="fas fa-download"></i> Import XML</button>
         </div>
       </div>
 
@@ -466,14 +466,14 @@
                 <input type="email" [(ngModel)]="sendEmailRecipient" name="sendEmailRecipient" placeholder="cliente@azienda.it" [disabled]="saving" />
               </label>
               <div class="action-group__buttons">
-                <button type="submit" class="primary-btn draft-save-button" [class.draft-save-button--confirmed]="!!draftSaveConfirmation" [disabled]="saving || !canEdit() || invoiceHasLiveErrors()" [title]="invoiceHasLiveErrors() ? 'Correggi i campi evidenziati in rosso' : ''">
+                <button type="submit" class="primary-btn draft-save-button" [class.draft-save-button--confirmed]="!!draftSaveConfirmation" [disabled]="!canManage || saving || !canEdit() || invoiceHasLiveErrors()" [title]="invoiceHasLiveErrors() ? 'Correggi i campi evidenziati in rosso' : ''">
                   <i class="fas" [ngClass]="saving ? 'fa-spinner fa-spin' : (draftSaveConfirmation ? 'fa-check' : 'fa-save')"></i>
                   {{ saving ? 'Salvataggio...' : (draftSaveConfirmation ? 'Bozza salvata' : 'Salva bozza') }}
                 </button>
                 <span class="draft-save-confirmation" *ngIf="draftSaveConfirmation" role="status" aria-live="polite">
                   <i class="fas fa-check-circle"></i>{{ draftSaveConfirmation }}
                 </span>
-                <button type="button" class="primary-btn action-primary-wide" (click)="saveValidateSend()" [disabled]="saving || invoiceHasLiveErrors() || isProforma(selected) || (selected.id && !canSendElectronic())">Invia SDI + email</button>
+                <button type="button" class="primary-btn action-primary-wide" (click)="saveValidateSend()" [disabled]="!canManage || saving || invoiceHasLiveErrors() || isProforma(selected) || (selected.id && !canSendElectronic())">Invia SDI + email</button>
                 <button type="button" class="ghost-btn" (click)="downloadPdf()" [disabled]="saving || !selected.id">PDF</button>
               </div>
             </section>
@@ -481,32 +481,32 @@
             <section class="action-group">
               <span class="action-group__label">Documento</span>
               <div class="action-group__buttons">
-                <button type="button" class="ghost-btn" (click)="createCreditNote()" [disabled]="saving || !canCreateCreditNote()">Nota credito</button>
-                <button type="button" class="ghost-btn" (click)="createDebitNote()" [disabled]="saving || !selected.id || selected.type === 'TD05' || isProforma(selected)">Nota debito</button>
-                <button type="button" class="ghost-btn" (click)="convertProforma()" [disabled]="saving || !selected.id || !isProforma(selected)">Converti proforma</button>
-                <button type="button" class="ghost-btn" (click)="emailInvoice()" [disabled]="saving || !selected.id || !sendEmailRecipient">Invia email</button>
+                <button type="button" class="ghost-btn" (click)="createCreditNote()" [disabled]="!canManage || saving || !canCreateCreditNote()">Nota credito</button>
+                <button type="button" class="ghost-btn" (click)="createDebitNote()" [disabled]="!canManage || saving || !selected.id || selected.type === 'TD05' || isProforma(selected)">Nota debito</button>
+                <button type="button" class="ghost-btn" (click)="convertProforma()" [disabled]="!canManage || saving || !selected.id || !isProforma(selected)">Converti proforma</button>
+                <button type="button" class="ghost-btn" (click)="emailInvoice()" [disabled]="!canManage || saving || !selected.id || !sendEmailRecipient">Invia email</button>
               </div>
             </section>
 
             <section class="action-group">
               <span class="action-group__label">Pagamenti</span>
               <div class="action-group__buttons">
-                <button type="button" class="ghost-btn" (click)="generateInstallments()" [disabled]="saving || !selected.id || isCreditNote(selected)">Genera rate</button>
-                <button type="button" class="ghost-btn" (click)="registerPayment()" [disabled]="saving || !selected.id || selected.paymentStatus === 'paid'">{{ isCreditNote(selected) ? 'Registra compensazione' : 'Registra pagamento' }}</button>
-                <button type="button" class="ghost-btn" (click)="markPaid()" [disabled]="saving || !selected.id || selected.paymentStatus === 'paid'">{{ isCreditNote(selected) ? 'Segna compensata' : 'Segna saldata' }}</button>
+                <button type="button" class="ghost-btn" (click)="generateInstallments()" [disabled]="!canManage || saving || !selected.id || isCreditNote(selected)">Genera rate</button>
+                <button type="button" class="ghost-btn" (click)="registerPayment()" [disabled]="!canManage || saving || !selected.id || selected.paymentStatus === 'paid'">{{ isCreditNote(selected) ? 'Registra compensazione' : 'Registra pagamento' }}</button>
+                <button type="button" class="ghost-btn" (click)="markPaid()" [disabled]="!canManage || saving || !selected.id || selected.paymentStatus === 'paid'">{{ isCreditNote(selected) ? 'Segna compensata' : 'Segna saldata' }}</button>
               </div>
             </section>
 
             <details appReliableDetails class="action-group action-group--advanced">
               <summary>Avanzate/provider</summary>
               <div class="action-group__buttons">
-                <button type="button" class="ghost-btn" (click)="saveAndValidate()" [disabled]="saving || !canEdit() || isProforma(selected)">Salva e valida</button>
-                <button type="button" class="ghost-btn" (click)="issue()" [disabled]="saving || !selected.id">Emetti</button>
-                <button type="button" class="ghost-btn" (click)="send()" [disabled]="saving || !canSendElectronic()">Invia provider</button>
-                <button type="button" class="ghost-btn" (click)="validate()" [disabled]="saving || !canSendElectronic()">Valida</button>
-                <button type="button" class="ghost-btn" (click)="sync()" [disabled]="saving || !selected.id">Aggiorna stato</button>
-                <button type="button" class="ghost-btn" (click)="generateXml()" [disabled]="saving || !canSendElectronic()">XML</button>
-                <button type="button" class="ghost-btn danger" (click)="deleteDraft()" [disabled]="saving || selected.status !== 'draft'">Elimina</button>
+                <button type="button" class="ghost-btn" (click)="saveAndValidate()" [disabled]="!canManage || saving || !canEdit() || isProforma(selected)">Salva e valida</button>
+                <button type="button" class="ghost-btn" (click)="issue()" [disabled]="!canManage || saving || !selected.id">Emetti</button>
+                <button type="button" class="ghost-btn" (click)="send()" [disabled]="!canManage || saving || !canSendElectronic()">Invia provider</button>
+                <button type="button" class="ghost-btn" (click)="validate()" [disabled]="!canManage || saving || !canSendElectronic()">Valida</button>
+                <button type="button" class="ghost-btn" (click)="sync()" [disabled]="!canManage || saving || !selected.id">Aggiorna stato</button>
+                <button type="button" class="ghost-btn" (click)="generateXml()" [disabled]="!canManage || saving || !canSendElectronic()">XML</button>
+                <button type="button" class="ghost-btn danger" (click)="deleteDraft()" [disabled]="!canManage || saving || selected.status !== 'draft'">Elimina</button>
               </div>
             </details>
           </div>
@@ -529,7 +529,7 @@
             <strong>{{ payment.amount | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</strong>
             <span>{{ payment.paymentDate | date:'dd/MM/yyyy' }} · {{ payment.method || '-' }}</span>
             <small>{{ payment.reference || payment.notes || '-' }}</small>
-            <button type="button" class="icon-btn danger" (click)="deletePayment(payment)" [disabled]="saving">
+            <button type="button" class="icon-btn danger" (click)="deletePayment(payment)" [disabled]="!canManage || saving">
               <i class="fas fa-trash"></i>
             </button>
           </div>
@@ -552,8 +552,8 @@
             <span>{{ installmentStatusLabel(installment.status) }}</span>
           </div>
           <div class="actions" *ngIf="selected.installments?.length">
-            <button type="button" class="ghost-btn" (click)="saveInstallments()" [disabled]="saving">Salva rate</button>
-            <button type="button" class="ghost-btn danger" (click)="deleteInstallments()" [disabled]="saving">Elimina rate</button>
+            <button type="button" class="ghost-btn" (click)="saveInstallments()" [disabled]="!canManage || saving">Salva rate</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteInstallments()" [disabled]="!canManage || saving">Elimina rate</button>
           </div>
           <p class="empty" *ngIf="!selected.installments?.length">Nessun piano rate</p>
         </article>
@@ -749,7 +749,7 @@
           </button>
         </div>
 
-        <fieldset [disabled]="selectedDdt.status !== 'draft'">
+        <fieldset [disabled]="!canManage || selectedDdt.status !== 'draft'">
         <div class="form-grid compact">
           <label>
             Numero
@@ -946,13 +946,13 @@
             <span>Totale <b>{{ ddtTotals().total | currency:'EUR':'symbol':'1.2-2':'it-IT' }}</b></span>
           </div>
           <div class="actions">
-            <button type="submit" class="primary-btn" [disabled]="saving || selectedDdt.status !== 'draft'">Salva DDT</button>
-            <button type="button" class="ghost-btn" (click)="issueDdt()" [disabled]="saving || !selectedDdt.id || selectedDdt.status !== 'draft'">Emetti DDT</button>
-            <button type="button" class="primary-btn" (click)="createInvoiceFromDdt()" [disabled]="saving || (selectedDdtIds.length === 0 && (!selectedDdt.id || selectedDdt.status !== 'issued'))">Fattura differita {{ selectedDdtIds.length ? '(' + selectedDdtIds.length + ')' : '' }}</button>
+            <button type="submit" class="primary-btn" [disabled]="!canManage || saving || selectedDdt.status !== 'draft'">Salva DDT</button>
+            <button type="button" class="ghost-btn" (click)="issueDdt()" [disabled]="!canManage || saving || !selectedDdt.id || selectedDdt.status !== 'draft'">Emetti DDT</button>
+            <button type="button" class="primary-btn" (click)="createInvoiceFromDdt()" [disabled]="!canManage || saving || (selectedDdtIds.length === 0 && (!selectedDdt.id || selectedDdt.status !== 'issued'))">Fattura differita {{ selectedDdtIds.length ? '(' + selectedDdtIds.length + ')' : '' }}</button>
             <button type="button" class="ghost-btn" (click)="downloadDdtPdf()" [disabled]="saving || !selectedDdt.id">PDF DDT</button>
-            <button type="button" class="ghost-btn" (click)="emailDdt()" [disabled]="saving || !selectedDdt.id">Email DDT</button>
-            <button type="button" class="ghost-btn danger" (click)="deleteDdt()" [disabled]="saving || !selectedDdt.id || selectedDdt.status !== 'draft'">Elimina DDT</button>
-            <button type="button" class="ghost-btn danger" (click)="cancelDdt()" *ngIf="selectedDdt.status === 'issued'" [disabled]="saving">Annulla DDT</button>
+            <button type="button" class="ghost-btn" (click)="emailDdt()" [disabled]="!canManage || saving || !selectedDdt.id">Email DDT</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteDdt()" [disabled]="!canManage || saving || !selectedDdt.id || selectedDdt.status !== 'draft'">Elimina DDT</button>
+            <button type="button" class="ghost-btn danger" (click)="cancelDdt()" *ngIf="selectedDdt.status === 'issued'" [disabled]="!canManage || saving">Annulla DDT</button>
           </div>
         </footer>
       </form>
@@ -1084,8 +1084,8 @@
           </label>
         </div>
         <div class="actions">
-          <button type="submit" class="primary-btn" [disabled]="saving">Salva fornitore</button>
-          <button type="button" class="ghost-btn danger" (click)="deleteSupplier()" [disabled]="saving || !selectedSupplier.id">Elimina fornitore</button>
+          <button type="submit" class="primary-btn" [disabled]="!canManage || saving">Salva fornitore</button>
+          <button type="button" class="ghost-btn danger" (click)="deleteSupplier()" [disabled]="!canManage || saving || !selectedSupplier.id">Elimina fornitore</button>
         </div>
       </form>
     </article>
@@ -1115,7 +1115,7 @@
           <p class="eyebrow">Scadenze</p>
           <h2>Termini pagamento</h2>
         </div>
-        <button type="button" class="ghost-btn" (click)="newPaymentTerm()">Nuovo termine</button>
+        <button type="button" class="ghost-btn" (click)="newPaymentTerm()" [disabled]="!canManage">Nuovo termine</button>
       </header>
       <div class="settings-layout">
         <div class="settings-list">
@@ -1167,8 +1167,8 @@
             </label>
           </div>
           <div class="actions">
-            <button type="submit" class="primary-btn" [disabled]="saving">Salva termine</button>
-            <button type="button" class="ghost-btn danger" (click)="deletePaymentTerm()" [disabled]="saving || !selectedPaymentTerm.id">Disattiva</button>
+            <button type="submit" class="primary-btn" [disabled]="!canManage || saving">Salva termine</button>
+            <button type="button" class="ghost-btn danger" (click)="deletePaymentTerm()" [disabled]="!canManage || saving || !selectedPaymentTerm.id">Disattiva</button>
           </div>
         </form>
       </div>
@@ -1180,7 +1180,7 @@
           <p class="eyebrow">Incassi</p>
           <h2>Banche e IBAN</h2>
         </div>
-        <button type="button" class="ghost-btn" (click)="newBankAccount()">Nuova banca</button>
+        <button type="button" class="ghost-btn" (click)="newBankAccount()" [disabled]="!canManage">Nuova banca</button>
       </header>
       <div class="settings-layout">
         <div class="settings-list">
@@ -1218,8 +1218,8 @@
             </label>
           </div>
           <div class="actions">
-            <button type="submit" class="primary-btn" [disabled]="saving">Salva banca</button>
-            <button type="button" class="ghost-btn danger" (click)="deleteBankAccount()" [disabled]="saving || !selectedBankAccount.id">Disattiva</button>
+            <button type="submit" class="primary-btn" [disabled]="!canManage || saving">Salva banca</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteBankAccount()" [disabled]="!canManage || saving || !selectedBankAccount.id">Disattiva</button>
           </div>
         </form>
       </div>
@@ -1231,7 +1231,7 @@
           <p class="eyebrow">Righe fattura</p>
           <h2>Catalogo servizi</h2>
         </div>
-        <button type="button" class="ghost-btn" (click)="newServiceItem()">Nuovo servizio</button>
+        <button type="button" class="ghost-btn" (click)="newServiceItem()" [disabled]="!canManage">Nuovo servizio</button>
       </header>
       <div class="settings-layout">
         <div class="settings-list">
@@ -1286,8 +1286,8 @@
             </label>
           </div>
           <div class="actions">
-            <button type="submit" class="primary-btn" [disabled]="saving">Salva servizio</button>
-            <button type="button" class="ghost-btn danger" (click)="deleteServiceItem()" [disabled]="saving || !selectedServiceItem.id">Disattiva</button>
+            <button type="submit" class="primary-btn" [disabled]="!canManage || saving">Salva servizio</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteServiceItem()" [disabled]="!canManage || saving || !selectedServiceItem.id">Disattiva</button>
           </div>
         </form>
       </div>
@@ -1388,7 +1388,7 @@
           </div>
           <div class="actions">
             <button type="button" class="ghost-btn" (click)="addCustomerVatProfile()">Aggiungi profilo IVA</button>
-            <button type="submit" class="primary-btn" [disabled]="saving">Salva generazione</button>
+            <button type="submit" class="primary-btn" [disabled]="!canManage || saving">Salva generazione</button>
           </div>
         </form>
       </div>

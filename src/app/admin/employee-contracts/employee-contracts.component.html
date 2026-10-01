@@ -3,7 +3,7 @@
     <div class="mv-entity-toolbar__title">
       <h1>Contratti dipendenti</h1>
       <button
-        *ngIf="globalService.hasPermission('EMPLOYEE_CREATE')"
+        *ngIf="globalService.hasPermission('EMPLOYEE_CONTRACTS_MANAGE')"
         class="btn mv-toolbar-primary"
         type="button"
         (click)="openNewForm()"

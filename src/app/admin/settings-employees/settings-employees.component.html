@@ -39,7 +39,7 @@
             <label for="oreGiornaliereDefault" class="form-label fw-bold">Ore giornaliere standard</label>
             <input type="number" id="oreGiornaliereDefault" name="oreGiornaliereDefault" [(ngModel)]="employeesAdd.oreGiornaliereDefault" class="form-control form-control-glass" min="0" max="24" step="0.25" placeholder="es. 8" />
           </div>
-          <div class="col-12">
+          <div class="col-12" *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')">
             <div class="warehouse-permissions">
               <strong>Funzioni magazzino nell'app dipendenti</strong>
               <small>Ogni autorizzazione è indipendente e viene verificata anche dal server.</small>
@@ -242,7 +242,7 @@
           <label class="form-label fw-bold">Ore giornaliere standard</label>
           <input class="form-control" type="number" min="0" max="24" step="0.25" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="focused_ore" />
         </div>
-        <div class="col-12">
+        <div class="col-12" *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')">
           <div class="warehouse-permissions">
             <strong>Funzioni magazzino nell'app dipendenti</strong>
             <small>Abilita solamente le operazioni che questo dipendente può eseguire.</small>
@@ -352,9 +352,9 @@
                 </span>
               </div>
               <div class="employee-extra-badges" *ngIf="emp.warehousePreparationEnabled || emp.warehouseStockInEnabled || emp.warehouseStockOutEnabled || emp.customerWarehouseInventoryEnabled || emp.customerWarehouseLoadEnabled || emp.customerWarehouseUnloadEnabled">
-                <span class="employee-extra-badge" *ngIf="emp.warehousePreparationEnabled">Prepara ordini</span>
-                <span class="employee-extra-badge" *ngIf="emp.warehouseStockInEnabled">Entrata</span>
-                <span class="employee-extra-badge" *ngIf="emp.warehouseStockOutEnabled">Uscita</span>
+                <span class="employee-extra-badge" *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp') && emp.warehousePreparationEnabled">Prepara ordini</span>
+                <span class="employee-extra-badge" *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp') && emp.warehouseStockInEnabled">Entrata</span>
+                <span class="employee-extra-badge" *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp') && emp.warehouseStockOutEnabled">Uscita</span>
                 <span class="employee-extra-badge" *ngIf="emp.customerWarehouseInventoryEnabled">Inventario clienti</span>
                 <span class="employee-extra-badge" *ngIf="emp.customerWarehouseLoadEnabled">Carico clienti</span>
                 <span class="employee-extra-badge" *ngIf="emp.customerWarehouseUnloadEnabled">Scarico clienti</span>
@@ -386,11 +386,11 @@
             <td class="d-none d-md-table-cell"><input class="form-control form-control-sm" [(ngModel)]="employeeEdit.cellulare" name="e_cell_{{ emp.id }}" /></td>
             <td><input type="number" class="form-control form-control-sm" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="e_ore_standard_{{ emp.id }}" min="0" max="24" step="0.25" /></td>
             <td>
-              <div class="warehouse-permissions warehouse-permissions--compact">
-                <strong>Permessi magazzino</strong>
-                <label class="mobility-check mobility-check--compact"><input type="checkbox" name="e_warehouse_prep_{{ emp.id }}" [(ngModel)]="employeeEdit.warehousePreparationEnabled" /><span>Preparazione</span></label>
-                <label class="mobility-check mobility-check--compact"><input type="checkbox" name="e_warehouse_in_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockInEnabled" /><span>Entrata</span></label>
-                <label class="mobility-check mobility-check--compact"><input type="checkbox" name="e_warehouse_out_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockOutEnabled" /><span>Uscita</span></label>
+              <div class="warehouse-permissions warehouse-permissions--compact" *ngIf="(globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')) || globalService.hasFeature('customerWarehouse')">
+                <strong *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')">Permessi magazzino</strong>
+                <label *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')" class="mobility-check mobility-check--compact"><input type="checkbox" name="e_warehouse_prep_{{ emp.id }}" [(ngModel)]="employeeEdit.warehousePreparationEnabled" /><span>Preparazione</span></label>
+                <label *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')" class="mobility-check mobility-check--compact"><input type="checkbox" name="e_warehouse_in_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockInEnabled" /><span>Entrata</span></label>
+                <label *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')" class="mobility-check mobility-check--compact"><input type="checkbox" name="e_warehouse_out_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockOutEnabled" /><span>Uscita</span></label>
                 <strong *ngIf="globalService.hasFeature('customerWarehouse')">Magazzino clienti</strong>
                 <label *ngIf="globalService.hasFeature('customerWarehouse')" class="mobility-check mobility-check--compact"><input type="checkbox" name="e_customer_warehouse_inventory_{{ emp.id }}" [(ngModel)]="employeeEdit.customerWarehouseInventoryEnabled" /><span>Inventario/etichette</span></label>
                 <label *ngIf="globalService.hasFeature('customerWarehouse')" class="mobility-check mobility-check--compact"><input type="checkbox" name="e_customer_warehouse_load_{{ emp.id }}" [(ngModel)]="employeeEdit.customerWarehouseLoadEnabled" /><span>Carico clienti</span></label>
@@ -499,11 +499,11 @@
           <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.email" name="m_email_{{ emp.id }}" placeholder="Email" />
           <input class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.cellulare" name="m_cell_{{ emp.id }}" placeholder="Cellulare" />
           <input type="number" class="form-control form-control-sm mb-2" [(ngModel)]="employeeEdit.oreGiornaliereDefault" name="m_ore_{{ emp.id }}" placeholder="Ore std." min="0" max="24" step="0.25" />
-          <div class="warehouse-permissions warehouse-permissions--compact mb-2">
-            <strong>Permessi magazzino</strong>
-            <label class="mobility-check mobility-check--compact"><input type="checkbox" name="m_warehouse_prep_{{ emp.id }}" [(ngModel)]="employeeEdit.warehousePreparationEnabled" /><span>Preparazione</span></label>
-            <label class="mobility-check mobility-check--compact"><input type="checkbox" name="m_warehouse_in_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockInEnabled" /><span>Entrata</span></label>
-            <label class="mobility-check mobility-check--compact"><input type="checkbox" name="m_warehouse_out_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockOutEnabled" /><span>Uscita</span></label>
+          <div class="warehouse-permissions warehouse-permissions--compact mb-2" *ngIf="(globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')) || globalService.hasFeature('customerWarehouse')">
+            <strong *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')">Permessi magazzino</strong>
+            <label *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')" class="mobility-check mobility-check--compact"><input type="checkbox" name="m_warehouse_prep_{{ emp.id }}" [(ngModel)]="employeeEdit.warehousePreparationEnabled" /><span>Preparazione</span></label>
+            <label *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')" class="mobility-check mobility-check--compact"><input type="checkbox" name="m_warehouse_in_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockInEnabled" /><span>Entrata</span></label>
+            <label *ngIf="globalService.hasFeature('internalWarehouse') && globalService.hasFeature('employeeApp')" class="mobility-check mobility-check--compact"><input type="checkbox" name="m_warehouse_out_{{ emp.id }}" [(ngModel)]="employeeEdit.warehouseStockOutEnabled" /><span>Uscita</span></label>
             <strong *ngIf="globalService.hasFeature('customerWarehouse')">Magazzino clienti</strong>
             <label *ngIf="globalService.hasFeature('customerWarehouse')" class="mobility-check mobility-check--compact"><input type="checkbox" name="m_customer_warehouse_inventory_{{ emp.id }}" [(ngModel)]="employeeEdit.customerWarehouseInventoryEnabled" /><span>Inventario/etichette</span></label>
             <label *ngIf="globalService.hasFeature('customerWarehouse')" class="mobility-check mobility-check--compact"><input type="checkbox" name="m_customer_warehouse_load_{{ emp.id }}" [(ngModel)]="employeeEdit.customerWarehouseLoadEnabled" /><span>Carico clienti</span></label>

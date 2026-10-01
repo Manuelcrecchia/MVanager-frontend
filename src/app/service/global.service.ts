@@ -20,6 +20,7 @@ interface TenantBackendConfig {
     permissions?: string[];
     disabled?: string[];
     disabledPermissions?: string[];
+    permissionDependencies?: Record<string, { permissions?: string[] }>;
   };
   leaveConfig?: {
     categories?: TenantLeaveCategoryConfig[];
@@ -355,7 +356,7 @@ export class GlobalService {
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '6.9';
+  version = '7.0';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -552,30 +553,15 @@ export class GlobalService {
       tenantPermissions?.disabled ||
       tenantPermissions?.disabledPermissions ||
       [];
-    const granted = new Set(this.permissions);
-    if (granted.has('VEHICLE_SETTINGS_MANAGE')) granted.add('VEHICLES_VIEW');
-    if (granted.has('EQUIPMENT_SETTINGS_MANAGE')) granted.add('EQUIPMENT_VIEW');
-    if (granted.has('INVOICES_MANAGE')) granted.add('INVOICES_VIEW');
-    if (granted.has('ACCOUNTING_MANAGE')) granted.add('ACCOUNTING_VIEW');
-
-    // Anche il catalogo runtime deve rispettare la gerarchia manage -> view.
-    // Alcune configurazioni pubblicate in precedenza esponevano solo il livello
-    // di gestione, facendo sparire dal menu la relativa pagina di consultazione.
-    if (available.has('VEHICLE_SETTINGS_MANAGE'))
-      available.add('VEHICLES_VIEW');
-    if (available.has('EQUIPMENT_SETTINGS_MANAGE'))
-      available.add('EQUIPMENT_VIEW');
-    if (available.has('INVOICES_MANAGE')) available.add('INVOICES_VIEW');
-    if (available.has('ACCOUNTING_MANAGE')) available.add('ACCOUNTING_VIEW');
-
-    if (available.size) {
-      return available.has(key) && granted.has(key);
-    }
-
-    if (disabled.includes(key)) {
-      return false;
-    }
-
+    const granted = new Set<string>();
+    const dependencies = tenantPermissions?.permissionDependencies || {};
+    const hasCatalog = Array.isArray(tenantPermissions?.available) || Array.isArray(tenantPermissions?.permissions);
+    const add = (permission: string) => {
+      if (granted.has(permission) || disabled.includes(permission) || (hasCatalog && !available.has(permission))) return;
+      granted.add(permission);
+      for (const dependency of dependencies[permission]?.permissions || []) add(dependency);
+    };
+    for (const permission of this.permissions) add(permission);
     return granted.has(key);
   }
 
@@ -596,12 +582,16 @@ export class GlobalService {
     const url = this.url + `tenant/config${force ? '?refresh=true' : ''}`;
     const configToken = this.token;
     const configTenant = this.tenantService.tenant;
-    this.tenantConfigPromise = fetchOperationalConfig(url, {
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        'X-Tenant-Id': this.tenantService.tenant,
+    this.tenantConfigPromise = fetchOperationalConfig(
+      url,
+      {
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          'X-Tenant-Id': this.tenantService.tenant,
+        },
       },
-    }, 'admin')
+      'admin',
+    )
       .then((res) => {
         if (!res.ok) {
           const error = new Error(
@@ -613,7 +603,11 @@ export class GlobalService {
         return res.json();
       })
       .then((config: TenantBackendConfig) => {
-        if (this.token !== configToken || this.tenantService.tenant !== configTenant) return this.tenantConfig;
+        if (
+          this.token !== configToken ||
+          this.tenantService.tenant !== configTenant
+        )
+          return this.tenantConfig;
         this.tenantConfig = config || null;
         return this.tenantConfig;
       })

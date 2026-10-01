@@ -590,7 +590,7 @@ loadContracts(silent = false): void {
 
   canSend(contract: EmployeeContract): boolean {
     return (
-      this.globalService.hasPermission('EMPLOYEE_CREATE') &&
+      this.globalService.hasPermission('EMPLOYEE_CONTRACTS_MANAGE') &&
       contract.status !== 'accepted' &&
       contract.status !== 'cancelled'
     );
@@ -598,14 +598,14 @@ loadContracts(silent = false): void {
 
   canSendContractPdf(contract: EmployeeContract): boolean {
     return (
-      this.globalService.hasPermission('EMPLOYEE_CREATE') &&
+      this.globalService.hasPermission('EMPLOYEE_CONTRACTS_MANAGE') &&
       contract.status === 'draft'
     );
   }
 
   canAcceptContract(contract: EmployeeContract): boolean {
     return (
-      this.globalService.hasPermission('EMPLOYEE_CREATE') &&
+      this.globalService.hasPermission('EMPLOYEE_CONTRACTS_MANAGE') &&
       contract.status !== 'accepted' &&
       contract.status !== 'cancelled' &&
       contract.status !== 'expired' &&
@@ -615,7 +615,7 @@ loadContracts(silent = false): void {
 
   canRefuseContract(contract: EmployeeContract): boolean {
     return (
-      this.globalService.hasPermission('EMPLOYEE_CREATE') &&
+      this.globalService.hasPermission('EMPLOYEE_CONTRACTS_MANAGE') &&
       contract.status !== 'accepted' &&
       contract.status !== 'cancelled' &&
       contract.status !== 'expired'
@@ -628,7 +628,7 @@ loadContracts(silent = false): void {
 
   canEdit(contract: EmployeeContract): boolean {
     return (
-      this.globalService.hasPermission('EMPLOYEE_CREATE') &&
+      this.globalService.hasPermission('EMPLOYEE_CONTRACTS_MANAGE') &&
       contract.status === 'draft'
     );
   }
@@ -639,7 +639,7 @@ loadContracts(silent = false): void {
 
   canDuplicate(contract: EmployeeContract): boolean {
     return (
-      this.globalService.hasPermission('EMPLOYEE_CREATE') &&
+      this.globalService.hasPermission('EMPLOYEE_CONTRACTS_MANAGE') &&
       contract.status !== 'draft'
     );
   }
@@ -647,6 +647,7 @@ loadContracts(silent = false): void {
   canCompleteOnboarding(contract: EmployeeContract): boolean {
     return (
       this.globalService.hasPermission('EMPLOYEE_CREATE') &&
+      this.globalService.hasPermission('EMPLOYEE_CONTRACTS_MANAGE') &&
       contract.status === 'accepted' &&
       contract.needsOfficeReview === true &&
       contract.signedPdfAvailable === true &&

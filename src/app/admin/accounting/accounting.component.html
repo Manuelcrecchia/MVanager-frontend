@@ -3,7 +3,7 @@
     <div class="toolbar-title-group mv-entity-toolbar__title">
       <h1>{{ viewTitle }}</h1>
       <button type="button" class="btn mv-toolbar-back mv-mobile-home-back" *ngIf="pageMode === 'list'" (click)="back()"><i class="fas fa-arrow-left"></i> Torna indietro</button>
-      <button type="button" class="primary-btn" *ngIf="activeTab === 'accounts' && pageMode === 'list'" (click)="newAccount()">
+      <button type="button" class="primary-btn" *ngIf="canManage && activeTab === 'accounts' && pageMode === 'list'" (click)="newAccount()">
         <i class="fas fa-plus"></i> Nuovo
       </button>
     </div>
@@ -18,7 +18,7 @@
         <i class="fas fa-sync-alt"></i>
         Aggiorna
       </button>
-      <button type="button" class="primary-btn" (click)="syncFromInvoices()" [disabled]="saving">
+      <button type="button" class="primary-btn" *ngIf="canManage" (click)="syncFromInvoices()" [disabled]="saving">
         <i class="fas fa-link"></i>
         Sincronizza da fatture
       </button>
@@ -75,6 +75,7 @@
     </div>
 
     <form class="panel edit-panel" *ngIf="pageMode !== 'list'" (ngSubmit)="saveAccount()">
+      <fieldset [disabled]="!canManage" style="border: 0; padding: 0; margin: 0; min-width: 0;">
       <div class="form-grid">
         <label>Codice <input name="code" [(ngModel)]="selectedAccount.code" required /></label>
         <label>Nome <input name="name" [(ngModel)]="selectedAccount.name" required /></label>
@@ -104,14 +105,15 @@
       </div>
       <label>Note <textarea name="notes" [(ngModel)]="selectedAccount.notes"></textarea></label>
       <div class="button-row">
-        <button type="submit" class="primary-btn" [disabled]="saving">Salva conto</button>
-        <button type="button" class="danger-btn" *ngIf="selectedAccount.id && !selectedAccount.systemKey" (click)="deleteAccount(selectedAccount)">Elimina</button>
+        <button type="submit" class="primary-btn" *ngIf="canManage" [disabled]="saving">Salva conto</button>
+        <button type="button" class="danger-btn" *ngIf="canManage && selectedAccount.id && !selectedAccount.systemKey" (click)="deleteAccount(selectedAccount)">Elimina</button>
       </div>
+      </fieldset>
     </form>
   </section>
 
   <section class="entries-layout" *ngIf="activeTab === 'entries'">
-    <form class="panel manual-entry" (ngSubmit)="saveManualEntry()">
+    <form *ngIf="canManage" class="panel manual-entry" (ngSubmit)="saveManualEntry()">
       <h2>Prima nota manuale</h2>
       <div class="form-grid">
         <label>Data <input type="date" name="entryDate" [(ngModel)]="manualEntry.entryDate" /></label>
@@ -160,7 +162,7 @@
             <span>{{ money(entryDirectionAmount(entry)) }}</span>
             <small>Dare {{ money(entry.debitTotal) }} · Avere {{ money(entry.creditTotal) }}</small>
           </div>
-          <button type="button" class="icon-btn" *ngIf="entry.sourceType === 'manual' && !entry.locked" (click)="deleteEntry(entry)">
+          <button type="button" class="icon-btn" *ngIf="canManage && entry.sourceType === 'manual' && !entry.locked" (click)="deleteEntry(entry)">
             <i class="fas fa-trash"></i>
           </button>
         </div>
@@ -181,7 +183,7 @@
             <span>{{ money(entryDirectionAmount(entry)) }}</span>
             <small>Dare {{ money(entry.debitTotal) }} · Avere {{ money(entry.creditTotal) }}</small>
           </div>
-          <button type="button" class="icon-btn" *ngIf="entry.sourceType === 'manual' && !entry.locked" (click)="deleteEntry(entry)">
+          <button type="button" class="icon-btn" *ngIf="canManage && entry.sourceType === 'manual' && !entry.locked" (click)="deleteEntry(entry)">
             <i class="fas fa-trash"></i>
           </button>
         </div>
@@ -202,7 +204,7 @@
             <span>{{ money(entryDirectionAmount(entry)) }}</span>
             <small>Dare {{ money(entry.debitTotal) }} · Avere {{ money(entry.creditTotal) }}</small>
           </div>
-          <button type="button" class="icon-btn" *ngIf="entry.sourceType === 'manual' && !entry.locked" (click)="deleteEntry(entry)">
+          <button type="button" class="icon-btn" *ngIf="canManage && entry.sourceType === 'manual' && !entry.locked" (click)="deleteEntry(entry)">
             <i class="fas fa-trash"></i>
           </button>
         </div>

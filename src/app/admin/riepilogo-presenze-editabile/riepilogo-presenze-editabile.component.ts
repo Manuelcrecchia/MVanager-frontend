@@ -333,7 +333,12 @@ async caricaPresenze(silent = false): Promise<void | boolean> {
   }
 
   // 🔵 QUANDO CAMBIA UNA CELLA (giorno specifico)
+  get canManage(): boolean {
+    return this.globalService.hasPermission('ATTENDANCE_MANAGE');
+  }
+
   onCellaChange(d: any, i: number) {
+    if (!this.canManage) return;
     const voci = d.vociGiorno[i] || [];
 
     // Aggiorna i campi sintetici usati dalla UI.
@@ -371,6 +376,7 @@ async caricaPresenze(silent = false): Promise<void | boolean> {
 
   // 🔵 AGGIUNGI VOCE A UN GIORNO
   aggiungiVoce(d: any, i: number) {
+    if (!this.canManage) return;
     if (!d.vociGiorno[i]) {
       d.vociGiorno[i] = [];
     }
@@ -380,6 +386,7 @@ async caricaPresenze(silent = false): Promise<void | boolean> {
 
   // 🔵 RIMUOVI VOCE DA UN GIORNO
   rimuoviVoce(d: any, i: number, vIndex: number) {
+    if (!this.canManage) return;
     if (d.vociGiorno[i] && d.vociGiorno[i].length > vIndex) {
       d.vociGiorno[i].splice(vIndex, 1);
       // Se non ci sono più voci, aggiungi una voce vuota di default
@@ -436,6 +443,7 @@ async caricaPresenze(silent = false): Promise<void | boolean> {
 
   // 🔵 AUTOSAVE NOTE con debounce
   onNotaChange(dip: any) {
+    if (!this.canManage) return;
     const id = dip.id;
     this.pendingNotes.add(id);
 
@@ -451,6 +459,7 @@ async caricaPresenze(silent = false): Promise<void | boolean> {
   }
 
   async salvaNotaSingola(dip: any, nota: string) {
+    if (!this.canManage) return;
     try {
       await this.http
         .post(

@@ -137,7 +137,7 @@ export class CustomerNotesComponent implements OnInit {
       return false;
     }
     return this.entityType === 'employee'
-      ? this.globalService.hasPermission('EMPLOYEE_EDIT')
+      ? this.globalService.hasPermission('EMPLOYEE_NOTES_MANAGE')
       : this.globalService.hasPermission('CUSTOMERS_NOTES_MANAGE');
   }
 

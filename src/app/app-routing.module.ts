@@ -167,7 +167,7 @@ const routes: Routes = [
         path: 'employee-contracts',
         component: EmployeeContractsComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'EMPLOYEE_VIEW', feature: 'employeeContracts' },
+        data: { permission: 'EMPLOYEE_CONTRACTS_VIEW', feature: 'employeeContracts' },
       },
       {
         path: 'candidates',
@@ -221,7 +221,7 @@ const routes: Routes = [
         path: 'listCustomer/:numeroCliente/work-completion',
         component: CustomerWorkCompletionComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'CUSTOMERS_MANAGE', feature: 'workCompletion' },
+        data: { permission: 'WORK_COMPLETION_MANAGE', feature: 'workCompletion' },
       },
       {
         path: 'quotesHome',
@@ -383,7 +383,7 @@ const routes: Routes = [
         path: 'employeeNotes',
         component: CustomerNotesComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'EMPLOYEE_VIEW' },
+        data: { permission: 'EMPLOYEE_NOTES_VIEW' },
       },
       {
         path: 'service-orders/add',
@@ -595,7 +595,7 @@ const routes: Routes = [
     path: 'employeeNotes',
     component: CustomerNotesComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'EMPLOYEE_VIEW' },
+    data: { permission: 'EMPLOYEE_NOTES_VIEW' },
   },
   {
     path: 'service-orders',
@@ -645,7 +645,7 @@ const routes: Routes = [
     path: 'listCustomer/:numeroCliente/work-completion',
     component: CustomerWorkCompletionComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'CUSTOMERS_MANAGE', feature: 'workCompletion' },
+    data: { permission: 'WORK_COMPLETION_MANAGE', feature: 'workCompletion' },
   },
   {
     path: 'addCustomer',
@@ -713,7 +713,7 @@ const routes: Routes = [
     path: 'employee-contracts',
     component: EmployeeContractsComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'EMPLOYEE_VIEW', feature: 'employeeContracts' },
+    data: { permission: 'EMPLOYEE_CONTRACTS_VIEW', feature: 'employeeContracts' },
   },
   {
     path: 'candidates',

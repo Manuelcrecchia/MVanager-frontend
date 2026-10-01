@@ -1243,6 +1243,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   newInvoice(): void {
+    if (!this.canManage) return;
     this.clearDraftSaveConfirmation();
     this.clearProfilePrefillMessage();
     this.selected = this.emptyInvoice();
@@ -1379,6 +1380,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   newDdt(): void {
+    if (!this.canManage) return;
     this.selectedDdt = this.emptyDdt();
     this.selectedDdtCustomerCode = '';
     this.ddtCustomerQuery = '';
@@ -1389,6 +1391,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   newProforma(): void {
+    if (!this.canManage) return;
     this.selected = this.emptyInvoice();
     this.syncInvoiceEmailRecipient();
     this.selected.type = 'PF';
@@ -1407,6 +1410,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   newSupplier(): void {
+    if (!this.canManage) return;
     this.selectedSupplier = this.emptySupplier();
     this.pageMode = 'new';
     this.updatePageModeRoute('new');
@@ -1926,6 +1930,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   save(): void {
+    if (!this.canManage) return;
     this.prepareRecipientForSubmit();
     this.clearDraftSaveConfirmation();
     const wasNewInvoice = !this.selected.id;
@@ -1978,6 +1983,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   saveAndValidate(): void {
+    if (!this.canManage) return;
     this.prepareRecipientForSubmit();
     this.saving = true;
     this.error = '';
@@ -2011,6 +2017,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   saveDdt(): void {
+    if (!this.canManage) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2032,6 +2039,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   issueDdt(): void {
+    if (!this.canManage) return;
     if (!this.selectedDdt.id) {
       this.error = 'Salva il DDT prima di emetterlo';
       return;
@@ -2054,6 +2062,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   createInvoiceFromDdt(overrides: Record<string, boolean> = {}): void {
+    if (!this.canManage) return;
     const ids = this.selectedDdtIds.length ? this.selectedDdtIds : (this.selectedDdt.id ? [this.selectedDdt.id] : []);
     if (!ids.length) {
       this.error = 'Seleziona un DDT prima di creare la fattura differita';
@@ -2099,6 +2108,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async generateInstallments(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selected.id) {
       this.error = 'Salva la fattura prima di generare le rate';
       return;
@@ -2166,6 +2176,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   saveInstallments(): void {
+    if (!this.canManage) return;
     if (!this.selected.id) {
       this.error = 'Salva la fattura prima di modificare le rate';
       return;
@@ -2192,6 +2203,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deleteInstallments(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selected.id || !await this.appDialog.confirm('Eliminare il piano rate?')) return;
     this.saving = true;
     this.error = '';
@@ -2212,6 +2224,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deleteDdt(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selectedDdt.id || !await this.appDialog.confirm('Eliminare questa bozza DDT?')) return;
     this.saving = true;
     this.error = '';
@@ -2231,6 +2244,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async cancelDdt(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selectedDdt.id) return;
     const reason = await this.appDialog.prompt(
       'Indica il motivo dell’annullamento. Il numero DDT resterà nello storico.',
@@ -2258,6 +2272,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   saveSupplier(): void {
+    if (!this.canManage) return;
     if (!this.selectedSupplier.name?.trim()) {
       this.error = 'Nome fornitore obbligatorio';
       return;
@@ -2282,6 +2297,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deleteSupplier(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selectedSupplier.id || !await this.appDialog.confirm('Eliminare questo fornitore?')) return;
     this.saving = true;
     this.error = '';
@@ -2317,10 +2333,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   newPaymentTerm(): void {
+    if (!this.canManage) return;
     this.selectedPaymentTerm = this.emptyPaymentTerm();
   }
 
   savePaymentTerm(): void {
+    if (!this.canManage) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2339,6 +2357,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deletePaymentTerm(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selectedPaymentTerm.id || !await this.appDialog.confirm('Disattivare questo termine pagamento?')) return;
     this.saving = true;
     this.error = '';
@@ -2362,10 +2381,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   newBankAccount(): void {
+    if (!this.canManage) return;
     this.selectedBankAccount = this.emptyBankAccount();
   }
 
   saveBankAccount(): void {
+    if (!this.canManage) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2384,6 +2405,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deleteBankAccount(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selectedBankAccount.id || !await this.appDialog.confirm('Disattivare questa banca?')) return;
     this.saving = true;
     this.error = '';
@@ -2407,10 +2429,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   newServiceItem(): void {
+    if (!this.canManage) return;
     this.selectedServiceItem = this.emptyServiceItem();
   }
 
   saveServiceItem(): void {
+    if (!this.canManage) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2429,6 +2453,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deleteServiceItem(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selectedServiceItem.id || !await this.appDialog.confirm('Disattivare questo servizio?')) return;
     this.saving = true;
     this.error = '';
@@ -2475,6 +2500,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   saveCustomerInvoiceDefaults(): void {
+    if (!this.canManage) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2496,6 +2522,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   generateXml(): void {
+    if (!this.canManage) return;
     if (!this.selected.id) {
       this.error = 'Salva la fattura prima di generare XML';
       return;
@@ -2507,19 +2534,23 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   issue(): void {
+    if (!this.canManage) return;
     this.runInvoiceAction('issue', 'Fattura emessa localmente');
   }
 
   send(): void {
+    if (!this.canManage) return;
     this.prepareRecipientForSubmit();
     this.runInvoiceAction('send', 'Fattura inviata al provider');
   }
 
   sync(): void {
+    if (!this.canManage) return;
     this.runInvoiceAction('get', 'Dati aggiornati da MVanager');
   }
 
   saveValidateSend(): void {
+    if (!this.canManage) return;
     this.prepareRecipientForSubmit();
     if (this.isProforma(this.selected)) {
       this.error = 'La proforma va convertita in fattura prima dell’invio SdI';
@@ -2584,6 +2615,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async createCreditNote(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.canCreateCreditNote()) {
       this.error = 'Puoi creare una nota di credito solo da una fattura di vendita già inviata, consegnata o pagata';
       return;
@@ -2612,6 +2644,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async createDebitNote(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selected.id) {
       this.error = 'Seleziona una fattura prima di creare la nota debito';
       return;
@@ -2638,6 +2671,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   convertProforma(): void {
+    if (!this.canManage) return;
     if (!this.selected.id || !this.isProforma(this.selected)) {
       this.error = 'Seleziona una proforma da convertire';
       return;
@@ -2663,6 +2697,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   validate(): void {
+    if (!this.canManage) return;
     this.prepareRecipientForSubmit();
     this.runInvoiceAction('validate', 'Validazione completata', (res: any) => {
       const warnings = Array.isArray(res?.warnings) && res.warnings.length ? `\n${res.warnings.join('\n')}` : '';
@@ -2709,6 +2744,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   emailInvoice(): void {
+    if (!this.canManage) return;
     if (!this.selected.id) {
       this.error = 'Salva il documento prima di inviarlo via email';
       return;
@@ -2735,6 +2771,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async emailDdt(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selectedDdt.id) {
       this.error = 'Salva il DDT prima di inviarlo via email';
       return;
@@ -2757,6 +2794,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   importPassive(): void {
+    if (!this.canManage) return;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.xml,text/xml,application/xml';
@@ -2797,6 +2835,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   importSalesHistory(): void {
+    if (!this.canManage) return;
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
@@ -2871,6 +2910,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async markPaid(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selected.id) {
       this.error = 'Salva la fattura prima di segnarla come saldata';
       return;
@@ -2909,6 +2949,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async registerPayment(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selected.id) {
       this.error = 'Salva la fattura prima di registrare un pagamento';
       return;
@@ -2952,6 +2993,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deletePayment(payment: InvoicePayment): Promise<void> {
+    if (!this.canManage) return;
     if (!payment.id || !await this.appDialog.confirm('Eliminare questo pagamento?')) return;
     this.saving = true;
     this.error = '';
@@ -2973,6 +3015,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deleteDraft(): Promise<void> {
+    if (!this.canManage) return;
     if (!this.selected.id || !await this.appDialog.confirm('Eliminare questa bozza fattura?')) return;
     this.runInvoiceAction('delete', 'Bozza eliminata', () => {
       this.newInvoice();
@@ -3008,8 +3051,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
+  get canManage(): boolean {
+    return this.global.hasPermission('INVOICES_MANAGE');
+  }
+
   canEdit(): boolean {
-    return !this.selected.id || ['draft', 'rejected'].includes(this.selected.status);
+    return this.canManage && (!this.selected.id || ['draft', 'rejected'].includes(this.selected.status));
   }
 
   isProforma(invoice: Partial<Invoice>): boolean {
@@ -3017,10 +3064,11 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   canSendElectronic(): boolean {
-    return !!this.selected.id && !this.isProforma(this.selected) && this.selected.provider !== 'winfatt';
+    return this.canManage && !!this.selected.id && !this.isProforma(this.selected) && this.selected.provider !== 'winfatt';
   }
 
   canCreateCreditNote(): boolean {
+    if (!this.canManage) return false;
     if (!this.selected.id || this.selected.direction === 'inbound') return false;
     if (this.isProforma(this.selected) || this.isCreditOrDebitNote(this.selected)) return false;
     return ['sent', 'delivered', 'paid'].includes(this.stringValue(this.selected.status).toLowerCase());

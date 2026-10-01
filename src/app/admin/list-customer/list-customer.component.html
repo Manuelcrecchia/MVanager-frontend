@@ -241,7 +241,7 @@
                 </button>
 
                 <button type="button"
-                  *ngIf="globalService.hasTenantFeature('workCompletion') && globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
+                  *ngIf="globalService.hasTenantFeature('workCompletion') && globalService.hasPermission('WORK_COMPLETION_MANAGE') && customer.active !== false"
                   mat-raised-button
                   (click)="openWorkCompletion(customer)"
                   class="mv-record-action mv-record-action--signature action-with-tooltip"

@@ -567,7 +567,7 @@ export class AddCustomerComponent {
 
           this.customerModelService.reset();
 
-          if (numeroPreventivo && numeroCliente) {
+          if (numeroPreventivo && numeroCliente && this.globalService.hasPermission('CUSTOMERS_NOTES_MANAGE') && this.globalService.hasPermission('QUOTES_NOTES_VIEW')) {
             this.http
               .post(
                 this.globalService.url + 'customers/notes/copyFromQuote',

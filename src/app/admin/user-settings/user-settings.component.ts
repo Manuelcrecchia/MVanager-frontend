@@ -59,72 +59,7 @@ export class UserSettingsComponent implements OnInit {
   }> = [];
   availablePermissionKeys = new Set<string>();
 
-  private permissionDeps: Record<string, string[]> = {
-    // Note: richiedono prima la VIEW della sezione padre
-    QUOTES_NOTES_VIEW: ['QUOTES_VIEW'],
-    CUSTOMERS_NOTES_VIEW: ['CUSTOMERS_VIEW'],
-    ACCOUNTING_VIEW: ['INVOICES_VIEW'],
-    SERVICE_ORDERS_VIEW: ['CUSTOMERS_VIEW'],
-
-    // Gestione preventivi/clienti
-    QUOTES_MANAGE: ['QUOTES_VIEW'],
-    QUOTES_NOTES_MANAGE: ['QUOTES_NOTES_VIEW'], // → transitivo: QUOTES_VIEW
-    SERVICE_ORDERS_MANAGE: ['SERVICE_ORDERS_VIEW'],
-    INVOICES_MANAGE: ['INVOICES_VIEW'],
-    ACCOUNTING_MANAGE: ['ACCOUNTING_VIEW'],
-    CUSTOMERS_MANAGE: ['CUSTOMERS_VIEW'],
-    CUSTOMER_DOCS_MANAGE: ['CUSTOMERS_VIEW'],
-    CUSTOMERS_NOTES_MANAGE: ['CUSTOMERS_NOTES_VIEW'], // → transitivo: CUSTOMERS_VIEW
-    CUSTOMERS_HOURS_VIEW: ['CUSTOMERS_VIEW'],
-    CUSTOMERS_HOURS_MANAGE: ['CUSTOMERS_HOURS_VIEW'],
-
-    // Operatività
-    SHIFTS_VIEW: ['EMPLOYEE_VIEW', 'CALENDAR_VIEW'],
-    SHIFTS_MANAGE: ['SHIFTS_VIEW'],
-    ATTENDANCE_VIEW: ['EMPLOYEE_VIEW'],
-    ATTENDANCE_MANAGE: ['ATTENDANCE_VIEW'],
-    STAMPING_VIEW: ['EMPLOYEE_VIEW', 'SHIFTS_VIEW'],
-    STAMPING_MANAGE: ['STAMPING_VIEW'],
-    STAMPING_WAREHOUSES_MANAGE: ['STAMPING_VIEW'],
-    CALENDAR_EVENT_MANAGE: ['CALENDAR_VIEW'],
-    NOTIFICATIONS_MANAGE: ['NOTIFICATIONS_VIEW'],
-    STATS_VIEW: ['CUSTOMERS_VIEW', 'EMPLOYEE_VIEW', 'SHIFTS_VIEW'],
-
-    // Amministratori
-    ADMIN_CREATE: ['ADMIN_VIEW'],
-    ADMIN_EDIT: ['ADMIN_VIEW'],
-    ADMIN_DELETE: ['ADMIN_VIEW'],
-    SETTINGS_ADMIN: ['ADMIN_VIEW'],
-    VEHICLE_SETTINGS_MANAGE: ['VEHICLES_VIEW'],
-    EQUIPMENT_SETTINGS_MANAGE: ['EQUIPMENT_VIEW'],
-    EMAIL_SETTINGS: ['EMAIL_VIEW'],
-
-    // Dipendenti
-    EMPLOYEE_CREATE: ['EMPLOYEE_VIEW'],
-    EMPLOYEE_EDIT: ['EMPLOYEE_VIEW'],
-    EMPLOYEE_DELETE: ['EMPLOYEE_VIEW'],
-    EMPLOYEE_DOCS_MANAGE: ['EMPLOYEE_VIEW'],
-    EMPLOYEE_PERMITS_MANAGE: ['EMPLOYEE_VIEW'],
-    EMPLOYEE_DEADLINES_VIEW: ['EMPLOYEE_VIEW'],
-    EMPLOYEE_DEADLINES_CREATE: ['EMPLOYEE_DEADLINES_VIEW'],
-    EMPLOYEE_DEADLINES_EDIT: ['EMPLOYEE_DEADLINES_VIEW'],
-    EMPLOYEE_DEADLINES_DELETE: ['EMPLOYEE_DEADLINES_VIEW'],
-    VEHICLE_DEADLINES_VIEW: ['VEHICLES_VIEW'],
-    VEHICLE_DEADLINES_CREATE: ['VEHICLE_DEADLINES_VIEW'],
-    VEHICLE_DEADLINES_EDIT: ['VEHICLE_DEADLINES_VIEW'],
-    VEHICLE_DEADLINES_DELETE: ['VEHICLE_DEADLINES_VIEW'],
-    EQUIPMENT_DEADLINES_VIEW: ['EQUIPMENT_VIEW'],
-    EQUIPMENT_DEADLINES_CREATE: ['EQUIPMENT_DEADLINES_VIEW'],
-    EQUIPMENT_DEADLINES_EDIT: ['EQUIPMENT_DEADLINES_VIEW'],
-    EQUIPMENT_DEADLINES_DELETE: ['EQUIPMENT_DEADLINES_VIEW'],
-    CUSTOMER_DEADLINES_VIEW: ['CUSTOMERS_VIEW'],
-    CUSTOMER_DEADLINES_CREATE: ['CUSTOMER_DEADLINES_VIEW'],
-    CUSTOMER_DEADLINES_EDIT: ['CUSTOMER_DEADLINES_VIEW'],
-    CUSTOMER_DEADLINES_DELETE: ['CUSTOMER_DEADLINES_VIEW'],
-    INTERNAL_DEADLINES_CREATE: ['INTERNAL_DEADLINES_VIEW'],
-    INTERNAL_DEADLINES_EDIT: ['INTERNAL_DEADLINES_VIEW'],
-    INTERNAL_DEADLINES_DELETE: ['INTERNAL_DEADLINES_VIEW'],
-  };
+  private permissionDeps: Record<string, string[]> = {};
 
   constructor(
     private http: HttpClient,
@@ -152,6 +87,11 @@ export class UserSettingsComponent implements OnInit {
             parsed = response;
           }
 
+          this.permissionDeps = Object.fromEntries(
+            Object.entries(parsed?.permissionDependencies || {}).map(([key, rule]: [string, any]) => [
+              key, Array.isArray(rule?.permissions) ? rule.permissions : [],
+            ]),
+          );
           const availableKeysFromResponse = Array.isArray(parsed?.permissions)
             ? new Set<string>(parsed.permissions.map((key: string) => String(key)))
             : null;
@@ -305,7 +245,6 @@ export class UserSettingsComponent implements OnInit {
           'VEHICLE_SETTINGS_MANAGE',
           'EQUIPMENT_VIEW',
           'EQUIPMENT_SETTINGS_MANAGE',
-          'SETTINGS_ADMIN',
         ]),
       },
       {
@@ -579,12 +518,13 @@ export class UserSettingsComponent implements OnInit {
   }
 
   private filterAvailablePermissions(permissions: string[]): string[] {
-    const expanded = new Set(permissions || []);
-    if (expanded.has('VEHICLE_SETTINGS_MANAGE')) expanded.add('VEHICLES_VIEW');
-    if (expanded.has('EQUIPMENT_SETTINGS_MANAGE')) expanded.add('EQUIPMENT_VIEW');
-    if (!this.availablePermissionKeys.size) return [...expanded];
-    return [...expanded].filter((permission) =>
-      this.availablePermissionKeys.has(permission),
-    );
+    const expanded = new Set<string>();
+    const add = (key: string) => {
+      if (expanded.has(key) || (this.availablePermissionKeys.size && !this.availablePermissionKeys.has(key))) return;
+      expanded.add(key);
+      for (const dependency of this.permissionDeps[key] || []) add(dependency);
+    };
+    for (const key of permissions || []) add(key);
+    return [...expanded];
   }
 }

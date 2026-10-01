@@ -64,13 +64,13 @@
           <div class="hours-card__body">
             <div class="hours-edit-list">
               <div class="hours-edit-row" *ngFor="let entry of employee.vociGiorno[selectedDayIndex]; let entryIndex = index">
-                <select class="form-select" [(ngModel)]="entry.categoria" (change)="onCellaChange(employee, selectedDayIndex)"><option *ngFor="let category of categorieVoci" [value]="category">{{ category }}</option></select>
-                <input class="form-control" type="text" [(ngModel)]="entry.ore" (ngModelChange)="onCellaChange(employee, selectedDayIndex)" (blur)="entry.ore = entry.ore ? formatOreStr(entry.ore) : ''" placeholder="Ore" />
-                <button type="button" class="hours-remove-button" (click)="rimuoviVoce(employee, selectedDayIndex, entryIndex)" aria-label="Rimuovi voce"><i class="fas fa-trash"></i></button>
+                <select class="form-select" [(ngModel)]="entry.categoria" (change)="onCellaChange(employee, selectedDayIndex)" [disabled]="!canManage"><option *ngFor="let category of categorieVoci" [value]="category">{{ category }}</option></select>
+                <input class="form-control" type="text" [(ngModel)]="entry.ore" (ngModelChange)="onCellaChange(employee, selectedDayIndex)" (blur)="entry.ore = entry.ore ? formatOreStr(entry.ore) : ''" placeholder="Ore" [disabled]="!canManage" />
+                <button type="button" class="hours-remove-button" (click)="rimuoviVoce(employee, selectedDayIndex, entryIndex)" aria-label="Rimuovi voce" [disabled]="!canManage"><i class="fas fa-trash"></i></button>
               </div>
-              <button type="button" class="hours-add-button" (click)="aggiungiVoce(employee, selectedDayIndex)"><i class="fas fa-plus"></i> Aggiungi voce</button>
+              <button type="button" class="hours-add-button" (click)="aggiungiVoce(employee, selectedDayIndex)" [disabled]="!canManage"><i class="fas fa-plus"></i> Aggiungi voce</button>
             </div>
-            <label class="hours-note-field"><span>Note del mese</span><input class="form-control" type="text" [(ngModel)]="employee.note" (ngModelChange)="onNotaChange(employee)" placeholder="Aggiungi una nota" /></label>
+            <label class="hours-note-field"><span>Note del mese</span><input class="form-control" type="text" [(ngModel)]="employee.note" (ngModelChange)="onNotaChange(employee)" placeholder="Aggiungi una nota" [disabled]="!canManage" /></label>
           </div>
         </article>
       </div>
@@ -81,8 +81,8 @@
         <thead><tr><th class="sticky-col">Dipendente</th><th *ngFor="let day of giorni">{{ day }}</th><th>Totale</th><th>Note</th></tr></thead>
         <tbody><tr *ngFor="let employee of filteredDipendenti">
           <td class="sticky-col"><label class="hours-entity-title"><input type="checkbox" [checked]="dipendentiSelezionati.has(employee.id)" (change)="toggleDipendente(employee.id)" /><span class="hours-id-pill">#{{ employee.id }}</span><strong>{{ employee.nome }}</strong></label></td>
-          <td *ngFor="let day of giorni; let dayIndex = index"><div class="hours-matrix-cell"><div class="hours-edit-row" *ngFor="let entry of employee.vociGiorno[dayIndex]; let entryIndex = index"><select class="form-select" [(ngModel)]="entry.categoria" (change)="onCellaChange(employee, dayIndex)"><option *ngFor="let category of categorieVoci" [value]="category">{{ category }}</option></select><input class="form-control" type="text" [(ngModel)]="entry.ore" (ngModelChange)="onCellaChange(employee, dayIndex)" (blur)="entry.ore = entry.ore ? formatOreStr(entry.ore) : ''" /><button type="button" class="hours-remove-button" (click)="rimuoviVoce(employee, dayIndex, entryIndex)" aria-label="Rimuovi voce"><i class="fas fa-times"></i></button></div><button type="button" class="hours-add-button" (click)="aggiungiVoce(employee, dayIndex)">+ Aggiungi</button></div></td>
-          <td class="hours-table-total">{{ employee.totale || '0.00' }}</td><td><input class="form-control hours-table-note" type="text" [(ngModel)]="employee.note" (ngModelChange)="onNotaChange(employee)" /></td>
+          <td *ngFor="let day of giorni; let dayIndex = index"><div class="hours-matrix-cell"><div class="hours-edit-row" *ngFor="let entry of employee.vociGiorno[dayIndex]; let entryIndex = index"><select class="form-select" [(ngModel)]="entry.categoria" (change)="onCellaChange(employee, dayIndex)" [disabled]="!canManage"><option *ngFor="let category of categorieVoci" [value]="category">{{ category }}</option></select><input class="form-control" type="text" [(ngModel)]="entry.ore" (ngModelChange)="onCellaChange(employee, dayIndex)" (blur)="entry.ore = entry.ore ? formatOreStr(entry.ore) : ''" [disabled]="!canManage" /><button type="button" class="hours-remove-button" (click)="rimuoviVoce(employee, dayIndex, entryIndex)" aria-label="Rimuovi voce" [disabled]="!canManage"><i class="fas fa-times"></i></button></div><button type="button" class="hours-add-button" (click)="aggiungiVoce(employee, dayIndex)" [disabled]="!canManage">+ Aggiungi</button></div></td>
+          <td class="hours-table-total">{{ employee.totale || '0.00' }}</td><td><input class="form-control hours-table-note" type="text" [(ngModel)]="employee.note" (ngModelChange)="onNotaChange(employee)" [disabled]="!canManage" /></td>
         </tr></tbody>
       </table>
     </div>

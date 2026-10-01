@@ -54,7 +54,7 @@
         </button>
         <span class="employee-quick-actions">
           <button type="button" class="btn btn-sm btn-employee-quick action-with-tooltip" (click)="navigateToEmployeeProfile(emp)" title="Scheda dipendente" aria-label="Scheda dipendente" data-tooltip="Scheda dipendente"><i class="fas fa-id-card"></i></button>
-          <button type="button" class="btn btn-sm btn-employee-quick action-with-tooltip mv-note-badge-anchor" (click)="navigateToEmployeeNotes(emp)" title="Note dipendente" aria-label="Note dipendente" data-tooltip="Note dipendente"><i class="fas fa-note-sticky"></i><span class="mv-note-unread-badge" *ngIf="noteUnread.count('employee', emp.id) as unread">{{ unread > 99 ? '99+' : unread }}</span></button>
+          <button type="button" class="btn btn-sm btn-employee-quick action-with-tooltip mv-note-badge-anchor" *ngIf="globalService.hasPermission('EMPLOYEE_NOTES_VIEW')" (click)="navigateToEmployeeNotes(emp)" title="Note dipendente" aria-label="Note dipendente" data-tooltip="Note dipendente"><i class="fas fa-note-sticky"></i><span class="mv-note-unread-badge" *ngIf="noteUnread.count('employee', emp.id) as unread">{{ unread > 99 ? '99+' : unread }}</span></button>
         </span>
       </div>
 

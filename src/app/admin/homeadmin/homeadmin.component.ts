@@ -391,7 +391,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   loadPendingEmployeeContractReviews(): void {
     if (
-      !this.canUsePermission('EMPLOYEE_VIEW') ||
+      !this.canUsePermission('EMPLOYEE_CONTRACTS_VIEW') ||
       !this.global.isFeatureAvailableInApp('employeeContracts')
     ) {
       this.pendingEmployeeContractReviews = 0;
@@ -983,7 +983,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
           {
             label: 'Contratti',
             icon: 'fas fa-file-signature',
-            permission: 'EMPLOYEE_VIEW',
+            permission: 'EMPLOYEE_CONTRACTS_VIEW',
             feature: 'employeeContracts',
             action: () => this.navigateToEmployeeContracts(),
             desktopPath: 'employee-contracts',
