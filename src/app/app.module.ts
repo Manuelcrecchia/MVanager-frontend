@@ -1,3 +1,4 @@
+import { LinkedFieldsComponent } from './admin/linked-fields.component';
 import { OfflineFieldDraftDirective } from './offline/offline-field-draft.directive';
 import { OFFLINE_SESSION } from './offline/offline.service';
 import { OfflineStatusComponent } from './offline/offline-status.component';
@@ -205,6 +206,7 @@ registerLocaleData(localeIt);
     ReliableDetailsDirective,
   ],
   imports: [
+    LinkedFieldsComponent,
     OfflineStatusComponent,
     OfflineFieldDraftDirective,
     BrowserModule,

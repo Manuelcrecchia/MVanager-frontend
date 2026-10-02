@@ -1,3 +1,4 @@
+import { buildMappedFieldRows, MappedFieldRow, trackByMappedFieldRow, isLinkedFieldRow } from '../mapped-field-layout';
 // src/app/componenti/scheda-cliente/scheda-cliente.component.ts
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
@@ -77,6 +78,16 @@ export class SchedaClienteComponent implements OnInit {
   getDisplayName(): string {
     if (this.isAnonymized) return '';
     return this.globalService.getRecordDisplayName('customer', this.cliente || {});
+  }
+
+  readonly readLinkedRows = (field: TenantFieldMappingFieldConfig): string[] => { const value = this.getFieldValue(field); const rows = this.parseArrayValue(value); return rows.length ? rows.map(item => String(item ?? '')) : (typeof value === 'string' && value.trim() && value.trim() !== '[]' ? [value] : []); };
+  readonly linkedOptions = (field: TenantFieldMappingFieldConfig) => this.globalService.getEnumOptions(field);
+  readonly isLinkedRow = (row: MappedFieldRow<TenantFieldMappingFieldConfig>) =>
+    isLinkedFieldRow(row, field => field.type === 'list');
+  trackByFieldRow = trackByMappedFieldRow;
+
+  getFieldRows(): MappedFieldRow<TenantFieldMappingFieldConfig>[] {
+    return buildMappedFieldRows(this.getVisibleFields());
   }
 
   getVisibleFields(): TenantFieldMappingFieldConfig[] {

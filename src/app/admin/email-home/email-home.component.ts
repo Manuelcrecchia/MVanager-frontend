@@ -1,10 +1,11 @@
+import { AttachmentViewerService } from '../../shared/attachment-viewer/attachment-viewer.service';
 import { downloadFile } from '../../shared/file-download';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { SocketService } from '../../service/soket.service';
-import { Subscription } from 'rxjs';
+import { Subscription, map } from 'rxjs';
 
 type MailFolder = 'unread' | 'inbox' | 'outbox' | 'drafts' | 'sent' | 'trash';
 
@@ -156,6 +157,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
 
   constructor(
     private http: HttpClient,
+    private attachmentViewer: AttachmentViewerService,
     private router: Router,
     private route: ActivatedRoute,
     public globalService: GlobalService,
@@ -923,30 +925,12 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   }
 
   previewAttachment(attachment: EmailAttachment) {
-    const previewWindow = window.open('', '_blank');
-    if (!previewWindow) {
-      alert("Pop-up bloccato dal browser. Abilita i pop-up per vedere l'anteprima.");
-      return;
-    }
-
-    previewWindow.document.write('Caricamento anteprima...');
-    this.fetchAttachmentBlob(attachment).subscribe({
-      next: (blob) => {
-        const previewBlob = blob.type
-          ? blob
-          : new Blob([blob], {
-              type: attachment.contentType || 'application/octet-stream',
-            });
-        const url = URL.createObjectURL(previewBlob);
-        previewWindow.location.href = url;
-        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      },
-      error: (err) => {
-        previewWindow.close();
-        console.error('Errore anteprima allegato:', err);
-        alert(err?.error?.error || 'Errore anteprima allegato');
-      },
-    });
+    this.attachmentViewer.open(
+      { originalName: attachment.filename || 'allegato' },
+      this.fetchAttachmentBlob(attachment).pipe(map(blob => blob.type ? blob : new Blob([blob], {
+        type: attachment.contentType || 'application/octet-stream',
+      }))),
+    );
   }
 
   downloadAttachment(attachment: EmailAttachment) {

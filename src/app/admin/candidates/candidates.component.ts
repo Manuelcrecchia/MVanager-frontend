@@ -1,3 +1,5 @@
+import { firstValueFrom } from 'rxjs';
+import { AttachmentViewerService } from '../../shared/attachment-viewer/attachment-viewer.service';
 import { downloadFile } from '../../shared/file-download';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
@@ -172,11 +174,13 @@ export class CandidatesComponent implements OnInit {
   interviewEnd = '';
   readonly interviewDurationMinutes = 15;
   selectedFile: File | null = null;
+  downloadingAttachmentIds = new Set<number>();
   selectedAttachmentType = '';
   private duplicateTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private http: HttpClient,
+    private attachmentViewer: AttachmentViewerService,
     public globalService: GlobalService,
     private router: Router,
     private appDialog: PopupServiceService,
@@ -638,21 +642,32 @@ loadCandidates(scope: 'active' | 'discarded' = this.scope, silent = false): void
       });
   }
 
-  downloadAttachment(attachment: CandidateAttachment): void {
+  openAttachment(attachment: CandidateAttachment): void {
     if (!this.selectedCandidate) return;
-    this.http.get(this.api(`${this.selectedCandidate.id}/attachments/${attachment.id}/download`), {
-      responseType: 'blob',
-    }).subscribe({
-      next: (blob) => {
-        const file = new File([blob], attachment.originalName || 'allegato', {
-          type: attachment.mimeType || blob.type || 'application/octet-stream',
-        });
-        void downloadFile(file, attachment.originalName || 'allegato');
-      },
-      error: () => {
-        this.errorMessage = 'Errore apertura allegato.';
-      },
-    });
+    this.attachmentViewer.open(attachment, this.http.get(
+      this.api(`${this.selectedCandidate.id}/attachments/${attachment.id}/download`),
+      { responseType: 'blob' },
+    ));
+  }
+
+  async downloadAttachment(attachment: CandidateAttachment): Promise<void> {
+    if (!this.selectedCandidate || this.downloadingAttachmentIds.has(attachment.id)) return;
+    this.downloadingAttachmentIds.add(attachment.id);
+    this.errorMessage = '';
+    try {
+      const blob = await firstValueFrom(this.http.get(
+        this.api(`${this.selectedCandidate.id}/attachments/${attachment.id}/download`),
+        { responseType: 'blob' },
+      ));
+      const file = new File([blob], attachment.originalName || 'allegato', {
+        type: attachment.mimeType || blob.type || 'application/octet-stream',
+      });
+      await downloadFile(file, attachment.originalName || 'allegato', message => this.errorMessage = message);
+    } catch {
+      this.errorMessage = 'Impossibile scaricare l’allegato. Riprova.';
+    } finally {
+      this.downloadingAttachmentIds.delete(attachment.id);
+    }
   }
 
   openDuplicate(match: DuplicateMatch): void {

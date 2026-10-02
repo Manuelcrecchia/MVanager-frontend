@@ -1,3 +1,4 @@
+import { buildMappedFieldRows, MappedFieldRow, trackByMappedFieldRow, isLinkedFieldRow } from '../mapped-field-layout';
 import { HttpClient } from '@angular/common/http';
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
@@ -42,6 +43,23 @@ export class AddCustomerComponent {
   employeeCategoriesLoaded = false;
   equipmentTargetsLoaded = false;
   visibleCustomerFields: TenantFieldMappingFieldConfig[] = [];
+  customerFieldRows: MappedFieldRow<TenantFieldMappingFieldConfig>[] = [];
+  readonly readLinkedRows = (field: TenantFieldMappingFieldConfig) => this.getRepeatableTextRows(field);
+  readonly linkedOptions = (field: TenantFieldMappingFieldConfig) => this.globalService.getEnumOptions(field);
+  readonly isLinkedRow = (row: MappedFieldRow<TenantFieldMappingFieldConfig>) =>
+    isLinkedFieldRow(row, field => field.type === 'list');
+  readonly linkedError = (field: TenantFieldMappingFieldConfig) => this.getFieldError(field);
+  updateLinkedRows(changes: {field: TenantFieldMappingFieldConfig; values: string[]}[]): void {
+    const target = this.customerModelService as unknown as Record<string, any>;
+    for (const {field, values} of changes) {
+      delete this.validationErrors[mappedFieldKey(field)];
+      target[field.dbColumn] = values;
+      if (field.key && field.key !== field.dbColumn) target[field.key] = values;
+    }
+    this.globalService.applyCalculatedFields('customer', target);
+    this.syncCustomerFieldRules();
+  }
+  trackByFieldRow = trackByMappedFieldRow;
   accessWorkFields: TenantFieldMappingFieldConfig[] = [];
   validationErrors: Record<string, string> = {};
   readonly accessWeekDays = [
@@ -290,6 +308,7 @@ export class AddCustomerComponent {
     );
     this.accessWorkFields = fields.filter((field) => this.isAccessWorkField(field));
     this.visibleCustomerFields = fields.filter((field) => !this.isAccessWorkField(field));
+    this.customerFieldRows = buildMappedFieldRows(this.visibleCustomerFields);
   }
 
   trackByCustomerField(index: number, field: TenantFieldMappingFieldConfig): string {

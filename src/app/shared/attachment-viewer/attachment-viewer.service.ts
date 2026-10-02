@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Observable, Subscription } from 'rxjs';
+import { Observable, Subscription, combineLatest, of, map, catchError, startWith } from 'rxjs';
 import { downloadFile, fileDownloadIO } from '../file-download';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
@@ -37,7 +37,7 @@ export class AttachmentViewerService {
     private readonly popup: PopupServiceService,
   ) {}
 
-  open(attachment: ViewableAttachment, source: Observable<Blob>): void {
+  open(attachment: ViewableAttachment, source: Observable<Blob>, previewSource?: Observable<Blob>): void {
     this.close();
     const generation = this.generation;
     const name = attachment.originalName || attachment.storedName || 'Allegato';
@@ -49,8 +49,12 @@ export class AttachmentViewerService {
       size: Number(attachment.size || 0),
     };
 
-    this.sourceSubscription = source.subscribe({
-      next: (blob) => { if (generation === this.generation) this.showBlob(blob, name); },
+    // A failed converted preview must not prevent downloading the original.
+    const content: Observable<readonly [Blob, Blob | null]> = previewSource
+      ? combineLatest([source, previewSource.pipe(catchError(() => of(null)), startWith(null))])
+      : source.pipe(map(blob => [blob, null] as const));
+    this.sourceSubscription = content.subscribe({
+      next: ([blob, preview]) => { if (generation === this.generation) this.showBlob(blob, name, preview); },
       error: (error) => {
         console.error('Errore apertura allegato:', error);
         this.parseError(error).then((message) => {
@@ -164,11 +168,13 @@ export class AttachmentViewerService {
     return 'unsupported';
   }
 
-  private showBlob(blob: Blob, name: string): void {
+  private showBlob(blob: Blob, name: string, preview: Blob | null = null): void {
     if (this.state.objectUrl) URL.revokeObjectURL(this.state.objectUrl);
-    const mimeType = this.mimeType(blob, name);
-    const namedBlob = new File([blob], name, { type: mimeType });
-    const objectUrl = URL.createObjectURL(namedBlob);
+    const originalType = this.mimeType(blob, name);
+    const namedBlob = new File([blob], name, { type: originalType });
+    const displayBlob = preview || namedBlob;
+    const mimeType = preview ? this.mimeType(preview, name) : originalType;
+    const objectUrl = URL.createObjectURL(displayBlob);
     const kind = this.previewKind(mimeType);
     this.state = {
       ...this.state,
@@ -181,7 +187,7 @@ export class AttachmentViewerService {
       blob: namedBlob,
     };
     if (kind === 'text') {
-      namedBlob.text().then((text) => {
+      displayBlob.text().then((text) => {
         if (this.state.objectUrl === objectUrl) this.state = { ...this.state, textContent: text };
       });
     }

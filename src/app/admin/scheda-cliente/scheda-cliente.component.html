@@ -48,16 +48,25 @@
       <hr />
 
       <div class="row" *ngIf="getVisibleFields().length > 0; else noFields">
-        <div
-          class="col-md-6 mb-3"
-          *ngFor="let field of getVisibleFields()"
-        >
-          <div class="text-muted small fw-semibold">
-            {{ field.label || field.dbColumn || field.key }}
-          </div>
-          <div class="fs-6">
-            {{ formatFieldValue(field) }}
-          </div>
+        <div class="mapped-field-row" [class.row]="!row.grouped" [class.mapped-field-row-grouped]="row.grouped"
+          *ngFor="let row of getFieldRows(); trackBy: trackByFieldRow">
+          <app-linked-fields *ngIf="isLinkedRow(row); else standardFieldRow"
+            [fields]="row.fields" [readRows]="readLinkedRows" [options]="linkedOptions"
+            [allowCustom]="false" [readOnly]="true">
+          </app-linked-fields>
+          <ng-template #standardFieldRow>
+            <div
+              class="col-md-6 mb-3"
+              *ngFor="let field of row.fields"
+            >
+              <div class="text-muted small fw-semibold">
+                {{ field.label || field.dbColumn || field.key }}
+              </div>
+              <div class="fs-6">
+                {{ formatFieldValue(field) }}
+              </div>
+            </div>
+          </ng-template>
         </div>
       </div>
 

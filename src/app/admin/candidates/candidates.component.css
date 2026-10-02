@@ -407,7 +407,7 @@
 }
 
 .attachment-item {
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
 }
 
@@ -497,4 +497,14 @@
   .candidate-toolbar__right .form-select {
     width: 100%;
   }
+}
+
+.attachment-item .attachment-name { min-width: 0; overflow-wrap: anywhere; }
+.attachment-item .attachment-download { min-height: 44px; white-space: nowrap; }
+@media (max-width: 700px) {
+  .attachment-list .attachment-item { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+  .attachment-item .attachment-name { grid-column: 1 / -1; }
+  .attachment-item > span { grid-column: 1 / -1; overflow-wrap: anywhere; }
+  .attachment-item .attachment-download { justify-self: start; }
+  .attachment-item .icon-btn { width: 44px; height: 44px; }
 }

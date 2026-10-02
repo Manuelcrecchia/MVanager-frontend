@@ -1,5 +1,5 @@
 import { AttachmentViewerService } from './attachment-viewer.service';
-import { Subject } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 
 describe('AttachmentViewerService', () => {
   it('ignores an asynchronous error belonging to an old attachment', async () => {
@@ -48,5 +48,37 @@ describe('AttachmentViewerService', () => {
     expect(service.previewKind('audio/mpeg')).toBe('audio');
     expect(service.previewKind('text/plain')).toBe('text');
     expect(service.previewKind('application/vnd.openxmlformats-officedocument.wordprocessingml.document')).toBe('unsupported');
+  });
+});
+
+
+describe('Converted attachment previews', () => {
+  const create = () => new AttachmentViewerService({bypassSecurityTrustResourceUrl: (value: string) => value} as any, {} as any);
+  it('displays the converted image but retains the original bytes and name for download', async () => {
+    const service = create();
+    service.open({originalName: 'foto.heic'}, of(new Blob(['original'], {type: 'image/heic'})), of(new Blob(['preview'], {type: 'image/jpeg'})));
+    expect(service.state.mimeType).toBe('image/jpeg');
+    expect(service.state.kind).toBe('image');
+    expect(service.state.name).toBe('foto.heic');
+    expect(service.state.blob!.type).toBe('image/heic');
+    expect(await service.state.blob!.text()).toBe('original');
+    service.close();
+  });
+  it('keeps the original downloadable when the converted preview fails', async () => {
+    const service = create();
+    service.open({originalName: 'file.pdf'}, of(new Blob(['original'], {type: 'application/pdf'})), throwError(() => new Error('preview failed')));
+    expect(service.state.error).toBe('');
+    expect(service.state.loading).toBeFalse();
+    expect(await service.state.blob!.text()).toBe('original');
+    service.close();
+  });
+  it('ignores a converted preview arriving after the user switches attachments', () => {
+    const service = create(), preview = new Subject<Blob>();
+    service.open({originalName: 'old.heic'}, of(new Blob(['old'])), preview);
+    service.openBlob(new Blob(['new'], {type: 'application/pdf'}), 'new.pdf');
+    preview.next(new Blob(['old preview'], {type: 'image/jpeg'}));
+    expect(service.state.name).toBe('new.pdf');
+    expect(service.state.mimeType).toBe('application/pdf');
+    service.close();
   });
 });

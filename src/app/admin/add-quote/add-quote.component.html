@@ -56,16 +56,25 @@
         </div>
 
         <div class="quote-field-grid">
-          <div
-            class="quote-field-cell"
-            [class.quote-field-cell-wide]="isWideQuoteField(field)"
-            [class.quote-field-invalid]="getFieldError(field)"
-            *ngFor="let field of section.fields; trackBy: trackByQuoteField"
-          >
-            <ng-container
-              [ngTemplateOutlet]="quoteFieldTemplate"
-              [ngTemplateOutletContext]="{ $implicit: field }"
-            ></ng-container>
+          <div class="mapped-field-row" [class.mapped-field-row-grouped]="row.grouped"
+            *ngFor="let row of section.rows; trackBy: trackByFieldRow">
+            <app-linked-fields *ngIf="isLinkedRow(row); else standardFieldRow"
+              [fields]="row.fields" [readRows]="readLinkedRows" [options]="linkedOptions"
+              [allowCustom]="true" [error]="linkedError" (rowsChange)="updateLinkedRows($event)">
+            </app-linked-fields>
+            <ng-template #standardFieldRow>
+              <div
+                class="quote-field-cell"
+                [class.quote-field-cell-wide]="isWideQuoteField(field)"
+                [class.quote-field-invalid]="getFieldError(field)"
+                *ngFor="let field of row.fields; trackBy: trackByQuoteField"
+              >
+                <ng-container
+                  [ngTemplateOutlet]="quoteFieldTemplate"
+                  [ngTemplateOutletContext]="{ $implicit: field }"
+                ></ng-container>
+              </div>
+            </ng-template>
           </div>
         </div>
       </section>

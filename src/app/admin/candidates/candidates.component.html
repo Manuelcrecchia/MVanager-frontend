@@ -371,10 +371,16 @@
         </div>
         <div class="attachment-list">
           <div class="attachment-item" *ngFor="let attachment of attachments; trackBy: trackById">
-            <button type="button" class="link-button" (click)="downloadAttachment(attachment)">
+            <button type="button" class="link-button attachment-name" (click)="openAttachment(attachment)" [attr.aria-label]="'Apri ' + attachment.originalName">
               {{ attachment.originalName }}
             </button>
             <span>{{ attachmentTypeLabel(attachment.typeKey) }}</span>
+            <button class="ghost-btn attachment-download" type="button" (click)="downloadAttachment(attachment)"
+              [disabled]="downloadingAttachmentIds.has(attachment.id)"
+              [attr.aria-label]="'Scarica ' + attachment.originalName" [attr.aria-busy]="downloadingAttachmentIds.has(attachment.id)">
+              <i class="fas fa-download" aria-hidden="true"></i>
+              {{ downloadingAttachmentIds.has(attachment.id) ? 'Scaricamento…' : 'Scarica' }}
+            </button>
             <button class="icon-btn danger" type="button" (click)="deleteAttachment(attachment)" [disabled]="!canManageFiles" aria-label="Elimina">
               <i class="fas fa-trash"></i>
             </button>

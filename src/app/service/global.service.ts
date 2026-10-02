@@ -219,6 +219,8 @@ export interface TenantFieldCalculationConfig {
 }
 
 export interface TenantFieldMappingFieldConfig {
+  rowGroup?: string;
+  rowLayout?: string;
   key: string;
   label: string;
   dbColumn: string;

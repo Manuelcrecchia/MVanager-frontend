@@ -1,3 +1,5 @@
+import { defer, of, throwError } from 'rxjs';
+import { AttachmentViewerService } from '../../shared/attachment-viewer/attachment-viewer.service';
 import { OfflineService, isOfflinePending } from '../../offline/offline.service';
 import { watchDraft, DraftHandle } from '../../offline/offline-draft';
 import { downloadFile } from '../../shared/file-download';
@@ -147,6 +149,7 @@ export class QuoteNotesComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private http: HttpClient,
+    private attachmentViewer: AttachmentViewerService,
     private offline: OfflineService,
     public globalService: GlobalService,
     private location: Location,
@@ -303,9 +306,15 @@ export class QuoteNotesComponent implements OnInit {
   }
 
   viewAllegato(allegato: AllegatoNota) {
-    this.withObjectUrl(allegato, (url) => {
-      if (!window.open(url, '_blank')) alert('⚠️ Popup bloccato dal browser. Consenti i popup per visualizzare l’allegato.');
+    const request = (url: string) => this.http.get(url, {
+      headers: this.globalService.headers.delete('Content-Type'), responseType: 'blob',
     });
+    const original = allegato.blob ? of(allegato.blob)
+      : allegato.base64 ? defer(() => fetch(this.createObjectUrl(allegato, false)).then(response => response.blob()))
+      : allegato.downloadUrl ? request(allegato.downloadUrl)
+      : throwError(() => new Error('Allegato non disponibile.'));
+    const preview = allegato.previewDownloadUrl ? request(allegato.previewDownloadUrl) : undefined;
+    this.attachmentViewer.open({ originalName: allegato.nome, size: allegato.size }, original, preview);
   }
 
   printAllegato(allegato: AllegatoNota) {

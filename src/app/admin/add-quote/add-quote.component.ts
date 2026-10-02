@@ -1,3 +1,4 @@
+import { buildMappedFieldRows, MappedFieldRow, trackByMappedFieldRow, isLinkedFieldRow } from '../mapped-field-layout';
 import { OfflineService, isOfflinePending } from '../../offline/offline.service';
 import { watchDraft, DraftHandle } from '../../offline/offline-draft';
 import { HttpClient } from '@angular/common/http';
@@ -34,6 +35,7 @@ interface QuoteFieldSection {
   key: string;
   label: string;
   fields: TenantFieldMappingFieldConfig[];
+  rows: MappedFieldRow<TenantFieldMappingFieldConfig>[];
 }
 
 @Component({
@@ -50,6 +52,22 @@ export class AddQuoteComponent {
   selectedRoomTextByField: Record<string, string> = {};
   visibleQuoteFields: TenantFieldMappingFieldConfig[] = [];
   visibleQuoteSections: QuoteFieldSection[] = [];
+  readonly readLinkedRows = (field: TenantFieldMappingFieldConfig) => this.getRepeatableTextRows(field);
+  readonly linkedOptions = (field: TenantFieldMappingFieldConfig) => this.getListOptionsForField(field);
+  readonly isLinkedRow = (row: MappedFieldRow<TenantFieldMappingFieldConfig>) =>
+    isLinkedFieldRow(row, field => this.getEditableFieldType(field) === 'list' && field.displayRole !== 'quoteRooms');
+  readonly linkedError = (field: TenantFieldMappingFieldConfig) => this.getFieldError(field);
+  updateLinkedRows(changes: {field: TenantFieldMappingFieldConfig; values: string[]}[]): void {
+    const target = this.quoteModelService as unknown as Record<string, any>;
+    for (const {field, values} of changes) {
+      delete this.validationErrors[mappedFieldKey(field)];
+      target[field.dbColumn] = values;
+      if (field.key && field.key !== field.dbColumn) target[field.key] = values;
+    }
+    this.globalService.applyCalculatedFields('quote', target);
+    this.refreshVisibleQuoteFields();
+  }
+  trackByFieldRow = trackByMappedFieldRow;
   validationErrors: Record<string, string> = {};
 
   private draft?: DraftHandle;
@@ -216,12 +234,15 @@ export class AddQuoteComponent {
           key: sectionKey,
           label: this.formatSectionLabel(sectionName),
           fields: [],
+          rows: [],
         });
       }
       sections.get(sectionKey)?.fields.push(field);
     });
 
-    return Array.from(sections.values());
+    return Array.from(sections.values()).map((section) => ({
+      ...section, rows: buildMappedFieldRows(section.fields),
+    }));
   }
 
   private normalizeSectionKey(value: string): string {
