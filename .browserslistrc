@@ -1,5 +1,6 @@
-# Include the system WebView shipped with Android 8.1 (API 27).
-# Keep the same compilation baseline as MVanager Dipendenti.
-Chrome >= 61
-Safari >= 11
-iOS >= 11
+# Native dynamic import is required by Angular lazy chunks and Capacitor plugins.
+# Older targets lower import() to require(), which fails in the browser.
+# Keep this baseline aligned between MVanager and MVanager Dipendenti.
+Chrome >= 63
+Safari >= 11.1
+iOS >= 11.3
