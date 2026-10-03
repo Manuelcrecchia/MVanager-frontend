@@ -358,7 +358,7 @@ export class GlobalService {
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '7.0';
+  version = '7.1';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -557,11 +557,19 @@ export class GlobalService {
       [];
     const granted = new Set<string>();
     const dependencies = tenantPermissions?.permissionDependencies || {};
-    const hasCatalog = Array.isArray(tenantPermissions?.available) || Array.isArray(tenantPermissions?.permissions);
+    const hasCatalog =
+      Array.isArray(tenantPermissions?.available) ||
+      Array.isArray(tenantPermissions?.permissions);
     const add = (permission: string) => {
-      if (granted.has(permission) || disabled.includes(permission) || (hasCatalog && !available.has(permission))) return;
+      if (
+        granted.has(permission) ||
+        disabled.includes(permission) ||
+        (hasCatalog && !available.has(permission))
+      )
+        return;
       granted.add(permission);
-      for (const dependency of dependencies[permission]?.permissions || []) add(dependency);
+      for (const dependency of dependencies[permission]?.permissions || [])
+        add(dependency);
     };
     for (const permission of this.permissions) add(permission);
     return granted.has(key);
