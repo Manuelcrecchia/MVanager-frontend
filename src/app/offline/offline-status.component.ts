@@ -37,8 +37,8 @@ import { OfflineService } from './offline.service';
         (click)="dismissNotice()" aria-label="Chiudi avviso" title="Chiudi avviso">×</button>
     </aside>`,
   styles: [`
-    :host { position: fixed; right: 20px; bottom: 20px; z-index: 1050; max-width: calc(100vw - 40px); }
-    .offline-status { position: relative; color: var(--mv-ink, #24364b); background: var(--mv-surface, #fff); border: 1px solid #dbe3ec; border-radius: 16px; box-shadow: 0 4px 18px rgba(26, 46, 71, .12); font: 13px/1.45 system-ui,sans-serif; }
+    :host { display: block; width: max-content; min-height: 0; pointer-events: none; position: fixed; right: 20px; bottom: 20px; z-index: 1050; max-width: calc(100vw - 40px); }
+    .offline-status { pointer-events: auto; position: relative; color: var(--mv-ink, #24364b); background: var(--mv-surface, #fff); border: 1px solid #dbe3ec; border-radius: 16px; box-shadow: 0 4px 18px rgba(26, 46, 71, .12); font: 13px/1.45 system-ui,sans-serif; }
     summary { display: flex; align-items: center; gap: 9px; cursor: pointer; padding: 10px 14px; min-height: 44px; box-sizing: border-box; font-weight: 600; list-style: none; }
     summary.has-notice { padding-right: 52px; }
     .dismiss-notice { position: absolute; top: 0; right: 3px; width: 44px; height: 44px; margin: 0; padding: 0; border: 0; background: transparent; color: #64748b; font-size: 23px; }

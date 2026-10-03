@@ -946,6 +946,11 @@
         box-shadow: 0 14px 34px rgba(146, 64, 14, 0.1);
       }
 
+      .homeadmin-root .deadline-permission-notice > div {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
       .homeadmin-root .deadline-permission-notice h3 {
         margin: 0 0 4px;
         color: #7c3b00;
@@ -1466,6 +1471,10 @@
           min-width: 0;
         }
 
+        .homeadmin-root .home-mobile-body .deadline-permission-notice {
+          margin-bottom: 22px;
+        }
+
         .homeadmin-root .home-mobile-body .dash-btn {
           min-width: 0;
           max-width: 100%;
@@ -1479,6 +1488,16 @@
 
       /* ===== MOBILE TWEAKS ===== */
       @media (max-width: 768px) {
+        .homeadmin-root .deadline-permission-notice {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .homeadmin-root .deadline-permission-notice button {
+          white-space: normal;
+          width: 100%;
+        }
+
         .homeadmin-root .home-ios .mobile-top-bar {
           padding-top: calc(var(--home-safe-top) + 12px) !important;
         }
@@ -1493,6 +1512,10 @@
 
         .homeadmin-root .home-ios .logo-container {
           margin-top: calc(var(--home-safe-top) + 20px);
+        }
+
+        .homeadmin-root .home-mobile-body .deadline-permission-notice {
+          margin-bottom: 22px;
         }
 
         .homeadmin-root .home-mobile-body .dash-btn {
