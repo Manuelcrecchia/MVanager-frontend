@@ -1526,3 +1526,5 @@
     border-radius: var(--mv-radius-surface);
   }
 }
+
+.shift-save-status { margin: 0 0 14px; padding: 10px 14px; color: #334155; background: #f1f5f9; border-radius: 8px; }

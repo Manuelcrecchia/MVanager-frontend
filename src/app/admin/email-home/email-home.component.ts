@@ -1,3 +1,4 @@
+import { replyAllRecipients, prepareMessageHtml, inspectMailLink } from './email-message-utils';
 import { AttachmentViewerService } from '../../shared/attachment-viewer/attachment-viewer.service';
 import { downloadFile } from '../../shared/file-download';
 import { Component, OnDestroy, OnInit } from '@angular/core';
@@ -7,7 +8,7 @@ import { GlobalService } from '../../service/global.service';
 import { SocketService } from '../../service/soket.service';
 import { Subscription, map } from 'rxjs';
 
-type MailFolder = 'unread' | 'inbox' | 'outbox' | 'drafts' | 'sent' | 'trash';
+type MailFolder = 'all' | 'unread' | 'inbox' | 'outbox' | 'drafts' | 'sent' | 'trash';
 
 interface EmailAccount {
   id: number;
@@ -91,6 +92,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   accounts: EmailAccount[] = [];
   messages: EmailMessage[] = [];
   selectedMessage: EmailMessage | null = null;
+  messageDetailsOpen = false;
   selectedAccountId: number | null = null;
   selectedFolder: MailFolder = 'inbox';
   messageSearchQuery = '';
@@ -106,6 +108,9 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   composeDraftId: number | null = null;
   composeFromFolder: MailFolder | null = null;
   safeHtml = '';
+  blockedImages = 0;
+  inspectedLink: string | null = null;
+  linkCopyFeedback = '';
   readonly maxEmailUploads = 15;
   private readonly maxEmailFileBytes = 25 * 1024 * 1024;
   selectedFiles: File[] = [];
@@ -128,6 +133,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   };
 
   folders: Array<{ id: MailFolder; label: string; icon: string }> = [
+    { id: 'all', label: 'Tutte le email', icon: 'fas fa-envelopes-bulk' },
     { id: 'unread', label: 'Non lette', icon: 'fas fa-circle' },
     { id: 'inbox', label: 'In arrivo', icon: 'fas fa-inbox' },
     { id: 'outbox', label: 'In uscita', icon: 'fas fa-clock' },
@@ -141,6 +147,11 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
       this.folders.find((folder) => folder.id === this.selectedFolder)?.label ||
       'Email'
     );
+  }
+
+  get selectedAccountLabel(): string {
+    const account = this.accounts.find((item) => item.id === this.selectedAccountId);
+    return account ? this.accountName(account) : 'Tutte le caselle';
   }
 
   get detailOpen(): boolean {
@@ -191,7 +202,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
         this.accounts = accounts || [];
         if (this.accounts.length > 0) {
           this.compose.accountId = this.accounts[0].id;
-          this.selectedAccountId = this.accounts[0].id;
+          this.selectedAccountId = null;
         }
         this.applyComposeQueryParams();
         this.loadMessages();
@@ -290,7 +301,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
     this.loadMessages();
   }
 
-  selectAccount(accountId: number) {
+  selectAccount(accountId: number | null) {
     this.selectedAccountId = accountId;
     this.selectedMessage = null;
     this.loadMessages();
@@ -309,8 +320,10 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   openMessage(message: EmailMessage) {
     this.http.get<EmailMessage>(this.globalService.url + `admin/email/messages/${message.id}`).subscribe({
       next: (detail) => {
+        this.messageDetailsOpen = false;
         this.selectedMessage = detail;
-        this.safeHtml = detail.htmlBody || this.textToHtml(detail.textBody);
+        this.inspectedLink = null;
+        this.renderMessageBody(detail);
         if (!message.read) {
           message.read = true;
           this.updateAccountUnreadCount(message.accountId, -1);
@@ -362,6 +375,54 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
       body: this.quotedBody(message),
     };
     this.resetComposeAttachments();
+  }
+
+  private allReplyRecipients(message: EmailMessage) {
+    const ownEmail = this.accounts.find(account => account.id === message.accountId)?.email || message.accountEmail || '';
+    return replyAllRecipients(message.fromEmail || '', message.to || [], message.cc || [], ownEmail);
+  }
+
+  canReplyAll(message: EmailMessage): boolean {
+    const recipients = this.allReplyRecipients(message);
+    return recipients.to.length + recipients.cc.length > 1;
+  }
+
+  replyAll(message: EmailMessage): void {
+    const recipients = this.allReplyRecipients(message);
+    this.reply(message);
+    this.compose.to = recipients.to.join(', ');
+    this.compose.cc = recipients.cc.join(', ');
+  }
+
+  private renderMessageBody(message: EmailMessage, showExternalImages = false): void {
+    const prepared = prepareMessageHtml(message.htmlBody || this.textToHtml(message.textBody), showExternalImages);
+    this.safeHtml = prepared.html;
+    this.blockedImages = prepared.blockedImages;
+  }
+
+  showMessageImages(): void {
+    if (this.selectedMessage) this.renderMessageBody(this.selectedMessage, true);
+  }
+
+  inspectMessageLink(event: Event): void {
+    const anchor = (event.target as Element).closest('a');
+    if (!anchor) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.linkCopyFeedback = '';
+    this.inspectedLink = inspectMailLink(anchor.getAttribute('title') || '');
+    if (!this.inspectedLink) this.inspectedLink = '';
+    window.setTimeout(() => document.querySelector('.message-link-preview')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 0);
+  }
+
+  async copyInspectedLink(): Promise<void> {
+    if (!this.inspectedLink) return;
+    try {
+      await navigator.clipboard.writeText(this.inspectedLink);
+      this.linkCopyFeedback = 'Link copiato';
+    } catch {
+      this.linkCopyFeedback = 'Seleziona l’indirizzo per copiarlo.';
+    }
   }
 
   forward(message: EmailMessage) {
@@ -862,6 +923,16 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
     return message.fromName || message.fromEmail || 'Mittente sconosciuto';
   }
 
+  fullSender(message: EmailMessage): string {
+    return this.recipientDetails([{ name: message.fromName, email: message.fromEmail }]) || 'Mittente sconosciuto';
+  }
+
+  recipientDetails(recipients: Array<{ name: string; email: string }> | null | undefined): string {
+    return (recipients || []).map(({ name, email }) =>
+      name && email && name !== email ? `${name} <${email}>` : email || name || ''
+    ).filter(Boolean).join(', ');
+  }
+
   firstRecipient(message: EmailMessage): string {
     return message.to && message.to.length > 0 ? message.to[0].email : '';
   }
@@ -926,12 +997,12 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   }
 
   private quotedBody(message: EmailMessage): string {
-    return `\n\n--- Messaggio originale ---\nDa: ${message.fromName || message.fromEmail}\nData: ${this.formatMailDate(message)}\nOggetto: ${message.subject || '(Senza oggetto)'}\n\n${message.textBody || this.stripHtml(message.htmlBody)}`;
+    return `\n\n--- Messaggio originale ---\nDa: ${this.fullSender(message)}\nData: ${this.formatMailDate(message)}\nOggetto: ${message.subject || '(Senza oggetto)'}\n\n${message.textBody || this.stripHtml(message.htmlBody)}`;
   }
 
   private forwardBody(message: EmailMessage): string {
     const recipients = (message.to || []).map((item) => item.email).join(', ');
-    return `\n\n--- Messaggio inoltrato ---\nDa: ${message.fromName || message.fromEmail}\nA: ${recipients}\nData: ${this.formatMailDate(message)}\nOggetto: ${message.subject || '(Senza oggetto)'}\n\n${message.textBody || this.stripHtml(message.htmlBody)}`;
+    return `\n\n--- Messaggio inoltrato ---\nDa: ${this.fullSender(message)}\nA: ${recipients}\nData: ${this.formatMailDate(message)}\nOggetto: ${message.subject || '(Senza oggetto)'}\n\n${message.textBody || this.stripHtml(message.htmlBody)}`;
   }
 
   private formatMailDate(message: EmailMessage): string {

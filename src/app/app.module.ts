@@ -1,3 +1,4 @@
+import { CommandTooltipDirective } from './shared/command-tooltip.directive';
 import { LinkedFieldsComponent } from './admin/linked-fields.component';
 import { OfflineFieldDraftDirective } from './offline/offline-field-draft.directive';
 import { OFFLINE_SESSION } from './offline/offline.service';
@@ -206,6 +207,7 @@ registerLocaleData(localeIt);
     ReliableDetailsDirective,
   ],
   imports: [
+    CommandTooltipDirective,
     LinkedFieldsComponent,
     OfflineStatusComponent,
     OfflineFieldDraftDirective,

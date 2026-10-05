@@ -7,8 +7,9 @@ function clone(value: any): any {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, clone(item)]));
 }
 /** Bind only editable fields. Never restore permissions, OTP verification or server status. */
-export function watchDraft(service: OfflineService, read: () => any, restore: (value: any) => void): DraftHandle {
-  const page = location.pathname + location.search, owner = service.session()?.owner;
+export function watchDraft(service: OfflineService, read: () => any, restore: (value: any) => void, page = location.pathname + location.search): DraftHandle {
+  const owner = service.session()?.owner;
+  const unregister = service.registerDraftPage(page);
   const initial = JSON.stringify(read());
   let stopped = false, enabled = false, previous = '', writes = Promise.resolve();
   const flush = () => {
@@ -29,7 +30,8 @@ export function watchDraft(service: OfflineService, read: () => any, restore: (v
     previous = JSON.stringify(read(), (_, item) => item instanceof Blob ? { size: item.size, type: item.type, name: (item as File).name, modified: (item as File).lastModified } : item);
     enabled = true;
   });
-  const stop = () => { flush(); stopped = true; clearInterval(timer); events.forEach(event => document.removeEventListener(event, input, true)); };
+  let unregistered = false;
+  const stop = () => { flush(); stopped = true; if (!unregistered) { unregister(); unregistered = true; } clearInterval(timer); events.forEach(event => document.removeEventListener(event, input, true)); };
   return {
     ready, flush, stop,
     clear() { stopped = true; stop(); return writes.then(() => owner ? service.clearDraft(page, owner) : undefined); },

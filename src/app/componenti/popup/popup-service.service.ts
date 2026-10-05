@@ -244,6 +244,7 @@ export class PopupServiceService {
 
   private guessType(message: unknown): AppDialogTone {
     const text = this.formatMessage(message).toLowerCase();
+    if (text.includes('in attesa') || text.includes('sul dispositivo') || text.includes('sincronizzazione') || text.includes('bozza') || text.includes('in corso')) return 'info';
     if (
       text.includes('errore') ||
       text.includes('non riusc') ||
@@ -253,7 +254,7 @@ export class PopupServiceService {
     ) {
       return 'error';
     }
-    if (text.includes('success') || text.includes('riuscit') || text.includes('salvat')) {
+    if (text.includes('success') || text.includes('riuscit') || /\bsalvat[oaie]\b/.test(text)) {
       return 'success';
     }
     return 'warning';
@@ -261,6 +262,8 @@ export class PopupServiceService {
 
   parseServerError(err: any, fallback = 'Errore imprevisto. Riprova.'): string {
     try {
+      const pending = typeof err?.error === 'string' ? JSON.parse(err.error) : err?.error;
+      if (pending?.code === 'OFFLINE_PENDING') return pending.error || 'Dati conservati sul dispositivo, in attesa della conferma del server.';
       if (err?.status === 0) {
         return 'Impossibile connettersi al server. Controlla la connessione e riprova.';
       }

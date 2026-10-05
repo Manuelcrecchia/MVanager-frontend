@@ -1,3 +1,4 @@
+import { BehaviorSubject } from 'rxjs';
 import { CreateShiftComponent } from './create-shift.component';
 
 describe('CreateShiftComponent', () => {
@@ -18,9 +19,77 @@ describe('CreateShiftComponent', () => {
       {} as any,
       {} as any,
       { confirm: jasmine.createSpy('confirm').and.resolveTo(true) } as any,
+      { retireShiftAutosaves: () => Promise.resolve(), operations: new BehaviorSubject([]), acknowledge: jasmine.createSpy('acknowledge').and.resolveTo() } as any,
     );
   }
 
+  it('reorders silently and sends the complete order only on final save', async () => {
+    const component = createComponent(), post = jasmine.createSpy('post').and.returnValue({ subscribe: () => {} });
+    (component as any).http = { post };
+    (component as any).socketService = { emitUpdate: jasmine.createSpy('emitUpdate') };
+    spyOn(window, 'alert');
+    component.appointments = [{ id: 'a', duration: 60 }, { id: 'b', duration: 60 }];
+    const jobs = [...component.appointments];
+    component.dropForEmployee({ container: { data: jobs }, previousIndex: 0, currentIndex: 1 } as any, 10);
+    expect(post).not.toHaveBeenCalled(); expect(window.alert).not.toHaveBeenCalled();
+    const saving = component.finalSave(); await component.finalSave(); await saving;
+    expect(post.calls.count()).toBe(1); expect(component.isSaving).toBeTrue();
+    const body = post.calls.mostRecent().args[1];
+    expect(body.shifts[0].sortOrderByEmployee[10]).toBe(1); expect(body.shifts[1].sortOrderByEmployee[10]).toBe(0);
+    expect(component.saveStatus).toBe('Salvataggio in corso…');
+  });
+  it('shows queued saves inline and never asks to force-save an unrelated conflict', async () => {
+    const component = createComponent(); let handler: any;
+    component.appointments = [{ id: 'a', duration: 60 }];
+    (component as any).http = { post: () => ({ subscribe: (value: any) => handler = value }) };
+    spyOn(window, 'alert');
+    await component.finalSave();
+    await handler.error({ status: 0, error: { code: 'OFFLINE_PENDING', state: 'waiting', error: 'Il server non ha risposto. Dati conservati sul dispositivo.' } });
+    expect(component.isSaving).toBeFalse(); expect(component.saveStatus).toContain('Dati conservati'); expect(window.alert).not.toHaveBeenCalled();
+    await component.finalSave(); await handler.error({ status: 409, error: { code: 'OFFLINE_BUSY', error: 'Invio precedente in corso' } });
+    expect((component as any).appDialog.confirm).not.toHaveBeenCalled(); expect(window.alert).toHaveBeenCalled();
+  });
+  it('recovers local ordering and assignments for the selected day while retaining fresh server IDs', async () => {
+    const component = createComponent(), saveDraft = jasmine.createSpy('saveDraft').and.resolveTo();
+    component.selectedDate = new Date(2026, 9, 5);
+    (component as any).socketService = { emitUpdate: jasmine.createSpy('emitUpdate') };
+    component.appointments = [{ id: 'a', shiftId: 55, duration: 60 }, { id: 'b', duration: 30 }];
+    (component as any).offline = {
+      session: () => ({ owner: 'test-owner' }), registerDraftPage: () => () => {}, refresh: () => Promise.resolve(),
+      operations: new BehaviorSubject([]), notice: new BehaviorSubject(''), saveDraft,
+      loadDraft: () => Promise.resolve({ appointments: [{ id: 'a', shiftId: 44, title: 'Bozza', duration: 90, startDate: '2026-10-05T08:00:00.000Z', sortOrderByEmployee: { 10: 1 } }], assignedShifts: { a: [10] } }),
+    };
+    await (component as any).protectShiftDraft(); await (component as any).shiftDraft.ready;
+    expect(component.appointments[0].shiftId).toBe(55); expect(component.appointments[0].title).toBe('Bozza');
+    expect(component.appointments[0].startDate instanceof Date).toBeTrue(); expect(component.assignedShifts['a']).toEqual([10]);
+    expect(component.appointments.length).toBe(2);
+    component.onDescriptionChange(component.appointments[0], 'Modifica');
+    await Promise.resolve();
+    expect(saveDraft.calls.mostRecent().args[1]).toContain('shift-day:2026-10-05');
+    component.ngOnDestroy();
+  });
+  it('accepts a background receipt without asking the user to verify the save', () => {
+    const component = createComponent(), clear = jasmine.createSpy('clear').and.resolveTo();
+    component.selectedDate = new Date(2026, 9, 5); component.appointments = [{ id: 'a', duration: 60 }];
+    (component as any).router = { navigate: jasmine.createSpy('navigate') };
+    (component as any).socketService = { emitUpdate: jasmine.createSpy('emitUpdate') };
+    const row = { id: 'pending', state: 'done', response: { body: { savedShifts: [] } } };
+    (component as any).offline.operations.next([row]);
+    (component as any).pendingSave = { id: row.id, date: '2026-10-05', snapshot: JSON.stringify((component as any).shiftSnapshot()), draft: { clear } };
+    (component as any).acceptQueuedConfirmation();
+    expect(clear).toHaveBeenCalled(); expect((component as any).offline.acknowledge).toHaveBeenCalledWith(row);
+    expect((component as any).router.navigate).toHaveBeenCalled(); expect(component.saveStatus).toBe('Turni salvati');
+  });
+  it('keeps edits made while offline and attaches the confirmed extra-job ID', () => {
+    const component = createComponent(); component.selectedDate = new Date(2026, 9, 5);
+    component.appointments = [{ id: 'extra-a', isExtra: true, title: 'Versione nuova', duration: 60 }];
+    (component as any).shiftDraft = { flush: jasmine.createSpy('flush') };
+    (component as any).offline.operations.next([{ id: 'pending', state: 'done', response: { body: { savedShifts: [{ clientId: 'extra-a', shiftId: 99 }] } } }]);
+    (component as any).pendingSave = { id: 'pending', date: '2026-10-05', snapshot: 'older snapshot' };
+    (component as any).acceptQueuedConfirmation();
+    expect(component.appointments[0].title).toBe('Versione nuova'); expect(component.appointments[0].shiftId).toBe(99);
+    expect(component.saveStatus).toContain('nuove modifiche'); expect((component as any).offline.acknowledge).not.toHaveBeenCalled();
+  });
   it('warns immediately when work starts before the customer opens', () => {
     const component = createComponent();
     component.selectedDate = new Date(2026, 6, 27);
@@ -169,7 +238,7 @@ describe('CreateShiftComponent', () => {
     expect(app.selectedCustomerNumero).toBeNull();
   });
 
-  it('includes the selected customer only in the final extra-shift save', () => {
+  it('includes the selected customer only in the final extra-shift save', async () => {
     const component = createComponent();
     const post = jasmine.createSpy('post').and.callFake((_url: string, body: any) => ({
       subscribe: (handlers: any) => handlers.next(),
@@ -189,7 +258,7 @@ describe('CreateShiftComponent', () => {
       duration: 60,
     }];
 
-    component.finalSave();
+    await component.finalSave();
 
     const requestBody = post.calls.mostRecent().args[1];
     expect(requestBody.shifts[0].appointmentId).toBeNull();

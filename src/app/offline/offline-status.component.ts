@@ -1,35 +1,41 @@
-import { Component } from '@angular/core';
+import { Component, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { OfflineService } from './offline.service';
+import { OfflineService, PendingOperation } from './offline.service';
 
 @Component({
   selector: 'app-offline-status', standalone: true, imports: [CommonModule],
   template: `
-    <aside class="offline-status" [class.needs-attention]="blockedCount > 0 || !(offline.connected | async)" *ngIf="offline.session() && ((offline.operations | async)?.length || !(offline.connected | async) || (offline.notice | async) || (offline.hasFieldDraft | async))" aria-label="Stato salvataggi">
+    <aside class="offline-status" [class.needs-attention]="blockedCount > 0 || rejectedCount > 0 || !(offline.connected | async)" *ngIf="offline.session() && (((offline.operations | async) && queuedOperations.length) || !(offline.connected | async) || (offline.notice | async) || (offline.hasFieldDraft | async))" aria-label="Stato salvataggi">
       <details>
         <summary aria-live="polite" [class.has-notice]="offline.notice | async">
           <span class="status-dot" aria-hidden="true"></span>
           <span>{{ statusLabel }}</span>
           <span class="status-chevron" aria-hidden="true">⌃</span>
         </summary>
-        <div class="offline-content">
+        <div class="offline-content" #queueContent>
           <button type="button" *ngIf="offline.hasFieldDraft | async" (click)="offline.restoreFields()">Ripristina i campi dalla bozza locale</button>
           <p *ngIf="offline.notice | async as notice" role="status">{{ notice }}</p>
           <p>I dati in attesa sono conservati su questo dispositivo. Non cancellare i dati dell’app o del browser prima della sincronizzazione.</p>
-          <article *ngFor="let row of offline.operations | async">
+          <button type="button" class="delete-action" *ngIf="queuedOperations.length" (click)="requestRemoval()" [disabled]="removing">Svuota coda</button>
+          <div class="removal-confirmation" *ngIf="removalRows.length" role="group" aria-label="Conferma eliminazione dalla coda">
+            <strong>{{ removalRows.length === 1 ? 'Eliminare questa operazione dalla coda?' : 'Svuotare la coda (' + removalRows.length + ' operazioni)?' }}</strong>
+            <p>La copia locale verrà eliminata e non sarà reinviata. Le modifiche non sincronizzate andranno perse. Questa azione non annulla quanto già salvato sul server. Gli invii in corso saranno mantenuti.</p>
+            <p>Puoi esportare una copia delle operazioni prima di confermare.</p>
+            <button type="button" class="delete-action" (click)="confirmRemoval()" [disabled]="removing">{{ removing ? 'Eliminazione…' : 'Conferma eliminazione' }}</button>
+            <button type="button" (click)="removalRows = []" [disabled]="removing">Annulla</button>
+          </div>
+          <article *ngFor="let row of queuedOperations">
             <strong>{{ row.label }} · {{ row.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</strong>
-            <span>{{ row.state === 'done' ? 'Sincronizzato' : row.state === 'blocked' ? 'Da verificare' : 'Salvato sul dispositivo · in attesa' }}</span>
+            <span>{{ row.state === 'rejected' ? 'Non salvato · correggi i dati' : row.state === 'blocked' ? 'Conferma del server in attesa' : 'Salvato sul dispositivo · in attesa' }}</span>
             <p *ngIf="row.error">{{ row.error }}</p>
             <p *ngIf="!row.automatic && row.state === 'waiting'">Richiede un invio esplicito: controlla che l’operazione sia ancora valida.</p>
             <button type="button" *ngIf="row.state === 'waiting'" (click)="offline.sync(row.id)">Riprova invio</button>
-            <button type="button" *ngIf="row.state === 'blocked'" (click)="verifyId = row.id">Ho verificato l’esito sul server</button>
-            <div *ngIf="verifyId === row.id">
-              <p>Archivia solo dopo aver controllato l’esito e recuperato eventuali modifiche. Questa operazione non verrà reinviata. Esporta prima la copia per poterla consultare.</p>
-              <button type="button" (click)="offline.archiveVerified(row); verifyId = ''">Conferma verifica e sblocca la coda</button>
-              <button type="button" (click)="verifyId = ''">Annulla</button>
-            </div>
+            <p *ngIf="row.state === 'blocked' && row.errorCode !== 'OFFLINE_KEY_CONFLICT'">L’app ricontrolla automaticamente la conferma. Non ripete un invio dall’esito incerto.</p>
+            <p *ngIf="row.state === 'blocked' && row.errorCode === 'OFFLINE_KEY_CONFLICT'">Il server ha rifiutato l’identificativo del salvataggio. La copia locale è conservata: contatta l’assistenza.</p>
+            <button type="button" *ngIf="row.state === 'blocked' && row.errorCode !== 'OFFLINE_KEY_CONFLICT'" (click)="offline.sync(row.id)">Ricontrolla conferma</button>
+            <a *ngIf="row.state === 'rejected'" [href]="row.page">Torna al modulo per correggere i dati</a>
             <button type="button" (click)="offline.exportOperation(row)">Esporta copia</button>
-            <button type="button" *ngIf="row.state === 'done'" (click)="offline.acknowledge(row)">Ho verificato il salvataggio</button>
+            <button type="button" class="delete-action" (click)="requestRemoval(row)" [disabled]="removing">Elimina dalla coda</button>
           </article>
         </div>
       </details>
@@ -56,6 +62,9 @@ import { OfflineService } from './offline.service';
     p { margin: 8px 0; overflow-wrap: anywhere; }
     button { min-height: 44px; padding: 8px 12px; margin: 6px 8px 0 0; border: 1px solid #d5dfea; border-radius: 9px; color: #234d76; background: #f8fafc; }
     button:hover { background: #edf3f9; }
+    button.delete-action { color: #a42525; border-color: #e5baba; }
+    button:disabled { opacity: .6; cursor: wait; }
+    .removal-confirmation { padding: 12px; margin-top: 10px; border: 1px solid #e5baba; border-radius: 9px; background: #fff8f8; }
     @media (max-width: 700px) {
       :host { right: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 24px); }
       .offline-content { width: min(390px, calc(100vw - 24px)); max-height: 45vh; }
@@ -63,20 +72,37 @@ import { OfflineService } from './offline.service';
   `],
 })
 export class OfflineStatusComponent {
-  verifyId = "";
+  removalRows: PendingOperation[] = [];
+  removing = false;
+  @ViewChild('queueContent') private queueContent?: ElementRef<HTMLElement>;
   constructor(public offline: OfflineService) { offline.start(); }
+  get queuedOperations(): PendingOperation[] { return this.offline.operations.value.filter(row => row.state !== 'done' && row.state !== 'archived'); }
+  requestRemoval(row?: PendingOperation): void {
+    this.removalRows = row ? [row] : [...this.queuedOperations];
+    if (this.queueContent) this.queueContent.nativeElement.scrollTop = 0;
+  }
+  async confirmRemoval(): Promise<void> {
+    if (this.removing || !this.removalRows.length) return;
+    this.removing = true;
+    try {
+      await this.offline.discardOperations(this.removalRows);
+      this.removalRows = [];
+    } finally { this.removing = false; }
+  }
   dismissNotice(): void {
     this.offline.notice.next('');
   }
   get statusLabel(): string {
-    if (this.blockedCount) return `${this.blockedCount} salvataggi da verificare`;
-    if (!this.offline.connected.value) return 'Senza connessione';
-    if (this.pendingCount) return `${this.pendingCount} salvataggi in attesa`;
+    if (this.rejectedCount) return `${this.rejectedCount} ${this.rejectedCount === 1 ? 'salvataggio non riuscito' : 'salvataggi non riusciti'}`;
+    if (this.blockedCount) return `${this.blockedCount} ${this.blockedCount === 1 ? 'conferma in attesa' : 'conferme in attesa'}`;
+    if (!this.offline.connected.value) return 'Connessione al server da ripristinare';
+    if (this.pendingCount) return `${this.pendingCount} ${this.pendingCount === 1 ? 'salvataggio in attesa' : 'salvataggi in attesa'}`;
     if (this.offline.notice.value) return 'Avviso sui salvataggi';
     if (this.offline.hasFieldDraft.value) return 'Bozza disponibile';
     return 'Salvataggi sincronizzati';
   }
   get pendingCount(): number { return this.offline.operations.value.filter(row => row.state === 'waiting').length; }
   get blockedCount(): number { return this.offline.operations.value.filter(row => row.state === 'blocked').length; }
+  get rejectedCount(): number { return this.offline.operations.value.filter(row => row.state === 'rejected').length; }
   get completedCount(): number { return this.offline.operations.value.filter(row => row.state === 'done').length; }
 }

@@ -40,7 +40,8 @@ export class OfflineFieldDraftDirective implements AfterViewInit, OnDestroy {
   capture(): void {
     queueMicrotask(() => {
       if (!this.key || this.destroyed || this.offline.session()?.owner !== this.owner || !this.control.control?.dirty || this.control.control.disabled) return;
-      void this.offline.store.put('drafts', { id: this.key, owner: this.owner, page: this.page, value: this.control.value, savedAt: Date.now() })
+      const controlPath = this.control.path?.length ? this.control.path : [String(this.control.name || this.element.nativeElement.id)];
+      void this.offline.store.put('drafts', { id: this.key, owner: this.owner, page: this.page, controlPath, value: this.control.value, savedAt: Date.now() })
         .catch(() => this.offline.notice.next('Impossibile conservare la bozza locale. Non chiudere questa pagina.'));
     });
   }

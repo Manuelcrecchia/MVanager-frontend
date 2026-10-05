@@ -1,4 +1,4 @@
-<div class="create-shift-page">
+<div class="create-shift-page" [attr.inert]="isSaving ? '' : null" [attr.aria-busy]="isSaving">
   <section class="create-shift-hero mv-entity-toolbar">
     <div class="create-shift-title mv-entity-toolbar__title">
       <div>
@@ -25,12 +25,14 @@
       <span class="route-feature-disabled" *ngIf="!canUseRoutePlanning()">
         Giri non abilitati
       </span>
-      <button class="save-hero-btn" type="button" (click)="finalSave()">
+      <button class="save-hero-btn" type="button" (click)="finalSave()" [disabled]="isSaving || !appointments.length">
         <i class="fas fa-save"></i>
-        Salva Turni
+        {{ isSaving ? "Salvataggio…" : "Salva Turni" }}
       </button>
     </div>
   </section>
+
+  <p class="shift-save-status" role="status" aria-live="polite" *ngIf="saveStatus">{{ saveStatus }}</p>
 
   <section class="create-shift-stats">
     <div>
@@ -434,9 +436,9 @@
       </div>
 
       <div class="text-center mt-4">
-        <button type="button" class="btn btn-success" (click)="finalSave()">
+        <button type="button" class="btn btn-success" (click)="finalSave()" [disabled]="isSaving || !appointments.length">
           <i class="fas fa-save"></i>
-          Salva Turni
+          {{ isSaving ? "Salvataggio…" : "Salva Turni" }}
         </button>
       </div>
     </div>

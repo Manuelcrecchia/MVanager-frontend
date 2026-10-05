@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { firstValueFrom, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { MatDialog } from '@angular/material/dialog';
 import { AssignDialogComponent } from '../assign-dialog/assign-dialog.component';
 import { VehicleAssignDialogComponent } from '../vehicle-assign-dialog/vehicle-assign-dialog.component';
@@ -12,6 +12,9 @@ import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { SocketService } from '../../service/soket.service';
 import { TenantService } from '../../service/tenant.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+
+import { OfflineService, OFFLINE_SAVE_GROUP, isOfflinePending } from '../../offline/offline.service';
+import { watchDraft, DraftHandle } from '../../offline/offline-draft';
 
 interface RoutePlannerStop {
   id: string;
@@ -263,10 +266,11 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   routePlannerAiContextStop: RoutePlannerStop | null = null;
   routePlannerAiEngine = 'locale';
 
-  private autosaveTimers: { [jobId: string]: any } = {};
-  private autosaveDelayMs = 700;
-  private autosaveInFlight = 0;
-  private pendingFinalSaveForce: boolean | null = null;
+  private shiftDraft?: DraftHandle;
+  private appointmentsRequest = 0;
+  private pendingSave?: { id: string; date: string; snapshot: string; draft?: DraftHandle };
+  saveStatus = '';
+  isSaving = false;
   private routePlannerRequestId = 0;
   private routePlannerManagedAppointmentIds = new Set<string>();
   private routePlannerManualEmployeeIdsByAppointment = new Map<string, Set<number>>();
@@ -287,18 +291,21 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     private socketService: SocketService,
     public tenantService: TenantService,
     private appDialog: PopupServiceService,
+    private offline: OfflineService,
   ) {}
 
   ngOnInit(): void {
     const queryDate = this.route.snapshot.queryParamMap.get('date');
     if (queryDate) this.selectedDate = this.parseLocalDate(queryDate);
 
+    this.offline.operations.pipe(takeUntil(this.destroy$)).subscribe(() => this.acceptQueuedConfirmation());
     this.loadAppointments();
     this.loadVehiclesCache();
     this.loadEquipmentTargetsCache();
     this.loadExtraCustomerOptions();
 
     this.socketService.onResourceChanges('shifts').pipe(takeUntil(this.destroy$)).subscribe((change) => {
+      if (this.isSaving) return;
       const update: any = change.metadata || {};
       if (update.date && update.date !== this.formatDate(this.selectedDate)) {
         return;
@@ -406,10 +413,10 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    ++this.appointmentsRequest;
     this.destroy$.next();
     this.destroy$.complete();
-    Object.values(this.autosaveTimers).forEach((t) => { if (t) clearTimeout(t); });
-    this.autosaveTimers = {};
+    this.shiftDraft?.stop();
   }
 
   private shouldIncludeAppointment(a: any): boolean {
@@ -427,74 +434,50 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
   private scheduleAutosave(app: any, includeAssignments = false): void {
     if (!app) return;
-    const id = String(app.id);
-
-    if (this.autosaveTimers[id]) {
-      clearTimeout(this.autosaveTimers[id]);
-    }
-
-    this.autosaveTimers[id] = setTimeout(() => {
-      this.autosaveTimers[id] = null;
-      this.autosave(app, includeAssignments);
-    }, this.autosaveDelayMs);
+    this.saveStatus = 'Modifiche da salvare';
+    this.shiftDraft?.flush();
   }
 
-  private autosave(app: any, includeAssignments = false): void {
-    const dateStr = this.formatDate(this.selectedDate);
-
-    let start: string | null = null;
-    if (app.startDate instanceof Date && !isNaN(app.startDate.getTime())) {
-      start = this.toSqlDateTime(app.startDate);
-    }
-
-    const payload: any = {
-      shiftId: app.shiftId || null,
-      appointmentId: app.isExtra ? null : app.originalAppointmentId || app.id,
-      data: dateStr,
-      title: app.title,
-      description: app.description,
-      startDate: start,
-      duration: app.duration ?? 0,
-      sortOrderByEmployee: app.sortOrderByEmployee || {},
-      vehicleIds: this.assignedVehicles[app.id] || [],
-      equipmentKeys: this.normalizeEquipmentAssignments(this.assignedEquipment[app.id] || []),
+  private shiftSnapshot(): any {
+    const fields = ['id', 'isExtra', 'originalAppointmentId', 'shiftId', 'title', 'description', 'duration',
+      'requiredEmployees', 'sortOrderByEmployee', 'selectedCustomerNumero', 'selectedCustomerLabel', 'selectedCustomerType'];
+    return {
+      appointments: this.appointments.map(app => ({
+        ...Object.fromEntries(fields.filter(key => app[key] !== undefined).map(key => [key, app[key]])),
+        startDate: app.startDate instanceof Date && !isNaN(app.startDate.getTime()) ? app.startDate.toISOString() : null,
+      })),
+      assignedShifts: this.assignedShifts, assignedEmployeeDurations: this.assignedEmployeeDurations,
+      assignedCapisquadra: this.assignedCapisquadra, assignedCapisquadraNotes: this.assignedCapisquadraNotes,
+      assignedVehicles: this.assignedVehicles, assignedEquipment: this.assignedEquipment,
     };
-
-    if (includeAssignments) {
-      payload.updateEmployees = true;
-      payload.employeeIds = this.assignedShifts[app.id] || [];
-      payload.capisquadra = this.assignedCapisquadra[app.id] || [];
-      payload.capisquadraNotesMap = this.assignedCapisquadraNotes[app.id] || {};
-    }
-
-    console.log('AUTOSAVE PAYLOAD ->', payload);
-    console.log('assignedCapisquadraNotes[' + app.id + '] =', this.assignedCapisquadraNotes[app.id]);
-
-    this.autosaveInFlight += 1;
-    this.http
-	      .post<any>(this.globalService.url + 'shifts/autosave', payload)
-	      .subscribe({
-        next: (res) => {
-          if (!app.shiftId && res?.shiftId) {
-            app.shiftId = res.shiftId;
-          }
-        },
-	        error: (err) => {
-          console.error('Autosave fallito:', err);
-          alert(this.parseServerError(err));
-          this.finishAutosaveRequest();
-        },
-        complete: () => this.finishAutosaveRequest(),
-      });
   }
 
-  private finishAutosaveRequest(): void {
-    this.autosaveInFlight = Math.max(0, this.autosaveInFlight - 1);
-    if (this.autosaveInFlight > 0 || this.pendingFinalSaveForce === null) return;
-
-    const forceSave = this.pendingFinalSaveForce;
-    this.pendingFinalSaveForce = null;
-    this.finalSave(forceSave);
+  private async protectShiftDraft(): Promise<void> {
+    const day = this.formatDate(this.selectedDate), requestId = this.appointmentsRequest;
+    await this.offline.refresh().catch(() => undefined);
+    if (day !== this.formatDate(this.selectedDate) || requestId !== this.appointmentsRequest) return;
+    this.shiftDraft?.stop();
+    this.shiftDraft = watchDraft(this.offline, () => this.shiftSnapshot(), value => {
+      if (!Array.isArray(value?.appointments)) return;
+      const restored: any[] = [];
+      for (const saved of value.appointments) {
+        const mapping = this.offline.operations.value.filter(row => row.path === '/shifts/saveMultiple' && row.state === 'done' && row.body.type === 'json' && row.body.value?.shifts?.some((item: any) => item.data === day)).flatMap(row => row.response?.body?.savedShifts || []).find(item => item.clientId === String(saved.id));
+        const confirmedShiftId = mapping?.shiftId || saved.shiftId;
+        let app = this.appointments.find(item => (confirmedShiftId && item.shiftId === confirmedShiftId) || (saved.originalAppointmentId ? item.originalAppointmentId === saved.originalAppointmentId : String(item.id) === String(saved.id)));
+        if (!app && confirmedShiftId) continue;
+        if (!app && saved.isExtra) { app = { ...saved }; this.appointments.push(app); }
+        if (!app) continue;
+        const shiftId = app.shiftId || saved.shiftId;
+        Object.assign(app, saved, { shiftId, startDate: saved.startDate ? new Date(saved.startDate) : null });
+        app.durationDisplay = this.formatDuration(app.duration || 0);
+        restored.push(app);
+      }
+      this.appointments = [...restored, ...this.appointments.filter(app => !restored.includes(app))];
+      for (const key of ['assignedShifts', 'assignedEmployeeDurations', 'assignedCapisquadra', 'assignedCapisquadraNotes', 'assignedVehicles', 'assignedEquipment'] as const) {
+        if (value[key] && typeof value[key] === 'object') Object.assign(this[key], value[key]);
+      }
+      this.saveStatus = 'Bozza recuperata: modifiche da salvare';
+    }, `${location.pathname + location.search}|shift-day:${this.formatDate(this.selectedDate)}`);
   }
 
   private normalizeEquipmentAssignments(value: any): EquipmentAssignment[] {
@@ -4574,9 +4557,11 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   }
 
   dropGeneral(event: CdkDragDrop<any[]>): void {
+    if (event.previousIndex === event.currentIndex || this.isSaving) return;
     moveItemInArray(this.appointments, event.previousIndex, event.currentIndex);
     this.appointments.forEach((a, i) => (a.generalOrder = i));
     this.appointments = [...this.appointments];
+    this.scheduleAutosave(this.appointments[0]);
 
     this.socketService.emitUpdate({
       type: 'reorderGeneral',
@@ -4586,6 +4571,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   }
 
   dropForEmployee(event: CdkDragDrop<any[]>, empId: number) {
+    if (event.previousIndex === event.currentIndex || this.isSaving) return;
     moveItemInArray(
       event.container.data,
       event.previousIndex,
@@ -4613,7 +4599,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     });
 
     this.employeeList = [...this.employeeList];
-    event.container.data.forEach((job) => this.scheduleAutosave(job));
+    this.scheduleAutosave(event.container.data[0]);
 
     this.socketService.emitUpdate({
       type: 'reorderEmployee',
@@ -4896,7 +4882,9 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       });
   }
 
-  finalSave(forceSave = false): void {
+  async finalSave(forceSave = false): Promise<void> {
+    if (this.isSaving) return;
+    if (!this.appointments.length) { this.saveStatus = 'Nessun lavoro da salvare'; return; }
     const missingLeader = this.appointments.find((app) => (
       !!app?.customerAssetIntervention &&
       !(this.assignedCapisquadra[app.id] || []).some((id) => (this.assignedShifts[app.id] || []).includes(id))
@@ -4906,16 +4894,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       return;
     }
 
-    Object.keys(this.autosaveTimers).forEach((jobId) => {
-      const timer = this.autosaveTimers[jobId];
-      if (timer) clearTimeout(timer);
-      this.autosaveTimers[jobId] = null;
-    });
-
-    if (this.autosaveInFlight > 0) {
-      this.pendingFinalSaveForce = this.pendingFinalSaveForce === true || forceSave;
-      return;
-    }
+    this.shiftDraft?.flush();
 
     const dateStr = this.formatDate(this.selectedDate);
 
@@ -4927,6 +4906,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       }
 
       return {
+        clientId: String(app.id),
         shiftId: app.shiftId || null,
         appointmentId: app.isExtra ? null : app.originalAppointmentId || app.id,
         customerNumero: app.isExtra ? app.selectedCustomerNumero || null : null,
@@ -4947,24 +4927,41 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       };
     });
 
+    this.pendingSave = undefined;
+    this.isSaving = true;
+    this.saveStatus = 'Salvataggio in corso…';
+    const submittedDraft = this.shiftDraft;
+    const submittedSnapshot = JSON.stringify(this.shiftSnapshot());
+    try { await this.offline.retireShiftAutosaves(payload); }
+    catch (error) { this.isSaving = false; this.saveStatus = this.parseServerError(error); return; }
     this.http
       .post(
         this.globalService.url + 'shifts/saveMultiple',
         { shifts: payload, forceSave },
-        { headers: { 'X-Skip-Global-Error-Popup': 'true' } },
+        { headers: { 'X-Skip-Global-Error-Popup': 'true' }, context: new HttpContext().set(OFFLINE_SAVE_GROUP, `shift-day:${dateStr}`) },
       )
       .subscribe({
         next: () => {
+          this.isSaving = false;
+          this.saveStatus = 'Turni salvati';
+          void submittedDraft?.clear();
           this.socketService.emitUpdate({
             type: 'reload',
-            date: this.formatDate(this.selectedDate),
+            date: dateStr,
           });
           alert('Turni salvati');
-          this.router.navigate(['/homeAdmin/shifts'], { queryParams: { date: this.formatDate(this.selectedDate) } });
+          this.router.navigate(['/homeAdmin/shifts'], { queryParams: { date: dateStr } });
         },
         error: async (err) => {
-          console.error('Errore salvataggio turni:', err);
-          if (err?.status === 409) {
+          this.isSaving = false;
+          if (isOfflinePending(err)) {
+            this.saveStatus = err.error.error;
+            this.pendingSave = { id: err.error.operationId, date: dateStr, snapshot: submittedSnapshot, draft: submittedDraft };
+            this.acceptQueuedConfirmation();
+            return;
+          }
+          this.saveStatus = this.parseServerError(err);
+          if (err?.status === 409 && Array.isArray(err?.error?.validationIssues) && err.error.validationIssues.length) {
             const issues = err?.error?.validationIssues || [];
             const message = this.formatShiftValidationIssues(issues);
             const proceed = await this.appDialog.confirm(
@@ -4980,6 +4977,29 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
           alert(this.parseServerError(err));
         },
       });
+  }
+
+  private acceptQueuedConfirmation(): void {
+    const pending = this.pendingSave;
+    if (!pending || this.isSaving) return;
+    const row = this.offline.operations.value.find(item => item.id === pending.id && item.state === 'done');
+    if (!row) return;
+    this.pendingSave = undefined;
+    if (this.formatDate(this.selectedDate) !== pending.date) return;
+    if (JSON.stringify(this.shiftSnapshot()) !== pending.snapshot) {
+      for (const saved of row.response?.body?.savedShifts || []) {
+        const app = this.appointments.find(item => String(item.id) === saved.clientId);
+        if (app && saved.shiftId) app.shiftId = saved.shiftId;
+      }
+      this.shiftDraft?.flush();
+      this.saveStatus = 'Turni salvati online. Le nuove modifiche sono da salvare.';
+      return;
+    }
+    this.saveStatus = 'Turni salvati';
+    void pending.draft?.clear();
+    void this.offline.acknowledge(row);
+    this.socketService.emitUpdate({ type: 'reload', date: pending.date });
+    this.router.navigate(['/homeAdmin/shifts'], { queryParams: { date: pending.date } });
   }
 
   private formatShiftValidationIssues(issues: any[]): string {
@@ -5200,9 +5220,14 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   }
 
   loadAppointments(): void {
+    if (this.isSaving) return;
+    this.shiftDraft?.stop();
+    this.shiftDraft = undefined;
+    this.saveStatus = '';
     this.loading = true;
     this.refreshRoutePlannerActivePreferences();
     const dateStr = this.formatDate(this.selectedDate);
+    const requestId = ++this.appointmentsRequest;
 
     this.appointments = [];
     this.assignedShifts = {};
@@ -5220,6 +5245,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       })
       .subscribe({
         next: (data) => {
+          if (requestId !== this.appointmentsRequest || dateStr !== this.formatDate(this.selectedDate)) return;
           let counter = 100000;
 
           this.appointments = (Array.isArray(data) ? data : [])
@@ -5281,6 +5307,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
           this.loadExistingShifts();
         },
         error: (err) => {
+          if (requestId !== this.appointmentsRequest || dateStr !== this.formatDate(this.selectedDate)) return;
           console.error('Errore caricamento appuntamenti:', err);
           this.loading = false;
           alert('Errore nel caricamento degli appuntamenti.');
@@ -5289,11 +5316,12 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   }
 
   loadExistingShifts(): void {
-    const dateStr = this.formatDate(this.selectedDate);
+    const dateStr = this.formatDate(this.selectedDate), requestId = this.appointmentsRequest;
 
     this.http
       .get<any[]>(this.globalService.url + `shifts/byDate/${dateStr}`)
       .subscribe((existing) => {
+        if (requestId !== this.appointmentsRequest || dateStr !== this.formatDate(this.selectedDate)) return;
         for (const s of existing) {
           if (!s.appointmentId) {
             const extraId = `extra-${s.id}`;
@@ -5490,6 +5518,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         }
 
         this.sortAppointments();
+        void this.protectShiftDraft();
         if (this.routePlannerOpen) {
           this.generateRoutePlan();
         }

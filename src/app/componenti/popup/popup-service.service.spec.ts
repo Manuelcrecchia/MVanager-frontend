@@ -6,6 +6,12 @@ describe('PopupServiceService', () => {
     expect(PopupServiceService).toBeTruthy();
   });
 
+  it('does not display a green success for a save kept on the device', () => {
+    const service = new PopupServiceService({} as any);
+    expect((service as any).guessType('Salvato sul dispositivo, in attesa di sincronizzazione.')).toBe('info');
+    expect((service as any).guessType('Turni salvati')).toBe('success');
+    expect(service.parseServerError({ status: 0, error: { code: 'OFFLINE_PENDING', error: 'Un salvataggio precedente è ancora in corso.' } })).toContain('precedente');
+  });
   it('returns the result of the custom confirmation dialog', async () => {
     const dialog = {
       open: jasmine.createSpy('open').and.returnValue({

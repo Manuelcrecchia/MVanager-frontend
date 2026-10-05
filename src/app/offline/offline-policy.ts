@@ -18,6 +18,7 @@ export function isProtectedWrite(method: string, path: string): boolean {
 export function canReplayAutomatically(method: string, path: string): boolean {
   return method === 'POST' && (
     /\/quotes\/(add|edit)$/.test(path) ||
+    path === '/shifts/saveMultiple' ||
     /\/(quotes|customers|employees)\/notes\/add$/.test(path) ||
     /\/mv\/(stamping\/timbra|finelavoro\/submit|leaveRequest\/request|internal-warehouse\/requests)$/.test(path)
   );
@@ -39,4 +40,11 @@ export function containsCredentials(body: any, depth = 0): boolean {
     let found = false; body.forEach((_, key) => { if (sensitive.test(key)) found = true; }); return found;
   }
   return Object.keys(body).some(key => sensitive.test(key) || containsCredentials(body[key], depth + 1));
+}
+
+// Preserve ordering within a domain without letting an unrelated manual or
+// uncertain save stop every other feature. Clock-ins always share one scope.
+export function operationScope(path: string): string {
+  const segments = path.split('/').filter(Boolean);
+  return segments.slice(0, ['mv', 'admin'].includes(segments[0]) ? 2 : 1).join('/');
 }
