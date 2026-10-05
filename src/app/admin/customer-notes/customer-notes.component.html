@@ -275,7 +275,7 @@
         </div>
 
         <div class="input-actions">
-          <label class="btn-allegato" title="Aggiungi allegato">
+          <label class="btn-allegato" title="Aggiungi allegato (massimo {{ maxNoteAttachments }} per nota)">
             <mat-icon>attach_file</mat-icon>
             <input type="file" multiple hidden (change)="onFileSelected($event)" />
           </label>

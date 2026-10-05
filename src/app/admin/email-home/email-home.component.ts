@@ -106,6 +106,8 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   composeDraftId: number | null = null;
   composeFromFolder: MailFolder | null = null;
   safeHtml = '';
+  readonly maxEmailUploads = 15;
+  private readonly maxEmailFileBytes = 25 * 1024 * 1024;
   selectedFiles: File[] = [];
   selectedExistingAttachments: EmailAttachment[] = [];
   internalFolder = '';
@@ -544,6 +546,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!this.validateEmailUploads()) return;
     this.sending = true;
     this.http.post(this.globalService.url + 'admin/email/messages/send', this.buildComposeFormData()).subscribe({
       next: () => {
@@ -581,6 +584,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!this.validateEmailUploads()) return;
     this.sending = true;
     this.http.post<{ ok: boolean; message: EmailMessage }>(
       this.globalService.url + 'admin/email/messages/draft',
@@ -642,8 +646,23 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   onFilesSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const files = Array.from(input.files || []);
-    this.selectedFiles = [...this.selectedFiles, ...files];
     input.value = '';
+    const combined = [...this.selectedFiles, ...files];
+    if (!this.validateEmailUploads(combined)) return;
+    this.selectedFiles = combined;
+  }
+
+  private validateEmailUploads(files: File[] = this.selectedFiles): boolean {
+    if (files.length > this.maxEmailUploads) {
+      alert(`Puoi caricare al massimo ${this.maxEmailUploads} nuovi allegati per email. Scegli meno file o rimuovi quelli in eccesso.`);
+      return false;
+    }
+    const oversized = files.find(file => file.size > this.maxEmailFileBytes);
+    if (oversized) {
+      alert(`L’allegato "${oversized.name}" supera il limite di 25 MB per file. Riduci il file e riprova.`);
+      return false;
+    }
+    return true;
   }
 
   removeSelectedFile(index: number) {

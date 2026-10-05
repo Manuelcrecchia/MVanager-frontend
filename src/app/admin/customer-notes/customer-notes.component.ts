@@ -1,6 +1,6 @@
 import { defer, of, throwError } from 'rxjs';
 import { AttachmentViewerService } from '../../shared/attachment-viewer/attachment-viewer.service';
-import { OfflineService, isOfflinePending } from '../../offline/offline.service';
+import { OfflineService } from '../../offline/offline.service';
 import { watchDraft, DraftHandle } from '../../offline/offline-draft';
 import { downloadFile } from '../../shared/file-download';
 import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
@@ -10,7 +10,7 @@ import { GlobalService } from '../../service/global.service';
 import { Location } from '@angular/common';
 import { DomSanitizer, SafeUrl, SafeResourceUrl } from '@angular/platform-browser';
 import { NoteUnreadService } from '../../service/note-unread.service';
-import { optimizeNoteImageForUpload } from '../../shared/note-image-upload';
+import { MAX_NOTE_ATTACHMENTS, optimizeNoteImageForUpload } from '../../shared/note-image-upload';
 
 export interface AllegatoNota {
   nome: string;
@@ -232,12 +232,23 @@ export class CustomerNotesComponent implements OnInit {
     input.value = '';
   }
 
+  readonly maxNoteAttachments = MAX_NOTE_ATTACHMENTS;
+  private pendingAttachmentFiles = 0;
+
   private async processFiles(files: File[]) {
+    if (this.nuoviAllegati.length + this.pendingAttachmentFiles + files.length > MAX_NOTE_ATTACHMENTS) {
+      alert(`Puoi caricare al massimo ${MAX_NOTE_ATTACHMENTS} allegati per nota. La selezione non è stata aggiunta: scegli meno file.`);
+      return;
+    }
+    this.pendingAttachmentFiles += files.length;
+    let remainingFiles = files.length;
     this.pendingAttachmentBatches++;
     this.processingAttachments = true;
     try {
       for (const original of files) {
         const file = await optimizeNoteImageForUpload(original);
+        remainingFiles--;
+        this.pendingAttachmentFiles--;
         this.nuoviAllegati.push({
           nome: file.name,
           mimeType: file.type || this.mimeFromName(file.name),
@@ -248,6 +259,7 @@ export class CustomerNotesComponent implements OnInit {
         });
       }
     } finally {
+      this.pendingAttachmentFiles -= remainingFiles;
       this.pendingAttachmentBatches--;
       this.processingAttachments = this.pendingAttachmentBatches > 0;
     }
@@ -261,6 +273,10 @@ export class CustomerNotesComponent implements OnInit {
 
   addNota() {
     if (this.processingAttachments || (!this.nuovaNota.trim() && this.nuoviAllegati.length === 0)) return;
+    if (this.nuoviAllegati.length > MAX_NOTE_ATTACHMENTS) {
+      alert(`Puoi caricare al massimo ${MAX_NOTE_ATTACHMENTS} allegati per nota. Rimuovi i file in eccesso e riprova.`);
+      return;
+    }
     this.sending = true;
     this.uploadProgress = 0;
     const body = new FormData();
@@ -306,7 +322,7 @@ export class CustomerNotesComponent implements OnInit {
           this.uploadProgress = null;
         },
         error: (err) => {
-          alert(isOfflinePending(err) ? err.error.error : 'Errore durante il salvataggio della nota');
+          alert(err?.error?.error || 'Errore durante il salvataggio della nota');
           this.sending = false;
           this.uploadProgress = null;
         },

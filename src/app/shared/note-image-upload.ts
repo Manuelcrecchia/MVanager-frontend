@@ -1,3 +1,5 @@
+export const MAX_NOTE_ATTACHMENTS = 15;
+
 function mimeFromFileName(name: string): string {
   if (/\.hei[cf]$/i.test(name)) return name.toLowerCase().endsWith('.heic') ? 'image/heic' : 'image/heif';
   if (/\.png$/i.test(name)) return 'image/png';
