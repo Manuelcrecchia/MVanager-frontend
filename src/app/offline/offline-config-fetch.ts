@@ -25,9 +25,9 @@ export async function fetchOperationalConfig(url: string, init: RequestInit, rol
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
     const response = await fetch(url, { ...init, signal: controller.signal });
-    if (response.status >= 500) { const local = await cached(); if (local) return local; }
+    if (response.status >= 500) { const local = await cached(); if (local) { controller.abort(); return local; } }
+    const body = await response.clone().text();
     if (response.ok && key) {
-      const body = await response.clone().text();
       await store.put('cache', { id: key, body, savedAt: Date.now() }).catch(() => {});
     }
     return response;

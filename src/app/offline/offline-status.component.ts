@@ -1,6 +1,7 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { OfflineService, PendingOperation } from './offline.service';
+import { shiftOperationDay } from './offline-policy';
 
 @Component({
   selector: 'app-offline-status', standalone: true, imports: [CommonModule],
@@ -28,12 +29,12 @@ import { OfflineService, PendingOperation } from './offline.service';
             <strong>{{ row.label }} · {{ row.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}</strong>
             <span>{{ row.state === 'rejected' ? 'Non salvato · correggi i dati' : row.state === 'blocked' ? 'Conferma del server in attesa' : 'Salvato sul dispositivo · in attesa' }}</span>
             <p *ngIf="row.error">{{ row.error }}</p>
-            <p *ngIf="!row.automatic && row.state === 'waiting'">Richiede un invio esplicito: controlla che l’operazione sia ancora valida.</p>
-            <button type="button" *ngIf="row.state === 'waiting'" (click)="offline.sync(row.id)">Riprova invio</button>
+            <p *ngIf="isLegacyShiftUpdate(row) && row.state === 'waiting'">Aggiornamento rimasto dalla versione precedente. L’app cerca automaticamente la conferma; la copia locale è conservata.</p>
+            <a class="recovery-action" *ngIf="row.state === 'waiting' && shiftRecoveryUrl(row) as url" [href]="url">Apri i turni della giornata</a>
+            <p *ngIf="row.state === 'waiting' && row.automatic">La sincronizzazione riparte automaticamente quando il server è raggiungibile.</p>
             <p *ngIf="row.state === 'blocked' && row.errorCode !== 'OFFLINE_KEY_CONFLICT'">L’app ricontrolla automaticamente la conferma. Non ripete un invio dall’esito incerto.</p>
             <p *ngIf="row.state === 'blocked' && row.errorCode === 'OFFLINE_KEY_CONFLICT'">Il server ha rifiutato l’identificativo del salvataggio. La copia locale è conservata: contatta l’assistenza.</p>
-            <button type="button" *ngIf="row.state === 'blocked' && row.errorCode !== 'OFFLINE_KEY_CONFLICT'" (click)="offline.sync(row.id)">Ricontrolla conferma</button>
-            <a *ngIf="row.state === 'rejected'" [href]="row.page">Torna al modulo per correggere i dati</a>
+            <a *ngIf="row.state === 'rejected'" [href]="recoveryUrl(row)">Torna al modulo per correggere i dati</a>
             <button type="button" (click)="offline.exportOperation(row)">Esporta copia</button>
             <button type="button" class="delete-action" (click)="requestRemoval(row)" [disabled]="removing">Elimina dalla coda</button>
           </article>
@@ -60,7 +61,8 @@ import { OfflineService, PendingOperation } from './offline.service';
     article strong,article span { display: block; overflow-wrap: anywhere; }
     article span { color: #64748b; margin-top: 4px; }
     p { margin: 8px 0; overflow-wrap: anywhere; }
-    button { min-height: 44px; padding: 8px 12px; margin: 6px 8px 0 0; border: 1px solid #d5dfea; border-radius: 9px; color: #234d76; background: #f8fafc; }
+    button,a.recovery-action { min-height: 44px; padding: 8px 12px; margin: 6px 8px 0 0; border: 1px solid #d5dfea; border-radius: 9px; color: #234d76; background: #f8fafc; }
+    a.recovery-action { display: inline-flex; align-items: center; box-sizing: border-box; text-decoration: none; }
     button:hover { background: #edf3f9; }
     button.delete-action { color: #a42525; border-color: #e5baba; }
     button:disabled { opacity: .6; cursor: wait; }
@@ -76,7 +78,7 @@ export class OfflineStatusComponent {
   removing = false;
   @ViewChild('queueContent') private queueContent?: ElementRef<HTMLElement>;
   constructor(public offline: OfflineService) { offline.start(); }
-  get queuedOperations(): PendingOperation[] { return this.offline.operations.value.filter(row => row.state !== 'done' && row.state !== 'archived'); }
+  get queuedOperations(): PendingOperation[] { return this.offline.operations.value.filter(row => row.state !== 'done' && row.state !== 'archived' && !(row.foreground && Math.max(row.foregroundUntil || 0, row.leaseUntil || 0) > Date.now())); }
   requestRemoval(row?: PendingOperation): void {
     this.removalRows = row ? [row] : [...this.queuedOperations];
     if (this.queueContent) this.queueContent.nativeElement.scrollTop = 0;
@@ -92,17 +94,29 @@ export class OfflineStatusComponent {
   dismissNotice(): void {
     this.offline.notice.next('');
   }
+  isLegacyShiftUpdate(row: PendingOperation): boolean {
+    return row.method === 'POST' && (row.path === '/shifts/autosave' || (row.path === '/shifts/saveMultiple' && !row.intent && !row.automatic));
+  }
+  shiftRecoveryUrl(row: PendingOperation): string {
+    const day = this.isLegacyShiftUpdate(row) ? shiftOperationDay(row.path, row.body) : undefined;
+    return day && this.offline.session()?.role === 'admin' ? '/homeAdmin/shifts/create?date=' + day : '';
+  }
+  recoveryUrl(row: PendingOperation): string {
+    const day = shiftOperationDay(row.path, row.body);
+    return day && this.offline.session()?.role === 'admin' ? '/homeAdmin/shifts/create?date=' + day : (row.page || '/').split('|')[0];
+  }
   get statusLabel(): string {
     if (this.rejectedCount) return `${this.rejectedCount} ${this.rejectedCount === 1 ? 'salvataggio non riuscito' : 'salvataggi non riusciti'}`;
     if (this.blockedCount) return `${this.blockedCount} ${this.blockedCount === 1 ? 'conferma in attesa' : 'conferme in attesa'}`;
     if (!this.offline.connected.value) return 'Connessione al server da ripristinare';
+    if (this.pendingCount && this.queuedOperations.every(row => row.state === 'waiting' && this.isLegacyShiftUpdate(row))) return `${this.pendingCount} ${this.pendingCount === 1 ? 'aggiornamento precedente' : 'aggiornamenti precedenti'} dei turni in attesa`;
     if (this.pendingCount) return `${this.pendingCount} ${this.pendingCount === 1 ? 'salvataggio in attesa' : 'salvataggi in attesa'}`;
     if (this.offline.notice.value) return 'Avviso sui salvataggi';
     if (this.offline.hasFieldDraft.value) return 'Bozza disponibile';
     return 'Salvataggi sincronizzati';
   }
-  get pendingCount(): number { return this.offline.operations.value.filter(row => row.state === 'waiting').length; }
-  get blockedCount(): number { return this.offline.operations.value.filter(row => row.state === 'blocked').length; }
-  get rejectedCount(): number { return this.offline.operations.value.filter(row => row.state === 'rejected').length; }
+  get pendingCount(): number { return this.queuedOperations.filter(row => row.state === 'waiting').length; }
+  get blockedCount(): number { return this.queuedOperations.filter(row => row.state === 'blocked').length; }
+  get rejectedCount(): number { return this.queuedOperations.filter(row => row.state === 'rejected').length; }
   get completedCount(): number { return this.offline.operations.value.filter(row => row.state === 'done').length; }
 }

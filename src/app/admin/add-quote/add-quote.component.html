@@ -17,6 +17,7 @@
     </div>
   </section>
 
+  <p *ngIf="saveMessage" role="status">{{ saveMessage }}</p>
   <form #form="ngForm" class="quote-form">
     <div
       class="alert alert-warning"
@@ -91,6 +92,7 @@
         mat-raised-button
         color="primary"
         type="button"
+        [disabled]="isSaving"
         (click)="addQuote()"
       >
         Salva preventivo

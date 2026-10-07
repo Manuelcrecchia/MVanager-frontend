@@ -1,3 +1,4 @@
+import { fetchCompleteResponse } from '../offline/http-response-deadline';
 import { fetchOperationalConfig } from '../offline/offline-config-fetch';
 import { Injectable } from '@angular/core';
 import { HttpHeaders } from '@angular/common/http';
@@ -386,7 +387,7 @@ export class GlobalService {
         `api/version?app=MVanager&platform=${platform}&version=${encodeURIComponent(this.version)}`;
 
       try {
-        const res = await fetch(url, {
+        const res = await fetchCompleteResponse(url, {
           headers: {
             'X-Tenant-Id': this.tenantService.tenant,
           },

@@ -33,6 +33,8 @@
   </section>
 
   <p class="shift-save-status" role="status" aria-live="polite" *ngIf="saveStatus">{{ saveStatus }}</p>
+  <button class="btn btn-outline-primary shift-recovery-action" type="button" *ngIf="shiftConflict" (click)="loadCurrentShiftPlan()" [disabled]="isSaving">Carica i turni attuali e conserva una copia della bozza</button>
+  <button class="btn btn-outline-secondary shift-recovery-action" type="button" *ngIf="hasConflictDraft" (click)="exportConflictDraft()">Esporta la bozza del conflitto</button>
 
   <section class="create-shift-stats">
     <div>
@@ -401,6 +403,9 @@
           <button type="button"
             *ngIf="a.isExtra"
             class="btn btn-sm btn-outline-danger"
+            [disabled]="!canRemoveExtra(a)"
+            [title]="canRemoveExtra(a) ? 'Elimina lavoro extra' : 'Attendi la conferma del salvataggio prima di eliminare il lavoro extra'"
+            aria-label="Elimina lavoro extra"
             (click)="removeExtra(a)"
           >
             ❌

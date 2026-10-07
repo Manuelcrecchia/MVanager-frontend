@@ -52,6 +52,31 @@ describe('Editable field recovery', () => {
     expect(drafts.some(row => row.value === 'Altra bozza da conservare')).toBeTrue();
     fixture.nativeElement.remove(); fixture.destroy();
   });
+  it('clears only unchanged scalar fields from a confirmed multipart submission', async () => {
+    const fixture = TestBed.createComponent(TestForm); document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges(); await fixture.whenStable();
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('#primary input');
+    input.value = 'Multipart submitted'; input.dispatchEvent(new Event('input'));
+    fixture.detectChanges(); await fixture.whenStable(); input.focus();
+    const form = new FormData(); form.append('description', 'Multipart submitted'); form.append('attachment', new Blob(['file bytes']), 'file.txt');
+    await firstValueFrom(service.intercept(new HttpRequest('POST', 'https://draft.test/customers/save', form), () => of(new HttpResponse({ body: { ok: true } }))));
+    expect((await service.store.all('drafts')).some(row => row.value === 'Multipart submitted')).toBeFalse();
+    fixture.nativeElement.remove(); fixture.destroy();
+  });
+  it('maps leave request field names while preserving newer multipart edits', async () => {
+    const owner = service.session()!.owner, page = location.pathname + location.search;
+    const scope = 'primary';
+    const fields = [{ name: 'dataInizio', value: '2026-12-01' }, { name: 'tipo', value: 'giornaliero' }, { name: 'description', value: 'Newer unsent edit' }];
+    for (const field of fields) await service.store.put('drafts', { id: `field|${owner}|${page}|${scope}|${field.name}`, owner, page, controlPath: [field.name], value: field.value, savedAt: Date.now() - 1000 });
+    const fixture = TestBed.createComponent(TestForm); document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges(); await fixture.whenStable(); fixture.nativeElement.querySelector('#primary input').focus();
+    const form = new FormData(); form.append('fromDate', '2026-12-01'); form.append('tipoPermesso', 'giornaliero'); form.append('description', 'Old submitted edit');
+    await firstValueFrom(service.intercept(new HttpRequest('POST', 'https://draft.test/mv/leaveRequest/request', form), () => of(new HttpResponse({ body: { ok: true } }))));
+    const remaining = await service.store.all('drafts');
+    expect(remaining.some(row => row.value === '2026-12-01' || row.value === 'giornaliero')).toBeFalse();
+    expect(remaining.some(row => row.value === 'Newer unsent edit')).toBeTrue();
+    fixture.nativeElement.remove(); fixture.destroy();
+  });
   it('preserves a newer field edit made while the previous value is saving', async () => {
     const fixture = TestBed.createComponent(TestForm); document.body.appendChild(fixture.nativeElement);
     fixture.detectChanges(); await fixture.whenStable();
@@ -77,5 +102,41 @@ describe('Editable field recovery', () => {
     value = { text: '' };
     const second = watchDraft(service, () => value, saved => value = saved); await second.ready;
     expect(value.text).toBe(''); second.stop();
+  });
+  it('keeps a draft written by another editor when the first editor clears its saved draft', async () => {
+    let a = { text: 'Initial A' }, b = { text: 'Initial B' };
+    const first = watchDraft(service, () => a, saved => a = saved, '/two-editors'); await first.ready;
+    a = { text: 'Submitted A' }; first.flush();
+    const waitFor = async (text: string) => { for (let i = 0; i < 100; i++) { if ((await service.loadDraft('/two-editors'))?.text === text) return; await new Promise(resolve => setTimeout(resolve, 5)); } throw new Error('Draft write did not finish'); };
+    await waitFor('Submitted A');
+    const second = watchDraft(service, () => b, saved => b = saved, '/two-editors'); await second.ready;
+    b = { text: 'Unsaved B' }; second.flush(); await waitFor('Unsaved B');
+    try { await first.clear(); expect((await service.loadDraft('/two-editors'))?.text).toBe('Unsaved B'); }
+    finally { first.stop(); second.stop(); }
+  });
+  it('keeps a separately written revision even when its text matches the first editor', async () => {
+    let a = { text: 'Initial A' }, b = { text: 'Initial B' };
+    const first = watchDraft(service, () => a, saved => a = saved, '/same-text'); await first.ready;
+    a = { text: 'Shared text' }; first.flush();
+    for (let i = 0; i < 100 && !(await service.loadDraft('/same-text')); i++) await new Promise(resolve => setTimeout(resolve, 5));
+    const second = watchDraft(service, () => b, saved => b = saved, '/same-text'); await second.ready;
+    b = { text: 'Other text' }; second.flush();
+    b = { text: 'Shared text' }; second.flush();
+    await new Promise(resolve => setTimeout(resolve, 30));
+    try { await first.clear(); expect((await service.loadDraft('/same-text'))?.text).toBe('Shared text'); }
+    finally { first.stop(); second.stop(); }
+  });
+  it('clears a restored legacy draft only while its original version still exists', async () => {
+    const page = '/legacy-draft', owner = service.session()!.owner;
+    await service.store.put('drafts', { id: `${owner}|${page}`, value: { text: 'Legacy' }, savedAt: 1 });
+    let value = { text: '' };
+    const watcher = watchDraft(service, () => value, saved => value = saved, page); await watcher.ready;
+    expect(value.text).toBe('Legacy'); await watcher.clear(); expect(await service.loadDraft(page)).toBeNull();
+  });
+  it('does not clear another draft when this editor has never stored a version', async () => {
+    const page = '/empty-editor'; let value = { text: '' };
+    const watcher = watchDraft(service, () => value, saved => value = saved, page); await watcher.ready;
+    await service.saveDraft({ text: 'Written elsewhere' }, page);
+    await watcher.clear(); expect((await service.loadDraft(page)).text).toBe('Written elsewhere');
   });
 });

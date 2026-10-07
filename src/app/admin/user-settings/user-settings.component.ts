@@ -410,7 +410,13 @@ export class UserSettingsComponent implements OnInit {
         responseType: 'text',
       })
       .subscribe({
-        next: () => {
+        next: (response) => {
+          try {
+            const outcome = JSON.parse(response);
+            if (outcome.saved === true && Array.isArray(outcome.saveWarnings)) {
+              alert(outcome.saveWarnings.join('\n'));
+            }
+          } catch { /* Existing servers return the text "OK". */ }
           this.adminAdd = {
             nome: '',
             cognome: '',

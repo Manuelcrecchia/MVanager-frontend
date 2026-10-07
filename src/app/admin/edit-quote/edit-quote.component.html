@@ -29,6 +29,7 @@
     <button type="button" class="btn btn-outline-secondary" (click)="resolveDraftConflict(false)">Scarta la bozza e mantieni il server</button>
   </section>
 
+  <p *ngIf="saveMessage" role="status">{{ saveMessage }}</p>
   <form #form="ngForm" class="quote-form">
     <div
       class="alert alert-warning"
@@ -103,6 +104,7 @@
         mat-raised-button
         color="primary"
         type="button"
+        [disabled]="isSaving"
         (click)="editQuote()"
       >
         Salva modifiche

@@ -5,7 +5,7 @@ import { firstValueFrom, of, Subject, throwError, toArray } from 'rxjs';
 import { OfflineService, OfflineSession, PendingOperation, OFFLINE_SAVE_GROUP } from './offline.service';
 import { OfflineStore } from './offline-store';
 import { bodyHash, decodeBody, encodeBody } from './offline-codec';
-import { canReplayAutomatically, isOfflineRead, isProtectedWrite } from './offline-policy';
+import { canReplayAutomatically, isOfflineRead, isProtectedWrite, operationScope, scopesOverlap } from './offline-policy';
 
 describe('Durable offline saves', () => {
   let session: OfflineSession, service: OfflineService, online: jasmine.Spy;
@@ -28,6 +28,90 @@ describe('Durable offline saves', () => {
     const store = new OfflineStore();
     for (const name of ['queue', 'cache', 'drafts']) for (const row of await store.all(name)) await store.remove(name, row.id);
   });
+  it('resumes at reconnection even if exponential backoff has not expired', async () => {
+    online.and.returnValue(false); await send().catch(() => {});
+    const row = service.operations.value[0];
+    await service.store.put('queue', { ...row, nextAttempt: Date.now() + 300000 });
+    online.and.returnValue(true); await service.sync(undefined, true);
+    expect(service.operations.value[0].state).toBe('done');
+    expect(requests.filter(req => req.url.endsWith('/quotes/add')).length).toBe(1);
+    await send();
+    expect(requests.filter(req => req.url.endsWith('/quotes/add')).length).toBe(1);
+  });
+  it('keeps a normal online request silent and prevents background duplicate submission', async () => {
+    const response = new Subject<any>();
+    const sending = firstValueFrom(service.intercept(request(), () => response));
+    while (!service.operations.value.length) await new Promise(resolve => setTimeout(resolve, 1));
+    const row = service.operations.value[0];
+    expect(row.foreground).toBeTrue();
+    await service.sync();
+    expect(requests.filter(req => req.url.endsWith('/quotes/add')).length).toBe(0);
+    response.next(new HttpResponse({ body: { id: 42 } })); response.complete();
+    await sending;
+    expect(service.operations.value.length).toBe(0);
+  });
+  it('retains the captured shift version when loading cached data without a connection', async () => {
+    const req = new HttpRequest('GET', session.baseUrl + 'shifts/byDate/2026-10-07');
+    const version = '"' + 'a'.repeat(64) + '"';
+    await firstValueFrom(service.intercept(req, () => of(new HttpResponse({ body: [], headers: new HttpHeaders({ 'X-MV-Shift-Version': version }) }))));
+    const cached = await firstValueFrom(service.intercept(req, () => throwError(() => new HttpErrorResponse({ status: 0 }))));
+    expect((cached as HttpResponse<any>).headers.get('X-MV-Shift-Version')).toBe(version);
+  });
+  it('recovers an online journal abandoned before its sender could claim it', async () => {
+    online.and.returnValue(false); await send().catch(() => {});
+    const row = service.operations.value[0];
+    await service.store.put('queue', { ...row, foreground: true, foregroundUntil: Date.now() - 1 });
+    online.and.returnValue(true); await service.sync(undefined, true);
+    expect(service.operations.value[0].state).toBe('done');
+    expect(requests.filter(req => req.url.endsWith('/quotes/add')).length).toBe(1);
+  });
+  it('applies the version recovered from a successful predecessor to the actual next HTTP request', async () => {
+    const oldVersion = '"' + 'a'.repeat(64) + '"', newVersion = '"' + 'b'.repeat(64) + '"';
+    online.and.returnValue(false);
+    const initial = grouped({ shifts: [{ data: '2026-10-05', clientId: 'extra', shiftId: 7, title: 'Old' }] }).clone({ setHeaders: { 'If-Match': oldVersion } });
+    await send(initial).catch(() => {});
+    const previous = service.operations.value[0];
+    await service.store.markConfirmed({ ...previous, state: 'done', response: { body: { savedShifts: [], version: newVersion }, status: 200, headers: {} } });
+    online.and.returnValue(true);
+    await send(grouped({ shifts: [{ data: '2026-10-05', clientId: 'extra', shiftId: 7, title: 'New' }] }).clone({ setHeaders: { 'If-Match': oldVersion } }));
+    expect(requests.find(req => req.url.endsWith('/saveMultiple'))!.headers.get('If-Match')).toBe(newVersion);
+  });
+  it('never adopts another tab receipt version for different local edits', async () => {
+    const oldVersion = '"' + 'a'.repeat(64) + '"', otherVersion = '"' + 'b'.repeat(64) + '"';
+    online.and.returnValue(false);
+    await send(grouped({ shifts: [{ data: '2026-10-05', clientId: 'extra', shiftId: 7, title: 'Old' }] }).clone({ setHeaders: { 'If-Match': oldVersion } })).catch(() => {});
+    const previous = service.operations.value[0];
+    await service.store.markConfirmed({ ...previous, draftWriter: 'another-tab', state: 'done', response: { body: { savedShifts: [], version: otherVersion }, status: 200, headers: {} } });
+    online.and.returnValue(true);
+    await send(grouped({ shifts: [{ data: '2026-10-05', clientId: 'extra', shiftId: 7, title: 'Local edit' }] }).clone({ setHeaders: { 'If-Match': oldVersion } }));
+    expect(requests.find(req => req.url.endsWith('/saveMultiple'))!.headers.get('If-Match')).toBe(oldVersion);
+  });
+  it('resumes automatically after a new login without leaving the online journal hidden', async () => {
+    session.token = `e30.${btoa(JSON.stringify({ id: 1, tenantId: 'test', exp: 1 }))}.signature`;
+    await send().catch(() => {});
+    expect(service.operations.value[0].foreground).toBeFalse();
+    session.token = token(1); await service.sync();
+    expect(service.operations.value[0].state).toBe('done');
+    expect(requests.filter(req => req.url.endsWith('/quotes/add')).length).toBe(1);
+  });
+  it('dismisses the recovered-draft notice when its page save is confirmed', async () => {
+    service.notice.next('Bozza recuperata dal dispositivo. Controlla i dati prima di salvare.');
+    await send();
+    expect(service.notice.value).toBe(''); expect(service.operations.value.length).toBe(0);
+  });
+  it('never clears a draft written by another service when an online save is confirmed', async () => {
+    const otherTab = newService();
+    await otherTab.saveDraft({ name: 'Unsaved in another tab' });
+    await send();
+    expect((await otherTab.loadDraft()).name).toBe('Unsaved in another tab');
+  });
+  it('leaves draft cleanup to an active editor instead of inferring it from timestamps', async () => {
+    const page = location.pathname + location.search, unregister = service.registerDraftPage(page);
+    try {
+      await service.saveDraft({ name: 'New local edit' });
+      await send(); expect((await service.loadDraft()).name).toBe('New local edit');
+    } finally { unregister(); }
+  });
   it('sends when the browser says offline but an actual server probe succeeds', async () => {
     online.and.returnValue(false);
     service = new OfflineService({ get: () => () => session } as any, { handle: () => of(new HttpResponse({ body: { protocol: 1 } })) } as any);
@@ -47,6 +131,118 @@ describe('Durable offline saves', () => {
     await service.sync(); expect(service.operations.value[0].state).toBe('done');
   });
   const grouped = (body: any) => new HttpRequest('POST', session.baseUrl + 'shifts/saveMultiple', body, { context: new HttpContext().set(OFFLINE_SAVE_GROUP, 'day:2026-10-05') });
+  const shift = (day: string, title = 'Job') => ({ appointmentId: 1, data: day, employeeIds: [1], title });
+  async function legacyShiftQueue(count: number, day: string, attempted = false) {
+    online.and.returnValue(false);
+    for (let index = 0; index < count; index++) await send(request('shifts/saveMultiple', { shifts: [shift(day, `Old ${index}`)], forceSave: true })).catch(() => {});
+    const rows = await service.store.all<PendingOperation>('queue');
+    for (const row of rows) await service.store.put('queue', { ...row, intent: undefined, automatic: false, attempts: attempted ? 1 : 0 });
+    await service.refresh(); return rows;
+  }
+  it('does not let 22 old saves for another day block the current shift day', async () => {
+    await legacyShiftQueue(22, '2026-10-04'); online.and.returnValue(true);
+    await expectAsync(send(grouped({ shifts: [shift('2026-10-05')], forceSave: true }))).toBeResolved();
+    expect(requests.filter(req => req.url.endsWith('/saveMultiple')).length).toBe(1);
+    expect((await service.store.all<PendingOperation>('queue')).filter(row => row.state === 'waiting').length).toBe(22);
+  });
+  it('replaces 22 unsent legacy full-day snapshots with one final save', async () => {
+    const old = await legacyShiftQueue(22, '2026-10-05');
+    const shifts = [shift('2026-10-05', 'Latest')];
+    online.and.returnValue(true);
+    service = new OfflineService({ get: () => () => session } as any, { handle: (req: HttpRequest<any>) => {
+      if (req.url.endsWith('/capabilities')) return of(new HttpResponse({ body: { protocol: 1, cancelPending: true } }));
+      if (req.url.endsWith('/cancel')) return of(new HttpResponse({ body: { operationId: req.url.split('/').slice(-2)[0], state: 'cancelled' } }));
+      return backend().handle(req);
+    } } as any);
+    await service.retireShiftAutosaves(shifts);
+    await expectAsync(send(grouped({ shifts, forceSave: true }))).toBeResolved();
+    expect(requests.filter(req => req.url.endsWith('/saveMultiple')).length).toBe(1);
+    for (const row of old) expect((await service.store.get('queue', row.id)).state).toBe('archived');
+    expect(service.operations.value).toEqual([]);
+  });
+  it('reserves attempted legacy full-day keys before replacing their old snapshots', async () => {
+    const old = await legacyShiftQueue(3, '2026-10-05', true), cancelled: string[] = [];
+    online.and.returnValue(true);
+    service = new OfflineService({ get: () => () => session } as any, { handle: (req: HttpRequest<any>) => {
+      if (req.url.endsWith('/capabilities')) return of(new HttpResponse({ body: { protocol: 1, cancelPending: true } }));
+      if (req.url.endsWith('/cancel')) { const id = req.url.split('/').slice(-2)[0]; cancelled.push(id); return of(new HttpResponse({ body: { operationId: id, state: 'cancelled' } })); }
+      return backend().handle(req);
+    } } as any);
+    const shifts = [shift('2026-10-05', 'Latest')]; await service.retireShiftAutosaves(shifts); await send(grouped({ shifts, forceSave: true }));
+    expect(cancelled.sort()).toEqual(old.map(row => row.id).sort());
+    expect(requests.filter(req => req.url.endsWith('/saveMultiple')).length).toBe(1);
+    expect(service.operations.value).toEqual([]);
+  });
+  it('recovers a committed legacy extra before final save even when the old attempt count is zero', async () => {
+    online.and.returnValue(false);
+    await send(request('shifts/autosave', { data: '2026-10-05', title: 'Existing extra', clientId: 'old-extra' })).catch(() => {});
+    const row = service.operations.value[0];
+    online.and.returnValue(true);
+    service = new OfflineService({ get: () => () => session } as any, { handle: (req: HttpRequest<any>) => {
+      requests.push(req);
+      if (req.url.endsWith('/capabilities')) return of(new HttpResponse({ body: { protocol: 1, cancelPending: true, receiptLookup: true } }));
+      return of(new HttpResponse({ body: { operationId: row.id, state: 'completed', status: 200, responseBody: JSON.stringify({ shiftId: 88 }), bodyEncoding: 'utf8' } }));
+    } } as any);
+    const shifts: any[] = [{ data: '2026-10-05', title: 'Existing extra', clientId: 'old-extra' }];
+    await service.retireShiftAutosaves(shifts);
+    expect(shifts[0].shiftId).toBe(88);
+    expect((await service.store.get('queue', row.id)).recoveredShifts).toEqual([{ clientId: 'old-extra', shiftId: 88 }]);
+    expect(requests.some(req => req.url.endsWith('/cancel'))).toBeTrue();
+    expect(requests.filter(req => req.url.endsWith('/autosave')).length).toBe(0);
+  });
+  it('preserves an old zero-attempt shift update if its server key cannot be retired safely', async () => {
+    const [row] = await legacyShiftQueue(1, '2026-10-05');
+    online.and.returnValue(true);
+    await expectAsync(service.retireShiftAutosaves([shift('2026-10-05')])).toBeRejected();
+    expect((await service.store.get('queue', row.id)).state).toBe('waiting');
+    expect(requests.filter(req => req.method === 'POST').length).toBe(0);
+  });
+  it('preserves confirmed extra-job identities when retiring a legacy complete save', async () => {
+    online.and.returnValue(false);
+    await send(request('shifts/saveMultiple', { shifts: [{ data: '2026-10-05', title: 'Existing extra', employeeIds: [] }], forceSave: true })).catch(() => {});
+    const row = service.operations.value[0];
+    await service.store.put('queue', { ...row, state: 'done', response: { status: 200, body: { savedShifts: [{ clientId: null, shiftId: 88 }] }, headers: {} } });
+    const shifts = [{ data: '2026-10-05', title: 'Existing extra', employeeIds: [] }];
+    await service.retireShiftAutosaves(shifts);
+    expect((shifts[0] as any).shiftId).toBe(88);
+    expect((await service.store.get('queue', row.id)).state).toBe('archived');
+  });
+  it('keeps a confirmed legacy extra identity in its archived recovery copy', async () => {
+    online.and.returnValue(false);
+    await send(request('shifts/autosave', { data: '2026-10-05', title: 'Existing extra' })).catch(() => {});
+    const row = service.operations.value[0];
+    await service.store.put('queue', { ...row, state: 'done', response: { status: 200, body: { shiftId: 88 }, headers: {} } });
+    await service.retireShiftAutosaves([{ clientId: 'draft-extra', data: '2026-10-05', title: 'Existing extra' }]);
+    expect((await service.store.get('queue', row.id)).recoveredShifts).toEqual([{ clientId: 'draft-extra', shiftId: 88 }]);
+    const reopened = newService();
+    expect(await reopened.loadShiftIdentities('2026-10-05')).toEqual({ 'draft-extra': 88 });
+    expect(await reopened.loadShiftIdentities('2026-10-06')).toEqual({});
+    session = { ...session, token: token(2) };
+    expect(await reopened.loadShiftIdentities('2026-10-05')).toEqual({});
+  });
+  it('does not recreate a confirmed legacy extra without a usable server identity', async () => {
+    online.and.returnValue(false);
+    await send(request('shifts/saveMultiple', { shifts: [{ data: '2026-10-05', title: 'Existing extra', employeeIds: [] }], forceSave: true })).catch(() => {});
+    const row = service.operations.value[0];
+    await service.store.put('queue', { ...row, state: 'done', response: { status: 200, body: { message: 'Saved by older server' }, headers: {} } });
+    await expectAsync(service.retireShiftAutosaves([{ data: '2026-10-05', title: 'Existing extra', employeeIds: [] }])).toBeRejected();
+    expect((await service.store.get('queue', row.id)).state).toBe('done'); expect(requests.length).toBe(0);
+  });
+  it('keeps same-day and multi-day chronology while separating independent shift dates', async () => {
+    const first = operationScope('/shifts/saveMultiple', await encodeBody({ shifts: [shift('2026-10-05')] }));
+    const second = operationScope('/shifts/autosave', await encodeBody(shift('2026-10-06')));
+    expect(scopesOverlap(first, second)).toBeFalse();
+    expect(scopesOverlap(first, operationScope('/shifts/delete', await encodeBody({ data: '2026-10-05' })))).toBeTrue();
+    expect(scopesOverlap(first, operationScope('/shifts/saveMultiple', await encodeBody({ shifts: [shift('2026-10-05'), shift('2026-10-06')] })))).toBeTrue();
+  });
+  it('syncs the current day even when another day has a pending manual shift write', async () => {
+    await legacyShiftQueue(1, '2026-10-04');
+    await send(grouped({ shifts: [shift('2026-10-05')], forceSave: true })).catch(() => {});
+    online.and.returnValue(true); await service.sync();
+    expect(service.operations.value.find(row => row.automatic)?.state).toBe('done');
+    expect(service.operations.value.find(row => !row.automatic)?.state).toBe('waiting');
+    expect(requests.filter(req => req.url.endsWith('/saveMultiple')).length).toBe(1);
+  });
   it('atomically replaces an unsent edited draft without leaving the old version pending', async () => {
     online.and.returnValue(false); await send(grouped({ title: 'Old' })).catch(() => {});
     const id = service.operations.value[0].id;
@@ -159,7 +355,7 @@ describe('Durable offline saves', () => {
     expect(requests.length).toBe(0); service = newService(); await service.refresh();
     expect(service.operations.value.length).toBe(1);
     online.and.returnValue(true); await service.sync();
-    expect(service.operations.value[0].state).toBe('done'); expect(requests[1].body.name).toBe('Preventivo');
+    expect(service.operations.value[0].state).toBe('done'); expect(requests.find(req => req.url.endsWith('/quotes/add'))!.body.name).toBe('Preventivo');
   });
   it('deduplicates repeated save taps across concurrent tabs', async () => {
     online.and.returnValue(false); const other = newService();
@@ -359,14 +555,14 @@ describe('Durable offline saves', () => {
     await send(request('shifts/autosave', { id: 1 })).catch(() => {});
     await send(request('shifts/saveMultiple', { id: 2 })).catch(() => {});
     await service.sync(service.operations.value[1].id);
-    expect(requests.length).toBe(0);
+    expect(requests.every(req => req.method === 'GET')).toBeTrue();
     expect(service.notice.value).toContain('salvataggio precedente');
   });
   it('explains when the requested retry is already leased by another sender', async () => {
     online.and.returnValue(false); await send().catch(() => {});
     const row = service.operations.value[0]; await service.store.claim(row.id);
     await service.sync(row.id);
-    expect(requests.length).toBe(0);
+    expect(requests.every(req => req.method === 'GET')).toBeTrue();
     expect(service.notice.value).toContain('già in invio');
   });
   it('explains expired sessions instead of silently ignoring a retry', async () => {
@@ -464,6 +660,44 @@ describe('Durable offline saves', () => {
     expect(service.operations.value[0].response?.body).toEqual({ id: 88 });
     expect(calls[1].headers.get('X-Tenant-Id')).toBe('test');
   });
+  it('recovers legacy shift receipts behind an unsent manual update without replaying any writes', async () => {
+    online.and.returnValue(false);
+    for (let index = 0; index < 8; index++) await send(request('shifts/autosave', shift('2026-10-06', `Old ${index}`))).catch(() => {});
+    await send(request('shifts/saveMultiple', { shifts: [shift('2026-10-06')], forceSave: false })).catch(() => {});
+    const finalRow = service.operations.value[8];
+    await service.store.put('queue', { ...finalRow, automatic: false, intent: undefined });
+    await service.refresh();
+    const rows = service.operations.value;
+    // Older clients may not have persisted their attempt count before losing a response.
+    const calls: HttpRequest<any>[] = [];
+    service = new OfflineService({ get: () => () => session } as any, { handle: (req: HttpRequest<any>) => {
+      calls.push(req);
+      if (req.url.endsWith('/capabilities')) return of(new HttpResponse({ body: { protocol: 1, receiptLookup: true } }));
+      const id = req.url.split('/').pop();
+      if (id === rows[0].id) return throwError(() => new HttpErrorResponse({ status: 404 }));
+      return of(new HttpResponse({ body: { operationId: id, state: 'completed', status: 200, responseBody: JSON.stringify({ shiftId: 88 }), bodyEncoding: 'utf8' } }));
+    } } as any);
+    online.and.returnValue(true); await service.sync();
+    expect(calls.every(req => req.method === 'GET')).toBeTrue();
+    expect(calls.filter(req => req.url.includes('/operations/')).length).toBe(9);
+    expect(service.operations.value.filter(row => row.state === 'waiting').map(row => row.id)).toEqual([rows[0].id]);
+    expect(service.operations.value.filter(row => row.state === 'done').length).toBe(8);
+  });
+  it('recovers later attempted manual receipts even while earlier domain writes remain blocked', async () => {
+    online.and.returnValue(false);
+    await send(request('employees/edit', { id: 1 })).catch(() => {});
+    await send(request('employees/edit', { id: 2 })).catch(() => {});
+    const row = service.operations.value[1];
+    await service.store.put('queue', { ...row, attempts: 1, nextAttempt: 0 });
+    const calls: HttpRequest<any>[] = [];
+    service = new OfflineService({ get: () => () => session } as any, { handle: (req: HttpRequest<any>) => {
+      calls.push(req);
+      return of(new HttpResponse({ body: req.url.endsWith('/capabilities') ? { protocol: 1, receiptLookup: true } : { operationId: row.id, state: 'completed', status: 200, responseBody: '{"id":2}', bodyEncoding: 'utf8' } }));
+    } } as any);
+    online.and.returnValue(true); await service.sync();
+    expect(calls.every(req => req.method === 'GET')).toBeTrue();
+    expect(service.operations.value.map(row => row.state)).toEqual(['waiting', 'done']);
+  });
   it('recognizes an older rejected request from the durable server response', async () => {
     const { calls } = await receiptRecovery(409, 'completed', { error: 'Record modificato', currentRevision: 5 });
     expect(service.operations.value[0].state).toBe('rejected');
@@ -474,6 +708,18 @@ describe('Durable offline saves', () => {
     const { calls } = await receiptRecovery(500, 'uncertain');
     expect(service.operations.value[0].state).toBe('blocked');
     expect(calls.every(req => req.method === 'GET')).toBeTrue();
+  });
+  it('resumes an uncertain automatic save only after the server confirms a safe retryable outcome', async () => {
+    failure = 503; await send(grouped({ shifts: [shift('2026-10-05')], forceSave: true })).catch(() => {});
+    const row = service.operations.value[0]; await service.store.put('queue', { ...row, nextAttempt: 0 });
+    const posts: HttpRequest<any>[] = [];
+    service = new OfflineService({ get: () => () => session } as unknown as Injector, { handle(req: HttpRequest<any>) {
+      if (req.url.endsWith('/capabilities')) return of(new HttpResponse({ body: { protocol: 1, receiptLookup: true } }));
+      if (req.method === 'GET') return of(new HttpResponse({ body: { operationId: row.id, state: 'retryable', status: 503 } }));
+      posts.push(req); return of(new HttpResponse({ status: 200, body: { savedShifts: [] }, headers: new HttpHeaders({ 'X-MV-Operation-Id': row.id }) }));
+    }} as HttpBackend);
+    await service.sync(); expect(posts.length).toBe(1); expect(posts[0].headers.get('X-MV-Operation-Id')).toBe(row.id);
+    expect(service.operations.value[0].state).toBe('done');
   });
   it('does not mark another operation confirmed if the lookup returns a different id', async () => {
     failure = 503; await send().catch(() => {});
@@ -558,6 +804,38 @@ describe('Durable offline saves', () => {
     response.next(new HttpResponse({ status: 201, body: { id: 42 } })); response.complete(); await first;
     await other.refresh(); expect(other.operations.value).toEqual([]);
   });
+  it('recovers a closed runtime claim immediately but retains a live runtime claim', async () => {
+    if (!navigator.locks) { pending('Web Locks unavailable'); return; }
+    online.and.returnValue(false); await send().catch(() => {});
+    const row = service.operations.value[0], owner = 'lock-test-' + row.id;
+    let release!: () => void, entered!: () => void;
+    const enteredLock = new Promise<void>(resolve => entered = resolve);
+    const held = new Promise<void>(resolve => release = resolve);
+    const lock = navigator.locks.request(`mv-offline-runtime:${owner}`, async () => { entered(); await held; });
+    await enteredLock; await service.store.claim(row.id, row.hash, owner); online.and.returnValue(true);
+    const replayed: HttpRequest<any>[] = [];
+    const other = new OfflineService({ get: () => () => session } as unknown as Injector, { handle: (req: HttpRequest<any>) => {
+      if (req.url.endsWith('/offline/capabilities')) return of(new HttpResponse({ body: { protocol: 1, receiptLookup: true } }));
+      if (req.url.includes('/offline/operations/')) return of(new HttpResponse({ body: { operationId: row.id, state: 'missing' } }));
+      replayed.push(req); return of(new HttpResponse({ status: 201, body: { id: 42 }, headers: new HttpHeaders({ 'X-MV-Operation-Id': row.id }) }));
+    } } as HttpBackend);
+    try { await other.sync(undefined, true); expect(replayed.length).toBe(0); }
+    finally { release(); await lock; }
+    await other.sync(undefined, true);
+    expect(replayed.length).toBe(1); expect(replayed[0].headers.get('X-MV-Operation-Id')).toBe(row.id);
+    expect(other.operations.value[0].state).toBe('done');
+  });
+  it('only replaces the precise abandoned owner and rejects a stale sender failure', async () => {
+    online.and.returnValue(false); await send().catch(() => {});
+    const row = service.operations.value[0], first = await service.store.claim(row.id, row.hash, 'owner-a');
+    expect(await service.store.claim(row.id, row.hash, 'owner-b', 'different-owner')).toBeFalse();
+    const second = await service.store.claim(row.id, row.hash, 'owner-b', 'owner-a');
+    expect(second).not.toBeFalse();
+    const stale = { ...row, leaseUntil: 0 };
+    await service.store.saveFailure(stale, first || undefined);
+    expect((await service.store.get<PendingOperation>('queue', row.id))?.leaseOwner).toBe('owner-b');
+    expect((await service.store.get<PendingOperation>('queue', row.id))?.leaseUntil).toBeGreaterThan(Date.now());
+  });
   it('keeps another sender’s renewed lease when an expired sender eventually fails', async () => {
     online.and.returnValue(false); await send().catch(() => {});
     const old = service.operations.value[0], firstLease = await service.store.claim(old.id);
@@ -595,10 +873,12 @@ describe('Durable offline saves', () => {
       if (req.params.get('connectivityProbe') === '1') { probes++; return probe; }
       return backend().handle(req);
     } } as any);
-    const first = service.sync(); await service.sync(); expect(probes).toBe(1);
+    const first = service.sync(); await service.sync();
+    while (!probes) await new Promise(resolve => setTimeout(resolve, 1));
+    expect(probes).toBe(1);
     probe.next(new HttpResponse({ body: { protocol: 1 } })); probe.complete(); await first;
     expect(service.operations.value[0].state).toBe('done');
-    await service.sync(); expect(probes).toBe(2);
+    await service.sync(); expect(probes).toBe(1);
   });
   it('uses refreshed credentials if they change while the payload is being persisted', async () => {
     const enqueue = service.store.enqueue.bind(service.store);

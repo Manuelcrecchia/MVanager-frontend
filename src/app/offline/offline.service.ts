@@ -3,7 +3,8 @@ import { HttpBackend, HttpClient, HttpContextToken, HttpErrorResponse, HttpEvent
 import { BehaviorSubject, Observable, filter, firstValueFrom, tap, timeout } from 'rxjs';
 import { OfflineStore } from './offline-store';
 import { StoredBody, bodyHash, decodeBody, digest, encodeBody, operationId } from './offline-codec';
-import { canReplayAutomatically, containsCredentials, isOfflineRead, isProtectedWrite, operationLabel, operationScope } from './offline-policy';
+import { boundApiResponse, apiTimeoutError } from './http-response-deadline';
+import { canReplayAutomatically, containsCredentials, isOfflineRead, isProtectedWrite, operationLabel, operationScope, scopesOverlap, shiftOperationDay } from './offline-policy';
 
 export interface OfflineSession { baseUrl: string; tenant: string; token: string; role: 'admin' | 'employee'; }
 export const OFFLINE_SESSION = new InjectionToken<() => OfflineSession>('OFFLINE_SESSION');
@@ -11,9 +12,11 @@ export const OFFLINE_SAVE_GROUP = new HttpContextToken<string>(() => '');
 export interface PendingOperation {
   id: string; owner: string; dedup: string; hash: string; method: string; url: string; path: string;
   body: StoredBody; headers: Record<string, string>; responseType: 'json' | 'text' | 'blob' | 'arraybuffer';
-  intent?: string; predecessor?: string; createdAt: string; sequence?: number; page: string; formScope?: string; label: string; automatic: boolean;
-  state: 'waiting' | 'blocked' | 'rejected' | 'done' | 'archived'; attempts: number; nextAttempt: number; leaseUntil?: number;
+  intent?: string; predecessor?: string; createdAt: string; sequence?: number; page: string; formScope?: string; clientBuild?: string; label: string; automatic: boolean;
+  state: 'waiting' | 'blocked' | 'rejected' | 'done' | 'archived'; attempts: number; nextAttempt: number; leaseUntil?: number; leaseOwner?: string;
   error?: string; errorCode?: string; blocksQueue?: boolean; response?: { body: any; status: number; headers: Record<string, string> };
+  recoveredShifts?: { clientId: string; shiftId: number }[];
+  draftWriter?: string; foreground?: boolean; foregroundUntil?: number; attempted?: boolean; waitingForLogin?: boolean;
 }
 export const PENDING_MESSAGE = 'Dati conservati sul dispositivo, in attesa della conferma del server.';
 export function isOfflinePending(error: any): boolean { return error?.error?.code === 'OFFLINE_PENDING' && error?.error?.state !== 'blocked'; }
@@ -35,17 +38,29 @@ export class OfflineService {
   private async clearSavedFields(row: PendingOperation): Promise<void> {
     // A page may contain several forms. Only clear fields actually submitted by
     // this form, with unchanged values; retain older drafts without provenance.
-    if (row.formScope === undefined || row.body.type !== 'json') return;
+    if (row.formScope === undefined || !['json', 'form'].includes(row.body.type)) return;
+    let submitted: any;
+    if (row.body.type === 'json') submitted = row.body.value;
+    else if (row.body.type === 'form') {
+      const counts = new Map<string, number>();
+      row.body.entries.forEach(([name]) => counts.set(name, (counts.get(name) || 0) + 1));
+      // Repeated values and attachments have no unambiguous scalar control value.
+      submitted = Object.fromEntries(row.body.entries.filter(([name, value]) => counts.get(name) === 1 && typeof value === 'string'));
+    }
+    const leaveNames: Record<string, string> = row.path === '/mv/leaveRequest/request'
+      ? { tipo: 'tipoPermesso', dataInizio: 'fromDate', dataFine: 'toDate' } : {};
     const prefix = `field|${row.owner}|${row.page}|${row.formScope}|`;
     for (const draft of await this.store.all('drafts')) {
       if (draft.owner !== row.owner || draft.page !== row.page || !draft.id.startsWith(prefix) || draft.savedAt > Date.parse(row.createdAt) || !draft.controlPath?.length) continue;
-      let value = row.body.value, present = true;
-      for (const name of draft.controlPath) {
+      let value = submitted, present = true;
+      const names = draft.controlPath.map((name: string, index: number) => index === 0 ? leaveNames[name] || name : name);
+      for (const name of names) {
         if (!value || typeof value !== 'object' || !Object.prototype.hasOwnProperty.call(value, name)) { present = false; break; }
         value = value[name];
       }
-      if (present && JSON.stringify(value) === JSON.stringify(draft.value)) await this.store.remove('drafts', draft.id);
+      if (present && JSON.stringify(value) === JSON.stringify(draft.value)) await this.store.removeDraftVersion(draft.id, { revision: draft.revision, savedAt: draft.savedAt });
     }
+    if (this.hasFieldDraft.value && !(await this.store.all('drafts')).some(draft => this.fields.has(draft.id))) this.hasFieldDraft.next(false);
   }
   readonly connected = new BehaviorSubject(navigator.onLine);
   private readonly raw: HttpClient;
@@ -55,6 +70,29 @@ export class OfflineService {
   private receiptLookup = new Set<string>();
   private cancelPending = new Set<string>();
   private draftPages = new Map<string, number>();
+  private readonly draftWriter = operationId();
+  private runtimeLease?: Promise<boolean>;
+  private ensureRuntimeLease(): Promise<boolean> {
+    if (!navigator.locks) return Promise.resolve(false);
+    if (!this.runtimeLease) this.runtimeLease = new Promise(resolve => {
+      // The browser releases this lock on navigation, closing or process loss.
+      // Unlike a heartbeat, a suspended live tab still owns its in-flight request.
+      void navigator.locks.request(`mv-offline-runtime:${this.draftWriter}`, async () => {
+        resolve(true);
+        await new Promise<void>(() => {});
+      }).catch(() => resolve(false));
+    });
+    return this.runtimeLease;
+  }
+  private async claim(row: PendingOperation, recoverAbandoned = false): Promise<string | false> {
+    const leaseOwner = await this.ensureRuntimeLease() ? this.draftWriter : undefined;
+    let abandonedOwner: string | undefined;
+    if (recoverAbandoned && leaseOwner && row.automatic && row.leaseOwner && row.leaseOwner !== leaseOwner && (row.leaseUntil || 0) > Date.now() && this.receiptLookup.has(row.owner)) {
+      const available = await navigator.locks.request(`mv-offline-runtime:${row.leaseOwner}`, { ifAvailable: true }, lock => !!lock);
+      if (available) abandonedOwner = row.leaseOwner;
+    }
+    return this.store.claim(row.id, row.hash, leaseOwner, abandonedOwner);
+  }
   registerDraftPage(page: string): () => void {
     this.draftPages.set(page, (this.draftPages.get(page) || 0) + 1);
     return () => { const count = (this.draftPages.get(page) || 1) - 1; if (count) this.draftPages.set(page, count); else this.draftPages.delete(page); };
@@ -81,13 +119,13 @@ export class OfflineService {
     if (this.started) return;
     this.started = true;
     void navigator.storage?.persist?.().catch(() => false);
-    const tick = () => { void this.refresh().then(() => this.sync()).catch(() => this.storageError()); };
-    window.addEventListener('online', () => { this.connected.next(true); tick(); });
+    const tick = (reconnect = false) => { void this.refresh().then(() => this.sync(undefined, reconnect)).catch(() => this.storageError()); };
+    window.addEventListener('online', () => { this.connected.next(true); tick(true); });
     window.addEventListener('offline', () => this.connected.next(false));
-    window.addEventListener('focus', tick);
+    window.addEventListener('focus', () => tick(true));
     window.addEventListener('mv-offline-cache', () => this.notice.next('Configurazione e dati recuperati dal dispositivo: potrebbero non includere modifiche recenti.'));
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
-    setInterval(tick, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(true); });
+    setInterval(tick, 5000);
     tick();
     if (!isDevMode() && 'serviceWorker' in navigator && location.protocol.startsWith('http')) {
       void navigator.serviceWorker.register(new URL('offline-worker.js', document.baseURI).href).then(registration => {
@@ -116,15 +154,16 @@ export class OfflineService {
         await this.store.put('queue', { ...row, dedup: `archived:${row.id}` });
       }
     }
-    this.operations.next(rows.filter(row => row.owner === owner && row.state !== 'archived').map(row => this.confirmed.has(row.id) ? { ...row, state: 'done' as const } : row).sort((a, b) => (a.sequence || Date.parse(a.createdAt)) - (b.sequence || Date.parse(b.createdAt))));
+    this.operations.next(rows.filter(row => row.owner === owner && row.state !== 'archived').map(row => ({ ...row, label: operationLabel(row.path, row.body), ...(this.confirmed.has(row.id) ? { state: 'done' as const } : {}) })).sort((a, b) => (a.sequence || Date.parse(a.createdAt)) - (b.sequence || Date.parse(b.createdAt))));
   }
   intercept(req: HttpRequest<any>, next: HttpHandlerFn): Observable<HttpEvent<any>> {
+    const send: HttpHandlerFn = request => boundApiResponse(request, next(request));
     const session = this.session();
-    if (!session || !req.url.startsWith(session.baseUrl) || containsCredentials(req.body)) return next(req);
+    if (!session || !req.url.startsWith(session.baseUrl) || containsCredentials(req.body)) return send(req);
     const path = '/' + req.url.slice(session.baseUrl.length).split('?')[0];
-    if (isProtectedWrite(req.method, path)) return this.observeWork(send => this.save(req, send, session.owner, path), next);
-    if (isOfflineRead(req.method, path)) return this.observeWork(send => this.read(req, send, session.owner), next);
-    return next(req);
+    if (isProtectedWrite(req.method, path)) return this.observeWork(send => this.save(req, send, session.owner, path), send);
+    if (isOfflineRead(req.method, path)) return this.observeWork(send => this.read(req, send, session.owner), send);
+    return send(req);
   }
   private observeWork(work: (send: HttpHandlerFn) => Promise<HttpResponse<any>>, next: HttpHandlerFn): Observable<HttpEvent<any>> {
     return new Observable(observer => {
@@ -133,8 +172,14 @@ export class OfflineService {
       void work(send).then(response => { observer.next(response); observer.complete(); }, error => observer.error(error));
     });
   }
-  private response(req: HttpRequest<any>, next: HttpHandlerFn, deadline = 120000): Promise<HttpResponse<any>> {
-    return firstValueFrom(next(req).pipe(timeout({ each: deadline }), filter((event): event is HttpResponse<any> => event instanceof HttpResponse)));
+  private async response(req: HttpRequest<any>, next: HttpHandlerFn, deadline =
+    req.body instanceof FormData || ['blob', 'arraybuffer'].includes(req.responseType) ? 300000 : 120000): Promise<HttpResponse<any>> {
+    try {
+      return await firstValueFrom(boundApiResponse(req, next(req), deadline).pipe(filter((event): event is HttpResponse<any> => event instanceof HttpResponse)));
+    } catch (error: any) {
+      if (error?.name === 'TimeoutError') throw apiTimeoutError(req);
+      throw error;
+    }
   }
   private pending(row: PendingOperation): HttpErrorResponse {
     return new HttpErrorResponse({ status: 0, url: row.url, error: { code: 'OFFLINE_PENDING', state: row.state, operationId: row.id, error: row.error || PENDING_MESSAGE } });
@@ -147,7 +192,7 @@ export class OfflineService {
     let row: PendingOperation;
     let persisted = false, replacing = false;
     let candidate: PendingOperation | undefined;
-    const unconfirmedDirect = () => Array.from(this.volatile.values()).some(item => item.owner === owner && operationScope(item.path) === operationScope(path) && item.dedup !== candidate?.dedup);
+    const unconfirmedDirect = () => Array.from(this.volatile.values()).some(item => item.owner === owner && scopesOverlap(operationScope(item.path, item.body), operationScope(path, candidate?.body)) && item.dedup !== candidate?.dedup);
     const directConflict = () => this.replacementError('Il tentativo precedente non ha ancora una conferma e l’archivio locale non è disponibile. Attendi la conferma o riprova gli stessi dati prima di inviare modifiche.');
     try {
       const body = await encodeBody(req.body), hash = await bodyHash(body);
@@ -158,13 +203,14 @@ export class OfflineService {
       candidate = {
         id: operationId(), owner, dedup: `${owner}|${req.method}|${req.urlWithParams}|${hash}${versionKey}`, hash,
         method: req.method, url: req.urlWithParams, path, body, headers, responseType: req.responseType,
-        createdAt: new Date().toISOString(), page, formScope,
-        label: operationLabel(path), automatic: canReplayAutomatically(req.method, path),
-        state: 'waiting', attempts: 0, nextAttempt: 0,
+        createdAt: new Date().toISOString(), page, formScope, draftWriter: this.draftWriter,
+        clientBuild: document.querySelector<HTMLScriptElement>('script[src*="main-"]')?.getAttribute('src')?.split('/').pop(),
+        label: operationLabel(path, body), automatic: canReplayAutomatically(req.method, path),
+        state: 'waiting', attempts: 0, nextAttempt: 0, foreground: true, foregroundUntil: Date.now() + 15000,
       };
       candidate = this.volatile.get(candidate.dedup) || candidate;
       const group = req.context.get(OFFLINE_SAVE_GROUP);
-      if (group) { candidate.intent = `${owner}|${path}|${group}${versionKey}`; candidate.page = `${page}|${group}`; }
+      if (group) { candidate.intent = `${owner}|${path}|${group}`; candidate.page = `${page}|${group}`; }
       else if (this.draftPages.has(page) && (/\/quotes\/(add|edit)$/.test(path) || /\/(quotes|customers|employees)\/notes\/add$/.test(path) || path === '/mv/finelavoro/submit')) candidate.intent = `${owner}|${path}|editor:${await this.store.editorId(owner, page, operationId())}${versionKey}`;
       else if (body.type === 'json' && (['PUT', 'PATCH'].includes(req.method) || /\/(edit|update)$/.test(path))) {
         const entity = body.value?.id ?? body.value?.numeroPreventivo ?? body.value?.numeroCliente;
@@ -180,13 +226,13 @@ export class OfflineService {
       if (error instanceof HttpErrorResponse) throw error;
       if (error?.code === 'OFFLINE_BUSY') throw this.replacementError('Un invio dello stesso modulo è in corso. Le ultime modifiche restano nella bozza. Attendi la conferma prima di salvare di nuovo.');
       if (unconfirmedDirect()) throw directConflict();
-      const unresolved = this.operations.value.some(item => item.owner === owner && operationScope(item.path) === operationScope(path) && (item.state === 'waiting' || item.blocksQueue));
+      const unresolved = this.operations.value.some(item => item.owner === owner && scopesOverlap(operationScope(item.path, item.body), operationScope(path, candidate?.body)) && (item.state === 'waiting' || item.blocksQueue));
       if (candidate && !persisted && !replacing && !unresolved && navigator.onLine && this.session()?.owner === owner && !this.session()?.expired) {
         this.notice.next('Archivio locale non disponibile. Invio diretto al server: attendi la conferma del salvataggio.');
         this.volatile.set(candidate.dedup, candidate);
         const current = this.session()!;
         try {
-          const response = await this.response(req.clone({ body: decodeBody(candidate.body), setHeaders: { ...this.operationHeaders(candidate), Authorization: `Bearer ${current.token}`, 'X-Tenant-Id': current.tenant } }), next);
+          const response = await this.response(req.clone({ body: decodeBody(candidate.body), setHeaders: { ...candidate.headers, ...this.operationHeaders(candidate), Authorization: `Bearer ${current.token}`, 'X-Tenant-Id': current.tenant } }), next);
           this.assertReceipt(candidate, response);
           this.volatile.delete(candidate.dedup);
           this.connected.next(true); this.notice.next('');
@@ -208,16 +254,20 @@ export class OfflineService {
     if (row.state === 'rejected' && row.response) throw new HttpErrorResponse({ ...row.response, headers: new HttpHeaders(row.response.headers), error: row.response.body, url: row.url });
     if (row.state === 'blocked') throw this.pending(row);
     const activeSession = this.session();
-    if (!activeSession || activeSession.owner !== owner || activeSession.expired) throw new HttpErrorResponse({ status: 401, error: { error: 'Accedi nuovamente con lo stesso account per completare il salvataggio.' } });
+    if (!activeSession || activeSession.owner !== owner || activeSession.expired) {
+      const error = new HttpErrorResponse({ status: 401, error: { error: 'Accedi nuovamente con lo stesso account per completare il salvataggio.' } });
+      await this.failed(row, error); await this.refresh(); throw error;
+    }
     // Preserve chronology within the same domain, including entry/exit clock-ins.
-    const earlier = this.operations.value.some(other => other.id !== row.id && operationScope(other.path) === operationScope(row.path) && (other.state === 'waiting' || other.blocksQueue) && (other.sequence || Date.parse(other.createdAt)) < (row.sequence || Date.parse(row.createdAt)));
-    if (earlier) { row.error = 'Un salvataggio precedente dello stesso ambito è ancora in corso. Le modifiche sono conservate sul dispositivo.'; throw this.pending(row); }
+    const earlier = this.operations.value.some(other => other.id !== row.id && scopesOverlap(operationScope(other.path, other.body), operationScope(row.path, row.body)) && (other.state === 'waiting' || other.blocksQueue) && (other.sequence || Date.parse(other.createdAt)) < (row.sequence || Date.parse(row.createdAt)));
+    if (earlier) { row.foreground = false; row.error = 'Invio automatico in attesa della conferma precedente. Dati conservati sul dispositivo.'; await this.store.saveFailure(row); await this.refresh(); throw this.pending(row); }
     if (!navigator.onLine && !await this.serverReachable(owner)) {
-      row.error = 'Il server non ha risposto. Dati conservati sul dispositivo, in attesa di invio.';
+      row.foreground = false; row.error = 'Connessione assente. Dati conservati sul dispositivo: invio automatico al ritorno della rete.';
+      await this.store.saveFailure(row); await this.refresh();
       throw this.pending(row);
     }
     if (row.predecessor && !await this.resolvePredecessor(row)) { await this.refresh(); if (row.state === 'rejected') throw this.replacementError(row.error || 'Apri il record già salvato per aggiornarlo.'); throw this.pending(row); }
-    const leaseToken = await this.store.claim(row.id, row.hash);
+    const leaseToken = await this.claim(row);
     if (!leaseToken) throw this.pending(row);
     let response: HttpResponse<any>;
     try {
@@ -225,7 +275,7 @@ export class OfflineService {
       // A separate capability request must not gate the first online submission.
       const session = this.session();
       if (!session || session.owner !== owner || session.expired) throw new HttpErrorResponse({ status: 401 });
-      response = await this.response(req.clone({ body: decodeBody(row.body), setHeaders: { ...this.operationHeaders(row), Authorization: `Bearer ${session.token}`, 'X-Tenant-Id': session.tenant } }), next);
+      response = await this.response(req.clone({ body: decodeBody(row.body), setHeaders: { ...row.headers, ...this.operationHeaders(row), Authorization: `Bearer ${session.token}`, 'X-Tenant-Id': session.tenant } }), next);
       this.assertReceipt(row, response);
     } catch (error: any) {
       await this.failed(row, error, true, leaseToken).catch(() => this.storageError());
@@ -273,6 +323,7 @@ export class OfflineService {
       if (candidate.path === '/shifts/saveMultiple' && candidate.body.type === 'json') {
         const receipt = previous.response?.body || this.confirmed.get(previous.id)?.body;
         const mappings = receipt?.savedShifts || [];
+        if (receipt?.version && (!previous.draftWriter || previous.draftWriter === candidate.draftWriter)) candidate.headers['If-Match'] = receipt.version;
         for (const item of candidate.body.value.shifts || []) {
           if (item.shiftId || item.appointmentId) continue;
           const saved = mappings.find((mapping: any) => mapping.clientId && mapping.clientId === item.clientId);
@@ -299,6 +350,7 @@ export class OfflineService {
         if (row.path === '/shifts/saveMultiple' && row.body.type === 'json') {
           const text = result.bodyEncoding === 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(result.responseBody || ''), char => char.charCodeAt(0))) : result.responseBody || '';
           const receipt = text ? JSON.parse(text) : null;
+          if (receipt?.version && (!previous.draftWriter || previous.draftWriter === row.draftWriter)) row.headers['If-Match'] = receipt.version;
           for (const item of row.body.value.shifts || []) {
             if (item.shiftId || item.appointmentId) continue;
             const saved = (receipt?.savedShifts || []).find((mapping: any) => mapping.clientId && mapping.clientId === item.clientId);
@@ -313,37 +365,63 @@ export class OfflineService {
       delete row.predecessor; row.error = '';
       return await this.store.prepareQueued(row, expectedHash);
     } catch (error: any) {
+      row.foreground = false;
       if (error?.error?.code === 'OFFLINE_BUSY') { row.state = 'rejected'; row.blocksQueue = false; row.error = error.error.error; }
       else { row.error = 'Ultime modifiche conservate. L’app ricontrolla il tentativo precedente prima di inviarle.'; row.nextAttempt = Date.now() + 30000; }
       await this.store.saveFailure(row);
       return false;
     }
   }
-  /** Retire old per-job autosaves before the single complete shift submission. */
+  /** Retire old per-job autosaves and ungrouped day snapshots before final save. */
   async retireShiftAutosaves(shifts: any[]): Promise<void> {
     const owner = this.session()?.owner;
     if (!owner || !shifts.length) return;
     const rows = await this.store.all<PendingOperation>('queue');
     for (const row of rows) {
-      if (row.owner !== owner || row.path !== '/shifts/autosave' || row.state === 'archived' || row.body.type !== 'json' || !shifts.some(item => item.data === (row.body as { type: 'json'; value: any }).value?.data)) continue;
+      const legacyFullSave = row.path === '/shifts/saveMultiple' && !row.intent;
+      const day = shiftOperationDay(row.path, row.body);
+      if (row.owner !== owner || (row.path !== '/shifts/autosave' && !legacyFullSave) || row.state === 'archived' || row.body.type !== 'json' || !day || !shifts.some(item => item.data === day)) continue;
       if ((row.leaseUntil || 0) > Date.now()) throw this.replacementError('Un precedente salvataggio dei turni è ancora in invio. La bozza resta conservata.');
       let result: any = row.response?.body;
-      if (row.state !== 'done' && (row.attempts > 0 || (row.leaseUntil || 0) > 0 || row.state === 'blocked')) {
+      const recoveredShifts: { clientId: string; shiftId: number }[] = [];
+      let confirmed = row.state === 'done';
+      // Older queue metadata can report zero attempts after a committed write.
+      // Reserve every legacy key before replacing it, or recover its durable result.
+      if (row.state !== 'done') {
         const receipt = await this.reserveCancellation(row).catch(() => null);
         if (receipt?.state === 'completed' && receipt.status >= 200 && receipt.status < 300) {
           if (!await this.reconcile(row)) throw this.replacementError('Attendo la conferma dei turni precedenti. La bozza resta conservata.');
           result = (await this.store.get<PendingOperation>('queue', row.id))?.response?.body;
+          confirmed = true;
         } else if (receipt?.state !== 'cancelled' && !(receipt?.state === 'completed' && receipt.status >= 400 && receipt.status < 500)) throw this.replacementError('Attendo la conferma dei turni precedenti. La bozza resta conservata.');
       }
-      const old = row.body.value;
-      if (result?.shiftId && !old.appointmentId && !old.shiftId) {
-        const matching = shifts.filter(item => item.shiftId === result.shiftId || (!item.appointmentId && !item.shiftId && item.title === old.title));
+      if (typeof result === 'string') { try { result = JSON.parse(result); } catch { result = null; } }
+      const oldItems = legacyFullSave ? row.body.value.shifts : [row.body.value];
+      for (const [index, old] of oldItems.entries()) {
+        if (old.appointmentId || old.shiftId) continue;
+        const mapping = legacyFullSave ? (result?.savedShifts || []).find((saved: any) => old.clientId && saved.clientId === old.clientId) || (result?.savedShifts?.length === oldItems.length ? result.savedShifts[index] : null) : result;
+        if (!mapping?.shiftId) {
+          if (confirmed) throw this.replacementError('Un lavoro extra precedente è già stato salvato. Riapri i turni per recuperarlo prima del nuovo salvataggio; la bozza resta conservata.');
+          continue;
+        }
+        const matching = shifts.filter(item => item.shiftId === mapping.shiftId || (!item.appointmentId && !item.shiftId && ((old.clientId && item.clientId === old.clientId) || item.title === old.title)));
         if (matching.length !== 1) throw this.replacementError('Un lavoro extra precedente è già stato salvato. Riapri i turni per recuperarlo prima del nuovo salvataggio; la bozza resta conservata.');
-        matching[0].shiftId = result.shiftId;
+        matching[0].shiftId = mapping.shiftId;
+        if (matching[0].clientId) recoveredShifts.push({ clientId: String(matching[0].clientId), shiftId: mapping.shiftId });
       }
-      if (!await this.store.archiveSuperseded(row.id, owner)) throw this.replacementError('Un salvataggio dei turni è in corso in un’altra scheda. Attendi la conferma.');
+      if (!await this.store.archiveSuperseded(row.id, owner, recoveredShifts)) throw this.replacementError('Un salvataggio dei turni è in corso in un’altra scheda. Attendi la conferma.');
     }
     await this.refresh();
+  }
+  /** Keep legacy extra-job identities available even after their queue rows retire. */
+  async loadShiftIdentities(day: string): Promise<Record<string, number>> {
+    const owner = this.session()?.owner;
+    if (!owner) return {};
+    const rows = await this.store.all<PendingOperation>('queue');
+    if (this.session()?.owner !== owner) return {};
+    return Object.fromEntries(rows.filter(row => row.owner === owner && row.state === 'archived' && shiftOperationDay(row.path, row.body) === day)
+      .sort((a, b) => (a.sequence || Date.parse(a.createdAt)) - (b.sequence || Date.parse(b.createdAt)))
+      .flatMap(row => (row.recoveredShifts || []).map(item => [item.clientId, item.shiftId])));
   }
   private operationHeaders(row: PendingOperation): Record<string, string> {
     return { 'X-MV-Operation-Id': row.id, 'X-MV-Payload-Hash': row.hash, 'X-MV-Captured-At': row.createdAt };
@@ -371,6 +449,8 @@ export class OfflineService {
     this.confirmed.set(row.id, response);
     this.volatile.delete(row.dedup);
     this.clearRejectionNotice();
+    const page = location.pathname + location.search;
+    if ((row.page === page || row.page.startsWith(page + '|')) && /^(Bozza recuperata dal dispositivo|Campi recuperati dalla bozza locale)/.test(this.notice.value)) this.notice.next('');
     this.connected.next(true);
     const headers: Record<string, string> = {};
     response.headers.keys().forEach(key => headers[key] = response.headers.get(key)!);
@@ -382,7 +462,11 @@ export class OfflineService {
       this.confirmed.delete(row.id);
       await this.clearSavedFields(row);
       const draft = await this.store.get('drafts', `${row.owner}|${row.page}`);
-      if (draft && draft.savedAt <= Date.parse(row.createdAt)) await this.store.remove('drafts', draft.id);
+      // Active editors clear the exact revision themselves. A timestamp cannot
+      // prove that a draft from another tab belongs to this submitted payload.
+      if (draft && !this.draftPages.has(row.page) && row.draftWriter && draft.writer === row.draftWriter && draft.savedAt <= Date.parse(row.createdAt)) {
+        await this.store.removeDraftVersion(draft.id, { revision: draft.revision, savedAt: draft.savedAt });
+      }
       if ((consume || this.consumeRequested.has(row.id)) && storedState !== 'archived') { await this.store.remove('queue', row.id); this.confirmed.delete(row.id); this.consumeRequested.delete(row.id); }
       await this.refresh();
     } catch {
@@ -438,6 +522,10 @@ export class OfflineService {
   }
   private async failed(row: PendingOperation, error: any, foreground = false, leaseToken?: string): Promise<void> {
     await this.prepareError(error);
+    row.foreground = false;
+    row.waitingForLogin = this.needsLogin(error);
+    if (error?.status === 0 || error?.name === 'TimeoutError') this.connected.next(false);
+    else if (error?.status > 0) this.connected.next(true);
     if (this.isDefinitiveRejection(row, error)) {
       const headers: Record<string, string> = {};
       error.headers?.keys().forEach((key: string) => headers[key] = error.headers.get(key)!);
@@ -476,6 +564,19 @@ export class OfflineService {
       params: { path: target.pathname + target.search },
     }).pipe(timeout(10000)));
     if (this.session()?.owner !== row.owner || result?.operationId !== row.id) return false;
+    if (result.state === 'retryable' && result.status >= 400 && result.status < 600) {
+      row.state = 'waiting'; row.blocksQueue = false; row.nextAttempt = 0;
+      row.error = 'Il server ha confermato che il tentativo può essere ripetuto in sicurezza.';
+      await this.store.saveFailure(row);
+      return false;
+    }
+    if (result.state === 'missing' && !row.automatic && this.cancelPending.has(row.owner)) {
+      const cancelled = await this.reserveCancellation(row);
+      if (cancelled.state === 'cancelled') {
+        await this.failed(row, new HttpErrorResponse({ status: 409, error: { code: 'OFFLINE_REQUIRES_CONNECTION', error: 'Questa operazione richiede i dati aggiornati del server. La copia locale è conservata: riapri il modulo per applicare le modifiche.' } }));
+        return true;
+      }
+    }
     if (result.state !== 'completed') return false;
     if (!(result.status >= 200 && result.status < 500)) return false;
     const bytes = result.bodyEncoding === 'base64'
@@ -493,7 +594,7 @@ export class OfflineService {
     else await this.failed(row, new HttpErrorResponse({ error: body, status: result.status, headers, url: row.url }));
     return true;
   }
-  async sync(manualId?: string): Promise<void> {
+  async sync(manualId?: string, reconnect = false): Promise<void> {
     if (this.syncing) {
       if (manualId) this.notice.next('Un invio è già in corso. Attendi il suo esito e poi riprova.');
       return;
@@ -506,24 +607,27 @@ export class OfflineService {
     }
     this.syncing = true;
     try {
-      if (!manualId && !navigator.onLine && !await this.serverReachable(owner)) return;
+      await this.refresh();
+      if (!this.operations.value.some(row => !['done', 'rejected', 'archived'].includes(row.state))) return;
+      if (!manualId && (!navigator.onLine || !this.connected.value)) {
+        if (!await this.serverReachable(owner)) return;
+        reconnect = true;
+      }
       if (manualId) this.notice.next('Tentativo di invio al server in corso…');
       await this.refresh();
       const stalledScopes = new Set<string>();
       for (const item of this.operations.value) {
-        const scope = operationScope(item.path);
-        if (stalledScopes.has(scope)) {
-          if (item.id === manualId) this.notice.next('Invio sospeso: completa o verifica prima il salvataggio precedente dello stesso ambito.');
-          continue;
-        }
+        if (this.session()?.owner !== owner) break;
+        const scope = operationScope(item.path, item.body);
         if (item.state === 'done') continue;
         if (item.state === 'rejected') continue;
-        if (item.predecessor) {
-          if (!manualId && item.nextAttempt > Date.now()) { stalledScopes.add(scope); continue; }
-          if (!await this.resolvePredecessor(item)) { stalledScopes.add(scope); continue; }
-        }
-        // Read the durable result before asking for another write, including manual-only operations.
-        if ((item.state === 'blocked' || item.attempts > 0) && (item.id === manualId || item.nextAttempt <= Date.now())) {
+        if (item.waitingForLogin) { item.nextAttempt = 0; item.waitingForLogin = false; }
+        // An online request is a silent delivery journal, not an offline item.
+        // Give its submitting tab time to claim it; a crash is recovered afterwards.
+        if (item.foreground && !item.attempted && (item.foregroundUntil || 0) > Date.now()) { stalledScopes.add(scope); continue; }
+        // Reads can confirm later operations without changing write chronology.
+        // Old manual operations may not have recorded their attempt count.
+        if ((item.state === 'blocked' || item.attempted || item.attempts > 0 || !item.automatic) && (reconnect || item.id === manualId || item.nextAttempt <= Date.now())) {
           try {
             if (await this.reconcile(item)) continue;
           } catch { /* A status lookup never authorizes another execution of an uncertain write. */ }
@@ -533,9 +637,17 @@ export class OfflineService {
           }
         }
         if (item.state === 'blocked') { if (item.blocksQueue) stalledScopes.add(scope); continue; }
-        if ((!item.automatic && item.id !== manualId) || (!manualId && item.nextAttempt > Date.now())) { stalledScopes.add(scope); continue; }
+        if (Array.from(stalledScopes).some(stalled => scopesOverlap(stalled, scope))) {
+          if (item.id === manualId) this.notice.next('Invio sospeso: completa prima il salvataggio precedente dello stesso ambito.');
+          continue;
+        }
+        if (item.predecessor) {
+          if (!manualId && !reconnect && item.nextAttempt > Date.now()) { stalledScopes.add(scope); continue; }
+          if (!await this.resolvePredecessor(item)) { stalledScopes.add(scope); continue; }
+        }
+        if ((!item.automatic && item.id !== manualId) || (!manualId && !reconnect && item.nextAttempt > Date.now())) { stalledScopes.add(scope); continue; }
         if (this.session()?.owner !== owner) break;
-        const leaseToken = await this.store.claim(item.id, item.hash);
+        const leaseToken = await this.claim(item, true);
         if (!leaseToken) {
           if (item.id === manualId) this.notice.next('Questo salvataggio risulta già in invio, anche da un’altra scheda. Attendi il suo esito e poi riprova.');
           stalledScopes.add(scope); continue;
@@ -546,7 +658,7 @@ export class OfflineService {
           const session = this.session();
           if (!session || session.owner !== owner) break;
           const request = new HttpRequest(item.method, item.url, decodeBody(item.body), {
-            headers: new HttpHeaders({ ...item.headers, ...this.operationHeaders(item), Authorization: `Bearer ${session.token}`, 'X-Tenant-Id': session.tenant }),
+            headers: new HttpHeaders({ ...item.headers, ...this.operationHeaders(item), 'X-MV-Replay': 'true', Authorization: `Bearer ${session.token}`, 'X-Tenant-Id': session.tenant }),
             responseType: item.responseType,
           });
           response = await this.response(request, req => this.raw.request(req));
@@ -564,13 +676,6 @@ export class OfflineService {
       await this.refresh();
     } catch { this.storageError(); }
     finally { this.syncing = false; }
-  }
-  async archiveVerified(row: PendingOperation): Promise<void> {
-    if (row.owner !== this.session()?.owner || row.state !== 'blocked') return;
-    // Keep the recovery copy, but release the chronological queue only after
-    // explicit reconciliation by the user. Never offer a new-id blind retry.
-    await this.store.put('queue', { ...row, state: 'archived', dedup: `archived:${row.id}` });
-    await this.refresh();
   }
   async acknowledge(row: PendingOperation): Promise<void> {
     if (row.owner !== this.session()?.owner || row.state !== 'done') return;
@@ -615,7 +720,7 @@ export class OfflineService {
       this.connected.next(true);
       if (this.session()?.owner === owner && !containsCredentials(response.body) && (!(response.body instanceof Blob) || response.body.size <= 25 * 1024 * 1024)) {
         try {
-          await this.store.put('cache', { id: key, owner, savedAt: Date.now(), status: response.status, body: response.body, contentType: response.headers.get('Content-Type') || '' });
+          await this.store.put('cache', { id: key, owner, savedAt: Date.now(), status: response.status, body: response.body, contentType: response.headers.get('Content-Type') || '', shiftVersion: response.headers.get('X-MV-Shift-Version') });
           if (Date.now() - this.lastCachePrune > 3600000) {
             this.lastCachePrune = Date.now();
             const entries = await this.store.all('cache');
@@ -630,23 +735,27 @@ export class OfflineService {
         const cached = await this.store.get('cache', key).catch(() => undefined);
         if (cached && Date.now() - cached.savedAt < 7 * 86400000) {
           this.notice.next(`Dati locali: ultimo aggiornamento ${new Date(cached.savedAt).toLocaleString('it-IT')}. Potrebbero esserci modifiche più recenti.`);
-          return new HttpResponse({ status: cached.status, body: cached.body, url: req.url, headers: new HttpHeaders({ 'X-MV-Offline-Cache': 'true', ...(cached.contentType ? { 'Content-Type': cached.contentType } : {}) }) });
+          return new HttpResponse({ status: cached.status, body: cached.body, url: req.url, headers: new HttpHeaders({ 'X-MV-Offline-Cache': 'true', ...(cached.contentType ? { 'Content-Type': cached.contentType } : {}), ...(cached.shiftVersion ? { 'X-MV-Shift-Version': cached.shiftVersion } : {}) }) });
         }
       }
       throw error;
     }
   }
-  async saveDraft(value: any, page = location.pathname + location.search, owner = this.session()?.owner): Promise<void> {
+  async saveDraft(value: any, page = location.pathname + location.search, owner = this.session()?.owner, version = { revision: operationId(), savedAt: Date.now() }): Promise<void> {
     if (!owner || owner !== this.session()?.owner) return;
-    try { await this.store.put('drafts', { id: `${owner}|${page}`, value, savedAt: Date.now() }); }
+    try { await this.store.put('drafts', { id: `${owner}|${page}`, value, writer: this.draftWriter, ...version }); }
     catch { this.storageError(); }
   }
-  async loadDraft(page = location.pathname + location.search): Promise<any> {
+  async loadDraftEntry(page = location.pathname + location.search): Promise<{ value: any; writer?: string; revision?: string; savedAt: number } | null> {
     const owner = this.session()?.owner; if (!owner) return null;
     const saved = await this.store.get('drafts', `${owner}|${page}`).catch(() => undefined);
     if (this.session()?.owner !== owner) return null;
-    return saved?.value || null;
+    return saved || null;
   }
-  async clearDraft(page = location.pathname + location.search, owner = this.session()?.owner): Promise<void> { if (owner) { await this.store.remove('drafts', `${owner}|${page}`); await this.store.remove('cache', `editor|${owner}|${page}`); }
+  async loadDraft(page = location.pathname + location.search): Promise<any> {
+    return (await this.loadDraftEntry(page))?.value || null;
+  }
+  async clearDraft(page = location.pathname + location.search, owner = this.session()?.owner, expected?: { revision?: string; savedAt: number } | null): Promise<void> {
+    if (owner) await this.store.removeDraftVersion(`${owner}|${page}`, expected);
   }
 }

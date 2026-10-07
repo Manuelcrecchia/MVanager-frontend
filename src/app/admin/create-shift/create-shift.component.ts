@@ -13,7 +13,7 @@ import { SocketService } from '../../service/soket.service';
 import { TenantService } from '../../service/tenant.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 
-import { OfflineService, OFFLINE_SAVE_GROUP, isOfflinePending } from '../../offline/offline.service';
+import { OfflineService, OFFLINE_SAVE_GROUP } from '../../offline/offline.service';
 import { watchDraft, DraftHandle } from '../../offline/offline-draft';
 
 interface RoutePlannerStop {
@@ -218,6 +218,8 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   appointments: any[] = [];
   assignedShifts: { [appointmentId: string]: number[] } = {};
   assignedEmployeeDurations: { [appointmentId: string]: { [employeeId: number]: number } } = {};
+  private assignedEmployeeStampingDurations: { [appointmentId: string]: { [employeeId: number]: number } } = {};
+  private assignedEmployeeUnclassifiedDurations: { [appointmentId: string]: { [employeeId: number]: number } } = {};
   assignedCapisquadra: { [appointmentId: string]: number[] } = {};
   assignedCapisquadraNotes: { [appointmentId: string]: { [employeeId: number]: string } } = {};
   assignedVehicles: { [appointmentId: string]: number[] } = {};
@@ -270,6 +272,9 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   private appointmentsRequest = 0;
   private pendingSave?: { id: string; date: string; snapshot: string; draft?: DraftHandle };
   saveStatus = '';
+  private shiftVersion = '';
+  shiftConflict = false;
+  hasConflictDraft = false;
   isSaving = false;
   private routePlannerRequestId = 0;
   private routePlannerManagedAppointmentIds = new Set<string>();
@@ -442,6 +447,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     const fields = ['id', 'isExtra', 'originalAppointmentId', 'shiftId', 'title', 'description', 'duration',
       'requiredEmployees', 'sortOrderByEmployee', 'selectedCustomerNumero', 'selectedCustomerLabel', 'selectedCustomerType'];
     return {
+      shiftVersion: this.shiftVersion,
       appointments: this.appointments.map(app => ({
         ...Object.fromEntries(fields.filter(key => app[key] !== undefined).map(key => [key, app[key]])),
         startDate: app.startDate instanceof Date && !isNaN(app.startDate.getTime()) ? app.startDate.toISOString() : null,
@@ -455,14 +461,21 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   private async protectShiftDraft(): Promise<void> {
     const day = this.formatDate(this.selectedDate), requestId = this.appointmentsRequest;
     await this.offline.refresh().catch(() => undefined);
+    const identities = await this.offline.loadShiftIdentities(day).catch(() => ({} as Record<string, number>));
     if (day !== this.formatDate(this.selectedDate) || requestId !== this.appointmentsRequest) return;
+    this.hasConflictDraft = !!await this.offline.loadDraft(`${location.pathname + location.search}|shift-conflict:${day}`);
+    const storedDraft = await this.offline.loadDraftEntry(`${location.pathname + location.search}|shift-day:${day}`);
     this.shiftDraft?.stop();
     this.shiftDraft = watchDraft(this.offline, () => this.shiftSnapshot(), value => {
       if (!Array.isArray(value?.appointments)) return;
+      // Keep the draft's base version. A fresh GET must never bless stale edits.
+      this.shiftVersion = value.shiftVersion || '';
+      const completed = this.offline.operations.value.filter(row => row.draftWriter && row.draftWriter === storedDraft?.writer && row.headers['If-Match'] === value.shiftVersion && row.path === '/shifts/saveMultiple' && row.state === 'done' && row.body.type === 'json' && row.body.value?.shifts?.some((item: any) => item.data === day)).at(-1);
+      if (completed?.response?.body?.version) this.shiftVersion = completed.response.body.version;
       const restored: any[] = [];
       for (const saved of value.appointments) {
         const mapping = this.offline.operations.value.filter(row => row.path === '/shifts/saveMultiple' && row.state === 'done' && row.body.type === 'json' && row.body.value?.shifts?.some((item: any) => item.data === day)).flatMap(row => row.response?.body?.savedShifts || []).find(item => item.clientId === String(saved.id));
-        const confirmedShiftId = mapping?.shiftId || saved.shiftId;
+        const confirmedShiftId = mapping?.shiftId || identities[String(saved.id)] || saved.shiftId;
         let app = this.appointments.find(item => (confirmedShiftId && item.shiftId === confirmedShiftId) || (saved.originalAppointmentId ? item.originalAppointmentId === saved.originalAppointmentId : String(item.id) === String(saved.id)));
         if (!app && confirmedShiftId) continue;
         if (!app && saved.isExtra) { app = { ...saved }; this.appointments.push(app); }
@@ -4884,6 +4897,11 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
   async finalSave(forceSave = false): Promise<void> {
     if (this.isSaving) return;
+    if (!this.shiftVersion) {
+      this.shiftConflict = true;
+      this.saveStatus = 'Manca la versione della giornata. La bozza è conservata: carica i turni attuali prima di salvare.';
+      return;
+    }
     if (!this.appointments.length) { this.saveStatus = 'Nessun lavoro da salvare'; return; }
     const missingLeader = this.appointments.find((app) => (
       !!app?.customerAssetIntervention &&
@@ -4918,7 +4936,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         title: app.title,
         description: app.description,
         startDate: start,
-        duration: app.duration || 60,
+        duration: app.duration ?? 60,
         requiredEmployees: this.getAppointmentRequiredEmployees(app),
         requiredCoverageMinutes: this.getRequiredCoverageMinutes(app),
         sortOrderByEmployee: app.sortOrderByEmployee || {},
@@ -4931,36 +4949,47 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     this.isSaving = true;
     this.saveStatus = 'Salvataggio in corso…';
     const submittedDraft = this.shiftDraft;
-    const submittedSnapshot = JSON.stringify(this.shiftSnapshot());
+    let submittedSnapshot = JSON.stringify(this.shiftSnapshot());
     try { await this.offline.retireShiftAutosaves(payload); }
     catch (error) { this.isSaving = false; this.saveStatus = this.parseServerError(error); return; }
+    finally {
+      // Keep each confirmed identity even if a later legacy row stops submission.
+      const submittedState = JSON.parse(submittedSnapshot);
+      for (const item of payload) {
+        if (!item.shiftId) continue;
+        const app = this.appointments.find(app => String(app.id) === item.clientId);
+        const captured = submittedState.appointments.find((app: any) => String(app.id) === item.clientId);
+        if (app) app.shiftId = item.shiftId;
+        if (captured) captured.shiftId = item.shiftId;
+      }
+      submittedSnapshot = JSON.stringify(submittedState);
+      this.shiftDraft?.flush();
+    }
     this.http
       .post(
         this.globalService.url + 'shifts/saveMultiple',
         { shifts: payload, forceSave },
-        { headers: { 'X-Skip-Global-Error-Popup': 'true' }, context: new HttpContext().set(OFFLINE_SAVE_GROUP, `shift-day:${dateStr}`) },
+        { headers: { 'X-Skip-Global-Error-Popup': 'true', ...(this.shiftVersion ? { 'If-Match': this.shiftVersion } : {}) }, context: new HttpContext().set(OFFLINE_SAVE_GROUP, `shift-day:${dateStr}`) },
       )
       .subscribe({
-        next: () => {
+        next: async (response: any) => {
+          const completed = await this.completeShiftSave(dateStr, submittedSnapshot, submittedDraft, response);
           this.isSaving = false;
-          this.saveStatus = 'Turni salvati';
-          void submittedDraft?.clear();
-          this.socketService.emitUpdate({
-            type: 'reload',
-            date: dateStr,
-          });
-          alert('Turni salvati');
-          this.router.navigate(['/homeAdmin/shifts'], { queryParams: { date: dateStr } });
+          if (completed) {
+            alert('Turni salvati');
+          }
         },
         error: async (err) => {
           this.isSaving = false;
-          if (isOfflinePending(err)) {
+          if (err?.error?.code === 'OFFLINE_PENDING') {
             this.saveStatus = err.error.error;
             this.pendingSave = { id: err.error.operationId, date: dateStr, snapshot: submittedSnapshot, draft: submittedDraft };
             this.acceptQueuedConfirmation();
             return;
           }
           this.saveStatus = this.parseServerError(err);
+          this.shiftConflict = ['SHIFT_VERSION_CONFLICT', 'SHIFT_VERSION_REQUIRED'].includes(err?.error?.code);
+          if (this.shiftConflict) return;
           if (err?.status === 409 && Array.isArray(err?.error?.validationIssues) && err.error.validationIssues.length) {
             const issues = err?.error?.validationIssues || [];
             const message = this.formatShiftValidationIssues(issues);
@@ -4979,27 +5008,79 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       });
   }
 
-  private acceptQueuedConfirmation(): void {
+  private async acceptQueuedConfirmation(): Promise<void> {
     const pending = this.pendingSave;
     if (!pending || this.isSaving) return;
-    const row = this.offline.operations.value.find(item => item.id === pending.id && item.state === 'done');
-    if (!row) return;
-    this.pendingSave = undefined;
-    if (this.formatDate(this.selectedDate) !== pending.date) return;
-    if (JSON.stringify(this.shiftSnapshot()) !== pending.snapshot) {
-      for (const saved of row.response?.body?.savedShifts || []) {
-        const app = this.appointments.find(item => String(item.id) === saved.clientId);
-        if (app && saved.shiftId) app.shiftId = saved.shiftId;
-      }
-      this.shiftDraft?.flush();
-      this.saveStatus = 'Turni salvati online. Le nuove modifiche sono da salvare.';
+    const row = this.offline.operations.value.find(item => item.id === pending.id);
+    if (row?.state === 'rejected') {
+      this.saveStatus = row.error || 'Turni non salvati: la bozza è conservata.';
+      this.shiftConflict = ['SHIFT_VERSION_CONFLICT', 'SHIFT_VERSION_REQUIRED'].includes(row.response?.body?.code);
+      this.pendingSave = undefined;
       return;
     }
+    if (row?.state !== 'done') return;
+    this.pendingSave = undefined;
+    if (await this.completeShiftSave(pending.date, pending.snapshot, pending.draft, row.response?.body)) {
+      void this.offline.acknowledge(row);
+    }
+  }
+
+  private async completeShiftSave(date: string, snapshot: string, draft: DraftHandle | undefined, response: any): Promise<boolean> {
+    if (this.formatDate(this.selectedDate) !== date) return false;
+    // Compare before applying server IDs: receiving an extra-job ID is not an edit.
+    const changed = JSON.stringify(this.shiftSnapshot()) !== snapshot;
+    if (response?.version) this.shiftVersion = response.version;
+    this.shiftConflict = false;
+    for (const saved of response?.savedShifts || []) {
+      const app = this.appointments.find(item => String(item.id) === saved.clientId);
+      if (app && saved.shiftId) app.shiftId = saved.shiftId;
+    }
+    if (changed) {
+      this.shiftDraft?.flush();
+      this.saveStatus = 'Turni salvati online. Le nuove modifiche sono da salvare.';
+      return false;
+    }
     this.saveStatus = 'Turni salvati';
-    void pending.draft?.clear();
-    void this.offline.acknowledge(row);
-    this.socketService.emitUpdate({ type: 'reload', date: pending.date });
-    this.router.navigate(['/homeAdmin/shifts'], { queryParams: { date: pending.date } });
+    try { await draft?.clear(); }
+    catch {
+      this.saveStatus = 'Turni salvati online. La copia locale è ancora conservata sul dispositivo.';
+      return false;
+    }
+    if (this.formatDate(this.selectedDate) !== date) return false;
+    this.socketService.emitUpdate({ type: 'reload', date });
+    this.router.navigate(['/homeAdmin/shifts'], { queryParams: { date } });
+    return true;
+  }
+
+  async loadCurrentShiftPlan(): Promise<void> {
+    if (this.isSaving) return;
+    const day = this.formatDate(this.selectedDate);
+    try {
+      const current = await firstValueFrom(this.http.get<any[]>(this.globalService.url + `shifts/byDate/${day}`, { observe: 'response' }));
+      if (current.headers.has('X-MV-Offline-Cache') || !current.headers.has('X-MV-Shift-Version')) {
+        this.saveStatus = 'Serve la connessione al server per caricare i turni aggiornati. La bozza è conservata.';
+        return;
+      }
+      // Retain a separate recovery draft before leaving the conflicted editor.
+      const recoveryPage = `${location.pathname + location.search}|shift-conflict:${day}`;
+      const snapshot = this.shiftSnapshot();
+      await this.offline.saveDraft(snapshot, recoveryPage);
+      const retained = await this.offline.loadDraft(recoveryPage);
+      if (JSON.stringify(retained) !== JSON.stringify(snapshot)) throw new Error('Recovery storage unavailable');
+      this.hasConflictDraft = true;
+      await this.shiftDraft?.clear();
+      this.shiftConflict = false;
+      this.loadAppointments();
+    } catch { this.saveStatus = 'Impossibile caricare i turni aggiornati. La bozza è conservata.'; }
+  }
+
+  async exportConflictDraft(): Promise<void> {
+    const day = this.formatDate(this.selectedDate);
+    const snapshot = await this.offline.loadDraft(`${location.pathname + location.search}|shift-conflict:${day}`);
+    if (!snapshot) return;
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ day, draft: snapshot }, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a'); link.href = url; link.download = `bozza-turni-${day}.json`; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
 
   private formatShiftValidationIssues(issues: any[]): string {
@@ -5157,37 +5238,57 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
   private getCoveredMinutes(app: any): number {
     return (this.assignedShifts[app.id] || []).reduce(
-      (total, employeeId) => total + this.getAssignedEmployeeMinutes(app, employeeId),
+      (total, employeeId) => total + Math.min(Math.max(0, Number(app?.duration) || 0), this.getAssignedEmployeeMinutes(app, employeeId)),
       0,
     );
   }
 
   private getAssignedEmployeeMinutes(app: any, employeeId: number): number {
-    const override = this.assignedEmployeeDurations[app.id]?.[employeeId];
-    if (override !== null && override !== undefined && Number.isFinite(Number(override))) {
-      return Math.max(0, Number(override));
-    }
-    return Math.max(0, Number(app?.duration) || 0);
+    return this.getAssignedEmployeeDurationOverride(app, employeeId) ?? Math.max(0, Number(app?.duration) || 0);
   }
 
-  private getAssignedEmployeeDurations(app: any): { [employeeId: number]: number } {
+  private getAssignedEmployeeDurationOverride(app: any, employeeId: number): number | null {
+    const stamped = this.assignedEmployeeStampingDurations[app.id]?.[employeeId];
+    if (stamped != null) return stamped;
+    // An older backend/cached response has no provenance. Let the server
+    // classify it; a frontend deployment alone must never erase attendance.
+    const unclassified = this.assignedEmployeeUnclassifiedDurations[app.id]?.[employeeId];
+    if (unclassified != null) return unclassified;
+    // The job selector defines the planned duration for every assignment.
+    // Legacy numeric defaults, including shorter ones, are not individual
+    // attendance corrections. Never infer their provenance from their size.
+    return null;
+  }
+
+  private getAssignedEmployeeDurations(app: any): { [employeeId: number]: number | null } {
     return Object.fromEntries(
-      (this.assignedShifts[app.id] || []).map((employeeId) => [
-        employeeId,
-        this.getAssignedEmployeeMinutes(app, employeeId),
-      ]),
+      (this.assignedShifts[app.id] || []).map((employeeId) => {
+        // A null override follows the job duration. Persisting the current
+        // default as a number would freeze it on the next edit of the job.
+        return [employeeId, this.getAssignedEmployeeDurationOverride(app, employeeId)];
+      }),
     );
   }
 
   private loadAssignedEmployeeDurations(appId: string, employees: any[]): void {
     const durations: { [employeeId: number]: number } = {};
+    const stampedDurations: { [employeeId: number]: number } = {};
+    const unclassifiedDurations: { [employeeId: number]: number } = {};
     for (const employee of employees || []) {
-      const override = this.getShiftEmployeeLink(employee)?.durationOverride;
+      const link = this.getShiftEmployeeLink(employee);
+      const override = link?.durationOverride;
+      // Only attendance provenance can distinguish an actual correction from
+      // a default frozen by an earlier planning save.
       if (override !== null && override !== undefined && Number.isFinite(Number(override))) {
+        if (link?.durationOverrideFromStamping === true) stampedDurations[Number(employee.id)] = Math.max(0, Number(override));
+        if (typeof link?.durationOverrideFromStamping !== 'boolean') unclassifiedDurations[Number(employee.id)] = Math.max(0, Number(override));
+        if (link?.durationOverrideFromStamping === false) continue;
         durations[Number(employee.id)] = Math.max(0, Number(override));
       }
     }
     this.assignedEmployeeDurations[appId] = durations;
+    this.assignedEmployeeStampingDurations[appId] = stampedDurations;
+    this.assignedEmployeeUnclassifiedDurations[appId] = unclassifiedDurations;
   }
 
   goBack(): void {
@@ -5224,6 +5325,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     this.shiftDraft?.stop();
     this.shiftDraft = undefined;
     this.saveStatus = '';
+    this.shiftVersion = '';
     this.loading = true;
     this.refreshRoutePlannerActivePreferences();
     const dateStr = this.formatDate(this.selectedDate);
@@ -5232,6 +5334,8 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     this.appointments = [];
     this.assignedShifts = {};
     this.assignedEmployeeDurations = {};
+    this.assignedEmployeeStampingDurations = {};
+    this.assignedEmployeeUnclassifiedDurations = {};
     this.assignedCapisquadra = {};
     this.assignedCapisquadraNotes = {};
     this.assignedVehicles = {};
@@ -5319,9 +5423,11 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     const dateStr = this.formatDate(this.selectedDate), requestId = this.appointmentsRequest;
 
     this.http
-      .get<any[]>(this.globalService.url + `shifts/byDate/${dateStr}`)
-      .subscribe((existing) => {
+      .get<any[]>(this.globalService.url + `shifts/byDate/${dateStr}`, { observe: 'response' })
+      .subscribe((response) => {
+        const existing = response.body || [];
         if (requestId !== this.appointmentsRequest || dateStr !== this.formatDate(this.selectedDate)) return;
+        this.shiftVersion = response.headers.get('X-MV-Shift-Version') || '';
         for (const s of existing) {
           if (!s.appointmentId) {
             const extraId = `extra-${s.id}`;
@@ -5498,7 +5604,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
             this.assignedShifts[app.id] = (s.employees || []).map(
               (e: any) => e.id,
             );
-            this.loadAssignedEmployeeDurations(app.id, s.employees || []);
+              this.loadAssignedEmployeeDurations(app.id, s.employees || []);
 
             // Carica caposquadra e note
             this.assignedCapisquadra[app.id] = (s.employees || [])
@@ -5793,7 +5899,13 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     });
   }
 
+  canRemoveExtra(app: any): boolean {
+    return !this.isSaving && !(this.pendingSave && !app.shiftId);
+  }
+
   removeExtra(app: any): void {
+    // A new extra may already exist on the server even before its ID arrives.
+    if (!this.canRemoveExtra(app)) return;
     const dateStr = this.formatDate(this.selectedDate);
     const payload: any = { appointmentId: app.appointmentId, data: dateStr };
     if (app.shiftId) payload.shiftId = app.shiftId;

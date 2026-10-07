@@ -56,6 +56,18 @@ describe('Save status browser hit testing', () => {
     expectUnderlyingActionReachable();
   });
 
+  it('does not show an online save as an unsaved offline operation while it is in flight', () => {
+    offline.operations.next([{ id: 'online', foreground: true, foregroundUntil: Date.now() + 15000, leaseUntil: Date.now() + 330000, state: 'waiting', automatic: true, label: 'Turni', createdAt: Date.now() }]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('aside')).toBeNull();
+    expectUnderlyingActionReachable();
+    offline.operations.next([{ ...offline.operations.value[0], foreground: false, error: 'Connessione assente' }]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('1 salvataggio in attesa');
+    expect(fixture.nativeElement.textContent).toContain('riparte automaticamente');
+    expect(fixture.nativeElement.textContent).not.toContain('Riprova');
+  });
+
   it('keeps the page reachable with a collapsed pending-save indicator', () => {
     offline.operations.next([{ id: 'queued', state: 'waiting', label: 'Test', createdAt: Date.now() }]);
     fixture.detectChanges();
@@ -70,15 +82,16 @@ describe('Save status browser hit testing', () => {
     summary.click();
     expect(fixture.nativeElement.querySelector('details').open).toBeFalse();
   });
-  it('offers server confirmation lookup without asking the user to certify a save', () => {
+  it('recovers confirmation automatically without manual retry or user certification', () => {
     offline.operations.next([{ id: 'uncertain', state: 'blocked', label: 'Test', createdAt: Date.now() }]);
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('ricontrolla automaticamente');
     expect(text).not.toContain('Ho verificato');
     expect(text).not.toContain('Da verificare');
-    const retry = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).find(button => button.textContent?.trim() === 'Ricontrolla conferma')!;
-    retry.click(); expect(offline.sync).toHaveBeenCalledOnceWith('uncertain');
+    expect(text).not.toContain('Ricontrolla conferma');
+    expect(text).not.toContain('Riprova invio');
+    expect(offline.sync).not.toHaveBeenCalled();
   });
   it('explains rejected saves and links back to the original module for correction', () => {
     offline.operations.next([{ id: 'rejected', state: 'rejected', label: 'Test', createdAt: Date.now(), page: '/customers/edit/9', error: 'Email non valida' }]);
@@ -87,6 +100,29 @@ describe('Save status browser hit testing', () => {
     expect(fixture.nativeElement.textContent).toContain('Email non valida');
     expect(fixture.nativeElement.querySelector('a').getAttribute('href')).toBe('/customers/edit/9');
     expect(fixture.nativeElement.textContent).not.toContain('Riprova invio');
+  });
+  it('opens the real day after a rejected grouped shift save', () => {
+    offline.session = () => ({ role: 'admin' });
+    offline.operations.next([{ id: 'conflict', state: 'rejected', method: 'POST', path: '/shifts/saveMultiple', body: { type: 'json', value: { shifts: [{ data: '2026-10-07' }] } }, page: '/homeAdmin/shifts/create?date=2026-10-07|shift-day:2026-10-07', label: 'Turni', createdAt: Date.now() }]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('a').getAttribute('href')).toBe('/homeAdmin/shifts/create?date=2026-10-07');
+  });
+  it('explains legacy shift updates and opens their day instead of replaying stale changes', () => {
+    offline.session = () => ({ role: 'admin' });
+    offline.operations.next([{ id: 'old', state: 'waiting', method: 'POST', path: '/shifts/autosave', body: { type: 'json', value: { data: '2026-10-06' } }, label: 'Aggiornamento turno', createdAt: Date.now() }]);
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('1 aggiornamento precedente dei turni in attesa');
+    expect(text).toContain('L’app cerca automaticamente la conferma');
+    expect(text).not.toContain('Riprova invio'); expect(text).not.toContain('controlla che');
+    expect(fixture.nativeElement.querySelector('a.recovery-action').getAttribute('href')).toBe('/homeAdmin/shifts/create?date=2026-10-06');
+    expect(offline.sync).not.toHaveBeenCalled();
+    offline.operations.next([{ id: 'old-final', state: 'waiting', automatic: false, method: 'POST', path: '/shifts/saveMultiple', body: { type: 'json', value: { shifts: [{ data: '2026-10-06' }] } }, label: 'Turni', createdAt: Date.now() }]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('Riprova invio');
+    expect(fixture.nativeElement.querySelector('a.recovery-action').getAttribute('href')).toBe('/homeAdmin/shifts/create?date=2026-10-06');
+    offline.session = () => ({ role: 'employee' }); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('a.recovery-action')).toBeNull();
   });
 
   it('closes an informational notice without leaving an invisible overlay', () => {

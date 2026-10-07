@@ -1,6 +1,7 @@
 import { buildMappedFieldRows, MappedFieldRow, trackByMappedFieldRow, isLinkedFieldRow } from '../mapped-field-layout';
 import { OfflineService, isOfflinePending } from '../../offline/offline.service';
 import { watchDraft, DraftHandle } from '../../offline/offline-draft';
+import { Subscription } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { Component, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
@@ -69,14 +70,61 @@ export class AddQuoteComponent {
   }
   trackByFieldRow = trackByMappedFieldRow;
   validationErrors: Record<string, string> = {};
+  isSaving = false;
 
+  saveMessage = '';
   private draft?: DraftHandle;
-  ngOnDestroy(): void { this.draft?.stop(); }
+  private destroyed = false;
+  private confirmationSub?: Subscription;
+  private confirmedQuote?: { number: string; revision: number };
+  private pendingSave?: { operationId: string; snapshot: string; editing: boolean; revision?: number };
+  ngOnDestroy(): void { this.destroyed = true; this.confirmationSub?.unsubscribe(); this.draft?.stop(); }
+  private modelSnapshot(): string { return JSON.stringify({ ...this.quoteModelService }); }
+  private checkConfirmation(): void {
+    if (this.isSaving || !this.pendingSave || this.destroyed) return;
+    const context = this.pendingSave;
+    const row = this.offline.operations.value.find(item => item.id === context.operationId);
+    if (row?.state === 'done' && row.response) {
+      this.isSaving = true;
+      void this.finishSave(row.response.body, context).then(() => this.offline.acknowledge(row));
+    }
+  }
+  private async finishSave(response: any, context: { snapshot: string; editing: boolean; revision?: number }): Promise<void> {
+    if (this.destroyed) return;
+    const unchanged = this.modelSnapshot() === context.snapshot;
+    const saved = typeof response === 'string' ? JSON.parse(response) : response;
+    this.confirmedQuote = context.editing ? { number: this.confirmedQuote!.number, revision: Number(context.revision) + 1 }
+      : { number: String(saved.numeroPreventivo), revision: Number(saved.offlineRevision) };
+    this.pendingSave = undefined;
+    if (unchanged) {
+      await this.draft?.clear().catch(() => this.offline.notice.next('Preventivo salvato. Pulizia della bozza locale da completare.'));
+      this.draft = undefined;
+      if (this.destroyed) return;
+      // Inputs remain editable while sending: check again after local cleanup.
+      if (this.modelSnapshot() === context.snapshot) {
+        this.quoteModelService.resetQuoteModel();
+        this.isSaving = false;
+        void this.router.navigateByUrl('/homeAdmin/quotesHome', { replaceUrl: true });
+        return;
+      }
+      this.protectDraft();
+      await (this.draft as DraftHandle | undefined)?.ready;
+    }
+    this.saveMessage = 'Preventivo salvato. Le modifiche successive sono conservate: Salva aggiornerà lo stesso preventivo.';
+    this.draft?.flush();
+    this.isSaving = false;
+  }
   private protectDraft(): void {
-    if (this.draft) return;
-    this.draft = watchDraft(this.offline, () => ({ ...this.quoteModelService }), value => {
-      Object.assign(this.quoteModelService, value); this.refreshVisibleQuoteFields();
+    if (this.draft || this.destroyed) return;
+    this.draft = watchDraft(this.offline, () => ({ ...this.quoteModelService,
+      __quoteSave: { confirmed: this.confirmedQuote, pending: this.pendingSave } }), value => {
+      const { __quoteSave, ...fields } = value;
+      this.confirmedQuote = __quoteSave?.confirmed;
+      this.pendingSave = __quoteSave?.pending;
+      Object.assign(this.quoteModelService, fields); this.refreshVisibleQuoteFields();
     });
+    if (!this.confirmationSub) this.confirmationSub = this.offline.operations.subscribe(() => this.checkConfirmation());
+    void this.draft.ready.then(() => this.offline.refresh()).then(() => this.checkConfirmation());
   }
 
   constructor(
@@ -110,6 +158,9 @@ export class AddQuoteComponent {
   }
 
   addQuote() {
+    if (this.isSaving || this.destroyed) return;
+    this.checkConfirmation();
+    if (this.isSaving) return;
     const source = this.quoteModelService as unknown as Record<string, any>;
     this.validationErrors = {};
     const missingFields = this.globalService.getMissingRequiredFields('quote', source);
@@ -135,21 +186,25 @@ export class AddQuoteComponent {
       source,
     );
 
+    const context = { snapshot: this.modelSnapshot(), editing: !!this.confirmedQuote, revision: this.confirmedQuote?.revision };
+    if (this.confirmedQuote) Object.assign(body, { numeroPreventivo: this.confirmedQuote.number, expectedRevision: this.confirmedQuote.revision });
+    this.isSaving = true;
+    this.saveMessage = '';
     this.http
-      .post(this.globalService.url + 'quotes/add', body, {
+      .post(this.globalService.url + (context.editing ? 'quotes/edit' : 'quotes/add'), body, {
         headers: this.globalService.headers,
         responseType: 'text',
       })
       .subscribe({
-        next: () => {
-          this.draft?.clear();
-          this.quoteModelService.resetQuoteModel();
-          this.router.navigateByUrl('/homeAdmin/quotesHome', { replaceUrl: true });
-        },
+        next: response => { void this.finishSave(response, context); },
         error: (err) => {
+          this.isSaving = false;
+          if (this.destroyed) return;
           if (isOfflinePending(err)) {
-            this.popup.text = err.error.error;
-            this.popup.openPopup('Salvataggio sul dispositivo', 'warning');
+            this.pendingSave = { ...context, operationId: err.error.operationId };
+            this.draft?.flush();
+            this.checkConfirmation();
+            this.saveMessage = err.error.error;
             return;
           }
           this.popup.text = this.parseError(err).toUpperCase();

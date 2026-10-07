@@ -1528,3 +1528,6 @@
 }
 
 .shift-save-status { margin: 0 0 14px; padding: 10px 14px; color: #334155; background: #f1f5f9; border-radius: 8px; }
+
+.shift-recovery-action { background: #fff; color: #234d76; border: 1px solid #c5d4e4; margin: 0 8px 12px 0; min-height: 44px; }
+.shift-recovery-action:hover { background: #edf3f9; color: #183b60; }

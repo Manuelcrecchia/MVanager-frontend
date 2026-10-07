@@ -50,6 +50,23 @@ export class OfflineStore {
       tx.oncomplete = () => resolve(); tx.onerror = tx.onabort = () => reject(tx.error);
     });
   }
+  async removeDraftVersion(id: string, expected?: { revision?: string; savedAt: number } | null): Promise<boolean> {
+    if (expected === null) return false;
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['drafts', 'cache'], 'readwrite'), drafts = tx.objectStore('drafts');
+      let removed = false;
+      const read = drafts.get(id);
+      read.onsuccess = () => {
+        const current = read.result;
+        if (expected && (!current || current.revision !== expected.revision || current.savedAt !== expected.savedAt)) return;
+        drafts.delete(id);
+        tx.objectStore('cache').delete(`editor|${id}`);
+        removed = true;
+      };
+      tx.oncomplete = () => resolve(removed); tx.onerror = tx.onabort = () => reject(tx.error);
+    });
+  }
   async enqueue<T extends { dedup: string }>(value: T): Promise<T> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
@@ -73,7 +90,7 @@ export class OfflineStore {
       tx.oncomplete = () => intentConflict ? reject({ code: 'OFFLINE_BUSY' }) : resolve(result); tx.onerror = tx.onabort = () => reject(tx.error);
     });
   }
-  async claim(id: string, expectedHash?: string): Promise<string | false> {
+  async claim(id: string, expectedHash?: string, leaseOwner?: string, abandonedOwner?: string): Promise<string | false> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
       const tx = db.transaction('queue', 'readwrite'), store = tx.objectStore('queue');
@@ -81,8 +98,10 @@ export class OfflineStore {
       const request = store.get(id);
       request.onsuccess = () => {
         const row = request.result;
-        if (row && row.state === 'waiting' && (expectedHash === undefined || row.hash === expectedHash) && (row.leaseUntil || 0) < Date.now()) {
-          row.leaseUntil = Date.now() + 180000;
+        if (row && row.state === 'waiting' && (expectedHash === undefined || row.hash === expectedHash) && ((row.leaseUntil || 0) < Date.now() || !!abandonedOwner && row.leaseOwner === abandonedOwner)) {
+          row.leaseOwner = leaseOwner;
+          row.leaseUntil = Date.now() + 330000;
+          row.attempted = true;
           row.leaseToken = operationId(); store.put(row); claimed = row.leaseToken;
         }
       };
@@ -165,12 +184,12 @@ export class OfflineStore {
       tx.oncomplete = () => resolve(prepared); tx.onerror = tx.onabort = () => reject(tx.error);
     });
   }
-  async archiveSuperseded(id: string, owner: string): Promise<boolean> {
+  async archiveSuperseded(id: string, owner: string, recoveredShifts?: { clientId: string; shiftId: number }[]): Promise<boolean> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
       const tx = db.transaction('queue', 'readwrite'), store = tx.objectStore('queue'); let archived = false;
       const request = store.get(id);
-      request.onsuccess = () => { const row = request.result; if (!row || row.owner !== owner || (row.leaseUntil || 0) > Date.now()) return; store.put({ ...row, state: 'archived', dedup: `archived:${row.id}` }); archived = true; };
+      request.onsuccess = () => { const row = request.result; if (!row || row.owner !== owner || (row.leaseUntil || 0) > Date.now()) return; store.put({ ...row, ...(recoveredShifts ? { recoveredShifts } : {}), state: 'archived', dedup: `archived:${row.id}` }); archived = true; };
       tx.oncomplete = () => resolve(archived); tx.onerror = tx.onabort = () => reject(tx.error);
     });
   }
