@@ -544,21 +544,18 @@ export class AddCustomerComponent {
               });
           };
 
-          const saveResourceCategoryRequirementsAndFinalize = () => {
+          const saveResourceCategoryRequirementsAndFinalize = async () => {
             if (!numeroCliente) { saveEquipmentRequirementsAndFinalize(); return; }
-            const requests: Promise<any>[] = [];
             if (this.canConfigureVehicleRequirements) {
               const vehicleRequirements = this.vehicleRequirementMode === 'category' ? this.buildCategoryRequirements(this.vehicleCategories, this.vehicleRequirementCounts) : [];
-              requests.push(
-                this.http.post(this.globalService.url + `admin/resource-categories/vehicle/customer/${numeroCliente}`, { requirements: vehicleRequirements }, { headers: this.globalService.headers }).toPromise(),
-                this.saveSpecificRequirements('vehicle', numeroCliente),
-              );
+              await this.http.post(this.globalService.url + `admin/resource-categories/vehicle/customer/${numeroCliente}`, { requirements: vehicleRequirements }, { headers: this.globalService.headers }).toPromise().catch(() => {});
+              await this.saveSpecificRequirements('vehicle', numeroCliente).catch(() => {});
             }
             if (this.canConfigureEquipmentRequirements) {
               const equipmentRequirements = this.equipmentRequirementMode === 'category' ? this.buildCategoryRequirements(this.equipmentCategories, this.equipmentCategoryRequirementCounts) : [];
-              requests.push(this.http.post(this.globalService.url + `admin/resource-categories/equipment/customer/${numeroCliente}`, { requirements: equipmentRequirements }, { headers: this.globalService.headers }).toPromise());
+              await this.http.post(this.globalService.url + `admin/resource-categories/equipment/customer/${numeroCliente}`, { requirements: equipmentRequirements }, { headers: this.globalService.headers }).toPromise().catch(() => {});
             }
-            Promise.all(requests).then(saveEquipmentRequirementsAndFinalize).catch(saveEquipmentRequirementsAndFinalize);
+            saveEquipmentRequirementsAndFinalize();
           };
 
           const saveRequirementsAndFinalize = () => {

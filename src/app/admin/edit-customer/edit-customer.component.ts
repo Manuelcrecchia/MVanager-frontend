@@ -301,14 +301,13 @@ export class EditCustomerComponent {
       });
   }
 
-  private saveResourceRequirements(numeroCliente: string, done: () => void): void {
-    const saves: Promise<any>[] = [];
+  private async saveResourceRequirements(numeroCliente: string, done: () => void): Promise<void> {
     if (this.canConfigureVehicleRequirements) {
-      saves.push(this.http.post(this.globalService.url + `admin/resource-categories/vehicle/customer/${numeroCliente}`, { requirements: this.vehicleRequirementMode === 'category' ? this.buildCategoryRequirements(this.vehicleCategories, this.vehicleRequirementCounts) : [] }, { headers: this.globalService.headers }).toPromise());
-      saves.push(this.saveSpecificRequirements('vehicle', numeroCliente));
+      await this.http.post(this.globalService.url + `admin/resource-categories/vehicle/customer/${numeroCliente}`, { requirements: this.vehicleRequirementMode === 'category' ? this.buildCategoryRequirements(this.vehicleCategories, this.vehicleRequirementCounts) : [] }, { headers: this.globalService.headers }).toPromise().catch(() => {});
+      await this.saveSpecificRequirements('vehicle', numeroCliente).catch(() => {});
     }
-    if (this.canConfigureEquipmentRequirements) saves.push(this.http.post(this.globalService.url + `admin/resource-categories/equipment/customer/${numeroCliente}`, { requirements: this.equipmentRequirementMode === 'category' ? this.buildCategoryRequirements(this.equipmentCategories, this.equipmentCategoryRequirementCounts) : [] }, { headers: this.globalService.headers }).toPromise());
-    Promise.all(saves).then(done).catch(done);
+    if (this.canConfigureEquipmentRequirements) await this.http.post(this.globalService.url + `admin/resource-categories/equipment/customer/${numeroCliente}`, { requirements: this.equipmentRequirementMode === 'category' ? this.buildCategoryRequirements(this.equipmentCategories, this.equipmentCategoryRequirementCounts) : [] }, { headers: this.globalService.headers }).toPromise().catch(() => {});
+    done();
   }
 
   private caricaClienteFromDb(numeroCliente: string): void {

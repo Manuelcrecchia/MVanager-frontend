@@ -36,6 +36,88 @@ describe('Editable field recovery', () => {
     fixture.detectChanges(); await fixture.whenStable();
     expect(JSON.stringify(await service.store.all('drafts'))).not.toContain('not-for-storage'); fixture.destroy();
   });
+  it('preserves a new field revision written between the cleanup read and delete within the same millisecond', async () => {
+    const fixture = TestBed.createComponent(TestForm); document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges(); await fixture.whenStable();
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('#primary input');
+    input.value = 'Submitted'; input.dispatchEvent(new Event('input'));
+    fixture.detectChanges(); await fixture.whenStable(); input.focus();
+    const all = service.store.all.bind(service.store);
+    let changed = false;
+    spyOn(service.store, 'all').and.callFake(async (store: string) => {
+      const rows = await all(store);
+      const saved = store === 'drafts' && rows.find(row => row.value === 'Submitted');
+      if (saved && !changed) {
+        changed = true;
+        await service.store.put('drafts', { ...saved, value: 'New unsent value', revision: 'other-revision' });
+      }
+      return rows;
+    });
+    await firstValueFrom(service.intercept(new HttpRequest('POST', 'https://draft.test/customers/save', { description: 'Submitted' }), () => of(new HttpResponse({ body: { ok: true } }))));
+    expect(changed).toBeTrue(); expect((await all('drafts')).some(row => row.value === 'New unsent value')).toBeTrue();
+    fixture.nativeElement.remove(); fixture.destroy();
+  });
+  it('recovers replacement attachment bytes even when every file attribute is unchanged', async () => {
+    const page = '/replacement-attachment'; let value: { files: File[] } = { files: [] };
+    const watcher = watchDraft(service, () => value, saved => value = saved, page); await watcher.ready;
+    const waitForBytes = async (expected: string) => {
+      for (let i = 0; i < 100; i++) {
+        const saved = await service.loadDraft(page);
+        if (saved?.files?.[0] && await saved.files[0].text() === expected) return;
+        await new Promise(resolve => setTimeout(resolve, 5));
+      }
+      throw new Error('Replacement attachment was not preserved');
+    };
+    try {
+      value = { files: [new File(['old!'], 'document.txt', { type: 'text/plain', lastModified: 1 })] };
+      watcher.flush(); await waitForBytes('old!');
+      value = { files: [new File(['new!'], 'document.txt', { type: 'text/plain', lastModified: 1 })] };
+      watcher.flush(); await waitForBytes('new!');
+      watcher.stop(); value = { files: [] };
+      const reopened = watchDraft(service, () => value, saved => value = saved, page);
+      try { await reopened.ready; expect(await value.files[0].text()).toBe('new!'); }
+      finally { reopened.stop(); }
+    } finally { watcher.stop(); }
+  });
+  it('preserves edits entered while the previous draft is still loading', async () => {
+    const page = '/slow-draft-read'; let value = { text: '' };
+    const owner = service.session()!.owner;
+    await service.saveDraft({ text: 'Older saved draft' }, page);
+    const get = service.store.get.bind(service.store);
+    let release!: () => void;
+    const waiting = new Promise<void>(resolve => release = resolve);
+    spyOn(service.store, 'get').and.callFake(async (store: string, id: string) => {
+      if (store === 'drafts' && id === `${owner}|${page}`) await waiting;
+      return get(store, id);
+    });
+    const watcher = watchDraft(service, () => value, saved => value = saved, page);
+    try {
+      value = { text: 'New edits before draft loaded' }; watcher.flush();
+      release(); await watcher.ready;
+      expect(value.text).toBe('New edits before draft loaded');
+      for (let i = 0; i < 100; i++) {
+        if ((await service.loadDraft(page))?.text === value.text) break;
+        await new Promise(resolve => setTimeout(resolve, 5));
+      }
+      expect((await service.loadDraft(page))?.text).toBe(value.text);
+    } finally { release(); watcher.stop(); }
+  });
+  it('retries an unchanged draft after a failed disk write', async () => {
+    const page = '/failed-draft-write'; let value = { text: '' };
+    const watcher = watchDraft(service, () => value, saved => value = saved, page); await watcher.ready;
+    const put = service.store.put.bind(service.store);
+    let fail = true;
+    spyOn(service.store, 'put').and.callFake(async (store: string, row: any) => {
+      if (store === 'drafts' && fail) throw new Error('Quota exceeded');
+      return put(store, row);
+    });
+    try {
+      value = { text: 'Must survive without another edit' }; watcher.flush();
+      await new Promise(resolve => setTimeout(resolve, 20)); expect(await service.loadDraft(page)).toBeNull();
+      fail = false; watcher.flush(); await new Promise(resolve => setTimeout(resolve, 20));
+      expect((await service.loadDraft(page))?.text).toBe(value.text);
+    } finally { watcher.stop(); }
+  });
   it('clears only fields submitted by the saved form and preserves another form on the same page', async () => {
     const fixture = TestBed.createComponent(TestForm); document.body.appendChild(fixture.nativeElement);
     fixture.detectChanges(); await fixture.whenStable();

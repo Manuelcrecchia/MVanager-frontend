@@ -241,11 +241,17 @@ export class SettingsEmployeesComponent implements OnInit, OnChanges {
     };
   }
 
-  get filteredEmployees(): Employee[] {
-    const query = this.normalizeSearch(this.employeeSearch);
-    if (!query) return this.employeess;
+  get employeesInCurrentView(): Employee[] {
+    if (this.embedded) return this.employeess;
+    return this.employeess.filter((employee) => (employee.active === false) === this.showArchived);
+  }
 
-    return this.employeess.filter((emp) => {
+  get filteredEmployees(): Employee[] {
+    const employees = this.employeesInCurrentView;
+    const query = this.normalizeSearch(this.employeeSearch);
+    if (!query) return employees;
+
+    return employees.filter((emp) => {
       const text = this.normalizeSearch([
         emp.nome,
         emp.cognome,

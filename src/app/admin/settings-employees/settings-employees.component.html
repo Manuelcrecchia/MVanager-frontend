@@ -301,14 +301,14 @@
           [(ngModel)]="employeeSearch"
           placeholder="Cerca dipendente, email, telefono o categoria"
         />
-        <span>{{ filteredEmployees.length }} / {{ employeess.length }}</span>
+        <span>{{ filteredEmployees.length }} / {{ employeesInCurrentView.length }}</span>
       </div>
       <button type="button"
         class="btn"
         [ngClass]="showArchived ? 'btn-glass-dark' : 'btn-glass'"
         (click)="toggleShowArchived()"
       >
-        {{ showArchived ? '🙈 Nascondi archiviati' : '📦 Mostra archiviati' }}
+        {{ showArchived ? 'Mostra attivi' : '📦 Mostra archiviati' }}
       </button>
     </div>
   </div>

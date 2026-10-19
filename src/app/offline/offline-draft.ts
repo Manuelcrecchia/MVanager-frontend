@@ -11,18 +11,31 @@ function clone(value: any): any {
 export function watchDraft(service: OfflineService, read: () => any, restore: (value: any) => void, page = location.pathname + location.search): DraftHandle {
   const owner = service.session()?.owner;
   const unregister = service.registerDraftPage(page);
-  const initial = JSON.stringify(read());
+  // Blob bytes are immutable, but different files can share all metadata.
+  // Track each object so selecting a replacement still saves a new snapshot.
+  const blobs = new WeakMap<Blob, number>();
+  let nextBlob = 0;
+  const signatureOf = (value: any) => JSON.stringify(value, (_, item) => {
+    if (!(item instanceof Blob)) return item;
+    if (!blobs.has(item)) blobs.set(item, ++nextBlob);
+    return { blob: blobs.get(item), size: item.size, type: item.type, name: (item as File).name, modified: (item as File).lastModified };
+  });
+  const initial = signatureOf(read());
   let stopped = false, enabled = false, previous = '', writes = Promise.resolve();
   let version: { revision?: string; savedAt: number } | null = null;
   const flush = () => {
     if (!enabled || stopped || service.session()?.owner !== owner) return;
     const value = clone(read());
-    const signature = JSON.stringify(value, (_, item) => item instanceof Blob ? { size: item.size, type: item.type, name: (item as File).name, modified: (item as File).lastModified } : item);
+    const signature = signatureOf(value);
     if (signature === previous) return;
     previous = signature;
     const captured = { revision: operationId(), savedAt: Date.now() };
     version = captured;
-    writes = writes.then(() => service.saveDraft(value, page, owner, captured));
+    writes = writes.then(async () => {
+      // A failed disk write is not a saved snapshot. Retry unchanged edits on
+      // the next tick instead of waiting for the user to modify them again.
+      if (!await service.saveDraft(value, page, owner, captured) && version === captured) previous = '';
+    });
   };
   const input = () => queueMicrotask(flush);
   const events = ['input', 'change', 'pointerup', 'visibilitychange'];
@@ -32,9 +45,12 @@ export function watchDraft(service: OfflineService, read: () => any, restore: (v
     if (stopped || service.session()?.owner !== owner) return;
     const value = entry?.value;
     version = entry ? { revision: entry.revision, savedAt: entry.savedAt } : null;
-    if (value && JSON.stringify(read()) === initial) { restore(value); service.notice.next('Bozza recuperata dal dispositivo. Controlla i dati prima di salvare.'); }
-    previous = JSON.stringify(read(), (_, item) => item instanceof Blob ? { size: item.size, type: item.type, name: (item as File).name, modified: (item as File).lastModified } : item);
+    const untouched = signatureOf(read()) === initial;
+    if (value && untouched) { restore(value); service.notice.next('Bozza recuperata dal dispositivo. Controlla i dati prima di salvare.'); }
+    previous = untouched ? signatureOf(read()) : '';
     enabled = true;
+    // Edits made while IndexedDB was loading were never written to disk.
+    if (!untouched) flush();
   });
   let unregistered = false;
   const stop = () => { flush(); stopped = true; if (!unregistered) { unregister(); unregistered = true; } clearInterval(timer); events.forEach(event => document.removeEventListener(event, input, true)); };

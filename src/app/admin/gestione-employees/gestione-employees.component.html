@@ -9,9 +9,9 @@
     </div>
     <div class="mv-entity-toolbar__controls" *ngIf="employeeView === 'directory'; else settingsToolbarControls">
       <label class="employee-search-field"><span class="visually-hidden">Cerca dipendente</span><i class="fas fa-search" aria-hidden="true"></i><input class="form-control" type="search" [(ngModel)]="employeeSearch" placeholder="ID, nominativo, email o telefono" /></label>
-      <span class="mv-entity-toolbar__count">{{ filteredEmployees.length }} / {{ employees.length }}</span>
+      <span class="mv-entity-toolbar__count">{{ filteredEmployees.length }} / {{ employeesInCurrentView.length }}</span>
       <button type="button" class="btn btn-light btn-sm" *ngIf="employeeSearch" (click)="clearEmployeeSearch()">Pulisci</button>
-      <button type="button" class="btn btn-light btn-sm" (click)="toggleShowArchived()">{{ showArchived ? 'Nascondi archivio' : 'Mostra archivio' }}</button>
+      <button type="button" class="btn btn-light btn-sm" (click)="toggleShowArchived()" [attr.aria-pressed]="showArchived">{{ showArchived ? 'Mostra attivi' : 'Mostra archiviati' }}</button>
     </div>
     <ng-template #settingsToolbarControls>
       <div class="mv-entity-toolbar__controls">
@@ -21,7 +21,7 @@
   </header>
 
   <div class="container" *ngIf="employeeView === 'directory'">
-    <div class="employee-selection-bar" *ngIf="selectedCount > 0 && globalService.hasPermission('NOTIFICATIONS_MANAGE')">
+    <div class="employee-selection-bar" *ngIf="!showArchived && selectedCount > 0 && globalService.hasPermission('NOTIFICATIONS_MANAGE')">
       <label class="employee-select-all"><input type="checkbox" class="form-check-input" [checked]="allSelected" [indeterminate]="someSelected" (change)="toggleSelectAll()" /> <span>Seleziona tutti</span></label>
       <span class="mv-entity-toolbar__count">Selezionati: {{ selectedCount }}</span>
       <button type="button" class="btn btn-primary" (click)="openNotifyModal(notifyModal)">🔔 Invia notifica</button>
@@ -29,7 +29,7 @@
     <div class="employee-card-list" *ngIf="filteredEmployees.length > 0">
     <article class="employee-card" [class.employee-card--open]="isEmployeeOpen(emp.id)" *ngFor="let emp of filteredEmployees">
       <div class="employee-header-layout">
-        <label class="employee-selector">
+        <label class="employee-selector" *ngIf="emp.active !== false && globalService.hasPermission('NOTIFICATIONS_MANAGE')">
           <input
             type="checkbox"
             class="form-check-input"
@@ -47,6 +47,7 @@
             <span class="employee-id">#{{ emp.id }}</span>
             <span class="employee-name">{{ emp.nome }} {{ emp.cognome }}</span>
             <span class="badge bg-warning text-dark" *ngIf="emp.active === false">Archiviato</span>
+            <span class="badge bg-secondary" *ngIf="emp.anonymizedAt">Anonimizzato</span>
           </span>
         </span>
 
@@ -60,6 +61,7 @@
 
       <div class="employee-actions mv-record-actions" *ngIf="isEmployeeOpen(emp.id)">
         <div class="employee-actions-inner mv-record-actions__inner">
+          <ng-container *ngIf="emp.active !== false; else archivedEmployeeActions">
           <button type="button" *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')" class="btn btn-employee-action mv-record-action mv-record-action--edit action-with-tooltip" (click)="openEmployeeSettings('edit', emp)" title="Modifica dipendente" aria-label="Modifica dipendente" data-tooltip="Modifica dipendente"><i class="fas fa-pen-to-square"></i></button>
           <button type="button" *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')" class="btn btn-employee-action mv-record-action mv-record-action--evidence action-with-tooltip" (click)="openEmployeeSettings('categories', emp)" title="Categorie dipendente" aria-label="Categorie dipendente" data-tooltip="Categorie dipendente"><i class="fas fa-tags"></i></button>
           <button type="button"
@@ -115,13 +117,50 @@
           >
             <i class="fas fa-envelope"></i>
           </button>
+
+          <button type="button"
+            *ngIf="globalService.hasPermission('EMPLOYEE_DELETE')"
+            class="btn btn-employee-action mv-record-action mv-record-action--danger action-with-tooltip"
+            (click)="exportAndArchiveEmployee(emp)"
+            [disabled]="isEmployeeBusy(emp.id)"
+            title="Esporta e archivia dipendente"
+            aria-label="Archivia dipendente"
+            data-tooltip="Archivia dipendente"
+          >
+            <i class="fas fa-box-archive" aria-hidden="true"></i>
+          </button>
+          </ng-container>
+          <ng-template #archivedEmployeeActions>
+            <button type="button"
+              *ngIf="globalService.hasPermission('EMPLOYEE_CREATE') && !emp.anonymizedAt"
+              class="btn btn-employee-action mv-record-action mv-record-action--success action-with-tooltip"
+              (click)="unarchiveEmployee(emp)"
+              [disabled]="isEmployeeBusy(emp.id)"
+              title="Riattiva dipendente"
+              aria-label="Riattiva dipendente"
+              data-tooltip="Riattiva dipendente"
+            >
+              <i class="fas fa-rotate-left" aria-hidden="true"></i>
+            </button>
+            <button type="button"
+              *ngIf="globalService.hasPermission('EMPLOYEE_DELETE') && !emp.anonymizedAt"
+              class="btn btn-employee-action mv-record-action mv-record-action--danger action-with-tooltip"
+              (click)="anonymizeEmployee(emp)"
+              [disabled]="isEmployeeBusy(emp.id)"
+              title="Anonimizza definitivamente dipendente"
+              aria-label="Anonimizza dipendente"
+              data-tooltip="Anonimizza dipendente"
+            >
+              <i class="fas fa-user-secret" aria-hidden="true"></i>
+            </button>
+          </ng-template>
         </div>
       </div>
     </article>
   </div>
 
     <div *ngIf="filteredEmployees.length === 0" class="alert alert-info text-center mt-3">
-      Nessun dipendente trovato.
+      {{ showArchived ? 'Nessun dipendente archiviato trovato.' : 'Nessun dipendente trovato.' }}
     </div>
   </div>
 

@@ -5,6 +5,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { ContactRequirementPromptService } from '../../service/contact-requirement-prompt.service';
 import { NoteUnreadService } from '../../service/note-unread.service';
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
+import { downloadFile } from '../../shared/file-download';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-gestione-employees',
@@ -24,6 +27,8 @@ export class GestioneEmployeesComponent implements OnInit {
   settingsAction: 'new' | 'edit' | 'categories' = 'new';
   settingsEmployeeId: number | null = null;
   private openEmployees = new Set<number>();
+  private busyEmployees = new Set<number>();
+  private employeeLoadRequest = 0;
 
   // ✅ selezione
   selected = new Set<number>();
@@ -46,6 +51,7 @@ export class GestioneEmployeesComponent implements OnInit {
     private modalService: NgbModal,
     private contactPrompt: ContactRequirementPromptService,
     public noteUnread: NoteUnreadService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit(): void {
@@ -63,10 +69,15 @@ export class GestioneEmployeesComponent implements OnInit {
     }
   }
 
+  get employeesInCurrentView(): any[] {
+    return this.employees.filter((employee) => (employee.active === false) === this.showArchived);
+  }
+
   get filteredEmployees(): any[] {
+    const employees = this.employeesInCurrentView;
     const query = this.normalize(this.employeeSearch);
-    if (!query) return this.employees;
-    return this.employees.filter((employee) => this.normalize([
+    if (!query) return employees;
+    return employees.filter((employee) => this.normalize([
       employee?.id,
       employee?.nome,
       employee?.cognome,
@@ -80,7 +91,7 @@ export class GestioneEmployeesComponent implements OnInit {
   }
 
   get employeeViewTitle(): string {
-    if (this.employeeView === 'directory') return 'Dipendenti';
+    if (this.employeeView === 'directory') return this.showArchived ? 'Dipendenti archiviati' : 'Dipendenti';
     if (this.settingsAction === 'edit') return 'Modifica dipendente';
     if (this.settingsAction === 'categories') return 'Categorie dipendente';
     return 'Nuovo dipendente';
@@ -89,6 +100,7 @@ export class GestioneEmployeesComponent implements OnInit {
   toggleShowArchived(): void {
     this.showArchived = !this.showArchived;
     this.selected.clear();
+    this.openEmployees.clear();
     this.getEmployees();
   }
 
@@ -134,6 +146,7 @@ export class GestioneEmployeesComponent implements OnInit {
 
   // Carica lista dipendenti
   getEmployees(): void {
+    const requestId = ++this.employeeLoadRequest;
     this.http
       .get(this.globalService.url + `employees/getAll${this.showArchived ? '?includeArchived=true' : ''}`, {
         headers: this.globalService.headers,
@@ -141,13 +154,14 @@ export class GestioneEmployeesComponent implements OnInit {
       })
       .subscribe({
         next: (response) => {
+          if (requestId !== this.employeeLoadRequest) return;
           try {
             const data = JSON.parse(response);
             this.employees = data || [];
 
             // ✅ pulizia selezione: rimuovi id non presenti
             const ids = new Set<number>(
-              this.employees.map((e: any) => Number(e.id))
+              this.employeesInCurrentView.filter((e) => e.active !== false).map((e: any) => Number(e.id))
             );
             this.selected.forEach((id) => {
               if (!ids.has(id)) this.selected.delete(id);
@@ -157,6 +171,7 @@ export class GestioneEmployeesComponent implements OnInit {
           }
         },
         error: (error) => {
+          if (requestId !== this.employeeLoadRequest) return;
           console.error('Errore nel recupero dei dipendenti:', error);
           alert('Errore durante il caricamento dei dipendenti');
         },
@@ -169,6 +184,7 @@ export class GestioneEmployeesComponent implements OnInit {
   }
 
   toggleEmployee(id: any) {
+    if (this.showArchived) return;
     const n = Number(id);
     if (this.selected.has(n)) this.selected.delete(n);
     else this.selected.add(n);
@@ -190,6 +206,7 @@ export class GestioneEmployeesComponent implements OnInit {
   }
 
   toggleSelectAll() {
+    if (this.showArchived) return;
     if (this.allSelected) {
       this.selected.clear();
       return;
@@ -210,6 +227,7 @@ export class GestioneEmployeesComponent implements OnInit {
   }
 
   sendNotification(modal: any) {
+    if (this.showArchived) return;
     this.notifyError = '';
     this.notifySuccess = '';
 
@@ -306,6 +324,82 @@ export class GestioneEmployeesComponent implements OnInit {
 
   isEmployeeOpen(id: any): boolean {
     return this.openEmployees.has(Number(id));
+  }
+
+  isEmployeeBusy(id: any): boolean {
+    return this.busyEmployees.has(Number(id));
+  }
+
+  async exportAndArchiveEmployee(emp: any): Promise<void> {
+    const employeeId = Number(emp?.id);
+    if (!employeeId || emp.active === false ||
+        !this.globalService.hasPermission('EMPLOYEE_DELETE') || this.isEmployeeBusy(employeeId)) return;
+
+    this.busyEmployees.add(employeeId);
+    try {
+      if (!await this.appDialog.confirm(
+        `Vuoi esportare e ARCHIVIARE il dipendente "${emp.nome} ${emp.cognome}"?\n\n` +
+        `Lo storico (turni, presenze, timbrature) rimarrà nel sistema.`,
+      )) return;
+
+      const blob = await firstValueFrom(this.http.post(
+        this.globalService.url + 'employees/exportAndDeleteUser',
+        { employeeId },
+        { headers: this.globalService.headers, responseType: 'blob' },
+      ));
+      this.getEmployees();
+      const saved = await downloadFile(blob, `dipendente_${emp.nome}_${emp.cognome}.zip`,
+        (message) => this.appDialog.showError(message));
+      if (saved) this.appDialog.show('Dipendente esportato e archiviato con successo.', 'Archiviazione completata', 'success');
+    } catch (error) {
+      this.appDialog.showHttpError(error, 'Errore durante esportazione/archiviazione dipendente.');
+    } finally {
+      this.busyEmployees.delete(employeeId);
+    }
+  }
+
+  unarchiveEmployee(emp: any): Promise<void> {
+    return this.updateArchivedEmployee(emp, 'unarchive');
+  }
+
+  anonymizeEmployee(emp: any): Promise<void> {
+    return this.updateArchivedEmployee(emp, 'pseudonymize');
+  }
+
+  private async updateArchivedEmployee(emp: any, action: 'unarchive' | 'pseudonymize'): Promise<void> {
+    const employeeId = Number(emp?.id);
+    const reactivate = action === 'unarchive';
+    const permission = reactivate ? 'EMPLOYEE_CREATE' : 'EMPLOYEE_DELETE';
+    if (!employeeId || emp.active !== false || emp.anonymizedAt ||
+        !this.globalService.hasPermission(permission) || this.isEmployeeBusy(employeeId)) return;
+
+    this.busyEmployees.add(employeeId);
+    try {
+      const confirmation = reactivate
+        ? `Vuoi riattivare il dipendente "${emp.nome} ${emp.cognome}"?`
+        : `Anonimizzare definitivamente il dipendente "${emp.nome} ${emp.cognome}"? ` +
+          `L'ID e lo storico di turni, ore e timbrature resteranno collegati, ma il dipendente non potrà più essere riattivato.`;
+      if (!await this.appDialog.confirm(confirmation)) return;
+
+      await firstValueFrom(this.http.post(
+        this.globalService.url + `employees/${action}`,
+        { employeeId },
+        { headers: this.globalService.headers, responseType: 'text' },
+      ));
+      this.getEmployees();
+      this.appDialog.show(
+        reactivate ? `Dipendente ${emp.nome} ${emp.cognome} riattivato con successo.`
+          : `Dipendente ID ${employeeId} anonimizzato definitivamente.`,
+        reactivate ? 'Riattivazione completata' : 'Anonimizzazione completata',
+        'success',
+      );
+    } catch (error) {
+      this.appDialog.showHttpError(error, reactivate
+        ? 'Errore durante la riattivazione del dipendente.'
+        : "Errore durante l'anonimizzazione del dipendente.");
+    } finally {
+      this.busyEmployees.delete(employeeId);
+    }
   }
 
   openEmployeeWhatsApp(emp: any): void {

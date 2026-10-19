@@ -28,6 +28,15 @@ describe('Durable offline saves', () => {
     const store = new OfflineStore();
     for (const name of ['queue', 'cache', 'drafts']) for (const row of await store.all(name)) await store.remove(name, row.id);
   });
+  it('does not promise automatic replay for an operation that requires reopening the form', async () => {
+    online.and.returnValue(false);
+    const automatic = await send().catch(error => error);
+    const manual = await send(request('equipment/add', { name: 'Tool' })).catch(error => error);
+    expect(automatic.error.error).toContain('invio automatico');
+    expect(manual.error.error).toContain('riapri il modulo');
+    expect(manual.error.error).not.toContain('invio automatico');
+    expect(service.operations.value.find(row => row.path === '/equipment/add')?.automatic).toBeFalse();
+  });
   it('resumes at reconnection even if exponential backoff has not expired', async () => {
     online.and.returnValue(false); await send().catch(() => {});
     const row = service.operations.value[0];
@@ -99,6 +108,39 @@ describe('Durable offline saves', () => {
     await send();
     expect(service.notice.value).toBe(''); expect(service.operations.value.length).toBe(0);
   });
+  it('preserves unsent edits made during attachment hashing after the editor closes', async () => {
+    const page = location.pathname + location.search, unregister = service.registerDraftPage(page);
+    await service.saveDraft({ text: 'Submitted text' }, page);
+    let entered!: () => void, release!: () => void;
+    const hashing = new Promise<void>(resolve => entered = resolve);
+    const ready = new Promise<void>(resolve => release = resolve);
+    const arrayBuffer = Blob.prototype.arrayBuffer;
+    spyOn(Blob.prototype, 'arrayBuffer').and.callFake(async function(this: Blob) {
+      entered(); await ready; return arrayBuffer.call(this);
+    });
+    const form = new FormData(); form.append('testo', 'Submitted text'); form.append('attachment', new Blob(['file']), 'note.txt');
+    const saving = send(request('customers/notes/add', form));
+    try {
+      await hashing; await new Promise(resolve => setTimeout(resolve, 10));
+      await service.saveDraft({ text: 'New unsent text' }, page);
+      unregister(); release(); await saving;
+      expect((await service.loadDraft(page))?.text).toBe('New unsent text');
+    } finally { unregister(); release(); await saving; }
+  });
+  it('keeps a changed draft with the same millisecond timestamp as the submission', async () => {
+    const page = location.pathname + location.search, unregister = service.registerDraftPage(page);
+    await service.saveDraft({ text: 'Submitted' }, page);
+    const response = new Subject<HttpResponse<any>>();
+    let entered!: (req: HttpRequest<any>) => void;
+    const started = new Promise<HttpRequest<any>>(resolve => entered = resolve);
+    const saving = firstValueFrom(service.intercept(request('customers/notes/add', { text: 'Submitted' }), req => { entered(req); return response; }));
+    try {
+      const req = await started;
+      await service.saveDraft({ text: 'Unsent change' }, page, service.session()!.owner, { revision: 'new-revision', savedAt: Date.parse(req.headers.get('X-MV-Captured-At')!) });
+      unregister(); response.next(new HttpResponse({ body: { ok: true } })); response.complete(); await saving;
+      expect((await service.loadDraft(page))?.text).toBe('Unsent change');
+    } finally { unregister(); response.complete(); }
+  });
   it('never clears a draft written by another service when an online save is confirmed', async () => {
     const otherTab = newService();
     await otherTab.saveDraft({ name: 'Unsaved in another tab' });
@@ -157,7 +199,7 @@ describe('Durable offline saves', () => {
     await service.retireShiftAutosaves(shifts);
     await expectAsync(send(grouped({ shifts, forceSave: true }))).toBeResolved();
     expect(requests.filter(req => req.url.endsWith('/saveMultiple')).length).toBe(1);
-    for (const row of old) expect((await service.store.get('queue', row.id)).state).toBe('archived');
+    for (const row of old) expect((await service.store.getOperation( row.id))?.state).toBe('archived');
     expect(service.operations.value).toEqual([]);
   });
   it('reserves attempted legacy full-day keys before replacing their old snapshots', async () => {
@@ -186,7 +228,7 @@ describe('Durable offline saves', () => {
     const shifts: any[] = [{ data: '2026-10-05', title: 'Existing extra', clientId: 'old-extra' }];
     await service.retireShiftAutosaves(shifts);
     expect(shifts[0].shiftId).toBe(88);
-    expect((await service.store.get('queue', row.id)).recoveredShifts).toEqual([{ clientId: 'old-extra', shiftId: 88 }]);
+    expect((await service.store.getOperation( row.id))?.recoveredShifts).toEqual([{ clientId: 'old-extra', shiftId: 88 }]);
     expect(requests.some(req => req.url.endsWith('/cancel'))).toBeTrue();
     expect(requests.filter(req => req.url.endsWith('/autosave')).length).toBe(0);
   });
@@ -194,7 +236,7 @@ describe('Durable offline saves', () => {
     const [row] = await legacyShiftQueue(1, '2026-10-05');
     online.and.returnValue(true);
     await expectAsync(service.retireShiftAutosaves([shift('2026-10-05')])).toBeRejected();
-    expect((await service.store.get('queue', row.id)).state).toBe('waiting');
+    expect((await service.store.getOperation( row.id))?.state).toBe('waiting');
     expect(requests.filter(req => req.method === 'POST').length).toBe(0);
   });
   it('preserves confirmed extra-job identities when retiring a legacy complete save', async () => {
@@ -205,7 +247,7 @@ describe('Durable offline saves', () => {
     const shifts = [{ data: '2026-10-05', title: 'Existing extra', employeeIds: [] }];
     await service.retireShiftAutosaves(shifts);
     expect((shifts[0] as any).shiftId).toBe(88);
-    expect((await service.store.get('queue', row.id)).state).toBe('archived');
+    expect((await service.store.getOperation( row.id))?.state).toBe('archived');
   });
   it('keeps a confirmed legacy extra identity in its archived recovery copy', async () => {
     online.and.returnValue(false);
@@ -213,7 +255,7 @@ describe('Durable offline saves', () => {
     const row = service.operations.value[0];
     await service.store.put('queue', { ...row, state: 'done', response: { status: 200, body: { shiftId: 88 }, headers: {} } });
     await service.retireShiftAutosaves([{ clientId: 'draft-extra', data: '2026-10-05', title: 'Existing extra' }]);
-    expect((await service.store.get('queue', row.id)).recoveredShifts).toEqual([{ clientId: 'draft-extra', shiftId: 88 }]);
+    expect((await service.store.getOperation( row.id))?.recoveredShifts).toEqual([{ clientId: 'draft-extra', shiftId: 88 }]);
     const reopened = newService();
     expect(await reopened.loadShiftIdentities('2026-10-05')).toEqual({ 'draft-extra': 88 });
     expect(await reopened.loadShiftIdentities('2026-10-06')).toEqual({});
@@ -226,7 +268,7 @@ describe('Durable offline saves', () => {
     const row = service.operations.value[0];
     await service.store.put('queue', { ...row, state: 'done', response: { status: 200, body: { message: 'Saved by older server' }, headers: {} } });
     await expectAsync(service.retireShiftAutosaves([{ data: '2026-10-05', title: 'Existing extra', employeeIds: [] }])).toBeRejected();
-    expect((await service.store.get('queue', row.id)).state).toBe('done'); expect(requests.length).toBe(0);
+    expect((await service.store.getOperation( row.id))?.state).toBe('done'); expect(requests.length).toBe(0);
   });
   it('keeps same-day and multi-day chronology while separating independent shift dates', async () => {
     const first = operationScope('/shifts/saveMultiple', await encodeBody({ shifts: [shift('2026-10-05')] }));
@@ -248,7 +290,7 @@ describe('Durable offline saves', () => {
     const id = service.operations.value[0].id;
     await send(grouped({ title: 'New' })).catch(() => {});
     expect(service.operations.value.length).toBe(1); expect(service.operations.value[0].body).toEqual({ type: 'json', value: { title: 'New' } });
-    expect((await service.store.get('queue', id)).state).toBe('archived');
+    expect((await service.store.getOperation( id))?.state).toBe('archived');
     online.and.returnValue(true); await send(grouped({ title: 'New' }));
     expect(requests.filter(req => req.url.endsWith('/saveMultiple')).length).toBe(1);
   });
@@ -316,8 +358,8 @@ describe('Durable offline saves', () => {
     const old = service.operations.value[0];
     await service.store.put('queue',{...old,state:'archived',dedup:`archived:${old.id}`});
     await (service as any).finishConfirmed(old,new HttpResponse({body:{savedShifts:[]}}),true);
-    const retained = await service.store.get('queue',old.id);
-    expect(retained.state).toBe('archived'); expect(retained.response.status).toBe(200);
+    const retained = await service.store.getOperation(old.id);
+    expect(retained?.state).toBe('archived'); expect(retained?.response?.status).toBe(200);
     expect(service.operations.value).toEqual([]);
   });
   it('hashes identically without WebCrypto, including block boundaries and UTF-8', async () => {
@@ -377,7 +419,7 @@ describe('Durable offline saves', () => {
     await service.discardOperations(confirmed);
     expect(service.operations.value.length).toBe(2);
     expect(service.notice.value).toContain('invii in corso');
-    const row = await service.store.get<PendingOperation>('queue', confirmed[0].id);
+    const row = await service.store.getOperation(confirmed[0].id);
     await service.store.put('queue', { ...row!, leaseUntil: 0 });
     await service.discardOperations(confirmed);
     expect(service.operations.value.length).toBe(1);
@@ -433,9 +475,48 @@ describe('Durable offline saves', () => {
     await service.store.put('queue', { ...row, state: 'blocked', blocksQueue: false, error: 'Sono state trovate incongruenze nei turni' });
     await service.refresh();
     expect(service.operations.value).toEqual([]);
-    expect((await service.store.get<PendingOperation>('queue', row.id))?.state).toBe('archived');
+    expect((await service.store.getOperation(row.id))?.state).toBe('archived');
     expect(await service.store.claim(row.id)).toBeFalse();
     expect(requests.length).toBe(0);
+  });
+  it('sends equipment requirements while vehicle requirements for the same customer are still saving', async () => {
+    const response = new Subject<any>();
+    let vehicleSent = false;
+    const vehicle = firstValueFrom(service.intercept(request('admin/resource-categories/vehicle/customer/517', { requirements: [] }), () => { vehicleSent = true; return response; }));
+    while (!vehicleSent) await new Promise(resolve => setTimeout(resolve, 1));
+    try {
+      await expectAsync(send(request('admin/resource-categories/equipment/customer/517', { requirements: [] }))).toBeResolved();
+      expect(requests.filter(req => req.url.endsWith('/equipment/customer/517')).length).toBe(1);
+    } finally {
+      response.next(new HttpResponse({ body: { ok: true } })); response.complete();
+      await vehicle;
+    }
+  });
+  for (const current of [[], [{ categoryId: 1, requiredCount: 2 }], null]) {
+    it(`checks the server before retiring a legacy empty requirement rejection (${JSON.stringify(current)})`, async () => {
+      online.and.returnValue(false);
+      await send(request('admin/resource-categories/equipment/customer/517', { requirements: [] })).catch(() => {});
+      const row = service.operations.value[0];
+      await service.store.put('queue', { ...row, state: 'rejected', response: { status: 409, body: { code: 'OFFLINE_REQUIRES_CONNECTION' }, headers: {} } });
+      const lookup = spyOn((service as any).raw, 'get').and.returnValue(current === null ? throwError(() => new HttpErrorResponse({ status: 503 })) : of(current));
+      online.and.returnValue(true);
+      await service.sync();
+      expect(lookup).toHaveBeenCalledTimes(1);
+      expect(lookup.calls.mostRecent().args[0]).toBe(row.url);
+      if (current?.length === 0) {
+        expect(await service.store.get('queue', row.id)).toBeUndefined();
+        expect(service.operations.value.some(item => item.id === row.id)).toBeFalse();
+      } else expect((await service.store.getOperation(row.id))?.state).toBe('rejected');
+      expect(requests.filter(req => req.method === 'POST').length).toBe(0);
+      await service.sync();
+      expect(lookup).toHaveBeenCalledTimes(1);
+    });
+  }
+  it('keeps writes to the same customer resource ordered but separates independent records', () => {
+    const scope = operationScope('/admin/resource-categories/equipment/customer/517');
+    expect(scopesOverlap(scope, operationScope('/admin/resource-categories/equipment/customer/517'))).toBeTrue();
+    expect(scopesOverlap(scope, operationScope('/admin/resource-categories/vehicle/customer/517'))).toBeFalse();
+    expect(scopesOverlap(scope, operationScope('/admin/resource-categories/equipment/customer/518'))).toBeFalse();
   });
   it('retains separate ordered clock-ins and their original timestamps', async () => {
     online.and.returnValue(false);
@@ -580,7 +661,7 @@ describe('Durable offline saves', () => {
     }
   });
   it('does not report a failed save when cleanup fails after server confirmation', async () => {
-    spyOn(service.store, 'remove').and.rejectWith(new Error('disk cleanup'));
+    spyOn(service.store, 'forgetCompletion').and.rejectWith(new Error('disk cleanup'));
     const result: any = await send();
     expect(result.body.id).toBe(42);
     expect(service.operations.value[0].state).toBe('done');
@@ -612,7 +693,7 @@ describe('Durable offline saves', () => {
     const row = service.operations.value[0];
     await service.store.put('queue', { ...row, state: 'done', response: { body: { id: 88 }, status: 201, headers: {} } });
     await service.store.saveFailure({ ...row, state: 'blocked' });
-    expect((await service.store.get<PendingOperation>('queue', row.id))?.state).toBe('done');
+    expect((await service.store.getOperation(row.id))?.state).toBe('done');
   });
   it('preserves validation payloads and authorization errors across all online modules', async () => {
     for (const status of [400, 403, 404, 409, 412, 422]) {
@@ -779,19 +860,19 @@ describe('Durable offline saves', () => {
     const body = await encodeBody({ shifts: [{ clientId: 'extra', shiftId: 88 }] }), hash = await bodyHash(body);
     expect(await service.store.prepareQueued({ ...old, body, hash, dedup: old.dedup.replace(old.hash, hash) }, old.hash)).toBeTrue();
     await service.store.saveFailure({ ...old, state: 'blocked' });
-    expect((await service.store.get<PendingOperation>('queue', old.id))?.hash).toBe(hash);
-    expect((await service.store.get<PendingOperation>('queue', old.id))?.state).toBe('waiting');
+    expect((await service.store.getOperation(old.id))?.hash).toBe(hash);
+    expect((await service.store.getOperation(old.id))?.state).toBe('waiting');
     expect(await service.store.claim(old.id, old.hash)).toBeFalse();
   });
   it('does not release an active sender lease from an unclaimed stale failure', async () => {
     online.and.returnValue(false); await send().catch(() => {});
     const old = service.operations.value[0];
     await service.store.claim(old.id);
-    const claimed = await service.store.get<PendingOperation>('queue', old.id);
+    const claimed = await service.store.getOperation(old.id);
     const stale = { ...old, state: 'blocked', leaseUntil: 0 };
     await service.store.saveFailure(stale);
-    expect((await service.store.get<PendingOperation>('queue', old.id))?.leaseUntil).toBe(claimed?.leaseUntil);
-    expect((await service.store.get<PendingOperation>('queue', old.id))?.state).toBe('waiting');
+    expect((await service.store.getOperation(old.id))?.leaseUntil).toBe(claimed?.leaseUntil);
+    expect((await service.store.getOperation(old.id))?.state).toBe('waiting');
   });
   it('prevents a second tab from sending while the first server response is delayed', async () => {
     online.and.returnValue(false); await send().catch(() => {}); online.and.returnValue(true);
@@ -833,19 +914,19 @@ describe('Durable offline saves', () => {
     expect(second).not.toBeFalse();
     const stale = { ...row, leaseUntil: 0 };
     await service.store.saveFailure(stale, first || undefined);
-    expect((await service.store.get<PendingOperation>('queue', row.id))?.leaseOwner).toBe('owner-b');
-    expect((await service.store.get<PendingOperation>('queue', row.id))?.leaseUntil).toBeGreaterThan(Date.now());
+    expect((await service.store.getOperation(row.id))?.leaseOwner).toBe('owner-b');
+    expect((await service.store.getOperation(row.id))?.leaseUntil).toBeGreaterThan(Date.now());
   });
   it('keeps another sender’s renewed lease when an expired sender eventually fails', async () => {
     online.and.returnValue(false); await send().catch(() => {});
     const old = service.operations.value[0], firstLease = await service.store.claim(old.id);
-    await service.store.put('queue', { ...(await service.store.get('queue', old.id)), leaseUntil: 0 });
+    await service.store.put('queue', { ...(await service.store.getOperation( old.id)), leaseUntil: 0 });
     const secondLease = await service.store.claim(old.id);
     expect(secondLease).not.toBe(firstLease);
     await service.store.saveFailure({ ...old, state: 'blocked' }, firstLease || undefined);
-    expect((await service.store.get<PendingOperation>('queue', old.id))?.state).toBe('waiting');
+    expect((await service.store.getOperation(old.id))?.state).toBe('waiting');
     await service.store.saveFailure({ ...old, state: 'blocked' }, secondLease || undefined);
-    expect((await service.store.get<PendingOperation>('queue', old.id))?.state).toBe('blocked');
+    expect((await service.store.getOperation(old.id))?.state).toBe('blocked');
   });
   it('does not delete a renewed claim when an older foreground response rejects the save', async () => {
     const response = new Subject<HttpResponse<any>>();
@@ -854,10 +935,10 @@ describe('Durable offline saves', () => {
     await sending;
     const row = (await service.store.all<PendingOperation>('queue'))[0];
     await service.store.put('queue', { ...row, leaseUntil: 0 }); await service.store.claim(row.id);
-    const newer = await service.store.get<PendingOperation>('queue', row.id);
+    const newer = await service.store.getOperation(row.id);
     response.error(new HttpErrorResponse({ status: 422, error: { error: 'Old rejection' } }));
     expect((await first).status).toBe(422);
-    expect((await service.store.get<PendingOperation>('queue', row.id))?.leaseUntil).toBe(newer?.leaseUntil);
+    expect((await service.store.getOperation(row.id))?.leaseUntil).toBe(newer?.leaseUntil);
   });
   it('sends the captured payload when caller data changes during a direct-save storage failure', async () => {
     const body = { title: 'Captured' };
@@ -955,6 +1036,104 @@ describe('Durable offline saves', () => {
     const loaded = await service.store.get('drafts', 'binary'); expect(await bodyHash(loaded.value)).toBe(hash);
     const decoded = decodeBody(loaded.value) as FormData, files = decoded.getAll('allegati') as File[];
     expect(decoded.get('testo')).toBe('Nota'); expect(files.map(file => file.name)).toEqual(['one.txt', 'two.txt']); expect(await files[1].text()).toBe('two');
+  });
+  it('physically clears confirmed background writes across the supported domains', async () => {
+    online.and.returnValue(false);
+    const paths = ['quotes/add', 'shifts/saveMultiple', 'customers/notes/add', 'mv/stamping/timbra', 'mv/finelavoro/submit', 'mv/leaveRequest/request', 'mv/internal-warehouse/requests'];
+    for (const path of paths) await send(request(path, { text: 'Submitted data', shifts: [shift('2026-10-08')], capturedAt: '2026-10-08T09:00:00Z' })).catch(() => {});
+    expect((await service.store.all('queue')).length).toBe(paths.length);
+    online.and.returnValue(true); await service.sync();
+    expect(await service.store.all('queue')).toEqual([]);
+    expect(service.operations.value.filter(row => row.state !== 'done')).toEqual([]);
+    const writes = requests.filter(req => paths.some(path => req.url.endsWith('/' + path)));
+    expect(writes.length).toBe(paths.length);
+    await service.sync();
+    expect(requests.filter(req => paths.some(path => req.url.endsWith('/' + path))).length).toBe(paths.length);
+  });
+  it('also clears manually synchronized writes', async () => {
+    online.and.returnValue(false);
+    await send(request('employees/edit', { id: 7, name: 'Updated' })).catch(() => {});
+    const row = service.operations.value[0];
+    online.and.returnValue(true); await service.sync(row.id);
+    expect(await service.store.all('queue')).toEqual([]);
+    expect(service.operations.value[0].state).toBe('done');
+  });
+  it('releases submitted attachments while preserving a newer unsaved draft', async () => {
+    const page = location.pathname + location.search, unregister = service.registerDraftPage(page);
+    const file = new File(['uploaded bytes'], 'photo.jpg', { type: 'image/jpeg' });
+    const form = new FormData(); form.append('testo', 'Submitted note'); form.append('allegati', file);
+    online.and.returnValue(false);
+    await send(request('customers/notes/add', form)).catch(() => {});
+    await service.saveDraft({ testo: 'New unsaved note', file });
+    online.and.returnValue(true); await service.sync();
+    expect(await service.store.all('queue')).toEqual([]);
+    const receipt = (await service.store.all('cache')).find(entry => entry.operation);
+    expect(receipt.operation.body).toEqual({ type: 'json', value: null });
+    expect((await service.loadDraft()).testo).toBe('New unsaved note');
+    await service.clearDraft(); unregister(); await service.refresh();
+    expect((await service.store.all('cache')).filter(entry => entry.operation)).toEqual([]);
+  });
+  it('migrates old confirmed copies without deleting unconfirmed data or other accounts', async () => {
+    online.and.returnValue(false);
+    for (const path of ['mv/stamping/timbra', 'customers/notes/add', 'employees/edit', 'quotes/add']) await send(request(path)).catch(() => {});
+    const [done, waiting, blocked, rejected] = await service.store.all<PendingOperation>('queue');
+    await service.store.put('queue', { ...done, state: 'done', response: { status: 200, body: { id: 42 }, headers: {} } });
+    await service.store.put('queue', { ...blocked, state: 'blocked', blocksQueue: true });
+    await service.store.put('queue', { ...rejected, state: 'rejected' });
+    await service.store.put('queue', { ...done, id: 'other-account', dedup: 'other-account', owner: done.owner + '-other' });
+    await service.refresh();
+    expect((await service.store.all<PendingOperation>('queue')).map(row => row.id).sort()).toEqual([waiting.id, blocked.id, rejected.id, 'other-account'].sort());
+    expect((await service.store.all('cache')).some(entry => entry.operation?.id === done.id)).toBeFalse();
+  });
+  it('retries failed local cleanup without resending a confirmed write', async () => {
+    const mark = spyOn(service.store, 'markConfirmed').and.rejectWith(new Error('Temporary database failure'));
+    const result: any = await send(request('mv/stamping/timbra', { capturedAt: '2026-10-08T09:00:00Z' }));
+    expect(result.status).toBe(201);
+    expect((await service.store.all('queue')).length).toBe(1);
+    mark.and.callThrough(); await service.refresh();
+    expect(await service.store.all('queue')).toEqual([]);
+    await service.sync(); expect(requests.filter(req => req.url.endsWith('/timbra')).length).toBe(1);
+  });
+  it('retains a confirmation when its editor acknowledges after a cleanup failure', async () => {
+    online.and.returnValue(false); await send().catch(() => {});
+    const mark = spyOn(service.store, 'markConfirmed').and.rejectWith(new Error('Temporary database failure'));
+    online.and.returnValue(true); await service.sync();
+    const confirmed = service.operations.value[0];
+    expect(confirmed.state).toBe('done');
+    await service.acknowledge(confirmed);
+    expect(service.operations.value[0].state).toBe('done');
+    const writes = requests.filter(req => req.url.endsWith('/quotes/add')).length;
+    mark.and.callThrough(); await service.refresh(); await service.sync();
+    expect(await service.store.all('queue')).toEqual([]);
+    expect(service.operations.value).toEqual([]);
+    expect(requests.filter(req => req.url.endsWith('/quotes/add')).length).toBe(writes);
+  });
+  it('bounds recovery receipts but keeps receipts referenced by an unsaved draft', async () => {
+    online.and.returnValue(false);
+    await send(grouped({ shifts: [shift('2026-10-05')] })).catch(() => {});
+    const row = service.operations.value[0];
+    await service.saveDraft({ appointments: [] }, row.page);
+    await service.store.markConfirmed({ ...row, state: 'done', response: { status: 200, body: { version: 'saved-version' }, headers: {} } });
+    const cache = (await service.store.all('cache')).find(entry => entry.operation);
+    await service.store.put('cache', { ...cache, savedAt: Date.now() - 86400000 });
+    await service.refresh();
+    expect((await service.store.getOperation(row.id))?.response?.body.version).toBe('saved-version');
+    await service.clearDraft(row.page); await service.refresh();
+    expect(await service.store.getOperation(row.id)).toBeUndefined();
+  });
+  it('does not accumulate an unlimited history of unneeded shift confirmations', async () => {
+    online.and.returnValue(false); await send(grouped({ shifts: [shift('2026-10-05')] })).catch(() => {});
+    const row = service.operations.value[0];
+    await service.saveDraft({ appointments: [] }, row.page);
+    for (let index = 0; index < 105; index++) {
+      const completed = { ...row, id: 'completed-' + index, dedup: 'completed-' + index, page: 'closed-editor-' + index, state: 'done' as const, response: { status: 200, body: { version: String(index) }, headers: {} } };
+      await service.store.put('queue', completed); await service.store.markConfirmed(completed);
+    }
+    await service.store.markConfirmed({ ...row, state: 'done', response: { status: 200, body: { version: 'draft-version' }, headers: {} } });
+    await service.refresh();
+    expect(await service.store.all('queue')).toEqual([]);
+    expect((await service.store.all('cache')).filter(entry => entry.operation).length).toBe(101);
+    expect((await service.store.getOperation(row.id))?.response?.body.version).toBe('draft-version');
   });
   it('excludes POST reads, passwords, OTPs and the existing warehouse outbox', () => {
     for (const path of ['/quotes/getQuote', '/login/mv', '/mv/finelavoro/signature/requestOtp', '/mv/customer-warehouse/photos', '/employee/restorePassword']) expect(isProtectedWrite('POST', path)).withContext(path).toBeFalse();

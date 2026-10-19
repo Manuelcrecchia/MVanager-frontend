@@ -1,6 +1,7 @@
 import { AfterViewInit, Directive, ElementRef, HostListener, OnDestroy, Optional, Self } from '@angular/core';
 import { NgControl } from '@angular/forms';
 import { OfflineService } from './offline.service';
+import { operationId } from './offline-codec';
 
 /** Generic recovery for named editable controls, including settings and forms
  * outside the dedicated quote/note/signature adapters. Restoration is explicit
@@ -41,7 +42,7 @@ export class OfflineFieldDraftDirective implements AfterViewInit, OnDestroy {
     queueMicrotask(() => {
       if (!this.key || this.destroyed || this.offline.session()?.owner !== this.owner || !this.control.control?.dirty || this.control.control.disabled) return;
       const controlPath = this.control.path?.length ? this.control.path : [String(this.control.name || this.element.nativeElement.id)];
-      void this.offline.store.put('drafts', { id: this.key, owner: this.owner, page: this.page, controlPath, value: this.control.value, savedAt: Date.now() })
+      void this.offline.store.put('drafts', { id: this.key, owner: this.owner, page: this.page, controlPath, value: this.control.value, revision: operationId(), savedAt: Date.now() })
         .catch(() => this.offline.notice.next('Impossibile conservare la bozza locale. Non chiudere questa pagina.'));
     });
   }

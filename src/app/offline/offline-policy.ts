@@ -26,6 +26,8 @@ export function canReplayAutomatically(method: string, path: string): boolean {
   );
 }
 export function operationLabel(path: string, body?: StoredBody): string {
+  const requirement = path.match(/^\/admin\/resource-categories\/(vehicle|equipment|internal)\/customer\/([^/]+)$/);
+  if (requirement) return `Requisiti ${requirement[1] === 'equipment' ? 'attrezzature' : requirement[1] === 'vehicle' ? 'mezzi' : 'risorse interne'} · cliente ${requirement[2]}`;
   if (path.startsWith('/shifts/')) {
     const day = shiftOperationDay(path, body);
     const label = path === '/shifts/autosave' ? 'Aggiornamento turno' : path === '/shifts/delete' ? 'Eliminazione turno' : 'Turni';
@@ -60,6 +62,9 @@ export function shiftOperationDay(path: string, body?: StoredBody): string | und
   return days.length && typeof days[0] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(days[0]) && days.every((day: any) => day === days[0]) ? days[0] : undefined;
 }
 export function operationScope(path: string, body?: StoredBody): string {
+  // Different resource types/customers are separate records. Customer creation
+  // saves vehicle and equipment requirements concurrently.
+  if (/^\/admin\/resource-categories\/(vehicle|equipment|internal)\/customer\/[^/]+$/.test(path)) return path;
   const day = shiftOperationDay(path, body);
   if (day) return `shifts|${day}`;
   const segments = path.split('/').filter(Boolean);

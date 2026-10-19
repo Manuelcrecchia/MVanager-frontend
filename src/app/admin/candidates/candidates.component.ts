@@ -588,14 +588,13 @@ loadCandidates(scope: 'active' | 'discarded' = this.scope, silent = false): void
     if (!this.selectedCandidate || !this.canConvert) return;
     if (!await this.appDialog.confirm('Aggiungere questo candidato come dipendente?')) return;
     const hasEmail = Boolean(String(this.selectedCandidate.email || '').trim());
-    this.http.post<{ candidate: Candidate; employee: { id: number }; credentialEmailError?: string }>(
+    this.http.post<{ candidate: Candidate; employee: { id: number }; credentialEmailError?: string; saveWarnings?: string[] }>(
       this.api(`${this.selectedCandidate.id}/convert-to-employee`),
       { sendCredentials: hasEmail },
     ).subscribe({
       next: (response) => {
-        this.successMessage = response.credentialEmailError
-          ? `Dipendente creato. ${response.credentialEmailError}.`
-          : 'Dipendente creato.';
+        this.successMessage = ['Dipendente creato.', response.credentialEmailError, ...(response.saveWarnings || [])]
+          .filter(Boolean).join(' ');
         this.loadCandidates('discarded');
         this.selectCandidate(response.candidate);
         this.notifyCandidatesChanged();

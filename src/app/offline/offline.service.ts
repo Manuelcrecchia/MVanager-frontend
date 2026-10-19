@@ -2,6 +2,7 @@ import { Injectable, InjectionToken, Injector, isDevMode } from '@angular/core';
 import { HttpBackend, HttpClient, HttpContextToken, HttpErrorResponse, HttpEvent, HttpHandlerFn, HttpHeaders, HttpRequest, HttpResponse } from '@angular/common/http';
 import { BehaviorSubject, Observable, filter, firstValueFrom, tap, timeout } from 'rxjs';
 import { OfflineStore } from './offline-store';
+import { compactCompletion, COMPLETION_PREFIX, COMPLETION_TTL, MAX_RECENT_COMPLETIONS } from './offline-completion';
 import { StoredBody, bodyHash, decodeBody, digest, encodeBody, operationId } from './offline-codec';
 import { boundApiResponse, apiTimeoutError } from './http-response-deadline';
 import { canReplayAutomatically, containsCredentials, isOfflineRead, isProtectedWrite, operationLabel, operationScope, scopesOverlap, shiftOperationDay } from './offline-policy';
@@ -62,6 +63,15 @@ export class OfflineService {
     }
     if (this.hasFieldDraft.value && !(await this.store.all('drafts')).some(draft => this.fields.has(draft.id))) this.hasFieldDraft.next(false);
   }
+  private async clearConfirmedDrafts(row: PendingOperation): Promise<void> {
+    await this.clearSavedFields(row);
+    const draft = await this.store.get('drafts', `${row.owner}|${row.page}`);
+    // Active editors clear the exact revision themselves. Never remove newer
+    // edits or a draft from another writer while reclaiming a confirmed request.
+    if (draft && !this.draftPages.has(row.page) && row.draftWriter && draft.writer === row.draftWriter && draft.savedAt < Date.parse(row.createdAt)) {
+      await this.store.removeDraftVersion(draft.id, { revision: draft.revision, savedAt: draft.savedAt });
+    }
+  }
   readonly connected = new BehaviorSubject(navigator.onLine);
   private readonly raw: HttpClient;
   private started = false;
@@ -98,11 +108,24 @@ export class OfflineService {
     return () => { const count = (this.draftPages.get(page) || 1) - 1; if (count) this.draftPages.set(page, count); else this.draftPages.delete(page); };
   }
   private confirmed = new Map<string, HttpResponse<any>>();
+  private finishing = new Set<string>();
+  private recentCompletions = new Map<string, { row: PendingOperation; savedAt: number }>();
+  private rememberCompletion(row: PendingOperation): void {
+    // Preserve live response delivery and immediate retry deduplication without
+    // retaining the submitted payload/attachments or an unbounded history.
+    this.recentCompletions.delete(row.id);
+    this.recentCompletions.set(row.id, { row: { ...compactCompletion(row), response: row.response }, savedAt: Date.now() });
+    while (this.recentCompletions.size > MAX_RECENT_COMPLETIONS) {
+      const id = this.recentCompletions.keys().next().value!;
+      this.recentCompletions.delete(id); this.confirmed.delete(id);
+    }
+  }
   private consumeRequested = new Set<string>();
   private volatile = new Map<string, PendingOperation>();
   private currentOwner = '';
   private lastCachePrune = 0;
   private rejectionNotice = '';
+  private requirementChecks = new Map<string, number>();
   private parsedErrors = new WeakMap<object, any>();
   constructor(private injector: Injector, backend: HttpBackend) { this.raw = new HttpClient(backend); }
 
@@ -143,17 +166,42 @@ export class OfflineService {
     const owner = this.session()?.owner || '';
     if (owner !== this.currentOwner) { this.currentOwner = owner; this.notice.next(''); this.operations.next([]); }
     if (!owner) return;
-    const rows = await this.store.all<PendingOperation>('queue');
+    const stored = await this.store.all<PendingOperation>('queue');
     if (this.session()?.owner !== owner) return;
     // Older clients kept a rejected preflight as pending even after "Save anyway" succeeded.
-    for (const row of rows) {
+    for (const row of stored) {
+      const known = this.recentCompletions.get(row.id)?.row;
+      if (row.owner === owner && known?.hash === row.hash && known.response && !this.finishing.has(row.id)) {
+        row.state = known.state;
+        row.response = known.response;
+        row.leaseUntil = 0;
+      }
       if (row.owner === owner && row.state === 'blocked' && !row.blocksQueue &&
           row.path === '/shifts/saveMultiple' && row.error === 'Sono state trovate incongruenze nei turni' &&
           row.body.type === 'json' && !row.body.value?.forceSave) {
         row.state = 'archived';
-        await this.store.put('queue', { ...row, dedup: `archived:${row.id}` });
+        await this.store.archiveSuperseded(row.id, owner);
       }
+      // Also reclaim full requests left behind by older app versions.
+      if (row.owner === owner && row.state === 'done') {
+        this.rememberCompletion(row);
+        await this.clearConfirmedDrafts(row);
+        const state = await this.store.markConfirmed(row);
+        if (state !== 'archived' && this.consumeRequested.has(row.id)) {
+          await this.store.forgetCompletion(row.id);
+          this.recentCompletions.delete(row.id); this.confirmed.delete(row.id); this.consumeRequested.delete(row.id);
+        }
+      } else if (row.owner === owner && row.state === 'archived') await this.store.archiveSuperseded(row.id, owner, row.recoveredShifts);
     }
+    await this.store.pruneCompletions(owner, Array.from(this.draftPages.keys()));
+    const rows = await this.store.allOperations();
+    for (const [id, entry] of this.recentCompletions) {
+      if (Date.now() - entry.savedAt > COMPLETION_TTL) { this.recentCompletions.delete(id); this.confirmed.delete(id); continue; }
+      const index = rows.findIndex(row => row.id === id);
+      if (index < 0) rows.push(entry.row);
+      else if (rows[index].state === 'done') rows[index] = entry.row;
+    }
+    if (this.session()?.owner !== owner) return;
     this.operations.next(rows.filter(row => row.owner === owner && row.state !== 'archived').map(row => ({ ...row, label: operationLabel(row.path, row.body), ...(this.confirmed.has(row.id) ? { state: 'done' as const } : {}) })).sort((a, b) => (a.sequence || Date.parse(a.createdAt)) - (b.sequence || Date.parse(b.createdAt))));
   }
   intercept(req: HttpRequest<any>, next: HttpHandlerFn): Observable<HttpEvent<any>> {
@@ -185,6 +233,9 @@ export class OfflineService {
     return new HttpErrorResponse({ status: 0, url: row.url, error: { code: 'OFFLINE_PENDING', state: row.state, operationId: row.id, error: row.error || PENDING_MESSAGE } });
   }
   private async save(req: HttpRequest<any>, next: HttpHandlerFn, owner: string, path: string): Promise<HttpResponse<any>> {
+    // File hashing can take time. Later edits must remain newer than the
+    // submitted snapshot, including when its editor closes before confirmation.
+    const createdAt = new Date().toISOString();
     const page = location.pathname + location.search;
     const active = document.activeElement;
     const form = (active as HTMLInputElement)?.form || active?.closest('form');
@@ -203,7 +254,7 @@ export class OfflineService {
       candidate = {
         id: operationId(), owner, dedup: `${owner}|${req.method}|${req.urlWithParams}|${hash}${versionKey}`, hash,
         method: req.method, url: req.urlWithParams, path, body, headers, responseType: req.responseType,
-        createdAt: new Date().toISOString(), page, formScope, draftWriter: this.draftWriter,
+        createdAt, page, formScope, draftWriter: this.draftWriter,
         clientBuild: document.querySelector<HTMLScriptElement>('script[src*="main-"]')?.getAttribute('src')?.split('/').pop(),
         label: operationLabel(path, body), automatic: canReplayAutomatically(req.method, path),
         state: 'waiting', attempts: 0, nextAttempt: 0, foreground: true, foregroundUntil: Date.now() + 15000,
@@ -217,11 +268,14 @@ export class OfflineService {
         if (entity != null) candidate.intent = `${owner}|${path}|record:${entity}${versionKey}`;
       }
       if (unconfirmedDirect()) throw directConflict();
-      const previous = candidate.intent ? (await this.store.all<PendingOperation>('queue')).find(item => item.owner === owner && item.intent === candidate!.intent && item.dedup !== candidate!.dedup && item.state !== 'archived') : undefined;
+      const known = await this.store.allOperations();
+      const completion = known.concat(Array.from(this.recentCompletions.values(), entry => entry.row)).find(item => item.owner === owner && item.dedup === candidate!.dedup && item.state === 'done' && item.response);
+      const previous = candidate.intent ? known.find(item => item.owner === owner && item.intent === candidate!.intent && item.dedup !== candidate!.dedup && item.state !== 'archived') : undefined;
       replacing = !!previous;
-      row = previous ? await this.replacePending(candidate, previous) : await this.store.enqueue(candidate);
+      row = completion || (previous ? await this.replacePending(candidate, previous) : await this.store.enqueue(candidate));
       persisted = true;
-      await this.refresh();
+      if (completion) await this.refresh().catch(() => this.notice.next('Salvataggio confermato dal server. Pulizia della copia locale da completare.'));
+      else await this.refresh();
     } catch (error: any) {
       if (error instanceof HttpErrorResponse) throw error;
       if (error?.code === 'OFFLINE_BUSY') throw this.replacementError('Un invio dello stesso modulo è in corso. Le ultime modifiche restano nella bozza. Attendi la conferma prima di salvare di nuovo.');
@@ -260,9 +314,9 @@ export class OfflineService {
     }
     // Preserve chronology within the same domain, including entry/exit clock-ins.
     const earlier = this.operations.value.some(other => other.id !== row.id && scopesOverlap(operationScope(other.path, other.body), operationScope(row.path, row.body)) && (other.state === 'waiting' || other.blocksQueue) && (other.sequence || Date.parse(other.createdAt)) < (row.sequence || Date.parse(row.createdAt)));
-    if (earlier) { row.foreground = false; row.error = 'Invio automatico in attesa della conferma precedente. Dati conservati sul dispositivo.'; await this.store.saveFailure(row); await this.refresh(); throw this.pending(row); }
+    if (earlier) { row.foreground = false; row.error = row.automatic ? 'Invio automatico in attesa della conferma precedente. Dati conservati sul dispositivo.' : 'Dati conservati sul dispositivo. Attendi la conferma precedente e riapri il modulo con connessione per completare il salvataggio.'; await this.store.saveFailure(row); await this.refresh(); throw this.pending(row); }
     if (!navigator.onLine && !await this.serverReachable(owner)) {
-      row.foreground = false; row.error = 'Connessione assente. Dati conservati sul dispositivo: invio automatico al ritorno della rete.';
+      row.foreground = false; row.error = row.automatic ? 'Connessione assente. Dati conservati sul dispositivo: invio automatico al ritorno della rete.' : 'Connessione assente. Dati conservati sul dispositivo: riapri il modulo con connessione per completare il salvataggio.';
       await this.store.saveFailure(row); await this.refresh();
       throw this.pending(row);
     }
@@ -309,7 +363,7 @@ export class OfflineService {
         const result = await this.reserveCancellation(previous);
         if (result.state === 'completed' && result.status >= 200 && result.status < 300) {
           if (!await this.reconcile(previous)) throw new Error('Receipt unavailable');
-          previous = (await this.store.get<PendingOperation>('queue', previous.id))!;
+          previous = (await this.store.getOperation(previous.id))!;
         } else if (result.state !== 'cancelled' && !(result.state === 'completed' && result.status >= 400 && result.status < 500)) throw new Error('Still in progress');
       } catch {
         // Keep one current version, but gate its execution on the old durable key.
@@ -343,7 +397,7 @@ export class OfflineService {
   private async resolvePredecessor(row: PendingOperation): Promise<boolean> {
     const expectedHash = row.hash;
     try {
-      const previous = await this.store.get<PendingOperation>('queue', row.predecessor!);
+      const previous = await this.store.getOperation(row.predecessor!);
       if (!previous || previous.owner !== row.owner) throw new Error('Missing recovery copy');
       const result = await this.reserveCancellation(previous);
       if (result.state === 'completed' && result.status >= 200 && result.status < 300) {
@@ -376,7 +430,7 @@ export class OfflineService {
   async retireShiftAutosaves(shifts: any[]): Promise<void> {
     const owner = this.session()?.owner;
     if (!owner || !shifts.length) return;
-    const rows = await this.store.all<PendingOperation>('queue');
+    const rows = await this.store.allOperations();
     for (const row of rows) {
       const legacyFullSave = row.path === '/shifts/saveMultiple' && !row.intent;
       const day = shiftOperationDay(row.path, row.body);
@@ -391,7 +445,7 @@ export class OfflineService {
         const receipt = await this.reserveCancellation(row).catch(() => null);
         if (receipt?.state === 'completed' && receipt.status >= 200 && receipt.status < 300) {
           if (!await this.reconcile(row)) throw this.replacementError('Attendo la conferma dei turni precedenti. La bozza resta conservata.');
-          result = (await this.store.get<PendingOperation>('queue', row.id))?.response?.body;
+          result = (await this.store.getOperation(row.id))?.response?.body;
           confirmed = true;
         } else if (receipt?.state !== 'cancelled' && !(receipt?.state === 'completed' && receipt.status >= 400 && receipt.status < 500)) throw this.replacementError('Attendo la conferma dei turni precedenti. La bozza resta conservata.');
       }
@@ -417,7 +471,7 @@ export class OfflineService {
   async loadShiftIdentities(day: string): Promise<Record<string, number>> {
     const owner = this.session()?.owner;
     if (!owner) return {};
-    const rows = await this.store.all<PendingOperation>('queue');
+    const rows = await this.store.allOperations();
     if (this.session()?.owner !== owner) return {};
     return Object.fromEntries(rows.filter(row => row.owner === owner && row.state === 'archived' && shiftOperationDay(row.path, row.body) === day)
       .sort((a, b) => (a.sequence || Date.parse(a.createdAt)) - (b.sequence || Date.parse(b.createdAt)))
@@ -446,6 +500,7 @@ export class OfflineService {
     if (receipt && receipt !== row.id) throw new HttpErrorResponse({ status: 409, error: { code: 'OFFLINE_UNCERTAIN', error: 'La conferma del server non corrisponde al salvataggio. Controllo automatico in attesa.' } });
   }
   private async finishConfirmed(row: PendingOperation, response: HttpResponse<any>, consume = false): Promise<void> {
+    this.finishing.add(row.id);
     this.confirmed.set(row.id, response);
     this.volatile.delete(row.dedup);
     this.clearRejectionNotice();
@@ -455,23 +510,24 @@ export class OfflineService {
     const headers: Record<string, string> = {};
     response.headers.keys().forEach(key => headers[key] = response.headers.get(key)!);
     const completed: PendingOperation = { ...row, state: 'done', leaseUntil: 0, error: '', blocksQueue: false, response: { body: response.body, status: response.status, headers } };
+    this.rememberCompletion(completed);
     this.operations.next(this.operations.value.map(item => item.id === row.id ? completed : item));
     // Local housekeeping must never turn a confirmed server write into a failed save.
     try {
+      await this.clearConfirmedDrafts(row);
       const storedState = await this.store.markConfirmed(completed);
-      this.confirmed.delete(row.id);
-      await this.clearSavedFields(row);
-      const draft = await this.store.get('drafts', `${row.owner}|${row.page}`);
-      // Active editors clear the exact revision themselves. A timestamp cannot
-      // prove that a draft from another tab belongs to this submitted payload.
-      if (draft && !this.draftPages.has(row.page) && row.draftWriter && draft.writer === row.draftWriter && draft.savedAt <= Date.parse(row.createdAt)) {
-        await this.store.removeDraftVersion(draft.id, { revision: draft.revision, savedAt: draft.savedAt });
+      if (storedState === 'archived') {
+        this.rememberCompletion({ ...completed, state: 'archived' });
+        this.confirmed.delete(row.id);
       }
-      if ((consume || this.consumeRequested.has(row.id)) && storedState !== 'archived') { await this.store.remove('queue', row.id); this.confirmed.delete(row.id); this.consumeRequested.delete(row.id); }
+      if ((consume || this.consumeRequested.has(row.id) || storedState === 'missing') && storedState !== 'archived') {
+        await this.store.forgetCompletion(row.id);
+        this.recentCompletions.delete(row.id); this.confirmed.delete(row.id); this.consumeRequested.delete(row.id);
+      }
       await this.refresh();
     } catch {
       this.notice.next('Salvataggio confermato dal server. Pulizia della copia locale da completare.');
-    }
+    } finally { this.finishing.delete(row.id); }
   }
   private async ensureCapability(owner: string): Promise<void> {
     const session = this.session();
@@ -594,6 +650,31 @@ export class OfflineService {
     else await this.failed(row, new HttpErrorResponse({ error: body, status: result.status, headers, url: row.url }));
     return true;
   }
+  private async reconcileEmptyCustomerRequirements(owner: string): Promise<void> {
+    if (!navigator.onLine || !this.connected.value) return;
+    for (const row of this.operations.value) {
+      if (row.owner !== owner || row.state !== 'rejected' || row.method !== 'POST' ||
+          !/^\/admin\/resource-categories\/(vehicle|equipment|internal)\/customer\/[^/]+$/.test(row.path) ||
+          row.response?.body?.code !== 'OFFLINE_REQUIRES_CONNECTION' || row.body.type !== 'json' ||
+          !Array.isArray(row.body.value?.requirements) || row.body.value.requirements.length) continue;
+      if ((this.requirementChecks.get(row.id) || 0) > Date.now()) continue;
+      this.requirementChecks.set(row.id, Date.now() + 60000);
+      if (this.requirementChecks.size > 100) this.requirementChecks.delete(this.requirementChecks.keys().next().value!);
+      const session = this.session();
+      if (!session || session.owner !== owner || session.expired) return;
+      try {
+        // Read current state only: never replay an old empty list, which could
+        // erase requirements entered since this attempt was captured.
+        const current = await firstValueFrom(this.raw.get<unknown>(row.url, {
+          headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-Id': session.tenant },
+        }).pipe(timeout(3000)));
+        if (this.session()?.owner !== owner) return;
+        if (Array.isArray(current) && current.length === 0) {
+          await this.store.archiveSuperseded(row.id, owner, undefined, 'rejected');
+        }
+      } catch { /* Keep the local copy unless the server confirms an empty list. */ }
+    }
+  }
   async sync(manualId?: string, reconnect = false): Promise<void> {
     if (this.syncing) {
       if (manualId) this.notice.next('Un invio è già in corso. Attendi il suo esito e poi riprova.');
@@ -607,6 +688,8 @@ export class OfflineService {
     }
     this.syncing = true;
     try {
+      await this.refresh();
+      await this.reconcileEmptyCustomerRequirements(owner);
       await this.refresh();
       if (!this.operations.value.some(row => !['done', 'rejected', 'archived'].includes(row.state))) return;
       if (!manualId && (!navigator.onLine || !this.connected.value)) {
@@ -679,8 +762,17 @@ export class OfflineService {
   }
   async acknowledge(row: PendingOperation): Promise<void> {
     if (row.owner !== this.session()?.owner || row.state !== 'done') return;
-    if (this.confirmed.has(row.id)) { this.consumeRequested.add(row.id); return; }
-    await this.store.remove('queue', row.id); await this.refresh();
+    if (this.finishing.has(row.id)) { this.consumeRequested.add(row.id); return; }
+    const pending = await this.store.get<PendingOperation>('queue', row.id);
+    const response = this.confirmed.get(row.id);
+    if (pending && pending.hash === row.hash && response) {
+      this.consumeRequested.add(row.id);
+      await this.finishConfirmed(pending, response, true);
+      return;
+    }
+    await this.store.forgetCompletion(row.id);
+    this.recentCompletions.delete(row.id); this.confirmed.delete(row.id);
+    await this.refresh();
   }
   async discardOperations(rows: PendingOperation[]): Promise<void> {
     const owner = this.session()?.owner;
@@ -724,7 +816,7 @@ export class OfflineService {
           if (Date.now() - this.lastCachePrune > 3600000) {
             this.lastCachePrune = Date.now();
             const entries = await this.store.all('cache');
-            for (const entry of entries) if (Date.now() - entry.savedAt > 7 * 86400000) await this.store.remove('cache', entry.id);
+            for (const entry of entries) if (!entry.id.startsWith(COMPLETION_PREFIX) && Date.now() - entry.savedAt > 7 * 86400000) await this.store.remove('cache', entry.id);
           }
         } catch { /* A failed read cache must not discard a valid online response. */ }
       }
@@ -741,10 +833,10 @@ export class OfflineService {
       throw error;
     }
   }
-  async saveDraft(value: any, page = location.pathname + location.search, owner = this.session()?.owner, version = { revision: operationId(), savedAt: Date.now() }): Promise<void> {
-    if (!owner || owner !== this.session()?.owner) return;
-    try { await this.store.put('drafts', { id: `${owner}|${page}`, value, writer: this.draftWriter, ...version }); }
-    catch { this.storageError(); }
+  async saveDraft(value: any, page = location.pathname + location.search, owner = this.session()?.owner, version = { revision: operationId(), savedAt: Date.now() }): Promise<boolean> {
+    if (!owner || owner !== this.session()?.owner) return false;
+    try { await this.store.put('drafts', { id: `${owner}|${page}`, value, writer: this.draftWriter, ...version }); return true; }
+    catch { this.storageError(); return false; }
   }
   async loadDraftEntry(page = location.pathname + location.search): Promise<{ value: any; writer?: string; revision?: string; savedAt: number } | null> {
     const owner = this.session()?.owner; if (!owner) return null;
