@@ -1,4 +1,8 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Subscription } from 'rxjs';
+import { Capacitor } from '@capacitor/core';
+import { AppLauncher } from '@capacitor/app-launcher';
+import { calendarDirectionsUrl, calendarPhoneUrl } from './calendar-contact-links';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../../service/global.service';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -6,9 +10,13 @@ import { AutomaticAddInspectionToCalendarService } from '../../../service/automa
 import { PopupServiceService } from '../../../componenti/popup/popup-service.service';
 import { TenantService } from '../../../service/tenant.service';
 import { InspectionAlarmSyncService } from '../../../service/inspection-alarm-sync.service';
+import { AgendaWidgetService } from '../../../service/agenda-widget.service';
 
+type CalendarEventId = number | string;
+interface CrossTenantShare { tenantId: string; mode: 'all' | 'selected'; visibility: 'busy' | 'details'; adminIds: number[]; }
+interface FederationOption { tenantId: string; label: string; userId?: number; personal: boolean; availability: boolean; details: boolean; work?: boolean; users: Array<{ id: number; label: string }>; }
 interface RawEvent {
-  id: number;
+  id: CalendarEventId;
   title: string;
   startDate: string;
   endDate: string;
@@ -20,11 +28,30 @@ interface RawEvent {
   status: string;
   inspectionAdminIds?: number[];
   inspectionReminderMinutes?: number | null;
+  locationAddress?: string | null;
+  contactPhone?: string | null;
+  numeroCliente?: string | null;
+  numeroPreventivo?: string | null;
+  calendarScope?: 'work' | 'personal';
+  ownerAdminId?: number | null;
+  sharedWithWork?: boolean;
+  sharedAdminIds?: number[];
+  personalCategoryLabel?: string | null;
+  personalCategoryColor?: string | null;
+  canEdit?: boolean;
   customerWarehouseMode?: 'none' | 'load' | 'unload' | 'load_unload';
+  sourceTenantId?: string;
+  sourceAppointmentId?: number;
+  sourceCompanyLabel?: string;
+  isOwnAgenda?: boolean;
+  busyOnly?: boolean;
+  isSharedPersonal?: boolean;
+  crossTenantShares?: CrossTenantShare[];
+  personalSharingVisibility?: 'busy' | 'details';
 }
 
 interface CalEvent {
-  id: number;
+  id: CalendarEventId;
   title: string;
   start: Date;
   end: Date;
@@ -34,10 +61,29 @@ interface CalEvent {
   recurrenceException: string[];
   dayLong: boolean;
   isRecurring?: boolean;
-  originalId?: number;
+  originalId?: CalendarEventId;
   inspectionAdminIds?: number[];
   inspectionReminderMinutes?: number | null;
+  locationAddress?: string | null;
+  contactPhone?: string | null;
+  numeroCliente?: string | null;
+  numeroPreventivo?: string | null;
+  calendarScope?: 'work' | 'personal';
+  ownerAdminId?: number | null;
+  sharedWithWork?: boolean;
+  sharedAdminIds?: number[];
+  personalCategoryLabel?: string | null;
+  personalCategoryColor?: string | null;
+  canEdit?: boolean;
   customerWarehouseMode?: 'none' | 'load' | 'unload' | 'load_unload';
+  sourceTenantId?: string;
+  sourceAppointmentId?: number;
+  sourceCompanyLabel?: string;
+  isOwnAgenda?: boolean;
+  busyOnly?: boolean;
+  isSharedPersonal?: boolean;
+  crossTenantShares?: CrossTenantShare[];
+  personalSharingVisibility?: 'busy' | 'details';
 }
 
 interface AdminOption {
@@ -48,6 +94,8 @@ interface AdminOption {
 }
 
 interface CalendarCategoryOption {
+  scope?: 'work' | 'personal';
+  sharedOnly?: boolean;
   id: string;
   text: string;
   color: string;
@@ -72,7 +120,7 @@ interface DayCell {
   isCurrentMonth: boolean;
   isToday: boolean;
   events: CalEvent[];
-  eventLayout?: Map<number, {col: number, totalCols: number}>;
+  eventLayout?: Map<CalendarEventId, {col: number, totalCols: number}>;
 }
 
 type EditScope = 'single' | 'series';
@@ -82,10 +130,12 @@ type EditScope = 'single' | 'series';
   templateUrl: './calendar-home.component.html',
   styleUrl: './calendar-home.component.css',
 })
-export class CalendarHomeComponent implements OnInit {
+export class CalendarHomeComponent implements OnInit, OnDestroy {
 
   readonly realtimeResources = ["appointments","quotes","customers","shifts"];
   refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadPersonalCategories();
+    this.loadFederationOptions();
     this.loadAll();
   }
   trackCalendarWeek(index: number, week: Date[]): number {
@@ -98,6 +148,11 @@ export class CalendarHomeComponent implements OnInit {
 
   rawEvents: RawEvent[] = [];
   activeFilter = 'all';
+  calendarGroup: 'all' | 'work' | 'personal' = 'all';
+  currentAdminId: number | null = null;
+  personalSettingsReady = false;
+  personalSettingsError = '';
+  private ownPersonalCategories: CalendarCategoryOption[] = [{ id: 'personal-event', text: 'Evento', color: '#7c3aed', scope: 'personal', source: 'none' }];
   currentView: 'month' | 'week' | 'day' = 'month';
   currentDate = new Date();
 
@@ -105,6 +160,8 @@ export class CalendarHomeComponent implements OnInit {
   miniCalDate = new Date();
 
   showPopup = false;
+  detailEvent: CalEvent | null = null;
+  private detailSelectedDate: Date | null = null;
   showDayPopup = false;
   showEditScopeChoice = false;
   dayPopupDate: Date = new Date();
@@ -123,9 +180,24 @@ export class CalendarHomeComponent implements OnInit {
 
   popupTitle = '';
   popupDescription = '';
+  private popupLocationOverride: string | null = null;
+  private popupPhoneOverride: string | null = null;
+  private popupCustomerNumero = '';
   popupStartDate = '';
   popupEndDate = '';
   popupCategory = '';
+  popupCalendarScope: 'work' | 'personal' = 'work';
+  popupSharingMode: 'private' | 'all' | 'selected' = 'private';
+  popupSharedAdminIds: number[] = [];
+  sharingUsers: Array<{ id: number; label: string }> = [];
+  sharingUsersReady = false;
+  sharingUsersLoading = false;
+  sharingUsersError = '';
+  get popupSharedWithWork(): boolean { return this.popupSharingMode === 'all'; }
+  set popupSharedWithWork(value: boolean) { this.popupSharingMode = value ? 'all' : 'private'; }
+  popupPersonalReminderEnabled = false;
+  popupPersonalLinkType: 'none' | 'customer' | 'quote' = 'none';
+  popupPersonalLinkNumber = '';
   popupInspectionAdminIds: number[] = [];
   popupInspectionReminderMinutes: number | null = 30;
   popupCustomerWarehouseMode: 'none' | 'load' | 'unload' | 'load_unload' = 'none';
@@ -171,8 +243,11 @@ export class CalendarHomeComponent implements OnInit {
   private pendingInterventionMode: 'guided' | null = null;
   private pendingInterventionItems: Array<{ assetId: number; fieldKeys: string[]; deadlineIds: number[] }> = [];
   private readonly assetPreparationStorageKey = 'mvanager-customer-asset-intervention-preparation';
-  private pendingAppointmentId: number | null = null;
+  private pendingAppointmentId: CalendarEventId | null = null;
   private routeActionOpened = false;
+  private widgetRouteSubscription?: Subscription;
+  private routeReady = false;
+  private pendingOccurrenceStart = '';
 
   get isDeadlinePlanning(): boolean {
     return this.pendingDeadlineIds.length > 0 || this.pendingInterventionItems.length > 0;
@@ -187,17 +262,185 @@ export class CalendarHomeComponent implements OnInit {
     private popupService: PopupServiceService,
     public tenantService: TenantService,
     private inspectionAlarmSync: InspectionAlarmSyncService,
+    private agendaWidget?: AgendaWidgetService,
   ) {}
 
   ngOnInit() {
+    this.widgetRouteSubscription = this.route.queryParamMap?.subscribe(params => {
+      if (this.routeReady && (params.has('appointmentId') || params.get('newEvent') === '1')) {
+        this.routeActionOpened = false;
+        this.readDeadlineRouteAction();
+        this.loadAll();
+      }
+    });
     this.globalService.loadTenantConfig(false, { showError: false }).then(() => {
       this.categories = this.getCategoriesForTenant();
+      this.loadPersonalCategories();
+      this.loadSharingUsers();
+      this.loadFederationOptions();
       this.readDeadlineRouteAction();
+      this.routeReady = true;
       this.loadAll();
     });
   }
 
+  ngOnDestroy(): void { this.widgetRouteSubscription?.unsubscribe(); }
+  get widgetSyncWarning(): string {
+    return this.agendaWidget?.available && ['error', 'offline'].includes(this.agendaWidget.status.state)
+      ? `Widget: ${this.agendaWidget.status.message || 'Aggiornamento non riuscito.'}` : '';
+  }
+
+  get workCategories(): CalendarCategoryOption[] { return this.categories.filter(category => category.scope !== 'personal'); }
+  get allPersonalCategories(): CalendarCategoryOption[] { return this.categories.filter(category => category.scope === 'personal'); }
+  get personalCategories(): CalendarCategoryOption[] { if (this.popupSourceTenantId) return this.popupRemoteCategories; return this.categories.filter(category => category.scope === 'personal' && !category.sharedOnly); }
+  get popupIsPersonal(): boolean { return this.getCategoryOption(this.popupCategory)?.scope === 'personal' || this.popupCalendarScope === 'personal'; }
+  get canManageWorkCalendar(): boolean { return this.globalService.hasPermission('CALENDAR_EVENT_MANAGE'); }
+  get canLinkPersonalCustomer(): boolean { return !this.popupSourceTenantId && this.globalService.hasPermission('CUSTOMERS_VIEW'); }
+  get canLinkPersonalQuote(): boolean { return !this.popupSourceTenantId && this.globalService.hasPermission('QUOTES_VIEW'); }
+
+  popupSourceTenantId = '';
+  popupSourceCompanyLabel = '';
+  popupSourceReady = true;
+  popupRemoteCategories: CalendarCategoryOption[] = [];
+  popupCrossTenantShares: CrossTenantShare[] = [];
+  popupPersonalVisibility: 'busy' | 'details' = 'details';
+  federationOptions: FederationOption[] = [];
+  federationReady = false;
+  federationError = '';
+  private sourceQuery(): string { return this.popupSourceTenantId ? '?sourceTenantId=' + encodeURIComponent(this.popupSourceTenantId) : ''; }
+  get availableFederationOptions(): FederationOption[] { return this.federationOptions.filter(option => this.popupIsPersonal ? option.personal : option.work); }
+  loadFederationOptions(): void {
+    this.federationError = '';
+    const requestedSource = this.popupSourceTenantId;
+    this.http.get<{ tenants: FederationOption[] }>(this.globalService.url + 'appointments/federationOptions' + this.sourceQuery(), { headers: this.globalService.headers })
+      .subscribe({ next: response => { if (requestedSource !== this.popupSourceTenantId) return; this.federationOptions = response.tenants || []; this.federationReady = true; if (this.showPopup) this.normalizeCrossShares(); },
+        error: () => { this.federationReady = false; this.federationError = 'Impossibile verificare la condivisione con le altre aziende.'; } });
+  }
+  private normalizeCrossShares(): void {
+    const allowed = this.availableFederationOptions;
+    this.popupCrossTenantShares = this.popupCrossTenantShares.filter(share => allowed.some(company => company.tenantId === share.tenantId))
+      .map(share => { const company = allowed.find(item => item.tenantId === share.tenantId)!;
+        return { ...share, visibility: company.details ? share.visibility : 'busy', adminIds: share.adminIds.filter(id => company.users.some(user => user.id === id)) };
+      });
+  }
+  crossShare(tenantId: string): CrossTenantShare | undefined { return this.popupCrossTenantShares.find(share => share.tenantId === tenantId); }
+  crossShareMode(tenantId: string): string { return this.crossShare(tenantId)?.mode || 'none'; }
+  changeCrossShare(tenantId: string, mode: string): void {
+    this.popupCrossTenantShares = this.popupCrossTenantShares.filter(share => share.tenantId !== tenantId);
+    if (mode === 'all' || mode === 'selected') this.popupCrossTenantShares.push({ tenantId, mode, visibility: 'busy', adminIds: [] });
+  }
+  toggleCrossRecipient(share: CrossTenantShare, id: number): void {
+    share.adminIds = share.adminIds.includes(id) ? share.adminIds.filter(value => value !== id) : [...share.adminIds, id];
+  }
+  private async handleSaveError(error: any, retry: () => void): Promise<void> {
+    let response = error?.error;
+    if (typeof response === 'string') { try { response = JSON.parse(response); } catch {} }
+    if (error?.status === 409 && Array.isArray(response?.conflicts)) {
+      const entries = response.conflicts.slice(0, 5).map((entry: any) => `${entry.personLabel}: ${new Date(entry.startDate).toLocaleString('it-IT')} – ${new Date(entry.endDate).toLocaleString('it-IT')}`).join('\n');
+      if (await this.popupService.confirm('Sono presenti impegni sovrapposti:\n' + entries + '\nVuoi salvare comunque?', 'Sovrapposizione appuntamenti', { confirmLabel: 'Salva comunque', cancelLabel: 'Torna all’evento' })) retry();
+      return;
+    }
+    this.popupService.showError(response?.error || response || 'Impossibile salvare l’appuntamento.');
+  }
+
+  loadSharingUsers(): void {
+    this.sharingUsersLoading = true; this.sharingUsersError = '';
+    const requestedSource = this.popupSourceTenantId;
+    this.http.get<{ users: Array<{ id: number; label: string }> }>(this.globalService.url + 'appointments/sharingUsers' + this.sourceQuery(),
+      { headers: this.globalService.headers }).subscribe({ next: response => {
+        if (requestedSource !== this.popupSourceTenantId) return;
+        this.sharingUsers = response.users; this.sharingUsersReady = true; this.sharingUsersLoading = false;
+        this.updateCalendarAssignees();
+      }, error: () => { this.sharingUsersReady = false; this.sharingUsersLoading = false;
+        this.sharingUsersError = 'Impossibile caricare gli utenti del calendario.'; } });
+  }
+
+  private updateCalendarAssignees(): void {
+    if (this.popupSourceTenantId || this.globalService.hasPermission('ADMIN_VIEW')) return;
+    this.adminOptions = this.sharingUsers.map(user => ({ id: user.id, nome: user.label, cognome: '', email: '' }));
+    if (this.currentAdminId) this.adminOptions.unshift({ id: this.currentAdminId, nome: 'Tu', cognome: '', email: '' });
+  }
+
+  get personalSharingHelp(): string {
+    if (this.popupSharingMode === 'private') return 'L’evento è privato e visibile solo a te.';
+    const audience = this.popupSharingMode === 'all' ? 'Tutti gli utenti del calendario' : 'Solo gli utenti selezionati';
+    const visibility = this.popupPersonalVisibility === 'busy' ? 'vedranno soltanto che sei occupato, senza i dettagli dell’evento.' : 'potranno vedere i dettagli dell’evento.';
+    return `${audience} ${visibility} Solo tu potrai modificarlo.`;
+  }
+
+  onPersonalSharingChange(): void {
+    if (this.popupSharingMode === 'selected' && !this.sharingUsersReady && !this.sharingUsersLoading) this.loadSharingUsers();
+  }
+
+  togglePersonalSharingUser(id: number): void {
+    this.popupSharedAdminIds = this.popupSharedAdminIds.includes(id)
+      ? this.popupSharedAdminIds.filter(value => value !== id) : [...this.popupSharedAdminIds, id];
+  }
+
+  get detailSharingLabel(): string {
+    if (this.detailEvent?.busyOnly) return 'Disponibilità condivisa';
+    if (this.detailEvent?.canEdit === false) return 'Condiviso con te';
+    if (this.detailEvent?.sharedWithWork) return 'Condiviso con tutti gli utenti';
+    return this.detailEvent?.sharedAdminIds?.length ? 'Condiviso con utenti selezionati' : 'Privato, visibile solo a te';
+  }
+
+  get detailSharingRecipients(): string {
+    if (this.detailEvent?.sourceTenantId) return '';
+    return (this.detailEvent?.sharedAdminIds || []).map(id => this.sharingUsers.find(user => user.id === id)?.label || `Utente ${id}`).join(', ');
+  }
+
+  loadPersonalCategories(): void {
+    this.personalSettingsError = '';
+    this.http.get<{ userId: number; categories: Array<{ id: string; label: string; color: string }> }>(
+      this.globalService.url + 'appointments/personalCategories', { headers: this.globalService.headers },
+    ).subscribe({ next: response => {
+      this.currentAdminId = response.userId;
+      this.updateCalendarAssignees();
+      this.ownPersonalCategories = response.categories.map(category => ({ id: category.id, text: category.label,
+        color: category.color, source: 'none', scope: 'personal' }));
+      this.personalSettingsReady = true;
+      this.mergeCalendarCategories(); this.buildGrid();
+    }, error: () => { this.personalSettingsError = 'Impossibile caricare le categorie personali. Riprova prima di creare eventi personali.'; } });
+  }
+
+  private mergeCalendarCategories(): void {
+    const merged = [...this.workCategories, ...this.ownPersonalCategories];
+    for (const event of this.rawEvents) {
+      if (event.calendarScope !== 'personal' || merged.some(category => category.id === event.categories)) continue;
+      merged.push({ id: event.categories, text: event.personalCategoryLabel || 'Evento personale',
+        color: event.personalCategoryColor || '#7c3aed', scope: 'personal', sharedOnly: true, source: 'none' });
+    }
+    this.categories = merged;
+  }
+
+  setCalendarGroup(value: string): void {
+    this.calendarGroup = value === 'work' || value === 'personal' ? value : 'all';
+    this.activeFilter = 'all'; this.buildGrid();
+  }
+
+  get personalLinkOptions(): Array<{ value: string; label: string }> {
+    if (this.popupPersonalLinkType === 'customer' && this.canLinkPersonalCustomer) {
+      return this.clientiArray.map(record => ({ value: String(record.numeroCliente), label: this.customerLabel(record) }));
+    }
+    if (this.popupPersonalLinkType === 'quote' && this.canLinkPersonalQuote) {
+      return [...this.quotesMap.values()].map(record => ({ value: String(record.numeroPreventivo), label: this.quoteLabel(record) }));
+    }
+    return [];
+  }
+
+  onPersonalLinkTypeChange(): void { this.popupPersonalLinkNumber = ''; this.onPersonalLinkChange(); }
+  onPersonalLinkChange(): void { this.popupLocationOverride = null; this.popupPhoneOverride = null; }
+
   private readDeadlineRouteAction(): void {
+    const widgetAccount = this.route.snapshot.queryParamMap.get('widgetAccount');
+    if (widgetAccount) {
+      let account = '';
+      try {
+        const payload = JSON.parse(atob(this.globalService.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        account = `${payload.tenantId}:${payload.id}`;
+      } catch { /* Widget links cannot select an event in a different session. */ }
+      if (widgetAccount !== account) { this.pendingAppointmentId = null; this.clearRouteActionQuery(); return; }
+    }
     const ids = String(this.route.snapshot.queryParamMap.get('deadlineIds') || '')
       .split(',')
       .map((value) => Number.parseInt(value, 10))
@@ -220,13 +463,15 @@ export class CalendarHomeComponent implements OnInit {
         this.pendingInterventionItems = [];
       }
     }
-    const appointmentId = Number.parseInt(
-      String(this.route.snapshot.queryParamMap.get('appointmentId') || ''),
-      10,
-    );
-    this.pendingAppointmentId = Number.isInteger(appointmentId) && appointmentId > 0
-      ? appointmentId
-      : null;
+    const appointmentKey = String(this.route.snapshot.queryParamMap.get('appointmentId') || '');
+    this.pendingAppointmentId = /^f:[a-z0-9_-]+:[1-9][0-9]*$/.test(appointmentKey) ? appointmentKey : /^[1-9][0-9]*$/.test(appointmentKey) ? Number(appointmentKey) : null;
+    this.pendingOccurrenceStart = this.route.snapshot.queryParamMap.get('occurrenceStart') || '';
+    if (this.route.snapshot.queryParamMap.get('newEvent') === '1') {
+      this.closeEventDetails();
+      this.openNewPopup(new Date());
+      this.clearRouteActionQuery();
+      return;
+    }
 
     if (!this.isDeadlinePlanning) return;
     const category = String(this.route.snapshot.queryParamMap.get('deadlineCategory') || '');
@@ -264,6 +509,9 @@ export class CalendarHomeComponent implements OnInit {
         planDescription: null,
         planDate: null,
         appointmentId: null,
+        occurrenceStart: null,
+        newEvent: null,
+        widgetAccount: null,
         interventionMode: null,
         assetPreparation: null,
       },
@@ -286,21 +534,38 @@ export class CalendarHomeComponent implements OnInit {
     return `${customer?.numeroCliente || ''} - ${title || 'Cliente'}`.trim();
   }
 
+  calendarLoadError = '';
   loadAll() {
+    this.calendarLoadError = '';
     this.http.get(this.globalService.url + 'appointments/getAll', {
       headers: this.globalService.headers, responseType: 'text',
-    }).subscribe((res) => {
+    }).subscribe({ next: (res) => {
       this.rawEvents = JSON.parse(res);
+      if (this.detailEvent) {
+        const latest = this.rawEvents.find(event => event.id === (this.detailEvent!.originalId ?? this.detailEvent!.id));
+        if (!latest) this.closeEventDetails();
+        else {
+          const previous = this.detailEvent;
+          this.detailEvent = previous.isRecurring ? { ...this.toCalEvent(latest), start: previous.start, end: previous.end, isRecurring: true, originalId: previous.originalId } : this.toCalEvent(latest);
+        }
+      }
+      this.mergeCalendarCategories();
       this.buildGrid();
       if (this.pendingAppointmentId && !this.routeActionOpened) {
-        const raw = this.rawEvents.find((item) => Number(item.id) === this.pendingAppointmentId);
+        const raw = this.rawEvents.find((item) => String(item.id) === String(this.pendingAppointmentId));
         this.pendingAppointmentId = null;
         if (raw) {
-          const event = this.toCalEvent(raw);
+          let event = this.toCalEvent(raw);
+          const occurrence = new Date(this.pendingOccurrenceStart);
+          if (event.recurrenceRule && Number.isFinite(occurrence.getTime())) {
+            const end = new Date(occurrence.getTime() + event.end.getTime() - event.start.getTime());
+            event = { ...event, start: occurrence, end, isRecurring: true, originalId: event.id };
+          }
+          this.pendingOccurrenceStart = '';
           this.currentDate = new Date(event.start);
           this.currentView = 'day';
           this.buildGrid();
-          this.openEditPopup(event);
+          this.openEventDetails(event);
         } else {
           this.popupService.showError('Evento pianificato non trovato.');
         }
@@ -333,38 +598,49 @@ export class CalendarHomeComponent implements OnInit {
           this.autoInspectionService.numeroPreventivo,
         );
       }
-    });
+    }, error: () => { this.calendarLoadError = 'Impossibile verificare l’agenda completa. Riprova prima di fissare nuovi appuntamenti.'; this.rawEvents = []; this.buildGrid(); } });
 
-    this.http.get(this.globalService.url + 'quotes/getAll', {
-      headers: this.globalService.headers, responseType: 'text',
-    }).subscribe((res) => {
-      const data = JSON.parse(res);
-      this.quotesMap.clear();
-      data.forEach((q: any) => {
-        this.quotesMap.set(this.normalize(q.numeroPreventivo), q);
+    this.quotesMap.clear();
+    this.nPreventiviArray = [];
+    if (this.globalService.hasPermission('QUOTES_VIEW')) {
+      this.http.get(this.globalService.url + 'quotes/getAll', {
+        headers: this.globalService.headers, responseType: 'text',
+      }).subscribe((res) => {
+        const data = JSON.parse(res);
+        this.quotesMap.clear();
+        data.forEach((q: any) => {
+          this.quotesMap.set(this.normalize(q.numeroPreventivo), q);
+        });
+        this.nPreventiviArray = data.filter((q: any) => !q.complete)
+          .map((q: any) => this.quoteLabel(q));
       });
-      this.nPreventiviArray = data.filter((q: any) => !q.complete)
-        .map((q: any) => this.quoteLabel(q));
-    });
+    }
 
-    this.http.get(this.globalService.url + 'customers/getAll', {
-      headers: this.globalService.headers, responseType: 'text',
-    }).subscribe((res) => {
-      this.clientiArray = JSON.parse(res);
-      this.openPendingCustomerEventIfNeeded();
-    });
+    this.clientiArray = [];
+    if (this.globalService.hasPermission('CUSTOMERS_VIEW')) {
+      this.http.get(this.globalService.url + 'customers/getAll', {
+        headers: this.globalService.headers, responseType: 'text',
+      }).subscribe((res) => {
+        this.clientiArray = JSON.parse(res);
+        this.openPendingCustomerEventIfNeeded();
+      });
+    }
 
-    this.http.get(this.globalService.url + 'admin/getAll', {
-      headers: this.globalService.headers, responseType: 'text',
-    }).subscribe((res) => {
-      const data = JSON.parse(res);
-      this.adminOptions = (Array.isArray(data) ? data : []).map((admin: any) => ({
-        id: Number(admin.id),
-        nome: admin.nome || '',
-        cognome: admin.cognome || '',
-        email: admin.email || '',
-      }));
-    });
+    this.adminOptions = [];
+    this.updateCalendarAssignees();
+    if (this.globalService.hasPermission('ADMIN_VIEW')) {
+      this.http.get(this.globalService.url + 'admin/getAll', {
+        headers: this.globalService.headers, responseType: 'text',
+      }).subscribe((res) => {
+        const data = JSON.parse(res);
+        this.adminOptions = (Array.isArray(data) ? data : []).map((admin: any) => ({
+          id: Number(admin.id),
+          nome: admin.nome || '',
+          cognome: admin.cognome || '',
+          email: admin.email || '',
+        }));
+      });
+    }
   }
 
   // ── RRULE EXPANDER ─────────────────────────────────────────────────────
@@ -380,14 +656,20 @@ export class CalendarHomeComponent implements OnInit {
         result.push(...this.expandRule(ev, rangeStart, rangeEnd));
       }
     }
-    return this.activeFilter === 'all'
-      ? result
-      : result.filter((e) => e.categories === this.activeFilter);
+    return result.filter(event => {
+      if (this.activeFilter !== 'all' && event.categories !== this.activeFilter) return false;
+      if (this.calendarGroup === 'work') return event.calendarScope !== 'personal' || event.sharedWithWork === true || !!event.sharedAdminIds?.length || event.isSharedPersonal === true || !!event.sourceTenantId;
+      if (this.calendarGroup === 'personal') return event.isOwnAgenda === true || (event.calendarScope === 'personal' && Number(event.ownerAdminId) === this.currentAdminId);
+      return true;
+    });
   }
 
   toCalEvent(raw: RawEvent): CalEvent {
     return {
-      id: raw.id,
+      id: raw.id, sourceTenantId: raw.sourceTenantId, sourceAppointmentId: raw.sourceAppointmentId,
+      sourceCompanyLabel: raw.sourceCompanyLabel, isOwnAgenda: raw.isOwnAgenda, busyOnly: raw.busyOnly,
+      isSharedPersonal: raw.isSharedPersonal, crossTenantShares: raw.crossTenantShares,
+      personalSharingVisibility: raw.personalSharingVisibility,
       title: raw.title,
       start: new Date(raw.startDate),
       end: new Date(raw.endDate),
@@ -396,6 +678,13 @@ export class CalendarHomeComponent implements OnInit {
       recurrenceRule: raw.recurrenceRule || '',
       recurrenceException: this.parseExceptions(raw.recurrenceException),
       dayLong: raw.dayLong,
+      calendarScope: raw.calendarScope || 'work', ownerAdminId: raw.ownerAdminId,
+      sharedWithWork: raw.sharedWithWork, sharedAdminIds: raw.sharedAdminIds || [], personalCategoryLabel: raw.personalCategoryLabel,
+      personalCategoryColor: raw.personalCategoryColor, canEdit: raw.canEdit,
+      locationAddress: raw.locationAddress,
+      contactPhone: raw.contactPhone,
+      numeroCliente: raw.numeroCliente,
+      numeroPreventivo: raw.numeroPreventivo,
       inspectionAdminIds: Array.isArray(raw.inspectionAdminIds)
         ? raw.inspectionAdminIds.map((id) => Number(id)).filter(Boolean)
         : [],
@@ -430,7 +719,7 @@ export class CalendarHomeComponent implements OnInit {
     let current = new Date(evStartDay);
     let occurrenceCount = 0;
 
-    while (current <= rangeEnd && occurrenceCount < 730) {
+    while (current <= rangeEnd && results.length < 730) {
       if (until && current > until) break;
       if (count !== null && occurrenceCount >= count) break;
       const diffDays = Math.round((current.getTime() - evStartDay.getTime()) / 86400000);
@@ -638,14 +927,24 @@ export class CalendarHomeComponent implements OnInit {
   // ── POPUP ──────────────────────────────────────────────────────────────
 
   openNewPopup(date: Date, category = '', title = '', description = '', numeroPreventivo = '', serviceOrderId: number | null = null) {
+    this.closeEventDetails();
     const start = new Date(date); start.setSeconds(0,0);
+    const hadSource = !!this.popupSourceTenantId;
+    this.popupSourceTenantId = ''; this.popupSourceCompanyLabel = ''; this.popupSourceReady = true;
+    this.popupRemoteCategories = []; this.popupCrossTenantShares = []; this.popupPersonalVisibility = 'details';
+    if (hadSource) { this.loadSharingUsers(); this.loadFederationOptions(); }
     this.isNewEvent=true; this.editingEventId=null; this.isRecurringInstance=false; this.hasRecurrenceRule=false;
     this.editingSingleOccurrence=false; this.editingOccurrenceStart=null; this.editingSelectedDate=null;
     this.popupTitle=title; this.popupDescription=description;
+    this.popupLocationOverride=null; this.popupPhoneOverride=null; this.popupCustomerNumero='';
     this.popupNumeroPreventivo = numeroPreventivo;
     this.popupServiceOrderId = serviceOrderId;
     this.popupStartDate=this.toInputDatetime(start);
-    this.popupCategory=category||this.globalService.getDefaultAppointmentCategory(this.categories[0]?.id || '')||'';
+    this.popupCategory=category || (this.canManageWorkCalendar
+      ? this.globalService.getDefaultAppointmentCategory(this.workCategories[0]?.id || '') : 'personal-event') || 'personal-event';
+    this.popupCalendarScope = this.getCategoryOption(this.popupCategory)?.scope === 'personal' ? 'personal' : 'work';
+    this.popupSharedWithWork = false; this.popupSharedAdminIds = []; this.popupPersonalReminderEnabled = false;
+    this.popupPersonalLinkType = 'none'; this.popupPersonalLinkNumber = '';
     this.resetCustomerWarehouseModeForCategory();
     this.updatePopupEndFromCustomerDuration();
     this.popupInspectionAdminIds = [];
@@ -714,7 +1013,7 @@ export class CalendarHomeComponent implements OnInit {
 
   private getOriginalCalEvent(ev: CalEvent): CalEvent {
     const originalId = ev.originalId ?? ev.id;
-    const raw = this.rawEvents.find((item) => Number(item.id) === Number(originalId));
+    const raw = this.rawEvents.find((item) => String(item.id) === String(originalId));
     return raw ? this.toCalEvent(raw) : ev;
   }
 
@@ -740,6 +1039,70 @@ export class CalendarHomeComponent implements OnInit {
     }
 
     return { ...ev, start, end, recurrenceRule: '' };
+  }
+
+  openEventDetails(ev: CalEvent, selectedDate?: Date | null): void {
+    this.showPopup = false;
+    this.showDeleteConfirm = false;
+    this.closeEditScopeChoice();
+    this.closeDayPopup();
+    this.detailEvent = ev;
+    this.detailSelectedDate = new Date(selectedDate || ev.start);
+  }
+
+  closeEventDetails(): void {
+    this.detailEvent = null;
+    this.detailSelectedDate = null;
+  }
+
+  get canEditCalendarEvent(): boolean {
+    return this.detailEvent?.canEdit ?? this.globalService.hasPermission('CALENDAR_EVENT_MANAGE');
+  }
+
+  editDetailEvent(): void {
+    if (!this.detailEvent || !this.canEditCalendarEvent) return;
+    const ev = this.detailEvent;
+    const selectedDate = this.detailSelectedDate;
+    this.closeEventDetails();
+    this.requestEditPopup(ev, selectedDate);
+  }
+
+  get detailCategoryLabel(): string {
+    const key = this.detailEvent?.categories || '';
+    return this.detailEvent?.personalCategoryLabel || this.getCategoryOption(key)?.text || key;
+  }
+
+  private get detailContactRecord(): { scope: 'customer' | 'quote'; record: any } | null {
+    const ev = this.detailEvent;
+    if (ev?.sourceTenantId) return null;
+    if (ev?.calendarScope === 'personal') return this.personalContactRecord(ev.numeroCliente || '', ev.numeroPreventivo || '');
+    return ev ? this.findContactRecord(ev.categories, ev.title, ev.numeroCliente || '', ev.numeroPreventivo || '') : null;
+  }
+
+  get detailLocationAddress(): string {
+    if (!this.detailEvent) return '';
+    if (this.detailEvent.locationAddress != null) return this.detailEvent.locationAddress;
+    const linked = this.detailContactRecord;
+    return linked ? this.globalService.buildCalendarWorkAddress(linked.record, linked.scope) : '';
+  }
+
+  get detailContactPhone(): string {
+    if (!this.detailEvent) return '';
+    if (this.detailEvent.contactPhone != null) return this.detailEvent.contactPhone;
+    const linked = this.detailContactRecord;
+    return linked ? String(this.globalService.getRecordValueByRole(
+      linked.scope, linked.record, linked.scope === 'customer' ? 'customerPhone' : 'quotePhone',
+    ) || '').trim() : '';
+  }
+
+  get detailDirectionsUrl(): string { return calendarDirectionsUrl(this.detailLocationAddress); }
+  get detailPhoneUrl(): string { return calendarPhoneUrl(this.detailContactPhone); }
+
+  get detailReminderRecipients(): string {
+    return (this.detailEvent?.inspectionAdminIds || []).map((id) => {
+      const admin = this.adminOptions.find((item) => Number(item.id) === Number(id));
+      return admin ? [admin.nome, admin.cognome].filter(Boolean).join(' ') || admin.email : `Utente ${id}`;
+    }).join(', ');
   }
 
   requestEditPopup(ev: CalEvent, selectedDate?: Date | null) {
@@ -775,18 +1138,44 @@ export class CalendarHomeComponent implements OnInit {
   }
 
   openEditPopup(ev: CalEvent, scope: EditScope = 'series', selectedDate?: Date | null) {
+    this.closeEventDetails();
     const original = this.getOriginalCalEvent(ev);
     const popupEvent = scope === 'single'
       ? this.singleDayView(ev, selectedDate)
       : original;
 
-    this.isNewEvent=false; this.editingEventId=ev.originalId??ev.id; this.popupServiceOrderId=null;
+    this.popupCalendarScope = popupEvent.calendarScope || 'work';
+    const previousSource = this.popupSourceTenantId;
+    this.popupSourceTenantId = popupEvent.sourceTenantId || ''; this.popupSourceCompanyLabel = popupEvent.sourceCompanyLabel || '';
+    this.popupCrossTenantShares = (popupEvent.crossTenantShares || []).map(share => ({ ...share, adminIds: [...share.adminIds] }));
+    this.popupPersonalVisibility = popupEvent.personalSharingVisibility || 'details';
+    this.popupSourceReady = !this.popupSourceTenantId;
+    if (!this.popupSourceTenantId && previousSource) { this.sharingUsersReady = false; this.federationReady = false; this.loadSharingUsers(); this.loadFederationOptions(); }
+    if (this.popupSourceTenantId) {
+      this.sharingUsersReady = false; this.federationOptions = []; this.federationReady = false;
+      this.loadSharingUsers(); this.loadFederationOptions();
+      const requestedSource = this.popupSourceTenantId;
+      this.http.get<{ categories: Array<{ id: string; label: string; color: string }> }>(this.globalService.url + 'appointments/personalCategories' + this.sourceQuery(), { headers: this.globalService.headers })
+        .subscribe({ next: response => { if (requestedSource !== this.popupSourceTenantId) return; this.popupRemoteCategories = response.categories.map(cat => ({ id: cat.id, text: cat.label, color: cat.color, scope: 'personal', source: 'none' })); this.popupSourceReady = true; },
+          error: () => this.popupService.showError('Impossibile caricare le categorie dell’azienda di origine.') });
+    }
+    this.isNewEvent=false; this.editingEventId=ev.sourceAppointmentId ?? Number(ev.originalId??ev.id); this.popupServiceOrderId=null;
     this.isRecurringInstance=!!ev.isRecurring; this.hasRecurrenceRule=!!(original.recurrenceRule&&original.recurrenceRule.trim()!=='');
     this.editingSingleOccurrence=scope === 'single';
     this.editingOccurrenceStart=new Date(ev.start);
     this.editingSelectedDate=selectedDate ? new Date(selectedDate) : new Date(ev.start);
     this.popupTitle=popupEvent.title; this.popupDescription=popupEvent.description||'';
+    this.popupLocationOverride=popupEvent.locationAddress ?? null;
+    this.popupPhoneOverride=popupEvent.contactPhone ?? null;
+    this.popupCustomerNumero=popupEvent.numeroCliente || '';
+    this.popupNumeroPreventivo=popupEvent.numeroPreventivo || '';
     this.popupStartDate=this.toInputDatetime(popupEvent.start); this.popupEndDate=this.toInputDatetime(popupEvent.end);
+    this.popupCalendarScope = popupEvent.calendarScope || 'work';
+    this.popupSharedAdminIds = [...(popupEvent.sharedAdminIds || [])];
+    this.popupSharingMode = popupEvent.sharedWithWork ? 'all' : this.popupSharedAdminIds.length ? 'selected' : 'private';
+    this.popupPersonalReminderEnabled = popupEvent.calendarScope === 'personal' && popupEvent.inspectionReminderMinutes != null;
+    this.popupPersonalLinkType = popupEvent.numeroCliente ? 'customer' : popupEvent.numeroPreventivo ? 'quote' : 'none';
+    this.popupPersonalLinkNumber = String(popupEvent.numeroCliente || popupEvent.numeroPreventivo || '');
     this.popupCategory=popupEvent.categories; this.recurrenceEnabled=this.editingSingleOccurrence ? false : this.hasRecurrenceRule; this.showDeleteConfirm=false;
     this.popupCustomerWarehouseMode = popupEvent.customerWarehouseMode || 'none';
     this.popupInspectionAdminIds = Array.isArray(popupEvent.inspectionAdminIds)
@@ -809,9 +1198,13 @@ export class CalendarHomeComponent implements OnInit {
       this.recurrenceDays=[]; this.recurrenceEndType='never'; this.recurrenceUntil=''; this.recurrenceCount=1;
     }
     this.autocompleteOpen=false; this.showPopup=true;
+    if (this.federationReady) this.normalizeCrossShares();
   }
 
   closePopup() {
+    const hadSource = !!this.popupSourceTenantId;
+    this.popupSourceTenantId = ''; this.popupSourceReady = true; this.popupRemoteCategories = [];
+    if (hadSource) { this.loadSharingUsers(); this.loadFederationOptions(); }
     this.showPopup=false; this.showDeleteConfirm=false;
     this.pendingDeadlineIds = [];
     this.pendingInterventionMode = null;
@@ -840,7 +1233,7 @@ export class CalendarHomeComponent implements OnInit {
   onEventClick(ev: CalEvent, event: Event, selectedDate?: Date | null) {
     event.stopPropagation();
     event.preventDefault();
-    this.requestEditPopup(ev, selectedDate);
+    this.openEventDetails(ev, selectedDate);
   }
 
   onDayPopupEventClick(ev: CalEvent, event: Event) {
@@ -848,20 +1241,24 @@ export class CalendarHomeComponent implements OnInit {
     event.preventDefault();
     const selectedDate = new Date(this.dayPopupDate);
     this.closeDayPopup();
-    this.requestEditPopup(ev, selectedDate);
+    this.openEventDetails(ev, selectedDate);
   }
 
   onEventDblClick(ev: CalEvent, event: MouseEvent, selectedDate?: Date | null) {
     event.stopPropagation();
     event.preventDefault();
-    this.requestEditPopup(ev, selectedDate);
+    this.openEventDetails(ev, selectedDate);
   }
 
   // ── AUTOCOMPLETE ───────────────────────────────────────────────────────
 
   onTitleInput(event: Event) {
     const val = (event.target as HTMLInputElement).value;
+    if (!this.popupIsPersonal && this.popupTitle.split(' - ')[0] !== val.split(' - ')[0]) {
+      this.popupLocationOverride=null; this.popupPhoneOverride=null;
+    }
     this.popupTitle = val;
+    this.popupCustomerNumero=''; this.popupNumeroPreventivo='';
     const allOptions = this.getAutocompleteSource(this.popupCategory);
     const norm = this.normalize(val);
     this.filteredAutocomplete = norm ? allOptions.filter(s => this.normalize(s).includes(norm)) : allOptions;
@@ -876,6 +1273,7 @@ export class CalendarHomeComponent implements OnInit {
 
   selectAutocomplete(val: string) {
     this.popupTitle = val; this.autocompleteOpen = false;
+    this.popupLocationOverride=null; this.popupPhoneOverride=null; this.popupCustomerNumero='';
 
     const codice = val.split(' - ')[0];
 
@@ -899,6 +1297,79 @@ export class CalendarHomeComponent implements OnInit {
     }
   }
 
+  private get popupContactRecord(): { scope: 'customer' | 'quote'; record: any } | null {
+    if (this.popupSourceTenantId) return null;
+    if (this.popupIsPersonal) return this.personalContactRecord(
+      this.popupPersonalLinkType === 'customer' ? this.popupPersonalLinkNumber : '',
+      this.popupPersonalLinkType === 'quote' ? this.popupPersonalLinkNumber : '',
+    );
+    return this.findContactRecord(this.popupCategory, this.popupTitle,
+      this.popupCustomerNumero, this.popupNumeroPreventivo);
+  }
+
+  private personalContactRecord(customerNumber: string, quoteNumber: string): { scope: 'customer' | 'quote'; record: any } | null {
+    if (customerNumber) {
+      const record = this.clientiArray.find(item => this.normalize(String(item.numeroCliente)) === this.normalize(customerNumber));
+      return record ? { scope: 'customer', record } : null;
+    }
+    const record = quoteNumber ? this.quotesMap.get(this.normalize(quoteNumber)) : null;
+    return record ? { scope: 'quote', record } : null;
+  }
+
+  private findContactRecord(
+    categoryId: string, title: string, customerNumero = '', quoteNumero = '',
+  ): { scope: 'customer' | 'quote'; record: any } | null {
+    const category = this.getCategoryOption(categoryId);
+    const titleCode = title.split(' - ')[0].trim();
+    if (this.isCustomerCategory(category)) {
+      const code = this.normalize(customerNumero || titleCode.split('/')[0]);
+      const record = this.clientiArray.find((item) => this.normalize(String(item.numeroCliente || '')) === code);
+      return record ? { scope: 'customer', record } : null;
+    }
+    if (this.isQuoteCategory(category)) {
+      const record = this.quotesMap.get(this.normalize(quoteNumero || titleCode));
+      return record ? { scope: 'quote', record } : null;
+    }
+    return null;
+  }
+
+  get popupLocationAddress(): string {
+    if (this.popupLocationOverride !== null) return this.popupLocationOverride;
+    const linked = this.popupContactRecord;
+    if (!linked) return '';
+    return this.globalService.buildCalendarWorkAddress(linked.record, linked.scope);
+  }
+
+  get popupWorkAddressMissing(): boolean {
+    return !!this.popupContactRecord && !this.popupLocationAddress.trim();
+  }
+
+  set popupLocationAddress(value: string) { this.popupLocationOverride = value; }
+
+  get popupContactPhone(): string {
+    if (this.popupPhoneOverride !== null) return this.popupPhoneOverride;
+    const linked = this.popupContactRecord;
+    return linked ? String(this.globalService.getRecordValueByRole(
+      linked.scope, linked.record, linked.scope === 'customer' ? 'customerPhone' : 'quotePhone',
+    ) || '').trim() : '';
+  }
+
+  set popupContactPhone(value: string) { this.popupPhoneOverride = value; }
+
+  get popupDirectionsUrl(): string { return calendarDirectionsUrl(this.popupLocationAddress); }
+  get popupPhoneUrl(): string { return calendarPhoneUrl(this.popupContactPhone); }
+
+  async openContactLink(event: MouseEvent, url: string): Promise<void> {
+    if (!url || Capacitor.getPlatform() === 'web') return;
+    event.preventDefault();
+    try {
+      const result = await AppLauncher.openUrl({ url });
+      if (!result.completed) this.popupService.showError('Nessuna app disponibile per aprire questo collegamento.');
+    } catch {
+      this.popupService.showError('Impossibile aprire il collegamento sul dispositivo.');
+    }
+  }
+
   getAutocompleteSource(categoria: string): string[] {
     const category = this.getCategoryOption(categoria);
     if (this.isQuoteCategory(category)) {
@@ -915,6 +1386,13 @@ export class CalendarHomeComponent implements OnInit {
   }
 
   onCategoryChange() {
+    const previousScope = this.popupCalendarScope;
+    this.popupCalendarScope = this.getCategoryOption(this.popupCategory)?.scope === 'personal' ? 'personal' : 'work';
+    if (this.popupIsPersonal) { this.popupInspectionAdminIds = []; this.popupCustomerWarehouseMode = 'none'; }
+    if (previousScope !== 'personal' || !this.popupIsPersonal) {
+      this.popupLocationOverride=null; this.popupPhoneOverride=null;
+    }
+    this.popupCustomerNumero='';
     if (!this.isQuoteCategory(this.getCategoryOption(this.popupCategory))) this.popupNumeroPreventivo='';
     this.updatePopupEndFromCustomerDuration();
     this.resetCustomerWarehouseModeForCategory();
@@ -1031,30 +1509,40 @@ export class CalendarHomeComponent implements OnInit {
 
   // ── SAVE ───────────────────────────────────────────────────────────────
 
-  saveEvent() {
+  saveEvent(allowConflict = false) {
+    if (!this.popupSourceReady) { this.popupService.showError('Attendi il caricamento dell’evento originale.'); return; }
     if (!this.popupTitle||!this.popupStartDate||!this.popupEndDate||!this.popupCategory) {
       this.popupService.text='Compilare tutti i campi obbligatori'; this.popupService.openPopup(); return;
     }
+    if (this.popupCrossTenantShares.some(share => share.mode === 'selected' && !share.adminIds.length)) { this.popupService.showError('Seleziona almeno un destinatario per ogni azienda condivisa.'); return; }
     const category = this.getCategoryOption(this.popupCategory);
-    const isInspection = this.isInspectionCategory(category);
-    const hasReminder = this.popupInspectionAdminIds.length > 0;
+    const isPersonal = this.popupIsPersonal;
+    if (isPersonal && !this.personalSettingsReady) { this.popupService.showError('Carica le categorie personali prima di salvare.'); return; }
+    const isInspection = !isPersonal && this.isInspectionCategory(category);
+    const hasReminder = isPersonal ? this.popupPersonalReminderEnabled : this.popupInspectionAdminIds.length > 0;
     if (hasReminder) {
       if (this.popupInspectionReminderMinutes === null || this.popupInspectionReminderMinutes < 0) {
         this.popupService.text='Specifica quanti minuti prima inviare il promemoria'; this.popupService.openPopup(); return;
       }
     }
     const codice = this.popupTitle.split(' - ')[0];
-    if (!this.validateCodice(codice,this.popupCategory)) {
+    if (!isPersonal && !this.validateCodice(codice,this.popupCategory)) {
       this.popupService.text='Codice non valido o non esistente per la categoria selezionata'; this.popupService.openPopup(); return;
     }
     const body: any = {
+      calendarScope: isPersonal ? 'personal' : 'work',
+      ...(this.popupSourceTenantId ? { sourceTenantId: this.popupSourceTenantId } : {}),
+      ...(allowConflict ? { allowConflict: true } : {}),
+      ...(this.federationReady ? { crossTenantShares: this.popupCrossTenantShares } : {}),
       title: this.popupTitle,
       startDate: new Date(this.popupStartDate).toISOString(),
       endDate: new Date(this.popupEndDate).toISOString(),
       recurrenceRule: this.buildRRule(),
       dayLong: false, description: this.popupDescription,
+      locationAddress: this.popupLocationAddress.trim(),
+      contactPhone: this.popupContactPhone.trim(),
       categories: this.popupCategory, recurrenceException: null,
-      inspectionAdminIds: this.popupInspectionAdminIds,
+      inspectionAdminIds: isPersonal ? [] : this.popupInspectionAdminIds,
       inspectionReminderMinutes:
         hasReminder
           ? this.popupInspectionReminderMinutes
@@ -1066,7 +1554,23 @@ export class CalendarHomeComponent implements OnInit {
     if (this.isNewEvent || this.popupNumeroPreventivo) {
       body.numeroPreventivo = this.popupNumeroPreventivo || null;
     }
-    if (this.isNewEvent && this.popupServiceOrderId) {
+    if (isPersonal) {
+      body.sharedWithWork = this.popupSharedWithWork;
+      body.personalSharingMode = this.popupSharingMode;
+      body.sharedAdminIds = this.popupSharingMode === 'selected' ? [...this.popupSharedAdminIds] : [];
+      if (this.popupSharingMode === 'selected' && (!this.sharingUsersReady || !body.sharedAdminIds.length)) {
+        this.popupService.showError('Seleziona almeno un utente con cui condividere l’evento.'); return;
+      }
+      body.personalSharingVisibility = this.popupPersonalVisibility;
+      body.personalReminderEnabled = this.popupPersonalReminderEnabled;
+      body.numeroCliente = this.popupPersonalLinkType === 'customer' ? this.popupPersonalLinkNumber || null : null;
+      body.numeroPreventivo = this.popupPersonalLinkType === 'quote' ? this.popupPersonalLinkNumber || null : null;
+      body.customerWarehouseMode = 'none';
+      if (this.popupPersonalLinkType !== 'none' && !this.popupPersonalLinkNumber) {
+        this.popupService.showError('Seleziona il cliente o il preventivo da collegare.'); return;
+      }
+    }
+    if (!isPersonal && this.isNewEvent && this.popupServiceOrderId) {
       body.serviceOrderId = this.popupServiceOrderId;
       body.returnAppointmentId = true;
     }
@@ -1080,8 +1584,9 @@ export class CalendarHomeComponent implements OnInit {
     }
     const wasNewEvent = this.isNewEvent;
     this.http.post(this.globalService.url+(wasNewEvent?'appointments/add':'appointments/edit'), body, {
-      headers: this.globalService.headers, responseType: 'text',
+      headers: this.globalService.headers?.set('X-Skip-Global-Error-Popup', '1'), responseType: 'text',
     }).subscribe({ next: (response)=>{
+      void this.agendaWidget?.refresh(true);
       let appointmentId = this.editingEventId;
       if (wasNewEvent) {
         try {
@@ -1125,7 +1630,7 @@ export class CalendarHomeComponent implements OnInit {
       } else {
         finish();
       }
-      if (hasReminder) {
+      if (hasReminder || body.calendarScope === 'personal') {
         this.inspectionAlarmSync.setToken(this.globalService.token);
         this.inspectionAlarmSync.syncSoon('calendar-save', true).catch((err) => {
           console.error('[Calendar] Errore sync promemoria appuntamento:', err);
@@ -1135,7 +1640,7 @@ export class CalendarHomeComponent implements OnInit {
         this.sendInspectionConfirmation(body);
       }
     }, error: (err) => {
-      this.popupService.showError(err?.error?.error || err?.error || 'Impossibile salvare l’appuntamento.');
+      void this.handleSaveError(err, () => this.saveEvent(true));
     }});
   }
 
@@ -1152,13 +1657,14 @@ export class CalendarHomeComponent implements OnInit {
     };
 
     this.http.post(this.globalService.url + 'appointments/editSingleOccurrence', payload, {
-      headers: this.globalService.headers,
+      headers: this.globalService.headers?.set('X-Skip-Global-Error-Popup', '1'),
       responseType: 'text',
     }).subscribe({
       next: () => {
+        void this.agendaWidget?.refresh(true);
         this.closePopup();
         this.loadAll();
-        if (hasReminder) {
+        if (hasReminder || body.calendarScope === 'personal') {
           this.inspectionAlarmSync.setToken(this.globalService.token);
           this.inspectionAlarmSync.syncSoon('calendar-save-single', true).catch((err) => {
             console.error('[Calendar] Errore sync promemoria occorrenza:', err);
@@ -1169,9 +1675,7 @@ export class CalendarHomeComponent implements OnInit {
         }
       },
       error: (err) => {
-        console.error('[Calendar] Errore modifica singola occorrenza:', err);
-        this.popupService.text = err?.error?.error || 'Errore durante la modifica del singolo evento';
-        this.popupService.openPopup();
+        void this.handleSaveError(err, () => this.saveSingleOccurrence({ ...body, allowConflict: true }, isInspection, hasReminder));
       },
     });
   }
@@ -1205,17 +1709,23 @@ export class CalendarHomeComponent implements OnInit {
     else this.deleteAll();
   }
 
+  private refreshNativeCalendarAlarms(): void {
+    void this.agendaWidget?.refresh(true);
+    this.inspectionAlarmSync.setToken(this.globalService.token);
+    void this.inspectionAlarmSync.syncSoon('calendar-delete', true).catch(error => console.error('[Calendar] Sync promemoria', error));
+  }
+
   deleteAll() {
-    this.http.post(this.globalService.url+'appointments/delete',{id:this.editingEventId},{
+    this.http.post(this.globalService.url+'appointments/delete',{id:this.editingEventId, sourceTenantId:this.popupSourceTenantId || undefined},{
       headers:this.globalService.headers,responseType:'text',
-    }).subscribe(()=>{this.closePopup();this.loadAll();});
+    }).subscribe(()=>{this.closePopup();this.loadAll();this.refreshNativeCalendarAlarms();});
   }
 
   deleteSingle() {
     const occDate = this.toICSDate(this.editingOccurrenceStart || new Date(this.popupStartDate));
-    this.http.post(this.globalService.url+'appointments/deleteSingleOccurrence',{id:this.editingEventId,occurrenceDate:occDate},{
+    this.http.post(this.globalService.url+'appointments/deleteSingleOccurrence',{id:this.editingEventId,occurrenceDate:occDate, sourceTenantId:this.popupSourceTenantId || undefined},{
       headers:this.globalService.headers,responseType:'text',
-    }).subscribe(()=>{this.closePopup();this.loadAll();});
+    }).subscribe(()=>{this.closePopup();this.loadAll();this.refreshNativeCalendarAlarms();});
   }
 
   // ── UTILS ──────────────────────────────────────────────────────────────
@@ -1232,7 +1742,7 @@ export class CalendarHomeComponent implements OnInit {
     };
   }
 
-  getEventBlockStyle(ev: CalEvent, layout?: Map<number, {col: number, totalCols: number}>): {[key: string]: string} {
+  getEventBlockStyle(ev: CalEvent, layout?: Map<CalendarEventId, {col: number, totalCols: number}>): {[key: string]: string} {
     return {
       ...this.getEventPositionStyle(ev, layout),
       ...this.getCategoryStyle(ev.categories),
@@ -1370,8 +1880,8 @@ export class CalendarHomeComponent implements OnInit {
   getSlotTopPx(slot: string): number { const [h,m]=slot.split(':').map(Number); return ((h*60+m)/30)*26; }
   currentTimeTopPx(): number { const now=new Date(); return ((now.getHours()*60+now.getMinutes())/30)*26; }
 
-  private computeOverlapLayout(events: CalEvent[], maxCols = Infinity): Map<number, {col: number, totalCols: number}> {
-    const result = new Map<number, {col: number, totalCols: number}>();
+  private computeOverlapLayout(events: CalEvent[], maxCols = Infinity): Map<CalendarEventId, {col: number, totalCols: number}> {
+    const result = new Map<CalendarEventId, {col: number, totalCols: number}>();
     if (!events.length) return result;
     const sorted = [...events].sort((a, b) => a.start.getTime() - b.start.getTime());
     const groups: CalEvent[][] = [];
@@ -1415,7 +1925,7 @@ export class CalendarHomeComponent implements OnInit {
     return maxConcurrent > 1 ? maxConcurrent * 110 : 0;
   }
 
-  getEventPositionStyle(ev: CalEvent, layout?: Map<number, {col: number, totalCols: number}>): {[key: string]: string} {
+  getEventPositionStyle(ev: CalEvent, layout?: Map<CalendarEventId, {col: number, totalCols: number}>): {[key: string]: string} {
     const entry = layout?.get(ev.id) ?? { col: 0, totalCols: 1 };
     const leftPct = (entry.col / entry.totalCols) * 100;
     const rightPct = ((entry.totalCols - entry.col - 1) / entry.totalCols) * 100;
@@ -1428,6 +1938,11 @@ export class CalendarHomeComponent implements OnInit {
   }
 
   goBack() { this.router.navigateByUrl('/homeAdmin'); }
+
+  @HostListener('document:keydown.escape')
+  onDetailsEscape(): void {
+    if (this.detailEvent) this.closeEventDetails();
+  }
 
   @HostListener('document:click',['$event'])
   onDocumentClick(event: MouseEvent) {

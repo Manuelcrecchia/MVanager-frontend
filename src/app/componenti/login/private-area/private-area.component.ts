@@ -15,6 +15,7 @@ import { NotificationNavigationService } from '../../../service/notification-nav
 import { Capacitor } from '@capacitor/core';
 import { environment } from '../../../../environments/environment';
 import { ServiceAnnouncementService } from '../../../service/service-announcement.service';
+import { AgendaNavigatorSetupService } from '../../../service/agenda-navigator-setup.service';
 
 @Component({
   selector: 'app-private-area',
@@ -49,6 +50,7 @@ export class PrivateAreaComponent {
     private notificationNavigation: NotificationNavigationService,
     public tenantService: TenantService,
     private serviceAnnouncements: ServiceAnnouncementService,
+    private navigatorSetup: AgendaNavigatorSetupService,
   ) {}
 
   async ngOnInit() {
@@ -179,6 +181,7 @@ export class PrivateAreaComponent {
           }
 
           await this.serviceAnnouncements.showAfterLogin();
+          await this.navigatorSetup.showAfterLogin();
           await this.notificationNavigation.consumePendingOrNavigate('/homeAdmin');
         },
         error: (err) => {

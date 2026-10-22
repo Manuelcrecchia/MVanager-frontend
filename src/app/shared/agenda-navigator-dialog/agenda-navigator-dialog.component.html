@@ -1,0 +1,18 @@
+<h2 mat-dialog-title id="agenda-navigator-title">Quale navigatore vuoi usare?</h2>
+<mat-dialog-content>
+  <p id="agenda-navigator-description">Scegli l’app da aprire quando tocchi Naviga nel widget MVanager.</p>
+  <fieldset [disabled]="saving">
+    <legend class="visually-hidden">Navigatore del widget</legend>
+    <label class="navigator-option" *ngFor="let navigator of navigation.available" [class.selected]="choice === navigator.id">
+      <input type="radio" name="agenda-navigator" [value]="navigator.id" [(ngModel)]="choice">
+      <span>{{ navigator.label }}</span>
+    </label>
+  </fieldset>
+  <p class="hint">La scelta viene ricordata su questo iPhone. Puoi cambiarla in Impostazioni → Impostazioni calendario → Navigatore del widget.</p>
+  <p class="hint" *ngIf="choice === 'apple'">Per usare Mappe, assicurati che sia installata sul telefono.</p>
+  <p class="error" role="alert" *ngIf="error">{{ error }}</p>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button type="button" class="btn btn-outline-secondary" (click)="later()" [disabled]="saving">Più tardi</button>
+  <button type="button" class="btn btn-primary" (click)="save()" [disabled]="!choice || saving">{{ saving ? 'Salvataggio…' : 'Salva e continua' }}</button>
+</mat-dialog-actions>

@@ -12,6 +12,7 @@ import { TenantService } from './tenant.service';
 import { resolveApiBaseUrl } from './global.service';
 import { NotificationNavigationService } from './notification-navigation.service';
 import { InspectionAlarmSyncService } from './inspection-alarm-sync.service';
+import { AgendaWidgetService } from './agenda-widget.service';
 
 interface TenantMobileConfig {
   features?: string[];
@@ -40,6 +41,7 @@ export class MobilePushService {
     private tenantService: TenantService,
     private notificationNavigation: NotificationNavigationService,
     private inspectionAlarmSync: InspectionAlarmSyncService,
+    private agendaWidget: AgendaWidgetService,
   ) {}
 
   async initAfterLogin(token: string, permissions: string[] = []): Promise<void> {
@@ -49,6 +51,8 @@ export class MobilePushService {
     if (platform === 'web') {
       return;
     }
+
+    this.agendaWidget.initialize(token, permissions).catch(error => console.warn('[AgendaWidget] Attivazione non riuscita', error));
 
     const capabilities = await this.resolveCapabilities(permissions);
     if (capabilities.canSyncInspectionAlarms) {
@@ -78,6 +82,7 @@ export class MobilePushService {
       'pushNotificationReceived',
       (notification: PushNotificationSchema) => {
         console.log('[Push] Notifica ricevuta', notification);
+        void this.agendaWidget.refresh(true);
         this.inspectionAlarmSync.syncSoon('push-received').catch((err) => {
           console.error('[Push] Errore sync promemoria appuntamento:', err);
         });
@@ -119,6 +124,7 @@ export class MobilePushService {
   }
 
   reset(): void {
+    this.agendaWidget.clear();
     this.initialized = false;
     this.token = null;
     this.inspectionAlarmSync.clearAll().catch((err) => {

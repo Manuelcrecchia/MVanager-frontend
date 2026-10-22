@@ -317,6 +317,9 @@
                 <div *ngIf="a.selectedCustomerNumero" class="extra-customer-selected">
                   <span>
                     Cliente collegato
+                    <ng-container *ngIf="!getShiftTime(a)">
+                      · tutto il giorno nel calendario
+                    </ng-container>
                     <ng-container *ngIf="getExtraCustomerCategoryLabel(a) as categoryLabel">
                       · evento {{ categoryLabel }}
                     </ng-container>

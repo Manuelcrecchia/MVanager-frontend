@@ -6,6 +6,7 @@ import { GlobalService } from './global.service';
 import { getRealtimeClientId } from './realtime-client-id';
 import { ServiceAnnouncementService } from './service-announcement.service';
 import { isRealtimeView, RealtimeView } from './realtime-view';
+import { AgendaWidgetService } from './agenda-widget.service';
 
 @Injectable({ providedIn: 'root' })
 export class RealtimeSyncService {
@@ -26,6 +27,7 @@ export class RealtimeSyncService {
     private zone: NgZone,
     private serviceAnnouncements: ServiceAnnouncementService,
     private outletContexts: ChildrenOutletContexts,
+    private agendaWidget: AgendaWidgetService,
   ) {}
 
   start(): void {
@@ -74,6 +76,7 @@ export class RealtimeSyncService {
   }
 
   private handleChange(change: ResourceChange): void {
+    if (change?.resource === 'appointments') void this.agendaWidget.refresh(true);
     if (!change?.resource || change.originClientId === getRealtimeClientId()) return;
     if (change.resource === 'service_announcements') {
       const apps = Array.isArray(change.metadata?.['apps'])
@@ -88,6 +91,7 @@ export class RealtimeSyncService {
   }
 
   requestConsistencyRefresh(_reason = 'manual_consistency_check'): void {
+    void this.agendaWidget.refresh();
     this.queueViews('application');
   }
 

@@ -772,7 +772,8 @@
         background: rgba(255, 255, 255, 0.72);
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
         transition: box-shadow 0.28s ease, background 0.28s ease;
-        animation: homeSlideFromRight 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
+        /* Transforms and filters would anchor routed dialogs to this page. */
+        animation: homeContentFadeIn 0.52s ease;
       }
 
       .homeadmin-root .home-desktop-content .home-embedded-content:hover {
@@ -1403,6 +1404,11 @@
       }
 
       /* ===== ANIMATIONS ===== */
+      @keyframes homeContentFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
       @keyframes homeSlideFromRight {
         from {
           opacity: 0;
@@ -1733,6 +1739,9 @@
             <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('CUSTOMER_DEADLINES_VIEW', 'customerDeadlines') || canUsePermission('EMPLOYEE_EDIT', 'employees') || canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines') || canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToCategorySettings()">
               <i class="fas fa-tags"></i> <span class="sidebar-btn-text">Impostazioni categorie</span>
             </button>
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('CALENDAR_VIEW')" (click)="navigateToCalendarSettings()">
+              <i class="fas fa-calendar-alt"></i> <span class="sidebar-btn-text">Impostazioni calendario</span>
+            </button>
             <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines')" (click)="navigateToVehiclesSettings()">
               <i class="fas fa-truck"></i> <span class="sidebar-btn-text">Gestione mezzi</span>
             </button>
@@ -2008,6 +2017,7 @@
           <button type="button" (click)="navigateToCambiapassword()">Cambia password</button>
           <button type="button" *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</button>
           <button type="button" *ngIf="canUsePermission('CUSTOMER_DEADLINES_VIEW', 'customerDeadlines') || canUsePermission('EMPLOYEE_EDIT', 'employees') || canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines') || canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToCategorySettings()">Impostazioni categorie</button>
+          <button type="button" *ngIf="canUsePermission('CALENDAR_VIEW')" (click)="navigateToCalendarSettings()">Impostazioni calendario</button>
           <button type="button" *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines')" (click)="navigateToVehiclesSettings()">Gestione mezzi</button>
           <button type="button" *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToEquipmentSettings()">Gestione attrezzature</button>
           <button type="button" *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</button>

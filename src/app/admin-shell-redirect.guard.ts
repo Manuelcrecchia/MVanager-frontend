@@ -15,6 +15,7 @@ export class AdminShellRedirectGuard implements CanActivate {
     'addCustomer',
     'addQuote',
     'calendarHome',
+    'calendar-settings',
     'cambiapassword',
     'customer-deadlines',
     'customerNotes',

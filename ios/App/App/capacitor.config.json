@@ -41,6 +41,7 @@
 		"PreferencesPlugin",
 		"PushNotificationsPlugin",
 		"NativeBiometric",
+		"AgendaWidgetPlugin",
 		"InspectionAlarmKitPlugin",
 		"NativePdfViewerPlugin"
 	]

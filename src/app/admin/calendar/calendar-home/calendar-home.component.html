@@ -1,4 +1,5 @@
 <div class="cal-wrap">
+  <p *ngIf="widgetSyncWarning" role="status" class="calendar-load-error">{{ widgetSyncWarning }} Controlla Impostazioni calendario.</p>
 
   <!-- ═══ HEADER ═══ -->
   <header class="cal-header mv-entity-toolbar">
@@ -45,13 +46,22 @@
     </div>
   </header>
 
+  <p class="calendar-settings-error" role="alert" *ngIf="calendarLoadError">{{ calendarLoadError }} <button type="button" class="btn-secondary" (click)="loadAll()">Riprova</button></p>
   <!-- ═══ FILTER ═══ -->
   <div class="filter-bar">
-    <label>Filtra eventi:</label>
-    <select (change)="onFilterChange($event)">
-      <option value="all">Tutti</option>
-      <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.text }}</option>
+    <label for="calendar-group-filter">Mostra:</label>
+    <select id="calendar-group-filter" [ngModel]="calendarGroup" (ngModelChange)="setCalendarGroup($event)">
+      <option value="all">Tutti gli eventi</option><option value="work">Calendario di lavoro</option><option value="personal">La mia agenda · lavoro e personali</option>
     </select>
+    <label for="calendar-category-filter">Categoria:</label>
+    <select id="calendar-category-filter" [value]="activeFilter" (change)="onFilterChange($event)">
+      <option value="all">Tutte le categorie</option>
+      <optgroup label="Lavoro"><option *ngFor="let cat of workCategories" [value]="cat.id">{{ cat.text }}</option></optgroup>
+      <optgroup label="Personali"><option *ngFor="let cat of allPersonalCategories" [value]="cat.id">{{ cat.text }}</option></optgroup>
+    </select>
+    <p class="calendar-settings-error" role="alert" *ngIf="personalSettingsError">{{ personalSettingsError }}
+      <button type="button" class="btn-secondary" (click)="loadPersonalCategories()">Riprova</button>
+    </p>
     <div class="cat-legend">
       <span
         *ngFor="let cat of categories"
@@ -229,6 +239,82 @@
   </div>
 </div>
 
+<!-- ═══ EVENT DETAILS ═══ -->
+<div class="popup-overlay" *ngIf="detailEvent as ev" (click)="closeEventDetails()">
+  <section class="popup-box event-details-box" role="dialog" aria-modal="true"
+    aria-labelledby="calendar-event-details-title" (click)="$event.stopPropagation()">
+    <div class="popup-header">
+      <h3 id="calendar-event-details-title">Dettagli evento</h3>
+      <button type="button" class="popup-close" (click)="closeEventDetails()" aria-label="Chiudi dettagli evento">✕</button>
+    </div>
+    <div class="popup-body">
+      <span class="event-details-category" [ngStyle]="getCategoryStyle(ev.categories)">{{ detailCategoryLabel }}</span>
+      <h4 class="event-details-title">{{ ev.title }}</h4>
+      <p *ngIf="ev.sourceCompanyLabel">Azienda di origine: <strong>{{ ev.sourceCompanyLabel }}</strong></p>
+      <p class="small-help" *ngIf="ev.busyOnly">È condivisa soltanto la disponibilità. I dettagli dell’impegno sono riservati.</p>
+      <p class="personal-visibility" *ngIf="ev.calendarScope === 'personal'">
+        <i class="fas" [class.fa-lock]="!ev.sharedWithWork && !ev.sharedAdminIds?.length" [class.fa-users]="ev.sharedWithWork || ev.sharedAdminIds?.length" aria-hidden="true"></i>
+        Personale · {{ detailSharingLabel }}
+      </p>
+      <dl class="event-details-list">
+        <div>
+          <dt>Quando</dt>
+          <dd *ngIf="ev.dayLong; else detailTimes">
+            {{ ev.start | date:'dd/MM/yyyy' }}
+            <ng-container *ngIf="!isSameDay(ev.start, ev.end)"> – {{ ev.end | date:'dd/MM/yyyy' }}</ng-container>
+            · Tutto il giorno
+          </dd>
+          <ng-template #detailTimes>
+            <dd>{{ ev.start | date:'dd/MM/yyyy HH:mm' }} – {{ ev.end | date:'dd/MM/yyyy HH:mm' }}</dd>
+          </ng-template>
+          <dd class="event-details-secondary" *ngIf="ev.isRecurring || ev.recurrenceRule">Evento ricorrente</dd>
+        </div>
+        <div *ngIf="!ev.busyOnly">
+          <dt>Luogo dell'appuntamento</dt>
+          <dd>
+            <a *ngIf="detailDirectionsUrl; else missingDetailAddress" [href]="detailDirectionsUrl"
+              target="_blank" rel="noopener noreferrer" (click)="openContactLink($event, detailDirectionsUrl)">{{ detailLocationAddress }}</a>
+            <ng-template #missingDetailAddress>Indirizzo della sede di lavoro non disponibile.</ng-template>
+          </dd>
+        </div>
+        <div *ngIf="!ev.busyOnly">
+          <dt>Telefono del contatto</dt>
+          <dd>
+            <a *ngIf="detailPhoneUrl; else detailPlainPhone" [href]="detailPhoneUrl"
+              (click)="openContactLink($event, detailPhoneUrl)">{{ detailContactPhone }}</a>
+            <ng-template #detailPlainPhone>{{ detailContactPhone || 'Non disponibile.' }}</ng-template>
+          </dd>
+        </div>
+        <div *ngIf="!ev.busyOnly">
+          <dt>Note</dt>
+          <dd class="event-details-notes">{{ ev.description || 'Nessuna nota.' }}</dd>
+        </div>
+        <div *ngIf="detailSharingRecipients">
+          <dt>Condiviso con</dt><dd>{{ detailSharingRecipients }}</dd>
+        </div>
+        <div *ngIf="detailReminderRecipients">
+          <dt>Promemoria per</dt>
+          <dd>{{ detailReminderRecipients }}</dd>
+          <dd class="event-details-secondary" *ngIf="ev.inspectionReminderMinutes != null">Avviso {{ ev.inspectionReminderMinutes }} minuti prima</dd>
+        </div>
+      </dl>
+      <div class="calendar-contact-actions" *ngIf="detailDirectionsUrl || detailPhoneUrl">
+        <a *ngIf="detailDirectionsUrl" [href]="detailDirectionsUrl" target="_blank" rel="noopener noreferrer"
+          (click)="openContactLink($event, detailDirectionsUrl)"><i class="fas fa-directions" aria-hidden="true"></i> Naviga</a>
+        <a *ngIf="detailPhoneUrl" [href]="detailPhoneUrl" (click)="openContactLink($event, detailPhoneUrl)">
+          <i class="fas fa-phone" aria-hidden="true"></i> Chiama
+        </a>
+      </div>
+    </div>
+    <div class="popup-footer event-details-footer">
+      <button type="button" class="btn-secondary" (click)="closeEventDetails()">Chiudi</button>
+      <button type="button" class="btn-primary" *ngIf="canEditCalendarEvent" (click)="editDetailEvent()">
+        <i class="fas fa-pen" aria-hidden="true"></i> Modifica
+      </button>
+    </div>
+  </section>
+</div>
+
 <!-- ═══ EDIT SCOPE POPUP ═══ -->
 <div class="popup-overlay" *ngIf="showEditScopeChoice" (click)="closeEditScopeChoice()">
   <div class="popup-box scope-choice-box" (click)="$event.stopPropagation()">
@@ -264,15 +350,30 @@
 
     <div class="popup-body">
 
+      <p *ngIf="popupSourceTenantId" class="small-help">Stai modificando l’evento personale originale in <strong>{{ popupSourceCompanyLabel }}</strong>. Il collegamento a clienti o preventivi resta nell’azienda di origine.</p>
+      <!-- Category -->
+      <div class="form-group">
+        <label>Categoria *</label>
+        <select [(ngModel)]="popupCategory" (change)="onCategoryChange()" class="form-input">
+          <option value="">Seleziona...</option>
+          <optgroup label="Lavoro" [disabled]="!canManageWorkCalendar || (!isNewEvent && popupCalendarScope === 'personal')">
+            <option *ngFor="let cat of workCategories" [value]="cat.id">{{ cat.text }}</option>
+          </optgroup>
+          <optgroup label="Personali" [disabled]="!personalSettingsReady || (!isNewEvent && popupCalendarScope === 'work')">
+            <option *ngFor="let cat of personalCategories" [value]="cat.id">{{ cat.text }}</option>
+          </optgroup>
+        </select>
+      </div>
+
       <!-- Title / Autocomplete -->
       <div class="form-group autocomplete-wrapper">
-        <label>Numero preventivo / cliente *</label>
+        <label>{{ popupIsPersonal ? 'Titolo *' : 'Numero preventivo / cliente *' }}</label>
         <input
           type="text"
           [value]="popupTitle"
           (input)="onTitleInput($event)"
           (focus)="onTitleFocus()"
-          placeholder="Cerca preventivo o cliente..."
+          [placeholder]="popupIsPersonal ? 'Titolo dell’evento personale' : 'Cerca preventivo o cliente...'"
           class="form-input"
           autocomplete="off">
         <div class="autocomplete-dropdown" *ngIf="autocompleteOpen">
@@ -284,10 +385,111 @@
         </div>
       </div>
 
+      <section class="personal-event-settings" *ngIf="popupIsPersonal">
+        <div class="form-group">
+          <label for="personal-event-link-type">Collegamento facoltativo</label>
+          <select [disabled]="!!popupSourceTenantId" id="personal-event-link-type" class="form-input" [(ngModel)]="popupPersonalLinkType" (ngModelChange)="onPersonalLinkTypeChange()">
+            <option value="none">Nessun collegamento</option>
+            <option value="customer" *ngIf="canLinkPersonalCustomer || (popupSourceTenantId && popupPersonalLinkType === 'customer')">Cliente</option>
+            <option value="quote" *ngIf="canLinkPersonalQuote || (popupSourceTenantId && popupPersonalLinkType === 'quote')">Preventivo</option>
+          </select>
+        </div>
+        <div class="form-group" *ngIf="popupPersonalLinkType !== 'none'">
+          <label for="personal-event-link-number">{{ popupPersonalLinkType === 'customer' ? 'Cliente' : 'Preventivo' }}</label>
+          <select [disabled]="!!popupSourceTenantId" id="personal-event-link-number" class="form-input" [(ngModel)]="popupPersonalLinkNumber" (ngModelChange)="onPersonalLinkChange()">
+            <option *ngIf="popupSourceTenantId" [value]="popupPersonalLinkNumber">Collegamento nell’azienda di origine: {{ popupPersonalLinkNumber }}</option>
+            <option value="">Seleziona...</option>
+            <option *ngFor="let option of personalLinkOptions" [value]="option.value">{{ option.label }}</option>
+          </select>
+          <small class="small-help">Il collegamento non invia email di conferma.</small>
+        </div>
+        <div class="form-group">
+          <label for="personal-event-sharing">Chi può vedere l’evento {{ popupSourceCompanyLabel ? "in " + popupSourceCompanyLabel : "in questa azienda" }}</label>
+          <select id="personal-event-sharing" class="form-input" [(ngModel)]="popupSharingMode" (ngModelChange)="onPersonalSharingChange()">
+            <option value="private">Privato · solo io</option>
+            <option value="all">Tutti gli utenti del calendario</option>
+            <option value="selected">Solo utenti selezionati</option>
+          </select>
+        </div>
+        <div class="form-group" *ngIf="popupSharingMode !== 'private'">
+          <label for="personal-local-visibility">Cosa condividere</label>
+          <select id="personal-local-visibility" class="form-input" [(ngModel)]="popupPersonalVisibility"><option value="busy">Solo occupato</option><option value="details">Tutti i dettagli dell’evento</option></select>
+        </div>
+        <fieldset class="personal-sharing-users" *ngIf="popupSharingMode === 'selected'">
+          <legend>Condividi con</legend>
+          <p class="small-help" *ngIf="sharingUsersLoading" role="status">Caricamento utenti…</p>
+          <p class="calendar-settings-error" *ngIf="sharingUsersError" role="alert">{{ sharingUsersError }}
+            <button type="button" class="btn-secondary" (click)="loadSharingUsers()">Riprova</button>
+          </p>
+          <p class="small-help" *ngIf="sharingUsersReady && !sharingUsers.length">Nessun altro utente del calendario disponibile.</p>
+          <label class="personal-check-row" *ngFor="let user of sharingUsers">
+            <input type="checkbox" [checked]="popupSharedAdminIds.includes(user.id)" (change)="togglePersonalSharingUser(user.id)">
+            <span>{{ user.label }}</span>
+          </label>
+        </fieldset>
+        <p class="small-help">{{ personalSharingHelp }}</p>
+        <label class="personal-check-row">
+          <input type="checkbox" [(ngModel)]="popupPersonalReminderEnabled"><span>Ricordami questo evento</span>
+        </label>
+        <div class="form-group" *ngIf="popupPersonalReminderEnabled">
+          <label for="personal-event-reminder">Quanti minuti prima</label>
+          <input id="personal-event-reminder" type="number" min="0" max="525600" step="1" class="form-input" [(ngModel)]="popupInspectionReminderMinutes">
+          <small class="small-help">La notifica sarà inviata solo a te, anche se condividi l’evento.</small>
+        </div>
+      </section>
+
+      <section class="personal-event-settings" *ngIf="availableFederationOptions.length || federationError">
+        <h4>Condivisione con altre aziende</h4>
+        <p class="calendar-settings-error" *ngIf="federationError">{{ federationError }} <button type="button" class="btn-secondary" (click)="loadFederationOptions()">Riprova</button></p>
+        <fieldset class="personal-sharing-users" *ngFor="let company of availableFederationOptions">
+          <legend>{{ company.label }}</legend>
+          <p class="small-help" *ngIf="!popupIsPersonal && company.availability">Gli orari occupati delle persone collegate e assegnate sono condivisi automaticamente.</p>
+          <label>Destinatari</label>
+          <select class="form-input" [ngModel]="crossShareMode(company.tenantId)" (ngModelChange)="changeCrossShare(company.tenantId, $event)">
+            <option value="none">{{ popupIsPersonal ? 'Nessuno' : 'Solo disponibilità automatica, se autorizzata' }}</option><option value="all">Tutti gli utenti del calendario</option><option value="selected">Utenti selezionati</option>
+          </select>
+          <ng-container *ngIf="crossShare(company.tenantId) as share">
+            <label>Cosa condividere</label>
+            <select class="form-input" [(ngModel)]="share.visibility"><option value="busy">Solo occupato</option><option value="details" *ngIf="company.details">Dettagli dell’evento</option></select>
+            <ng-container *ngIf="share.mode === 'selected'">
+              <label class="personal-check-row" *ngFor="let user of company.users"><input type="checkbox" [checked]="share.adminIds.includes(user.id)" (change)="toggleCrossRecipient(share, user.id)"><span>{{ user.label }}</span></label>
+            </ng-container>
+          </ng-container>
+        </fieldset>
+        <p class="small-help">I destinatari possono consultare l’evento. Le notifiche personali restano solo tue. Clienti e preventivi restano nell’azienda di origine.</p>
+      </section>
+
       <!-- Description -->
       <div class="form-group">
         <label>Dettagli</label>
         <textarea [(ngModel)]="popupDescription" class="form-input" rows="3" placeholder="Note aggiuntive..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="calendar-location-address">Indirizzo del sopralluogo / lavoro</label>
+        <input id="calendar-location-address" type="text" [(ngModel)]="popupLocationAddress"
+          class="form-input" maxlength="1000" autocomplete="street-address"
+          placeholder="Via, numero civico, CAP e città" aria-describedby="calendar-location-help">
+        <small id="calendar-location-help" class="small-help">
+          {{ popupWorkAddressMissing
+            ? "Indirizzo della sede di lavoro non disponibile. Inserisci il luogo dell'appuntamento."
+            : "Indirizzo della sede di lavoro, modificabile per questo appuntamento." }}
+        </small>
+      </div>
+      <div class="form-group">
+        <label for="calendar-contact-phone">Telefono del contatto</label>
+        <input id="calendar-contact-phone" type="tel" [(ngModel)]="popupContactPhone"
+          class="form-input" maxlength="80" autocomplete="tel" placeholder="Numero da chiamare">
+      </div>
+      <div class="calendar-contact-actions" *ngIf="popupDirectionsUrl || popupPhoneUrl">
+        <a *ngIf="popupDirectionsUrl" [href]="popupDirectionsUrl" target="_blank" rel="noopener noreferrer"
+          (click)="openContactLink($event, popupDirectionsUrl)" aria-label="Apri le indicazioni per l'appuntamento">
+          <i class="fas fa-directions" aria-hidden="true"></i> Naviga
+        </a>
+        <a *ngIf="popupPhoneUrl" [href]="popupPhoneUrl" (click)="openContactLink($event, popupPhoneUrl)"
+          aria-label="Chiama il contatto dell'appuntamento">
+          <i class="fas fa-phone" aria-hidden="true"></i> Chiama
+        </a>
       </div>
 
       <!-- Start date -->
@@ -302,15 +504,6 @@
         <input type="datetime-local" [(ngModel)]="popupEndDate" class="form-input">
       </div>
 
-      <!-- Category -->
-      <div class="form-group">
-        <label>Categoria *</label>
-        <select [(ngModel)]="popupCategory" (change)="onCategoryChange()" class="form-input">
-          <option value="">Seleziona...</option>
-          <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.text }}</option>
-        </select>
-      </div>
-
       <div class="form-group" *ngIf="selectedCustomerWarehouseCategory && !editingSingleOccurrence">
         <label>Magazzino clienti</label>
         <select [(ngModel)]="popupCustomerWarehouseMode" (change)="onCustomerWarehouseModeChange()" class="form-input">
@@ -320,7 +513,7 @@
         <small class="small-help">La pratica del cliente e le operazioni vengono collegate automaticamente.</small>
       </div>
 
-      <div class="inspection-settings">
+      <div class="inspection-settings" *ngIf="!popupIsPersonal">
         <div class="form-group">
           <label>Ricorda questo evento a</label>
           <div class="inspection-users-list">

@@ -26,6 +26,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="mvanager" android:host="agenda" />
+            </intent-filter>
         </activity>
 
         <activity
@@ -50,8 +56,23 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+        <service android:name=".AgendaWidgetRefreshJob" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="true" />
 
+        <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc" />
+        <meta-data android:name="androidx.car.app.minCarApiLevel" android:value="1" />
+        <service android:name=".AgendaCarService" android:exported="true" android:label="MVanager · Destinazioni">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.POI" />
+            </intent-filter>
+        </service>
         <receiver android:name=".InspectionAlarmReceiver" android:exported="false" />
+        <service android:name=".AgendaWidgetListService" android:permission="android.permission.BIND_REMOTEVIEWS" android:exported="false" />
+        <activity android:name=".AgendaWidgetActionActivity" android:exported="false" android:theme="@android:style/Theme.NoDisplay" android:excludeFromRecents="true" />
+        <receiver android:name=".AgendaWidgetProvider" android:exported="false" android:label="MVanager · La mia agenda">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/agenda_widget_info" />
+        </receiver>
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

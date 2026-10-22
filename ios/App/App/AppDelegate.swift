@@ -1,6 +1,8 @@
 import UIKit
+import CarPlay
 import Capacitor
 import UserNotifications
+import WidgetKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -23,7 +25,33 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
     }
 
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        guard userInfo["type"] as? String == "AGENDA_WIDGET_REFRESH",
+              let tenantId = userInfo["tenantId"] as? String,
+              tenantId == AgendaWidgetStore.configuration()?.tenantId else {
+            completionHandler(.noData)
+            return
+        }
+        AgendaWidgetStore.refresh { result in
+            DispatchQueue.main.async {
+                if result.state == "updated" {
+                    WidgetCenter.shared.reloadTimelines(ofKind: "MvanagerAgendaWidget")
+                    completionHandler(.newData)
+                } else {
+                    completionHandler(result.state == "offline" || result.state == "error" ? .failed : .noData)
+                }
+            }
+        }
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) { AgendaWidgetActionRouter.performPending() }
+
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        if AgendaWidgetActionRouter.handle(url) { return true }
         // Called when the app was launched with a url. Feel free to add additional processing here,
         // but if you want the App API to support tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
@@ -42,7 +70,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         options: UIScene.ConnectionOptions
     ) -> UISceneConfiguration {
         return UISceneConfiguration(
-            name: "Default Configuration",
+            name: connectingSceneSession.role == .carTemplateApplication ? "Agenda CarPlay" : "Default Configuration",
             sessionRole: connectingSceneSession.role
         )
     }

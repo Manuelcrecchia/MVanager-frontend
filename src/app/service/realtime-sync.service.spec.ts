@@ -14,7 +14,7 @@ describe('RealtimeSyncService in-place updates', () => {
     child = { realtimeResources: ['quotes', 'customers'], refreshRealtimeData: jasmine.createSpy('child') };
     shell = { realtimeResources: ['quotes'], refreshRealtimeData: jasmine.createSpy('shell') };
     router = { navigateByUrl: jasmine.createSpy('navigate'), navigate: jasmine.createSpy('navigate') };
-    service = new RealtimeSyncService(router, {} as any, { token: 'token' } as any, {} as any, {} as any, context(shell, context(child)));
+    service = new RealtimeSyncService(router, {} as any, { token: 'token' } as any, {} as any, {} as any, context(shell, context(child)), { refresh: () => Promise.resolve() } as any);
   });
   it('coalesces different resources without losing a refresh or navigating', fakeAsync(() => {
     service.handleChange({ resource: 'quotes' });

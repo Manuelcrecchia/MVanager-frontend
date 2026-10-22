@@ -11,6 +11,8 @@ import { AuthServiceService } from './auth-service.service';
 import { PopupServiceService } from './componenti/popup/popup-service.service';
 import { ServiceAnnouncementService } from './service/service-announcement.service';
 import { RealtimeSyncService } from './service/realtime-sync.service';
+import { AgendaWidgetService } from './service/agenda-widget.service';
+import { AgendaNavigatorSetupService } from './service/agenda-navigator-setup.service';
 
 export function calendarDayDifference(fromDate: string, toDate: string): number {
   const parse = (value: string): number => {
@@ -103,6 +105,8 @@ export class AppComponent {
     private popupService: PopupServiceService,
     private serviceAnnouncements: ServiceAnnouncementService,
     public realtimeSync: RealtimeSyncService,
+    private agendaWidget: AgendaWidgetService,
+    private navigatorSetup: AgendaNavigatorSetupService,
   ) {}
   ngOnInit() {
     this.popupService.installBrowserAlertBridge();
@@ -122,6 +126,9 @@ export class AppComponent {
     }
 
     setTimeout(() => this.unlockExistingSessionWithBiometrics('startup'), 1200);
+
+    CapacitorApp.addListener('appUrlOpen', ({ url }) => { void this.handleWidgetUrl(url); });
+    void CapacitorApp.getLaunchUrl().then(result => { if (result?.url) void this.handleWidgetUrl(result.url); });
 
     CapacitorApp.addListener('backButton', ({ canGoBack }) => {
       // Se la pagina può tornare indietro → torna indietro
@@ -143,6 +150,7 @@ export class AppComponent {
         }
 
         if (this.sessionUnlocked) {
+          void this.agendaWidget.refresh();
           this.inspectionAlarmSync.syncSoon('app-active').catch((err) => {
             console.error('[App] Errore sync promemoria appuntamento:', err);
           });
@@ -157,6 +165,25 @@ export class AppComponent {
   @HostListener('window:focus')
   onWindowFocus(): void {
     this.refreshTenantConfigFromServer();
+  }
+
+  private async handleWidgetUrl(value: string): Promise<void> {
+    try {
+      const url = new URL(value);
+      if (url.protocol !== 'mvanager:' || url.hostname !== 'agenda') return;
+      let account = '';
+      try {
+        const payload = JSON.parse(atob(this.globalService.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        account = `${payload.tenantId}:${payload.id}`;
+      } catch { /* An old widget must not open an event in another account. */ }
+      const params = new URLSearchParams();
+      for (const key of ['appointmentId', 'occurrenceStart', 'newEvent']) {
+        const item = url.searchParams.get(key); if (item && account && url.searchParams.get('account') === account) params.set(key, item);
+      }
+      if (params.size) params.set('widgetAccount', account);
+      await this.notificationNavigation.saveFromPayload({ route: '/calendarHome' + (params.size ? '?' + params : '') });
+      if (this.sessionUnlocked) await this.notificationNavigation.navigatePendingIfAny();
+    } catch { /* Ignore unrelated or malformed links. */ }
   }
 
   private refreshTenantConfigFromServer(): void {
@@ -211,6 +238,7 @@ export class AppComponent {
       this.inspectionAlarmSync.setToken(this.globalService.token);
       await this.inspectionAlarmSync.syncSoon('biometric-unlock', true);
       await this.serviceAnnouncements.showAfterLogin();
+      await this.navigatorSetup.showAfterLogin();
       const navigatedFromNotification =
         await this.notificationNavigation.navigatePendingIfAny();
 

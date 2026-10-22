@@ -1,3 +1,4 @@
+import { CalendarSettingsComponent } from './admin/calendar-settings/calendar-settings.component';
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 
@@ -240,6 +241,10 @@ const routes: Routes = [
         component: AccountingComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
         data: { permission: 'ACCOUNTING_VIEW' },
+      },
+      {
+        path: 'calendar-settings', component: CalendarSettingsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard], data: { permission: 'CALENDAR_VIEW' },
       },
       {
         path: 'calendarHome',
@@ -894,6 +899,10 @@ const routes: Routes = [
   },
 
   // calendario
+  {
+    path: 'calendar-settings', component: CalendarSettingsComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard], data: { permission: 'CALENDAR_VIEW' },
+  },
   {
     path: 'calendarHome',
     component: CalendarHomeComponent,

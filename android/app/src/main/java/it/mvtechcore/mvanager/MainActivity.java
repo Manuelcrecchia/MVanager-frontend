@@ -8,6 +8,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(AgendaWidgetPlugin.class);
         super.onCreate(savedInstanceState);
         storeNotificationNavigation(getIntent());
     }

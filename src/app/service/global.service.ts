@@ -359,7 +359,7 @@ export class GlobalService {
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '7.3';
+  version = '7.4';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -1058,6 +1058,73 @@ export class GlobalService {
     if (roleAddress) return roleAddress;
 
     return this.composeCustomerAddressFromLikelyKeys(record);
+  }
+
+  buildCalendarWorkAddress(
+    record: Record<string, any>,
+    scope: 'customer' | 'quote' = 'customer',
+  ): string {
+    if (!record || this.isAnonymizedRecord(record)) return '';
+    const explicitConfig =
+      this.tenantConfig?.addressConfig ||
+      this.getTenantQuoteConfig()?.addressConfig ||
+      {};
+    const config = this.getTenantCustomerAddressConfig();
+    const sharedAddress = explicitConfig.workSameAsBilling === true;
+    const fields = sharedAddress
+      ? config.billing || {}
+      : this.normalizeCustomerAddressFieldSet(
+          explicitConfig.work || {},
+          this.inferWorkAddressFieldsFromRoles(),
+        );
+    // Never guess using generic customer roles or billing-looking field names.
+    // The generic customerAddress role can itself refer to the billing address.
+    if (
+      !fields.address ||
+      (!sharedAddress && fields.address === config.billing?.address)
+    )
+      return '';
+
+    const read = (key?: string): string => {
+      if (!key) return '';
+      // Address configuration can name a customer DB column; quote columns may
+      // differ, so translate through the configured logical field key.
+      const ownField = this.getFieldConfig(scope, key);
+      const logicalKey =
+        ownField?.key || this.getFieldConfig('customer', key)?.key || key;
+      return String(
+        this.getRecordValueByFieldKey(scope, record, logicalKey) || '',
+      ).trim();
+    };
+    const street = read(fields.address);
+    // A city or country alone is not a usable intervention address.
+    if (!street) return '';
+
+    const streetKey =
+      this.getFieldConfig(scope, fields.address)?.key ||
+      this.getFieldConfig('customer', fields.address)?.key ||
+      fields.address;
+    const prefixKey =
+      streetKey === 'via'
+        ? 'selettorePrefissoVia'
+        : streetKey === 'viaDiFatturazione' && sharedAddress
+          ? 'selettorePrefissoViaDiFatturazione'
+          : '';
+    const prefix = read(prefixKey);
+    const address =
+      prefix &&
+      !street.toLocaleLowerCase().startsWith(prefix.toLocaleLowerCase())
+        ? `${prefix} ${street}`
+        : street;
+    return [
+      address,
+      [read(fields.zip), read(fields.city), read(fields.province)]
+        .filter(Boolean)
+        .join(' '),
+      read(fields.country),
+    ]
+      .filter(Boolean)
+      .join(', ');
   }
 
   private normalizeCustomerAddressConfig(

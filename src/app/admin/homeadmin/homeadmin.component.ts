@@ -108,6 +108,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     'addQuote',
     'accounting',
     'calendarHome',
+    'calendar-settings',
     'candidates',
     'cambiapassword',
     'customer-asset-deadlines',
@@ -736,6 +737,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   navigateToSettingsEmployees() {
     this.navigateInHome('settingsemployees');
+  }
+
+  navigateToCalendarSettings() {
+    this.navigateInHome('calendar-settings');
   }
 
   navigateToCategorySettings() {

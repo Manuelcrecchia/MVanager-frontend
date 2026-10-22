@@ -1,0 +1,76 @@
+<section class="calendar-settings-page">
+  <header class="mv-entity-toolbar calendar-settings-toolbar">
+    <h1>Impostazioni calendario</h1>
+    <button type="button" class="btn btn-outline-primary" (click)="back()">Torna indietro</button>
+  </header>
+  <section class="settings-card" *ngIf="widget.available">
+    <h2>Widget La mia agenda</h2>
+    <p>Consulta i prossimi impegni dalla schermata principale del telefono. Il widget mostra i tuoi eventi personali e il lavoro assegnato a te, anche nelle aziende collegate.</p>
+    <div class="widget-options">
+      <label><input type="checkbox" [(ngModel)]="widgetOptions.enabled" [disabled]="widgetSaving"> Abilita il widget per questo account</label>
+      <label>Appuntamenti da mostrare <select class="form-control" [(ngModel)]="widgetOptions.group" [disabled]="widgetSaving"><option value="all">Lavoro e personali</option><option value="work">Solo lavoro</option><option value="personal">Solo personali</option></select></label>
+      <label><input type="checkbox" [(ngModel)]="widgetOptions.private" [disabled]="widgetSaving"> Nascondi titoli, indirizzi e numeri di telefono</label>
+      <fieldset *ngIf="linkedCompanies.length"><legend>Aziende da includere</legend>
+        <label><input type="checkbox" [checked]="widgetIncludesCompany(tenantService.tenant)" (change)="toggleWidgetCompany(tenantService.tenant)" [disabled]="widgetSaving"> Questa azienda</label>
+        <label *ngFor="let company of linkedCompanies"><input type="checkbox" [checked]="widgetIncludesCompany(company.tenantId)" (change)="toggleWidgetCompany(company.tenantId)" [disabled]="widgetSaving"> {{ company.label }}</label>
+      </fieldset>
+      <div class="category-actions"><button type="button" class="btn btn-primary" (click)="saveWidget()" [disabled]="widgetSaving">{{ widgetSaving ? 'Salvataggio…' : 'Salva widget' }}</button><button type="button" class="btn btn-outline-primary" (click)="addWidget()" [disabled]="widgetSaving || !widgetOptions.enabled">Aggiungi alla schermata principale</button></div>
+    </div>
+    <p role="status" *ngIf="widgetFeedback">{{ widgetFeedback }}</p>
+    <div aria-live="polite">
+      <p *ngIf="widget.status.updatedAt">Ultima agenda scaricata: {{ widget.status.updatedAt | date:'dd/MM/yyyy HH:mm:ss' }} · {{ widget.status.eventCount }} impegni nei prossimi 7 giorni.</p>
+      <p *ngIf="!widgetFeedback">{{ widget.status.message }}</p>
+    </div>
+    <p>Gli aggiornamenti in background dipendono dal telefono. Senza connessione vedrai l’ultima agenda scaricata con l’orario di aggiornamento.</p>
+  </section>
+  <section class="settings-card" *ngIf="widget.navigationAvailable">
+    <h2>Navigatore del widget</h2>
+    <p>Scegli una volta il navigatore da usare. La scelta vale per questo iPhone, anche cambiando azienda. Naviga usa l’indirizzo dell’appuntamento visualizzato.</p>
+    <ng-container *ngIf="navigation as nav">
+      <p *ngIf="nav.available.length === 0">Nessun navigatore compatibile rilevato. Installa Google Maps, Mappe o Waze, poi riapri queste impostazioni.</p>
+      <div class="widget-options" *ngIf="nav.available.length">
+        <label for="widget-navigator">Navigatore preferito</label>
+        <select id="widget-navigator" class="form-control" [(ngModel)]="navigatorChoice" [disabled]="navigatorSaving">
+          <option value="" disabled>Scegli una volta</option>
+          <option *ngFor="let navigator of nav.available" [value]="navigator.id">{{ navigator.label }}</option>
+        </select>
+        <p>Google Maps e Waze compaiono se rilevati sul telefono. Per usare Mappe, assicurati che sia installata.</p>
+        <button type="button" class="btn btn-primary" (click)="saveNavigator()" [disabled]="navigatorSaving || !navigatorChoice">{{ navigatorSaving ? 'Salvataggio…' : 'Salva navigatore' }}</button>
+      </div>
+    </ng-container>
+    <p role="status" *ngIf="navigatorFeedback">{{ navigatorFeedback }}</p>
+  </section>
+  <label *ngIf="linkedCompanies.length">Categorie dell’account
+    <select class="form-control" [(ngModel)]="sourceTenantId" (ngModelChange)="changeCompany()" [disabled]="saving || loading"><option value="">Questa azienda</option><option *ngFor="let company of linkedCompanies" [value]="company.tenantId">{{ company.label }}</option></select>
+  </label>
+  <p>Gestisci le tue categorie personali. Le categorie di lavoro restano quelle configurate per l'azienda.</p>
+  <p class="feedback error" role="alert" *ngIf="error">{{ error }}</p>
+  <p class="feedback success" role="status" *ngIf="success">{{ success }}</p>
+  <p *ngIf="loading" role="status">Caricamento…</p>
+  <section class="settings-card" *ngIf="!loading">
+    <h2>Categorie personali</h2>
+    <p>La categoria Evento è sempre disponibile. Eliminando una categoria, i suoi eventi passano a Evento.</p>
+    <ul class="category-list">
+      <li *ngFor="let category of categories">
+        <span class="category-swatch" [style.background]="category.color" aria-hidden="true"></span>
+        <strong>{{ category.label }}</strong>
+        <span class="default-category" *ngIf="category.id === 'personal-event'">Predefinita</span>
+        <div class="category-actions" *ngIf="category.id !== 'personal-event'">
+          <button class="btn btn-outline-primary" type="button" [disabled]="saving" (click)="edit(category)">Modifica</button>
+          <button class="btn btn-outline-danger" type="button" [disabled]="saving" (click)="remove(category)">Elimina</button>
+        </div>
+      </li>
+    </ul>
+    <form (ngSubmit)="save()" class="category-form">
+      <h3>{{ editingId ? 'Modifica categoria' : 'Nuova categoria personale' }}</h3>
+      <label for="personal-category-name">Nome</label>
+      <input id="personal-category-name" name="label" [(ngModel)]="label" maxlength="80" required class="form-control" placeholder="Es. Famiglia, Visite, Impegni">
+      <label for="personal-category-color">Colore</label>
+      <input id="personal-category-color" name="color" type="color" [(ngModel)]="color">
+      <div class="category-actions">
+        <button class="btn btn-primary" type="submit" [disabled]="saving || !label.trim()">{{ saving ? 'Salvataggio…' : 'Salva categoria' }}</button>
+        <button class="btn btn-outline-secondary" type="button" *ngIf="editingId" [disabled]="saving" (click)="reset()">Annulla</button>
+      </div>
+    </form>
+  </section>
+</section>

@@ -916,3 +916,66 @@
   .tv-time-gutter { width: 40px; }
   .tv-time-label { font-size: 9px; padding-right: 3px; }
 }
+
+.calendar-contact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.calendar-contact-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--mv-blue-600);
+  border-radius: var(--mv-radius-control);
+  color: var(--mv-blue-600);
+  background: var(--mv-surface);
+  text-decoration: none;
+  font-weight: 600;
+}
+.calendar-contact-actions a:hover { background: #eef5ff; }
+.calendar-contact-actions a:focus-visible { outline: 2px solid var(--mv-blue-600); outline-offset: 3px; }
+
+.event-details-category {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.event-details-title {
+  margin: 14px 0 20px;
+  color: var(--mv-ink);
+  font-size: 20px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.event-details-list { margin: 0; }
+.event-details-list > div { margin-bottom: 18px; }
+.event-details-list dt {
+  margin-bottom: 5px;
+  color: var(--mv-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.event-details-list dd { margin: 0; overflow-wrap: anywhere; }
+.event-details-list a { color: var(--mv-blue-600); text-underline-offset: 3px; }
+.event-details-list .event-details-secondary { margin-top: 4px; color: var(--mv-muted); font-size: 12px; }
+.event-details-notes { white-space: pre-wrap; }
+.event-details-footer { flex-shrink: 0; justify-content: space-between; }
+.event-details-box .popup-header { flex-shrink: 0; }
+.event-details-box .popup-body { min-height: 0; }
+
+.personal-event-settings { padding: 14px; margin-bottom: 18px; background: #f6f2ff; border: 1px solid #ded4f4; border-radius: var(--mv-radius-control); }
+.personal-check-row { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; margin: 8px 0; }
+.personal-check-row input { flex-shrink: 0; }
+.personal-visibility { display: flex; gap: 8px; align-items: flex-start; color: var(--mv-muted); font-size: 13px; margin: -6px 0 18px; }
+.calendar-settings-error { color: #a32337; margin: 8px 0; }
+
+.personal-sharing-users { margin: 8px 0 12px; padding: 8px 12px; max-height: 220px; overflow-y: auto; border: 1px solid #ded4f4; border-radius: var(--mv-radius-control); }
+.personal-sharing-users legend { font-size: 13px; font-weight: 700; float: none; width: auto; margin: 0; }
+.personal-sharing-users .personal-check-row span { overflow-wrap: anywhere; min-width: 0; }
