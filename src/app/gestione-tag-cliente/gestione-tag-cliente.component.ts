@@ -40,7 +40,7 @@ export class GestioneTagClienteComponent {
       .subscribe((res: any) => {
         this.posizioneTag = res.posizioneTag || '';
         if (res.immagine) {
-          this.immagineAttuale = this.globalService.url + res.immagine;
+          this.immagineAttuale = new URL(`private-images/admin/tags/${encodeURIComponent(this.numeroCliente)}?v=${encodeURIComponent(res.immagine)}`, this.globalService.url).toString();
         } else {
           this.immagineAttuale = null;
         }
@@ -66,6 +66,8 @@ export class GestioneTagClienteComponent {
       })
       .subscribe(() => {
         alert('Dati salvati con successo!');
+        this.nuovaImmagine = null;
+        this.getData();
       });
   }
 }

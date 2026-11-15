@@ -5,8 +5,7 @@ import { GlobalService } from '../../service/global.service';
 
 type Purpose = 'quotes' | 'inspections' | 'supplierRequests' | 'invoices' | 'deliveryNotes'
   | 'payslips' | 'customerDocuments' | 'employeeDocuments' | 'employeeContracts'
-  | 'serviceOrders' | 'materialDeliveries' | 'workCompletion' | 'assetInterventions'
-  | 'publicQuoteRequests';
+  | 'serviceOrders' | 'materialDeliveries' | 'workCompletion' | 'assetInterventions';
 interface Sender {
   email: string;
   username: string;
@@ -53,7 +52,6 @@ export class EmailSendingSettingsComponent implements OnInit {
     this.section('materialDeliveries', 'Email invio consegne materiali', 'Richieste di firma e copie firmate, anche dall’app dipendenti.'),
     this.section('workCompletion', 'Email invio fogli di fine lavoro', 'Richieste di compilazione e firma e invio delle copie firmate.'),
     this.section('assetInterventions', 'Email invio verbali intervento presidi', 'Invio delle copie firmate dei verbali di intervento.'),
-    this.section('publicQuoteRequests', 'Email richieste preventivo dal sito', 'Mittente delle richieste inoltrate all’azienda dal modulo pubblico. Il destinatario aziendale rimane quello già impostato.'),
   ];
 
   constructor(private http: HttpClient, private router: Router, public globalService: GlobalService) {}

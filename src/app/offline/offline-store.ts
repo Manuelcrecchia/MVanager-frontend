@@ -1,3 +1,4 @@
+import { DOCUMENT_UPLOAD_CLIENT_TIMEOUT_MS, isDocumentUploadPath } from './http-response-deadline';
 import { operationId } from './offline-codec';
 import { compactCompletion, COMPLETION_PREFIX, COMPLETION_TTL, MAX_RECENT_COMPLETIONS } from './offline-completion';
 import type { PendingOperation } from './offline.service';
@@ -159,7 +160,9 @@ export class OfflineStore {
         const row = request.result;
         if (row && row.state === 'waiting' && (expectedHash === undefined || row.hash === expectedHash) && ((row.leaseUntil || 0) < Date.now() || !!abandonedOwner && row.leaseOwner === abandonedOwner)) {
           row.leaseOwner = leaseOwner;
-          row.leaseUntil = Date.now() + 330000;
+          const longUpload = row.body?.type === 'form' && /^(POST|PUT)$/i.test(row.method) && isDocumentUploadPath(row.url || row.path);
+          // Keep a live upload owned by this tab until its client deadline expires.
+          row.leaseUntil = Date.now() + (longUpload ? DOCUMENT_UPLOAD_CLIENT_TIMEOUT_MS + 30000 : 330000);
           row.attempted = true;
           row.leaseToken = operationId(); store.put(row); claimed = row.leaseToken;
         }

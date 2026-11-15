@@ -3538,8 +3538,9 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   }
 
   productImageUrl(product: WarehouseProduct): string {
-    if (!product.photoUrl) return '';
-    return `${this.global.url.replace(/\/$/, '')}${product.photoUrl}`;
+    if (!product.photoUrl && !product.photoPath) return '';
+    const version = encodeURIComponent(product.photoPath || product.photoUrl || '');
+    return new URL(`private-images/admin/products/${product.id}?v=${version}`, this.global.url).toString();
   }
 
   customerLabel(customer: any): string {

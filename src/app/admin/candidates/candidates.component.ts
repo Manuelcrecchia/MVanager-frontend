@@ -1,3 +1,4 @@
+import { oversizedDocumentMessage, documentUploadError } from '../../shared/document-upload-limits';
 import { firstValueFrom } from 'rxjs';
 import { AttachmentViewerService } from '../../shared/attachment-viewer/attachment-viewer.service';
 import { downloadFile } from '../../shared/file-download';
@@ -607,11 +608,23 @@ loadCandidates(scope: 'active' | 'discarded' = this.scope, silent = false): void
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.selectedFile = input.files?.[0] || null;
+    const files = Array.from(input.files || []);
+    const sizeError = oversizedDocumentMessage(files);
+    if (sizeError) {
+      input.value = '';
+      this.selectedFile = null;
+      this.errorMessage = sizeError;
+      alert(sizeError);
+      return;
+    }
+    this.errorMessage = '';
+    this.selectedFile = files[0] || null;
   }
 
   uploadAttachment(): void {
     if (!this.selectedCandidate || !this.selectedFile || !this.canManageFiles) return;
+    const sizeError = oversizedDocumentMessage([this.selectedFile]);
+    if (sizeError) { this.errorMessage = sizeError; alert(sizeError); return; }
     const data = new FormData();
     data.append('file', this.selectedFile);
     if (this.selectedAttachmentType) data.append('typeKey', this.selectedAttachmentType);
@@ -622,8 +635,9 @@ loadCandidates(scope: 'active' | 'discarded' = this.scope, silent = false): void
           this.selectedFile = null;
           this.successMessage = 'Allegato caricato.';
         },
-        error: () => {
-          this.errorMessage = 'Errore caricamento allegato.';
+        error: (err) => {
+          this.errorMessage = documentUploadError(err, 'Errore caricamento allegato.');
+          alert(this.errorMessage);
         },
       });
   }

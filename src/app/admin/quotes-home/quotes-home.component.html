@@ -40,7 +40,7 @@
 
   <div class="container">
     <div class="row g-3">
-    <div class="col-12" *ngFor="let quote of quotesFrEnd">
+    <div class="col-12" *ngFor="let quote of quotesFrEnd; trackBy: trackQuote">
       <div
         class="quote-card"
         [class.quote-card--open]="isQuoteOpen(quote.numeroPreventivo)"

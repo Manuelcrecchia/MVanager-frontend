@@ -1,3 +1,4 @@
+import { oversizedDocumentMessage } from '../../shared/document-upload-limits';
 import { downloadFile } from '../../shared/file-download';
 import { Component, OnInit } from '@angular/core';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
@@ -293,8 +294,11 @@ load(silent = false): void {
     return result.toISOString().slice(0, 10);
   }
   onConfiguredAttachmentChange(field: any, event: Event): void {
-    const files = Array.from((event.target as HTMLInputElement).files || []);
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
     if (!files.length) return;
+    const sizeError = oversizedDocumentMessage(files);
+    if (sizeError) { input.value = ''; this.error = sizeError; alert(sizeError); return; }
     const current = this.form.attachmentFiles[field.key] || [];
     this.form.attachmentFiles[field.key] = field.attachmentMultiple === true ? [...current, ...files] : [files[0]];
     this.syncAttachmentFiles();

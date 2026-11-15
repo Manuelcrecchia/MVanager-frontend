@@ -20,6 +20,7 @@ export class CambiapasswordComponent {
       responseType: 'text',
     }).subscribe({
       next: () => {
+        this.globalService.logout();
         this.router.navigateByUrl('/loginPrivateArea');
       },
       error: (error) => {

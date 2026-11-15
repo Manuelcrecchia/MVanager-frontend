@@ -5,7 +5,7 @@ describe('Warehouse signature confirmation', () => {
     it('does not submit when the dialog is cancelled: ' + method, async () => {
       const post = jasmine.createSpy();
       const component = new CustomerWarehouseComponent({ post } as any, {} as any, {} as any,
-        { prompt: async () => null } as any);
+        { prompt: async () => null } as any, {} as any, {} as any);
       component.selected = { id: 1 };
       await component[method]();
       expect(post).not.toHaveBeenCalled();
@@ -15,7 +15,7 @@ describe('Warehouse signature confirmation', () => {
       const post = jasmine.createSpy();
       let resolve!: (value: string) => void;
       const component = new CustomerWarehouseComponent({ post } as any, {} as any, {} as any,
-        { prompt: () => new Promise<string>(r => resolve = r) } as any);
+        { prompt: () => new Promise<string>(r => resolve = r) } as any, {} as any, {} as any);
       component.selected = { id: 1 };
       const pending = component[method]();
       component.selected = { id: 2 }; resolve('nota');

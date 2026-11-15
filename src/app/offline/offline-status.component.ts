@@ -35,6 +35,10 @@ import { shiftOperationDay } from './offline-policy';
             <p *ngIf="row.state === 'blocked' && row.errorCode !== 'OFFLINE_KEY_CONFLICT'">L’app ricontrolla automaticamente la conferma. Non ripete un invio dall’esito incerto.</p>
             <p *ngIf="row.state === 'blocked' && row.errorCode === 'OFFLINE_KEY_CONFLICT'">Il server ha rifiutato l’identificativo del salvataggio. La copia locale è conservata: contatta l’assistenza.</p>
             <a *ngIf="row.state === 'rejected'" [href]="recoveryUrl(row)">Torna al modulo per correggere i dati</a>
+            <ng-container *ngIf="offline.canReapplyAttendance(row)">
+              <p>La vecchia versione ha bloccato questa modifica. Riapplicandola sostituirai i valori attuali della stessa cella o nota con quelli della copia esportabile.</p>
+              <button type="button" (click)="offline.reapplyAttendance(row)">Riapplica modifica conservata</button>
+            </ng-container>
             <button type="button" (click)="offline.exportOperation(row)">Esporta copia</button>
             <button type="button" class="delete-action" (click)="requestRemoval(row)" [disabled]="removing">Elimina dalla coda</button>
           </article>

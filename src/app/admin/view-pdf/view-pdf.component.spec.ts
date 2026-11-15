@@ -13,6 +13,17 @@ describe('ViewPdfComponent', () => {
     expect(ViewPdfComponent).toBeTruthy();
   });
 
+  it('ritorna ai filtri della lista di partenza anche dopo un PDF firmato', () => {
+    const navigate = jasmine.createSpy('navigate');
+    const route = { snapshot: { queryParamMap: { get: (key: string) => key === 'fromQuoteList' ? '1' : null } } };
+    const component = new ViewPdfComponent({} as any, {} as any, { navigate } as any, route as any, {} as any);
+    component.signedPdfMode = true;
+
+    component.back();
+
+    expect(navigate).toHaveBeenCalledOnceWith(['/homeAdmin', 'quotesHome'], { queryParams: {} });
+  });
+
   it('changes zoom in bounded steps', () => {
     const component = createComponent();
     component.currentPdfZoom = 1;

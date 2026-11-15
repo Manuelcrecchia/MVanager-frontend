@@ -1295,10 +1295,33 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         const choice = await this.appDialog.prompt('Digita “fissa” per le sole righe fisse oppure “dinamica” per includere le ore del mese.', fixed.length ? 'dinamica' : 'dinamica', 'Tipo fattura', { inputLabel: 'Scelta' });
         if (choice === null) return;
         includeVariable = String(choice).trim().toLowerCase() !== 'fissa';
-        if (includeVariable) {
-          period = await this.appDialog.prompt('Indica il mese di competenza nel formato AAAA-MM.', new Date().toISOString().slice(0, 7), 'Ore mensili', { inputLabel: 'Mese' }) || '';
-          if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) { this.error = 'Mese non valido: usa il formato AAAA-MM.'; return; }
+      }
+      const profileLines = [...fixed, ...(includeVariable ? variable : [])];
+      const needsPeriod = includeVariable || profileLines.some((line: any) => /{{\s*(mese|anno)\s*}}/i.test(this.stringValue(line.description)));
+      if (needsPeriod) {
+        const currentMonth = this.todayInputDate().slice(0, 7);
+        const [year, month] = currentMonth.split('-').map(Number);
+        const previousMonthDate = new Date(year, month - 2, 1, 12);
+        const previousMonth = `${previousMonthDate.getFullYear()}-${String(previousMonthDate.getMonth() + 1).padStart(2, '0')}`;
+        const monthLabel = (value: string) => new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' }).format(new Date(`${value}-01T12:00:00`));
+        const choice = await this.appDialog.chooseThree(
+          'A quale mese si riferisce il servizio? Il periodo scelto viene usato nelle descrizioni e per le eventuali ore. La data della fattura resta quella impostata.',
+          'Periodo di competenza',
+          {
+            primaryLabel: `Mese corrente (${monthLabel(currentMonth)})`,
+            secondaryLabel: `Mese precedente (${monthLabel(previousMonth)})`,
+            tertiaryLabel: 'Altro mese',
+          },
+        );
+        if (choice === null) return;
+        if (choice === 'tertiary') {
+          const input = await this.appDialog.prompt('Indica il mese di competenza nel formato AAAA-MM.', currentMonth, 'Altro mese di competenza', { inputLabel: 'Mese' });
+          if (input === null) return;
+          period = input.trim();
+        } else {
+          period = choice === 'primary' ? currentMonth : previousMonth;
         }
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) { this.error = 'Mese non valido: usa il formato AAAA-MM.'; return; }
       }
       let hours = 0;
       if (includeVariable && period) {
@@ -1306,21 +1329,26 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         const summary: any = await firstValueFrom(this.http.get<any>(this.global.url + `admin/attendance/getMonthlyByCustomer/${month}/${year}`));
         hours = Number((summary?.clienti || []).find((row: any) => String(row.numeroCliente) === customerId)?.totale || 0);
       }
-      const monthLabel = period ? new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' }).format(new Date(`${period}-01T12:00:00`)) : '';
-      const lines = [...fixed, ...(includeVariable ? variable : [])].map((line: any, index: number) => {
+      const periodDate = period ? new Date(`${period}-01T12:00:00`) : null;
+      const monthName = periodDate ? new Intl.DateTimeFormat('it-IT', { month: 'long' }).format(periodDate) : '';
+      const monthLabel = periodDate ? new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' }).format(periodDate) : '';
+      const lines = profileLines.map((line: any, index: number) => {
         const dynamic = index >= fixed.length && includeVariable;
         const vatRate = Number(line.vatRate || 0);
         const fieldPrice = line.priceSource === 'customerField'
           ? Number(String(this.customerConfiguredValue(customer, this.stringValue(line.priceField))).replace(',', '.'))
           : NaN;
-        const unitPriceInput = Number.isFinite(fieldPrice) ? fieldPrice : Number(line.unitPriceInput || 0);
-        return this.withLineDefaults({ ...this.emptyLine(), ...line, unitPriceInput, quantity: dynamic ? hours : Number(line.quantity || 1), description: this.stringValue(line.description).replace(/{{\s*mese\s*}}/gi, monthLabel).replace(/{{\s*anno\s*}}/gi, period ? period.slice(0, 4) : '') , vatNature: vatRate === 0 ? this.stringValue(line.vatNature) : '', vatLegalReference: vatRate === 0 ? this.stringValue(line.vatLegalReference || this.defaultVatLegalReference(line.vatNature)) : '' });
+        const unitPriceInput = Number.isFinite(fieldPrice) ? fieldPrice : Number(line.unitPriceInput ?? line.unitPrice ?? 0);
+        const invoiceLine = this.withLineDefaults({ ...this.emptyLine(), ...line, unitPriceInput, quantity: dynamic ? hours : Number(line.quantity ?? 1), description: this.stringValue(line.description).replace(/{{\s*mese\s*}}/gi, monthName).replace(/{{\s*anno\s*}}/gi, period ? period.slice(0, 4) : '') , vatNature: vatRate === 0 ? this.stringValue(line.vatNature) : '', vatLegalReference: vatRate === 0 ? this.stringValue(line.vatLegalReference || this.defaultVatLegalReference(line.vatNature)) : '' });
+        this.syncLinePriceMode(invoiceLine);
+        return invoiceLine;
       });
       if (lines.length) this.selected.lines = lines;
       const header = profile.header || {};
       this.selected.type = this.stringValue(header.type || this.selected.type || 'TD01').toUpperCase();
       this.selected.series = this.stringValue(header.series || this.selected.series);
-      this.selected.customerRecipientType = this.normalizeRecipientType(header.customerRecipientType || this.selected.customerRecipientType);
+      const customerRecipientType = this.stringValue(this.customerValue(customer, 'customerRecipientType'));
+      this.selected.customerRecipientType = this.normalizeRecipientType(customerRecipientType || header.customerRecipientType || this.selected.customerRecipientType);
       this.selected.splitPayment = !!header.splitPayment;
       this.selected.vatExigibility = this.normalizeVatExigibility(header.splitPayment ? 'S' : header.vatExigibility, header.splitPayment ? 'S' : 'I');
       this.selected.stampDutyEnabled = !!header.stampDutyEnabled;
@@ -1360,7 +1388,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       this.selected.paymentIban = this.stringValue(profile.paymentIban || this.selected.paymentIban);
       this.selected.notes = this.stringValue(profile.notes || this.selected.notes);
       if (this.selected.series) this.loadNextNumber();
-      this.showProfilePrefillMessage(includeVariable ? `Fattura dinamica precompilata con ${hours.toFixed(2)} ore di ${monthLabel}.` : 'Fattura fissa precompilata dal profilo cliente.');
+      this.showProfilePrefillMessage(includeVariable ? `Fattura dinamica precompilata con ${hours.toFixed(2)} ore di ${monthLabel}.` : period ? `Fattura fissa precompilata per ${monthLabel}.` : 'Fattura fissa precompilata dal profilo cliente.');
     } catch (err: any) { this.error = err?.error?.error || 'Profilo fatturazione non applicato.'; }
   }
 

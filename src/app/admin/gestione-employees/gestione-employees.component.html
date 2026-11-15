@@ -27,7 +27,7 @@
       <button type="button" class="btn btn-primary" (click)="openNotifyModal(notifyModal)">🔔 Invia notifica</button>
     </div>
     <div class="employee-card-list" *ngIf="filteredEmployees.length > 0">
-    <article class="employee-card" [class.employee-card--open]="isEmployeeOpen(emp.id)" *ngFor="let emp of filteredEmployees">
+    <article class="employee-card" [class.employee-card--open]="isEmployeeOpen(emp.id)" *ngFor="let emp of filteredEmployees; trackBy: trackEmployee">
       <div class="employee-header-layout">
         <label class="employee-selector" *ngIf="emp.active !== false && globalService.hasPermission('NOTIFICATIONS_MANAGE')">
           <input

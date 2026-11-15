@@ -11,6 +11,7 @@ describe('Save status browser hit testing', () => {
 
   beforeEach(async () => {
     offline = {
+      canReapplyAttendance: () => false,
       start: () => {}, session: () => ({ user: 'fixture' }),
       notice: new BehaviorSubject(''), hasFieldDraft: new BehaviorSubject(false),
       connected: new BehaviorSubject(true), operations: new BehaviorSubject([]),

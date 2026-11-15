@@ -1,3 +1,4 @@
+import { PrivateImageDirective } from './shared/private-image.directive';
 import { CommandTooltipDirective } from './shared/command-tooltip.directive';
 import { LinkedFieldsComponent } from './admin/linked-fields.component';
 import { OfflineFieldDraftDirective } from './offline/offline-field-draft.directive';
@@ -207,6 +208,7 @@ registerLocaleData(localeIt);
     ReliableDetailsDirective,
   ],
   imports: [
+    PrivateImageDirective,
     CommandTooltipDirective,
     LinkedFieldsComponent,
     OfflineStatusComponent,

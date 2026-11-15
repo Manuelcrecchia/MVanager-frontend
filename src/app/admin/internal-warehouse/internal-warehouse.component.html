@@ -1040,7 +1040,7 @@
       >
         <button class="product-card-main" type="button" (click)="openProductSheet(product)">
           <span class="product-image">
-            <img *ngIf="product.photoUrl" [src]="productImageUrl(product)" [alt]="product.name" />
+            <img *ngIf="product.photoUrl" [privateImage]="productImageUrl(product)" [alt]="product.name" />
             <i *ngIf="!product.photoUrl" class="fas fa-box-open"></i>
           </span>
           <span class="product-card-body">
@@ -1110,7 +1110,7 @@
 
   <section class="panel product-sheet-page" *ngIf="activeTab === 'list' && productView === 'detail' && selectedProduct as product">
     <div class="product-sheet-hero">
-      <span class="product-image large"><img *ngIf="product.photoUrl" [src]="productImageUrl(product)" [alt]="product.name" /><i *ngIf="!product.photoUrl" class="fas fa-box-open"></i></span>
+      <span class="product-image large"><img *ngIf="product.photoUrl" [privateImage]="productImageUrl(product)" [alt]="product.name" /><i *ngIf="!product.photoUrl" class="fas fa-box-open"></i></span>
       <div><span class="section-kicker">PROD-{{ product.id | number : '3.0-0' }}</span><h3>{{ product.name }}</h3><p>{{ product.description || 'Nessuna descrizione' }}</p><span class="barcode-pill"><i class="fas fa-barcode"></i> {{ product.barcode }}</span></div>
       <span class="request-status" [ngClass]="productStockStatusClass(product) === 'out' ? 'danger' : productStockStatusClass(product) === 'low' ? 'warning' : 'success'">{{ productStockStatusLabel(product) }}</span>
     </div>
@@ -1435,7 +1435,7 @@
         </label>
         <label class="field full">
           <span>Foto prodotto</span>
-          <input class="form-control" type="file" accept="image/*" (change)="onPhotoSelected($event)" />
+          <input class="form-control" type="file" accept="image/jpeg,image/png,image/webp" (change)="onPhotoSelected($event)" />
         </label>
         <label class="check-line">
           <input type="checkbox" [(ngModel)]="productForm.favorite" name="favorite" />

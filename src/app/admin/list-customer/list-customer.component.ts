@@ -7,8 +7,9 @@ import { downloadFile as saveAs } from '../../shared/file-download';
 import { forkJoin, Subscription } from 'rxjs';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { NoteUnreadService } from '../../service/note-unread.service';
-import { resolveCustomerTaxIdentifiers } from '../customer-tax-id.util';
+import { inferRecipientTypeFromTaxIds, resolveCustomerTaxIdentifiers } from '../customer-tax-id.util';
 import { SocketService } from '../../service/soket.service';
+import { AdminListState, AdminListStateService } from '../admin-list-state.service';
 
 @Component({
   selector: 'app-list-customer',
@@ -46,6 +47,8 @@ export class ListCustomerComponent {
   readonly vatNatures = ['', 'N1', 'N2.1', 'N2.2', 'N3.1', 'N3.2', 'N3.3', 'N3.4', 'N3.5', 'N3.6', 'N4', 'N5', 'N6.1', 'N6.2', 'N6.3', 'N6.4', 'N6.5', 'N6.6', 'N6.7', 'N6.8', 'N6.9', 'N7'];
   readonly vatLegalReferences: Record<string, string> = { N1: 'Art. 15 DPR 633/1972', 'N2.1': 'Artt. da 7 a 7-septies DPR 633/1972', 'N2.2': 'Operazione non soggetta ad IVA - altri casi', 'N3.1': 'Art. 8 DPR 633/1972', 'N3.2': 'Art. 41 DL 331/1993', 'N3.3': 'Art. 71 DPR 633/1972', 'N3.4': 'Art. 8-bis DPR 633/1972', 'N3.5': 'Art. 8, comma 1, lett. c), DPR 633/1972', 'N3.6': 'Operazione non imponibile - altri casi', N4: 'Art. 10 DPR 633/1972', N5: 'Art. 36 DL 41/1995', 'N6.1': 'Art. 74, commi 7 e 8, DPR 633/1972', 'N6.2': 'Art. 17, comma 5, DPR 633/1972', 'N6.3': 'Art. 17, comma 6, lett. a), DPR 633/1972', 'N6.4': 'Art. 17, comma 6, lett. a-bis), DPR 633/1972', 'N6.5': 'Art. 17, comma 6, lett. b), DPR 633/1972', 'N6.6': 'Art. 17, comma 6, lett. c), DPR 633/1972', 'N6.7': 'Art. 17, comma 6, lett. a-ter), DPR 633/1972', 'N6.8': 'Art. 17, comma 6, lett. d-bis), d-ter) e d-quater, DPR 633/1972', 'N6.9': 'Inversione contabile - altri casi', N7: 'IVA assolta in altro Stato UE' };
   private customerRealtimeSubscription?: Subscription;
+  private listState?: AdminListState;
+  private openCustomers = new Set<string>();
 
   constructor(
     private http: HttpClient,
@@ -56,6 +59,7 @@ export class ListCustomerComponent {
     private appDialog: PopupServiceService,
     public noteUnread: NoteUnreadService,
     private socketService: SocketService,
+    private listStateService: AdminListStateService,
   ) {}
 
   ngOnInit(): void {
@@ -64,6 +68,17 @@ export class ListCustomerComponent {
     if (this.archiveReminderCustomerId) {
       this.customerSearch = this.archiveReminderCustomerId;
     }
+    this.listState = this.listStateService.connect('customers', () => ({
+      customerSearch: this.customerSearch,
+      customerSort: this.customerSort,
+      showArchived: this.showArchived,
+      openCustomers: new Set(this.openCustomers),
+    }), filters => {
+      this.customerSearch = filters.customerSearch;
+      this.customerSort = filters.customerSort;
+      this.showArchived = filters.showArchived;
+      this.openCustomers = new Set(filters.openCustomers);
+    }, !this.archiveReminderCustomerId);
     this.getCustomers();
     this.customerRealtimeSubscription = this.socketService
       .onResourceChanges('customers')
@@ -81,6 +96,20 @@ export class ListCustomerComponent {
 
   ngOnDestroy(): void {
     this.customerRealtimeSubscription?.unsubscribe();
+    this.listState?.disconnect();
+  }
+
+  trackCustomer(_index: number, customer: any): string {
+    return String(customer.numeroCliente);
+  }
+
+  isCustomerOpen(numeroCliente: string): boolean {
+    return this.openCustomers.has(String(numeroCliente));
+  }
+
+  setCustomerOpen(numeroCliente: string, open: boolean): void {
+    if (open) this.openCustomers.add(String(numeroCliente));
+    else this.openCustomers.delete(String(numeroCliente));
   }
 
   getEmployeeCategories(): void {
@@ -144,6 +173,7 @@ export class ListCustomerComponent {
             const data = JSON.parse(response);
             this.customers = Array.isArray(data) ? data : [];
             this.applyCustomerSearch();
+            this.listState?.restoreScroll();
           } catch (err) {
             console.error('Errore nel parse JSON dei clienti:', err);
           }
@@ -429,6 +459,7 @@ export class ListCustomerComponent {
     }).subscribe({
       next: ({ profile, settings }) => {
         this.invoiceProfile = this.normalizeInvoiceProfile(profile);
+        this.invoiceProfile.header.customerRecipientType = this.invoiceProfileCustomerRecipientType();
         const mapped = this.globalService.getEffectiveCustomerAddressFields('billing') as any;
         this.invoiceProfileBillingFieldMap = ['address', 'city', 'province', 'zip', 'country'].reduce((result: Record<string, string>, part) => {
           const fieldKey = String(mapped?.[part] || '').trim();
@@ -472,7 +503,15 @@ export class ListCustomerComponent {
     if (line) {
       if (field === 'description') return text(line.description) ? '' : 'Descrizione obbligatoria';
       if (field === 'quantity') return Number(line.quantity || 0) > 0 ? '' : 'La quantità deve essere maggiore di zero';
-      if (field === 'priceField') return line.priceSource !== 'customerField' || text(line.priceField) ? '' : 'Seleziona il campo cliente da usare come prezzo';
+      if (field === 'priceField') {
+        if (line.priceSource !== 'customerField') return '';
+        if (!text(line.priceField)) return 'Seleziona il campo cliente da usare come prezzo';
+        const value = this.invoiceProfileCustomerPriceValue(line);
+        if (value === undefined || value === null || !text(value)) return 'Il campo cliente selezionato è vuoto';
+        const price = this.invoiceProfileCustomerPrice(line);
+        if (price === null) return 'Il campo cliente selezionato deve contenere un numero valido';
+        return price < 0 ? 'Il prezzo deve essere maggiore o uguale a zero' : '';
+      }
       if (field === 'discount') return Number(line.discountPercent || 0) >= 0 && Number(line.discountPercent || 0) <= 100 ? '' : 'Sconto compreso tra 0 e 100';
       if (field === 'vatNature') return Number(line.vatRate || 0) !== 0 || text(line.vatNature) ? '' : 'Natura obbligatoria con IVA zero';
       if (field === 'vatLegalReference') return Number(line.vatRate || 0) !== 0 || text(line.vatLegalReference) ? '' : 'Riferimento normativo obbligatorio';
@@ -526,11 +565,23 @@ export class ListCustomerComponent {
     }
     return this.invoiceProfileRawCustomerValue(role);
   }
+  invoiceProfileCustomerRecipientType(): 'business' | 'private' | 'pa' {
+    const value = this.invoiceProfileRawCustomerValue('customerRecipientType').toLowerCase();
+    if (value.includes('pubblic') || value === 'pa') return 'pa';
+    if (value.includes('privato') || value.includes('persona') || value === 'private') return 'private';
+    if (value) return 'business';
+    return inferRecipientTypeFromTaxIds(
+      this.invoiceProfileRawCustomerValue('customerVatNumber'),
+      this.invoiceProfileRawCustomerValue('customerFiscalCode'),
+      this.invoiceProfileRawCustomerValue('customerTaxOrVatNumber'),
+    );
+  }
   private invoiceProfileRawCustomerValue(role: string): string {
     const customer = this.profileCustomer || {};
     const mapped = this.globalService.getRecordValueByRole?.('customer', customer, role);
     if (mapped !== undefined && mapped !== null && String(mapped).trim()) return String(mapped).trim();
     const keys: Record<string, string[]> = {
+      customerRecipientType: ['tipoAnagrafica', 'tipoCliente', 'recipientType', 'customerRecipientType'],
       customerVatNumber: ['partitaIva', 'piva', 'vatNumber', 'customerVatNumber'],
       customerFiscalCode: ['codiceFiscale', 'fiscalCode', 'customerFiscalCode'],
       customerTaxOrVatNumber: ['cfpi', 'codiceFiscalePartitaIva', 'taxOrVatNumber', 'customerTaxOrVatNumber'],
@@ -565,6 +616,7 @@ export class ListCustomerComponent {
   }
   saveInvoiceProfile(): void {
     if (!this.profileCustomer) return;
+    if (this.invoiceProfileHasErrors()) return;
     this.invoiceProfileSaving = true; this.invoiceProfileError = '';
     const updatedCustomer = { ...this.profileCustomer };
     Object.entries(this.invoiceProfileBillingFieldMap).forEach(([part, fieldKey]) => { updatedCustomer[fieldKey] = this.invoiceProfile.billing[part] || ''; });
@@ -580,7 +632,24 @@ export class ListCustomerComponent {
       ['money', 'number', 'decimal', 'text'].includes(String(field?.type || '').toLowerCase()),
     );
   }
-  private emptyInvoiceProfileLine(variable = false): any { return { enabled: true, description: '', unit: variable ? 'h' : 'pz', quantity: 1, unitPriceInput: 0, priceSource: 'fixed', priceField: '', discountPercent: 0, vatRate: 22, vatNature: '', vatLegalReference: '' }; }
+  private invoiceProfileCustomerPriceValue(line: any): any {
+    const key = String(line.priceField || '').trim();
+    if (!key) return undefined;
+    const customer = this.profileCustomer || {};
+    const mapped = this.globalService.getRecordValueByRole?.('customer', customer, key);
+    if (mapped !== undefined && mapped !== null && String(mapped).trim()) return mapped;
+    if (customer[key] !== undefined && customer[key] !== null) return customer[key];
+    return key.split('.').reduce<any>((value, part) => value?.[part], customer);
+  }
+  invoiceProfileCustomerPrice(line: any): number | null {
+    const value = this.invoiceProfileCustomerPriceValue(line);
+    if (typeof value !== 'string' && typeof value !== 'number') return null;
+    const text = String(value).trim();
+    if (!/^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(text)) return null;
+    const price = Number(text.replace(',', '.'));
+    return Number.isFinite(price) ? price : null;
+  }
+  private emptyInvoiceProfileLine(variable = false): any { return { enabled: true, description: '', serviceCode: '', unit: variable ? 'h' : 'pz', quantity: 1, unitPriceInput: 0, priceSource: 'fixed', priceField: '', discountPercent: 0, vatRate: 22, vatNature: '', vatLegalReference: '' }; }
   private emptyInvoiceProfile(): any { return { enabled: true, paymentTermId: null, bankAccountId: null, paymentMethod: '', paymentIban: '', notes: '', header: { series: '', type: 'TD01', customerRecipientType: 'business', splitPayment: false, vatExigibility: 'I', stampDutyEnabled: false, stampDutyAmount: 2, withholdingEnabled: false, withholdingType: 'RT01', withholdingReason: 'A', withholdingRate: 0, withholdingAmount: 0, pensionFundEnabled: false, pensionFundType: 'TC01', pensionFundRate: 0, pensionFundAmount: 0, pensionFundVatRate: 22, pensionFundVatNature: '', pensionFundLegalReference: '', paReferenceType: '', paDocumentId: '', paDocumentDate: '', paItemNumber: '', paConventionCode: '', paCup: '', paCig: '' }, billing: { address: '', city: '', province: '', zip: '', country: 'IT' }, fixedLines: [], variableLines: [] }; }
   private normalizeInvoiceProfile(profile: any): any { const source = profile || {}; const empty = this.emptyInvoiceProfile(); return { ...empty, ...source, header: { ...empty.header, ...(source.header || {}) }, billing: { ...empty.billing, ...(source.billing || {}) }, fixedLines: Array.isArray(source.fixedLines) ? source.fixedLines : [], variableLines: Array.isArray(source.variableLines) ? source.variableLines : [] }; }
 

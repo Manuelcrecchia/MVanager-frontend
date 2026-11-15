@@ -22,6 +22,7 @@ resetPassword(newPassword:string, code:string){
             this.popup.openPopup();
           }
           else{
+            this.globalService.logout();
             this.router.navigateByUrl('/loginPrivateArea');
           }
         }, (err) => {

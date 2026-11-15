@@ -13,7 +13,7 @@ describe('CustomerWarehouseComponent history', () => {
     employeeId: 7, employeeName: 'Mario Rossi', createdAt: '2026-09-03T12:00:00Z', beforeJson: { name: 'Armadio' }, afterJson: { name: 'Armadio sala' } };
   beforeEach(async () => {
     spyOn(CustomerWarehouseComponent.prototype, 'ngOnInit').and.stub();
-    await TestBed.configureTestingModule({ imports: [CustomerWarehouseComponent], providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), { provide: GlobalService, useValue: { url: '/api/', hasPermission: () => true } }] }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [CustomerWarehouseComponent], providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), { provide: GlobalService, useValue: { url: 'http://localhost/api/', hasPermission: () => true } }] }).compileComponents();
     fixture = TestBed.createComponent(CustomerWarehouseComponent); component = fixture.componentInstance; http = TestBed.inject(HttpTestingController);
     component.selected = { id: 1, items: [item], pieces: [piece], groups: [{ id: 2, name: 'Sala' }] };
   });
@@ -106,7 +106,14 @@ describe('CustomerWarehouseComponent history', () => {
   it('separates element photos and notes from the piece list', () => {
     seedInventory(); component.openItem(item); component.itemSection = 'photos'; render();
     expect(query('.cw-piece-entry')).toBeNull(); expect(all('.cw-item-photos img').length).toBe(1);
-    expect(query('.cw-note')!.textContent).toBe('Nota elemento'); expect(query('.cw-item-photos a')!.getAttribute('rel')).toBe('noopener');
+    expect(query('.cw-note')!.textContent).toBe('Nota elemento');
+    const anchor = query('.cw-item-photos a')!;
+    expect(anchor.getAttribute('target')).not.toBe('_blank');
+    const openPhoto = spyOn(component, 'openPhoto');
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    anchor.dispatchEvent(click);
+    expect(click.defaultPrevented).toBeTrue();
+    expect(openPhoto).toHaveBeenCalledWith(jasmine.objectContaining({ id: 1, pieceId: null }));
   });
   it('returns from piece history to the same expanded piece and preserves the inventory search', () => {
     seedInventory(); component.inventorySearch = 'Sala'; component.openItem(item); component.togglePiece(piece);
@@ -144,7 +151,7 @@ describe('CustomerWarehouseComponent history', () => {
     query('.cw-operation > button')!.click(); render(); query('.cw-reopen-confirm .btn-primary')!.click(); render();
     component.reopenOperation(operation);
     expect((query('.cw-reopen-confirm .btn-primary') as HTMLButtonElement).disabled).toBeTrue();
-    http.expectOne('/api/admin/customer-warehouse/operations/9/reopen').flush({ operation: { id: 9, status: 'in_progress', forcedNote: '', completedAt: null }, progress: { completed: 1, total: 2 } }); render();
+    http.expectOne('http://localhost/api/admin/customer-warehouse/operations/9/reopen').flush({ operation: { id: 9, status: 'in_progress', forcedNote: '', completedAt: null }, progress: { completed: 1, total: 2 } }); render();
     expect(operation.acceptedScans).toBe(1); expect(component.selected.pieces).toEqual(pieces);
     expect(component.activeSection).toBe('operations'); expect(query('.cw-operation')!.textContent).toContain('In corso');
     expect(query('.cw-operation > button')).toBeNull(); expect(component.message).toContain('Operazione riaperta');
@@ -225,7 +232,7 @@ describe('CustomerWarehouseComponent history', () => {
     component.openGroup(component.selected.groups[1]); expect(component.visibleItems().map(row => row.id)).toEqual([20]);
   });
   it('uses the group terminology configured for the company', () => {
-    component.loadConfig(); http.expectOne('/api/admin/customer-warehouse/config').flush({ config: { groupLabel: 'Area' } });
+    component.loadConfig(); http.expectOne('http://localhost/api/admin/customer-warehouse/config').flush({ config: { groupLabel: 'Area' } });
     seedInventory(); expect(query('.cw-groups h2')!.textContent).toBe('Aree');
     expect(query('input[type=search]')!.getAttribute('aria-label')).toBe('Cerca area');
   });

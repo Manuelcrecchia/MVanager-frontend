@@ -5,6 +5,18 @@ describe('QuotesHomeComponent', () => {
     expect(QuotesHomeComponent).toBeTruthy();
   });
 
+  it('mantiene la provenienza dalla lista nell’URL del PDF firmato', () => {
+    const navigate = jasmine.createSpy('navigate');
+    const component = Object.create(QuotesHomeComponent.prototype) as QuotesHomeComponent;
+    Object.assign(component, { router: { navigate } });
+
+    component.viewPdf({ numeroPreventivo: '100', signaturePresent: true });
+
+    expect(navigate).toHaveBeenCalledOnceWith(['/view-pdf'], {
+      queryParams: { numeroPreventivo: '100', fromQuoteList: 1, signed: 1 },
+    });
+  });
+
   it('mantiene ricerca e preventivo selezionato durante il refresh realtime', () => {
     const component = Object.create(QuotesHomeComponent.prototype) as QuotesHomeComponent;
     const quotes = [

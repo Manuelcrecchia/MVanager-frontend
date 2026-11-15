@@ -18,7 +18,7 @@
 
     <div class="mb-3">
       <input
-        type="file"
+        type="file" accept="image/jpeg,image/png,image/webp"
         class="form-control"
         (change)="onFileSelected($event)"
       />
@@ -27,7 +27,7 @@
     <div *ngIf="immagineAttuale" class="mb-3">
       <p>Immagine attuale:</p>
       <img
-        [src]="immagineAttuale"
+        [privateImage]="immagineAttuale"
         class="img-fluid rounded"
         style="max-width: 250px"
       />

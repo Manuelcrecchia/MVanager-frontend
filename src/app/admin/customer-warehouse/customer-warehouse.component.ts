@@ -1,3 +1,6 @@
+import { AttachmentViewerService } from '../../shared/attachment-viewer/attachment-viewer.service';
+import { PrivateImageService } from '../../shared/private-image.directive';
+import { PrivateImageDirective } from '../../shared/private-image.directive';
 import { OfflineFieldDraftDirective } from '../../offline/offline-field-draft.directive';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -10,7 +13,7 @@ import { PopupServiceService } from '../../componenti/popup/popup-service.servic
 @Component({
   selector: 'app-customer-warehouse',
   standalone: true,
-  imports: [OfflineFieldDraftDirective, CommonModule, FormsModule],
+  imports: [PrivateImageDirective, OfflineFieldDraftDirective, CommonModule, FormsModule],
   templateUrl: './customer-warehouse.component.html',
   styleUrls: ['./customer-warehouse.component.css'],
 })
@@ -65,7 +68,7 @@ export class CustomerWarehouseComponent implements OnInit, OnDestroy {
   historyPieceId: number | null = null;
   private historyRequest = 0;
 
-  constructor(private http: HttpClient, public global: GlobalService, private router: Router, private popup: PopupServiceService) {}
+  constructor(private http: HttpClient, public global: GlobalService, private router: Router, private popup: PopupServiceService, private attachmentViewer: AttachmentViewerService, private images: PrivateImageService) {}
 
   ngOnInit(): void { this.loadConfig(); this.load(); }
   ngOnDestroy(): void { this.historyRequest++; this.practiceRequest++; }
@@ -325,7 +328,10 @@ export class CustomerWarehouseComponent implements OnInit, OnDestroy {
   piecesFor(item: any): any[] { return (this.selected?.pieces || []).filter((piece: any) => piece.itemId === item.id); }
   photosFor(item: any): any[] { return (this.selected?.photos || []).filter((photo: any) => photo.itemId === item.id && !photo.pieceId); }
   photoUrl(photo: any): string {
-    try { return new URL(photo.filePath, this.global.url).toString(); } catch { return photo.filePath || ''; }
+    return new URL(`private-images/admin/customer-warehouse/${photo.id}`, this.global.url).toString();
+  }
+  openPhoto(photo: any): void {
+    this.attachmentViewer.open({ originalName: photo.fileName || 'Foto' }, this.images.fetch(this.photoUrl(photo)));
   }
   operationLabel(type: string): string { return type === 'load' ? 'Carico' : 'Scarico'; }
   operationStatus(status: string): string {

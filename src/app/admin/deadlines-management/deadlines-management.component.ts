@@ -1,3 +1,4 @@
+import { oversizedDocumentMessage, documentUploadError } from '../../shared/document-upload-limits';
 import { downloadFile, fileDownloadIO } from '../../shared/file-download';
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -837,7 +838,7 @@ export class DeadlinesManagementComponent implements OnInit {
       },
       error: (err) => {
         this.exportingPdf = false;
-        this.error = this.parseServerError(err);
+        this.error = documentUploadError(err, this.parseServerError(err));
         this.popup.showError(this.error);
       },
     });
@@ -1072,7 +1073,7 @@ export class DeadlinesManagementComponent implements OnInit {
       },
       error: (err) => {
         this.bulkSaving = false;
-        this.error = this.parseServerError(err);
+        this.error = documentUploadError(err, this.parseServerError(err));
         this.popup.showError(this.error);
       },
     });
@@ -1606,7 +1607,7 @@ export class DeadlinesManagementComponent implements OnInit {
       error: (err) => {
         console.error('Errore caricamento entita scadenze:', err);
         this.entitiesLoading = false;
-        this.error = this.parseServerError(err);
+        this.error = documentUploadError(err, this.parseServerError(err));
         this.popup.showError(this.error);
       },
     });
@@ -1638,7 +1639,7 @@ export class DeadlinesManagementComponent implements OnInit {
         this.loadAll();
       },
       error: (err) => {
-        this.error = this.parseServerError(err);
+        this.error = documentUploadError(err, this.parseServerError(err));
         this.popup.showError(this.error);
       },
     });
@@ -1656,7 +1657,7 @@ export class DeadlinesManagementComponent implements OnInit {
       error: (err) => {
         console.error('Errore caricamento scadenze:', err);
         this.loading = false;
-        this.error = this.parseServerError(err);
+        this.error = documentUploadError(err, this.parseServerError(err));
         this.popup.showError(this.error);
       },
     });
@@ -1898,6 +1899,8 @@ export class DeadlinesManagementComponent implements OnInit {
 
   private addPendingFiles(files: File[]): void {
     if (!files.length) return;
+    const sizeError = oversizedDocumentMessage(files);
+    if (sizeError) { this.error = sizeError; this.popup.showError(sizeError); return; }
 
     const seen = new Set(
       this.pendingFiles.map((file) => this.fileIdentity(file)),
@@ -1921,6 +1924,8 @@ export class DeadlinesManagementComponent implements OnInit {
 
   submit(): void {
     if (!this.canSave || this.saving) return;
+    const sizeError = oversizedDocumentMessage(this.pendingFiles);
+    if (sizeError) { this.error = sizeError; this.popup.showError(sizeError); return; }
 
     const title = this.normalizeFieldValue(this.form.title);
     const description = this.normalizeFieldValue(this.form.description);
@@ -1986,7 +1991,7 @@ export class DeadlinesManagementComponent implements OnInit {
       error: (err) => {
         console.error('Errore salvataggio scadenza:', err);
         this.saving = false;
-        this.error = this.parseServerError(err);
+        this.error = documentUploadError(err, this.parseServerError(err));
         this.popup.showError(this.error);
       },
     });
@@ -2013,7 +2018,7 @@ export class DeadlinesManagementComponent implements OnInit {
         },
         error: (err) => {
           console.error('Errore eliminazione scadenza:', err);
-          this.error = this.parseServerError(err);
+          this.error = documentUploadError(err, this.parseServerError(err));
           this.popup.showError(this.error);
         },
       });
@@ -2052,7 +2057,7 @@ export class DeadlinesManagementComponent implements OnInit {
         },
         error: (err) => {
           console.error('Errore eliminazione allegato:', err);
-          this.error = this.parseServerError(err);
+          this.error = documentUploadError(err, this.parseServerError(err));
           this.popup.showError(this.error);
         },
       });
@@ -2104,7 +2109,7 @@ export class DeadlinesManagementComponent implements OnInit {
         },
         error: (err) => {
           console.error('Errore rinomina allegato:', err);
-          this.error = this.parseServerError(err);
+          this.error = documentUploadError(err, this.parseServerError(err));
           this.popup.showError(this.error);
         },
       });
@@ -2145,7 +2150,7 @@ export class DeadlinesManagementComponent implements OnInit {
         error: (err) => {
           console.error('Errore caricamento storico scadenza:', err);
           this.historyLoadingByDeadlineId[deadline.id] = false;
-          this.error = this.parseServerError(err);
+          this.error = documentUploadError(err, this.parseServerError(err));
           this.popup.showError(this.error);
         },
       });

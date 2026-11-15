@@ -210,6 +210,12 @@ export interface TenantQuoteTypeConfig {
 }
 
 export interface TenantFieldCalculationConfig {
+  terms?: Array<{
+    field: string;
+    quantityField?: string;
+    whenField?: string;
+    whenValue?: string;
+  }>;
   mode?: string;
   sourceFields?: string | string[];
   vatField?: string;
@@ -359,7 +365,7 @@ export class GlobalService {
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '7.4';
+  version = '7.5';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -1730,14 +1736,28 @@ export class GlobalService {
     );
     if (!sourceFields.length) return undefined;
 
-    const subtotal = sourceFields.reduce(
-      (sum, sourceField) =>
-        sum +
-        this.parseNumericValue(
-          this.readCalculationSourceValue(source, fields, sourceField),
-        ),
-      0,
-    );
+    const read = (key: string) =>
+      this.readCalculationSourceValue(source, fields, key);
+    const normalize = (value: unknown) =>
+      String(value ?? '')
+        .trim()
+        .toLowerCase();
+    const subtotal = calculation.terms?.length
+      ? calculation.terms.reduce((sum, term) => {
+          if (
+            term.whenField &&
+            normalize(read(term.whenField)) !== normalize(term.whenValue)
+          )
+            return sum;
+          const quantity = term.quantityField
+            ? this.parseNumericValue(read(term.quantityField))
+            : 1;
+          return sum + this.parseNumericValue(read(term.field)) * quantity;
+        }, 0)
+      : sourceFields.reduce(
+          (sum, key) => sum + this.parseNumericValue(read(key)),
+          0,
+        );
 
     let total = subtotal;
     if (mode === 'sum_minus') {
@@ -1859,6 +1879,11 @@ export class GlobalService {
         String(field.key || '').trim() === target ||
         String(field.dbColumn || '').trim() === target,
     );
+    if (
+      mappedField &&
+      !this.isCalculationSourceVisible(mappedField, fields, source)
+    )
+      return undefined;
     const candidates = [target, mappedField?.dbColumn, mappedField?.key]
       .map((item) => String(item || '').trim())
       .filter(Boolean);
@@ -1916,16 +1941,56 @@ export class GlobalService {
     return undefined;
   }
 
+  private conditionValuesMatch(current: unknown, expected: unknown): boolean {
+    const value = this.normalizeConditionValue(current);
+    const target = this.normalizeConditionValue(expected);
+    if (target === 'true') return value === 'true' || value === '1';
+    if (target === 'false')
+      return value === 'false' || value === '0' || value === '';
+    return value === target;
+  }
+
+  private isCalculationSourceVisible(
+    field: TenantFieldMappingFieldConfig,
+    fields: TenantFieldMappingFieldConfig[],
+    source: Record<string, any>,
+    visited = new Set<string>(),
+  ): boolean {
+    const condition = field.visibleWhen;
+    if (!condition?.field) return true;
+    if (visited.has(field.key)) return false;
+    visited.add(field.key);
+    const parent = fields.find(
+      (item) =>
+        item.key === condition.field || item.dbColumn === condition.field,
+    );
+    if (
+      parent &&
+      !this.isCalculationSourceVisible(parent, fields, source, visited)
+    )
+      return false;
+    const value =
+      source[condition.field] ??
+      (parent ? this.readMappedValue(source, parent) : undefined);
+    return this.conditionValuesMatch(value, condition.value);
+  }
+
   private matchesVisibleWhen(
     scope: 'quote' | 'customer',
     field: TenantFieldMappingFieldConfig,
     source: Record<string, any>,
+    visited = new Set<string>(),
   ): boolean {
     const conditionField = String(field.visibleWhen?.field || '').trim();
     const conditionValue = String(field.visibleWhen?.value || '').trim();
     if (!conditionField) return true;
 
-    const sourceField = this.getFieldConfig(scope, conditionField) || {
+    if (visited.has(field.key)) return false;
+    visited.add(field.key);
+    const parent = this.getFieldConfig(scope, conditionField);
+    if (parent && !this.matchesVisibleWhen(scope, parent, source, visited))
+      return false;
+    const sourceField = parent || {
       key: conditionField,
       dbColumn: conditionField,
       label: conditionField,
@@ -1937,10 +2002,7 @@ export class GlobalService {
       sourceField,
     );
 
-    return (
-      this.normalizeConditionValue(currentValue) ===
-      this.normalizeConditionValue(conditionValue)
-    );
+    return this.conditionValuesMatch(currentValue, conditionValue);
   }
 
   private resolveVisibleWhenValue(

@@ -49,6 +49,20 @@ describe('API response deadlines', () => {
     tick(120000); expect(failure).toBeUndefined();
     tick(180000); expect(failure.status).toBe(504);
   }));
+  it('allows document uploads past five minutes and keeps a finite deadline', fakeAsync(() => {
+    const service = new OfflineService({ get: () => () => null } as any, { handle: () => NEVER } as any);
+    const request = new HttpRequest('POST', 'https://example.invalid/admin/internal-documents/upload', new FormData());
+    const failed = jasmine.createSpy();
+    let replayFailure: any;
+    service.intercept(request, () => NEVER).subscribe({ error: failed });
+    (service as any).response(request, () => NEVER).catch((error: any) => replayFailure = error);
+    tick(300001);
+    expect(failed).not.toHaveBeenCalled();
+    expect(replayFailure).toBeUndefined();
+    tick(31 * 60000 - 300001);
+    expect(failed).toHaveBeenCalledWith(jasmine.objectContaining({ status: 504 }));
+    expect(replayFailure.error.outcome).toBe('unknown');
+  }));
   it('also bounds unauthenticated and credential requests outside the durable save protocol', fakeAsync(() => {
     const service = new OfflineService({ get: () => () => null } as any, { handle: () => NEVER } as any);
     const failed = jasmine.createSpy();

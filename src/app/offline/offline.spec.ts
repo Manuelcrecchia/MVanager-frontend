@@ -479,6 +479,109 @@ describe('Durable offline saves', () => {
     expect(await service.store.claim(row.id)).toBeFalse();
     expect(requests.length).toBe(0);
   });
+  for (const path of ['admin/attendanceEdit/saveEditableCell', 'admin/attendanceEdit/saveEditableNote', 'admin/attendance/saveMonthlyCustomerCell']) {
+    const cell = (id = 1, day = 2, hours = 4) => ({ employeeId: id, numeroCliente: String(id), giorno: day, mese: '11', anno: 2026, ore: hours, nota: String(hours), voci: [{ categoria: 'O', ore: hours }] });
+    it(`saves independent records while another attendance request is in flight: ${path}`, async () => {
+      const response = new Subject<any>();
+      let started = false;
+      const first = firstValueFrom(service.intercept(request(path, cell()), () => { started = true; return response; }));
+      while (!started) await new Promise(resolve => setTimeout(resolve, 1));
+      try {
+        await expectAsync(send(request(path, cell(2)))).toBeResolved();
+        expect(requests.filter(req => req.url.endsWith(path)).length).toBe(1);
+      } finally {
+        response.next(new HttpResponse({ body: { success: true } })); response.complete(); await first;
+      }
+    });
+    it(`automatically drains legacy manual attendance edits in their original order: ${path}`, async () => {
+      online.and.returnValue(false);
+      await send(request(path, cell())).catch(() => {});
+      await send(request(path, cell(1, 2, 8))).catch(() => {});
+      const pending = service.operations.value.slice();
+      for (const row of pending) await service.store.put('queue', { ...row, automatic: false });
+      online.and.returnValue(true); await service.sync(undefined, true);
+      const writes = requests.filter(req => req.url.endsWith(path));
+      expect(writes.map(req => req.body.ore)).toEqual([4, 8]);
+      expect(writes.map(req => req.headers.get('X-MV-Operation-Id'))).toEqual(pending.map(row => row.id));
+      expect(service.operations.value.every(row => row.state === 'done')).toBeTrue();
+      await service.sync();
+      expect(requests.filter(req => req.url.endsWith(path)).length).toBe(2);
+    });
+    function productionReceipts() {
+      const calls: HttpRequest<any>[] = [];
+      const receipts = new Map<string, any>();
+      service = new OfflineService({ get: () => () => session } as any, { handle(req: HttpRequest<any>) {
+        calls.push(req);
+        if (req.url.endsWith('/capabilities')) return of(new HttpResponse({ body: { protocol: 1, receiptLookup: true, cancelPending: true } }));
+        if (req.url.includes('/offline/operations/')) {
+          const id = req.url.split('/').pop()!;
+          return of(new HttpResponse({ body: { operationId: id, state: receipts.get(id)?.state || 'missing' } }));
+        }
+        const id = req.headers.get('X-MV-Operation-Id')!;
+        receipts.set(id, { state: 'completed' });
+        return of(new HttpResponse({ body: { success: true }, headers: new HttpHeaders({ 'X-MV-Operation-Id': id }) }));
+      } } as HttpBackend);
+      return calls;
+    }
+    it(`does not manufacture an offline 409 when the online server reports a missing legacy receipt: ${path}`, async () => {
+      online.and.returnValue(false); await send(request(path, cell())).catch(() => {});
+      const row = service.operations.value[0];
+      await service.store.put('queue', { ...row, automatic: false, attempts: 0 });
+      const calls = productionReceipts();
+      online.and.returnValue(true); await service.sync(undefined, true);
+      expect(calls.some(req => req.url.endsWith('/cancel'))).toBeFalse();
+      expect(calls.filter(req => req.url.endsWith(path)).length).toBe(1);
+      expect(service.operations.value.find(item => item.id === row.id)?.state).toBe('done');
+    });
+    it(`recovers an exported-style rejected attendance copy only after explicit reapply, with a new key: ${path}`, async () => {
+      online.and.returnValue(false); await send(request(path, cell())).catch(() => {});
+      const row = service.operations.value[0];
+      await service.store.put('queue', { ...row, automatic: false, state: 'rejected', attempts: 0, response: {
+        status: 409, body: { code: 'OFFLINE_REQUIRES_CONNECTION' }, headers: {},
+      } });
+      const calls = productionReceipts(); online.and.returnValue(true);
+      await service.sync();
+      expect(calls.filter(req => req.method === 'POST').length).toBe(0);
+      const rejected = (await service.store.getOperation(row.id))!;
+      await service.reapplyAttendance(rejected);
+      await service.reapplyAttendance(rejected);
+      const writes = calls.filter(req => req.url.endsWith(path));
+      expect(writes.length).toBe(1);
+      expect(writes[0].body).toEqual(cell());
+      expect(writes[0].headers.get('X-MV-Operation-Id')).not.toBe(row.id);
+      expect(await service.store.get('queue', row.id)).toBeUndefined();
+      expect(service.operations.value.every(item => item.state === 'done')).toBeTrue();
+    });
+    it(`keeps an uncertain attendance save protected while independent records can save: ${path}`, async () => {
+      online.and.returnValue(false); await send(request(path, cell())).catch(() => {});
+      const previous = service.operations.value[0];
+      await service.store.put('queue', { ...previous, state: 'blocked', blocksQueue: true, attempts: 1 });
+      online.and.returnValue(true);
+      await expectAsync(send(request(path, cell(2)))).toBeResolved();
+      const pending = await send(request(path, cell(1, 2, 8))).catch(error => error);
+      expect(pending.error.code).toBe('OFFLINE_PENDING');
+      expect(requests.filter(req => req.url.endsWith(path)).map(req => req.body.employeeId)).toEqual([2]);
+    });
+    it(`persists restoring a previous attendance value instead of reusing its receipt: ${path}`, async () => {
+      await send(request(path, cell()));
+      await send(request(path, cell(1, 2, 8)));
+      await send(request(path, cell()));
+      expect(requests.filter(req => req.url.endsWith(path)).map(req => req.body.ore)).toEqual([4, 8, 4]);
+    });
+  }
+  it('separates attendance cells by entity, date and type, normalizing numeric periods', async () => {
+    const path = '/admin/attendanceEdit/saveEditableCell';
+    const value = { employeeId: 7, giorno: 2, mese: '01', anno: 2026 };
+    const scope = operationScope(path, await encodeBody(value));
+    expect(scope).toBe(operationScope(path, await encodeBody({ ...value, mese: 1 })));
+    for (const change of [{ employeeId: 8 }, { giorno: 3 }, { mese: 2 }, { anno: 2025 }]) {
+      expect(scopesOverlap(scope, operationScope(path, await encodeBody({ ...value, ...change })))).toBeFalse();
+    }
+    expect(scopesOverlap(scope, operationScope('/admin/attendanceEdit/saveEditableNote', await encodeBody(value)))).toBeFalse();
+    expect(scopesOverlap(scope, operationScope(path, await encodeBody({ ...value, giorno: 0 })))).toBeTrue();
+    expect(canReplayAutomatically('POST', path)).toBeTrue();
+    expect(canReplayAutomatically('POST', '/admin/attendance/addCategory')).toBeFalse();
+  });
   it('sends equipment requirements while vehicle requirements for the same customer are still saving', async () => {
     const response = new Subject<any>();
     let vehicleSent = false;

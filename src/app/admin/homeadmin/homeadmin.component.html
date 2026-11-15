@@ -133,7 +133,8 @@
         gap: 10px;
       }
 
-      .homeadmin-root .mobile-menu button {
+      .homeadmin-root .mobile-menu button,
+      .homeadmin-root .mobile-menu a {
         width: 100%;
         cursor: pointer;
         text-decoration: none;
@@ -148,7 +149,8 @@
         transition: transform 0.18s ease, background 0.18s ease;
       }
 
-      .homeadmin-root .mobile-menu button:hover {
+      .homeadmin-root .mobile-menu button:hover,
+      .homeadmin-root .mobile-menu a:hover {
         transform: translateY(-1px);
         background: rgba(255, 122, 0, 0.15);
       }
@@ -1733,6 +1735,9 @@
             <button class="sidebar-bottom-btn" type="button" (click)="navigateToCambiapassword()">
               <i class="fas fa-key"></i> <span class="sidebar-btn-text">Cambia password</span>
             </button>
+            <a class="sidebar-bottom-btn" href="https://mvtechcore.it/privacy/mvanager" target="_blank" rel="noopener noreferrer">
+              <i class="fas fa-shield-alt" aria-hidden="true"></i> <span class="sidebar-btn-text">Informativa privacy</span>
+            </a>
             <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">
               <i class="fas fa-clipboard-check"></i> <span class="sidebar-btn-text">Permessi e assenze</span>
             </button>
@@ -2015,6 +2020,8 @@
         <div *ngIf="isMenuOpen" class="mobile-menu">
           <button type="button" *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">Aggiungi utenti</button>
           <button type="button" (click)="navigateToCambiapassword()">Cambia password</button>
+          <a href="https://mvtechcore.it/privacy/mvanager" target="_blank" rel="noopener noreferrer">Informativa privacy</a>
+          <a href="https://mvtechcore.it/supporto/mvanager" target="_blank" rel="noopener noreferrer">Assistenza</a>
           <button type="button" *ngIf="canUsePermission('EMPLOYEE_PERMITS_MANAGE', 'leaveRequests')" (click)="navigateToLeaveSettings()">Impostazioni permessi e assenze</button>
           <button type="button" *ngIf="canUsePermission('CUSTOMER_DEADLINES_VIEW', 'customerDeadlines') || canUsePermission('EMPLOYEE_EDIT', 'employees') || canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines') || canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToCategorySettings()">Impostazioni categorie</button>
           <button type="button" *ngIf="canUsePermission('CALENDAR_VIEW')" (click)="navigateToCalendarSettings()">Impostazioni calendario</button>

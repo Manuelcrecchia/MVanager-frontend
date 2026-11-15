@@ -265,8 +265,9 @@ export class ViewPdfComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    const fromQuoteList = this.route.snapshot.queryParamMap.get('fromQuoteList') === '1';
     this.router.navigate(['/homeAdmin', 'quotesHome'], {
-      queryParams: this.signedPdfMode ? { showCompleted: 1 } : {},
+      queryParams: this.signedPdfMode && !fromQuoteList ? { showCompleted: 1 } : {},
     });
   }
 

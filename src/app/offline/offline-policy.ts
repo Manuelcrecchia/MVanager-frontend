@@ -19,11 +19,31 @@ export function isProtectedWrite(method: string, path: string): boolean {
 }
 export function canReplayAutomatically(method: string, path: string): boolean {
   return method === 'POST' && (
+    isAttendanceCellSave(path) ||
     /\/quotes\/(add|edit)$/.test(path) ||
     path === '/shifts/saveMultiple' ||
     /\/(quotes|customers|employees)\/notes\/add$/.test(path) ||
     /\/mv\/(stamping\/timbra|finelavoro\/submit|leaveRequest\/request|internal-warehouse\/requests)$/.test(path)
   );
+}
+
+// These APIs overwrite one identified cell (or monthly note), with no external
+// side effects. Replay uses the original durable operation key.
+export function isAttendanceCellSave(path: string): boolean {
+  return ['/admin/attendanceEdit/saveEditableCell', '/admin/attendanceEdit/saveEditableNote', '/admin/attendance/saveMonthlyCustomerCell'].includes(path);
+}
+
+function attendanceCellScope(path: string, body?: StoredBody): string | undefined {
+  if (!isAttendanceCellSave(path) || body?.type !== 'json') return undefined;
+  const value = body.value;
+  const customer = path === '/admin/attendance/saveMonthlyCustomerCell';
+  const note = path === '/admin/attendanceEdit/saveEditableNote';
+  const id = value?.[customer ? 'numeroCliente' : 'employeeId'];
+  const month = Number(value?.mese), year = Number(value?.anno), day = Number(value?.giorno);
+  if (!['string', 'number'].includes(typeof id) || !String(id).trim() ||
+      !Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 1 ||
+      (!note && (!Number.isInteger(day) || day < 1 || day > new Date(year, month, 0).getDate()))) return undefined;
+  return `${customer ? 'admin/attendance' : 'admin/attendanceEdit'}|${JSON.stringify([note ? 'note' : 'cell', String(id), year, month, note ? null : day])}`;
 }
 export function operationLabel(path: string, body?: StoredBody): string {
   const requirement = path.match(/^\/admin\/resource-categories\/(vehicle|equipment|internal)\/customer\/([^/]+)$/);
@@ -62,6 +82,8 @@ export function shiftOperationDay(path: string, body?: StoredBody): string | und
   return days.length && typeof days[0] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(days[0]) && days.every((day: any) => day === days[0]) ? days[0] : undefined;
 }
 export function operationScope(path: string, body?: StoredBody): string {
+  const cell = attendanceCellScope(path, body);
+  if (cell) return cell;
   // Different resource types/customers are separate records. Customer creation
   // saves vehicle and equipment requirements concurrently.
   if (/^\/admin\/resource-categories\/(vehicle|equipment|internal)\/customer\/[^/]+$/.test(path)) return path;
@@ -72,5 +94,6 @@ export function operationScope(path: string, body?: StoredBody): string {
 }
 // Undated or multi-day shift writes still guard the whole shifts domain.
 export function scopesOverlap(a: string, b: string): boolean {
-  return a === b || (a === 'shifts' && b.startsWith('shifts|')) || (b === 'shifts' && a.startsWith('shifts|'));
+  return a === b || ['shifts', 'admin/attendance', 'admin/attendanceEdit'].some(domain =>
+    (a === domain && b.startsWith(`${domain}|`)) || (b === domain && a.startsWith(`${domain}|`)));
 }

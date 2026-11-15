@@ -1,8 +1,10 @@
+import { oversizedDocumentMessage, documentUploadError } from '../../shared/document-upload-limits';
 import { downloadFile } from '../../shared/file-download';
 import { Component, OnInit } from '@angular/core';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { GlobalService } from '../../service/global.service';
 
 @Component({
@@ -256,60 +258,54 @@ export class InternalDocumentsComponent implements OnInit {
     this.uploadFiles(files);
   }
 
-  private uploadFiles(files: File[], resetInput?: () => void): void {
+  private async uploadFiles(files: File[], resetInput?: () => void): Promise<void> {
     if (this.isUploading) return;
     if (!files.length) {
       resetInput?.();
       return;
     }
 
+    const sizeError = oversizedDocumentMessage(files);
+    if (sizeError) { resetInput?.(); alert(sizeError); return; }
+
     this.isUploading = true;
-    let completed = 0;
+    const folder = this.selectedFolder;
     const failed: string[] = [];
 
-    const finishOne = () => {
-      completed += 1;
-      if (completed < files.length) return;
-
-      this.isUploading = false;
-      resetInput?.();
-      this.loadFiles();
-
-      if (failed.length) {
-        const uploadedCount = files.length - failed.length;
-        alert(
-          uploadedCount > 0
-            ? `${uploadedCount} documento/i caricati, ${failed.length} non caricati.\n${failed.join('\n')}`
-            : `Errore upload:\n${failed.join('\n')}`,
-        );
-        return;
-      }
-
-      alert(files.length === 1 ? 'Documento caricato!' : `${files.length} documenti caricati!`);
-    };
-
+    // The durable save queue preserves order within the documents domain.
+    // Wait for each confirmation before submitting the next file.
     for (const file of files) {
       const formData = new FormData();
       formData.append('document', file);
-      formData.append('folder', this.selectedFolder);
+      formData.append('folder', folder);
 
-      this.http
-        .post(
+      try {
+        await firstValueFrom(this.http.post(
           this.globalService.url + 'admin/internal-documents/upload',
           formData,
-        )
-        .subscribe({
-          next: () => finishOne(),
-          error: (err) => {
-            console.error('UPLOAD ERROR:', err);
-            const message = typeof err?.error?.error === 'string'
-              ? err.error.error
-              : 'Caricamento non riuscito';
-            failed.push(`${file.name}: ${message}`);
-            finishOne();
-          },
-        });
+        ));
+      } catch (err: any) {
+        console.error('Errore upload documento:', err);
+        const message = documentUploadError(err, 'Caricamento non riuscito');
+        failed.push(`${file.name}: ${message}`);
+      }
     }
+
+    this.isUploading = false;
+    resetInput?.();
+    this.loadFiles();
+
+    if (failed.length) {
+      const uploadedCount = files.length - failed.length;
+      alert(
+        uploadedCount > 0
+          ? `${uploadedCount} documento/i caricati, ${failed.length} non caricati.\n${failed.join('\n')}`
+          : `Errore upload:\n${failed.join('\n')}`,
+      );
+      return;
+    }
+
+    alert(files.length === 1 ? 'Documento caricato!' : `${files.length} documenti caricati!`);
   }
 
   selectFile(fileOrName: any): void {

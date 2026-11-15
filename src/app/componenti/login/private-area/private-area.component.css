@@ -6,3 +6,20 @@
   min-height: 100svh;
   overflow: hidden;
 }
+
+.privacy-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  margin-top: 16px;
+}
+
+.privacy-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--mv-text, #0f172a);
+  font-size: .85rem;
+  text-underline-offset: 3px;
+}

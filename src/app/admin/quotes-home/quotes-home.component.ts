@@ -1,6 +1,6 @@
 import { downloadFile } from '../../shared/file-download';
 import { HttpClient } from '@angular/common/http';
-import { Component, HostListener, Input, OnDestroy, ViewChild } from '@angular/core';
+import { Component, Input, OnDestroy, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { GlobalService } from '../../service/global.service';
@@ -8,12 +8,12 @@ import { QuoteModelService } from '../../service/quote-model.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { DxSchedulerComponent } from 'devextreme-angular';
 import { AutomaticAddInspectionToCalendarService } from '../../service/automatic-add-inspection-to-calendar.service';
-import { Location } from '@angular/common';
 import { CustomerModelService } from '../../service/customer-model.service';
 import { TenantService } from '../../service/tenant.service';
 import { SocketService } from '../../service/soket.service';
 import { Subscription } from 'rxjs';
 import { NoteUnreadService } from '../../service/note-unread.service';
+import { AdminListState, AdminListStateService } from '../admin-list-state.service';
 
 @Component({
   selector: 'app-quotes-home',
@@ -34,6 +34,7 @@ export class QuotesHomeComponent implements OnDestroy {
   highlightedQuoteFromNotification = '';
   private quoteAcceptanceSubscription?: Subscription;
   private openQuotes = new Set<string>();
+  private listState?: AdminListState;
 
   quotesFrEnd: {
     numeroPreventivo: string;
@@ -82,11 +83,11 @@ export class QuotesHomeComponent implements OnDestroy {
     private quoteModel: QuoteModelService,
     private popup: PopupServiceService,
     private automaticAddInspectionToCalendarService: AutomaticAddInspectionToCalendarService,
-    private location: Location,
     private customerModelService: CustomerModelService,
     public tenantService: TenantService,
     private socketService: SocketService,
     public noteUnread: NoteUnreadService,
+    private listStateService: AdminListStateService,
   ) {}
 
   addInspection(numeroPreventivo: string, displayName: string) {
@@ -140,7 +141,17 @@ export class QuotesHomeComponent implements OnDestroy {
 
   ngOnInit() {
     this.noteUnread.start();
-    this.applyNotificationQueryParams();
+    const openCompleted = this.shouldOpenCompletedFromQuery();
+    this.showCompletedQuotes = openCompleted;
+    this.listState = this.listStateService.connect('quotes', () => ({
+      quoteSearch: this.quoteSearch,
+      showCompletedQuotes: this.showCompletedQuotes,
+      openQuotes: new Set(this.openQuotes),
+    }), filters => {
+      this.quoteSearch = filters.quoteSearch;
+      this.showCompletedQuotes = filters.showCompletedQuotes;
+      this.openQuotes = new Set(filters.openQuotes);
+    }, !openCompleted);
     this.globalService
       .loadTenantConfig(false, { showError: false })
       .finally(() => this.loadQuotes());
@@ -149,9 +160,10 @@ export class QuotesHomeComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.quoteAcceptanceSubscription?.unsubscribe();
+    this.listState?.disconnect();
   }
 
-private loadQuotes(silent = false) {
+  private loadQuotes(silent = false) {
     this.http
       .get<any[]>(this.globalService.url + 'quotes/getAll', {
         headers: this.globalService.headers,
@@ -187,7 +199,8 @@ private loadQuotes(silent = false) {
             this.numeroClienteSelezionato = '';
           }
 
-          if (!silent) this.focusQuoteFromNotificationIfNeeded();
+          if (!silent && !this.listState?.restored) this.focusQuoteFromNotificationIfNeeded();
+          this.listState?.restoreScroll();
         },
         error: (err) => {
           console.error('Errore caricamento preventivi:', err);
@@ -196,7 +209,7 @@ private loadQuotes(silent = false) {
       });
   }
 
-  private applyNotificationQueryParams(): void {
+  private shouldOpenCompletedFromQuery(): boolean {
     const queryParams = this.route.snapshot.queryParamMap;
     const review = queryParams.get('review');
     const showCompleted =
@@ -204,9 +217,7 @@ private loadQuotes(silent = false) {
       queryParams.get('showCompletedQuotes') ||
       queryParams.get('completed');
 
-    if (review === '1' || showCompleted === '1' || showCompleted === 'true') {
-      this.showCompletedQuotes = true;
-    }
+    return review === '1' || showCompleted === '1' || showCompleted === 'true';
   }
 
   private focusQuoteFromNotificationIfNeeded(): void {
@@ -214,7 +225,7 @@ private loadQuotes(silent = false) {
       this.route.snapshot.queryParamMap.get('numeroPreventivo');
     const review = this.route.snapshot.queryParamMap.get('review');
 
-    if (!numeroPreventivo || review !== '1') {
+    if (!numeroPreventivo || review !== '1' || this.highlightedQuoteFromNotification === numeroPreventivo) {
       return;
     }
 
@@ -267,7 +278,7 @@ private loadQuotes(silent = false) {
   ) {
     if (typeof quote === 'string') {
       this.router.navigate(['/view-pdf'], {
-        queryParams: { numeroPreventivo: quote },
+        queryParams: { numeroPreventivo: quote, fromQuoteList: 1 },
       });
       return;
     }
@@ -280,9 +291,7 @@ private loadQuotes(silent = false) {
       !!quote.needsOfficeReview;
 
     this.router.navigate(['/view-pdf'], {
-      queryParams: shouldOpenSignedPdf
-        ? { numeroPreventivo, signed: 1 }
-        : { numeroPreventivo },
+      queryParams: { numeroPreventivo, fromQuoteList: 1, signed: shouldOpenSignedPdf ? 1 : null },
     });
   }
 
@@ -296,13 +305,13 @@ private loadQuotes(silent = false) {
     const numeroPreventivo = quote.numeroPreventivo;
     if (!this.canCreateCustomersFromQuote()) {
       this.router.navigate(['/view-pdf'], {
-        queryParams: { numeroPreventivo, signed: 1 },
+        queryParams: { numeroPreventivo, signed: 1, fromQuoteList: 1 },
       });
       return;
     }
 
     this.router.navigate(['/view-pdf'], {
-      queryParams: { numeroPreventivo, signed: 1, confirmCustomer: 1 },
+      queryParams: { numeroPreventivo, signed: 1, confirmCustomer: 1, fromQuoteList: 1 },
     });
   }
 
@@ -533,7 +542,7 @@ private loadQuotes(silent = false) {
       })
       .subscribe({
         next: () => {
-          this.ngOnInit();
+          this.loadQuotes();
         },
         error: (err) => {
           console.error('Errore delete quote:', err);
@@ -635,7 +644,7 @@ private loadQuotes(silent = false) {
       })
       .subscribe({
         next: () => {
-          this.ngOnInit();
+          this.loadQuotes();
         },
         error: (err) => {
           console.error('Errore refuse quote:', err);
@@ -654,7 +663,7 @@ private loadQuotes(silent = false) {
       })
       .subscribe({
         next: () => {
-          this.ngOnInit();
+          this.loadQuotes();
         },
         error: (err) => {
           console.error('Errore restore quote:', err);
@@ -887,6 +896,10 @@ private loadQuotes(silent = false) {
     return this.openQuotes.has(numeroPreventivo);
   }
 
+  trackQuote(_index: number, quote: { numeroPreventivo: string }): string {
+    return quote.numeroPreventivo;
+  }
+
   private parseServerError(err: any): string {
     try {
       const body =
@@ -895,12 +908,5 @@ private loadQuotes(silent = false) {
     } catch {}
     if (err.status === 0) return 'Impossibile connettersi al server';
     return 'Errore imprevisto. Riprova.';
-  }
-
-  @HostListener('window:popstate', ['$event'])
-  onBrowserBackBtnClose(event: Event): void {
-    event.preventDefault();
-    this.location.replaceState('/homeAdmin');
-    this.router.navigateByUrl('/homeAdmin');
   }
 }

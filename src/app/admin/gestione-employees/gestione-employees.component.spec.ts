@@ -12,6 +12,7 @@ import { ContactRequirementPromptService } from '../../service/contact-requireme
 import { NoteUnreadService } from '../../service/note-unread.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { fileDownloadIO } from '../../shared/file-download';
+import { AdminListStateService } from '../admin-list-state.service';
 
 describe('GestioneEmployeesComponent', () => {
   let fixture: ComponentFixture<GestioneEmployeesComponent>;
@@ -45,6 +46,7 @@ describe('GestioneEmployeesComponent', () => {
         } },
         { provide: ActivatedRoute, useValue: { snapshot: { data: {}, paramMap: { get: () => null } } } },
         { provide: Router, useValue: {} },
+        { provide: AdminListStateService, useValue: { connect: () => undefined } },
         { provide: NgbModal, useValue: {} },
         { provide: ContactRequirementPromptService, useValue: {} },
         { provide: NoteUnreadService, useValue: { start: () => {}, count: () => 0 } },

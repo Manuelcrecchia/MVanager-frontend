@@ -115,7 +115,7 @@
               <p class="cw-muted">{{ piece.deletedAt ? 'Ultimo codice del pezzo eliminato — non utilizzabile' : 'Codice etichetta corrente' }}</p><code>{{ piece.currentCode }}</code>
               <button type="button" class="btn btn-outline-secondary" (click)="openHistory(item, piece)">Storico pezzo</button>
               <p *ngIf="piece.note">{{ piece.note }}</p>
-              <div class="cw-photos" *ngIf="piecePhotos(piece).length"><a *ngFor="let photo of piecePhotos(piece)" [href]="photoUrl(photo)" target="_blank" rel="noopener"><img [src]="photoUrl(photo)" [alt]="'Foto del pezzo ' + piece.permanentId" loading="lazy" /></a></div>
+              <div class="cw-photos" *ngIf="piecePhotos(piece).length"><a *ngFor="let photo of piecePhotos(piece)" href="#" (click)="$event.preventDefault(); openPhoto(photo)"><img [privateImage]="photoUrl(photo)" [alt]="'Foto del pezzo ' + piece.permanentId" loading="lazy" /></a></div>
               <details class="cw-piece-labels" *ngIf="labelsFor(piece).length"><summary>Etichette e versioni ({{ labelsFor(piece).length }})</summary><div class="cw-label" *ngFor="let label of labelsFor(piece)" [class.obsolete]="!label.active"><code>{{ label.code }}</code><span>{{ label.active ? 'Corrente' : 'Bloccata' }} · {{ labelReason(label.reason) }}</span></div></details>
             </div>
           </article>
@@ -123,7 +123,7 @@
         </div>
         <div class="cw-item-photos" *ngIf="itemSection === 'photos'">
           <h3>Foto dell’elemento</h3><p class="cw-muted">Le foto dei singoli pezzi sono nel dettaglio del pezzo.</p>
-          <div class="cw-photos"><a *ngFor="let photo of photosFor(item)" [href]="photoUrl(photo)" target="_blank" rel="noopener"><img [src]="photoUrl(photo)" [alt]="'Foto di ' + item.name" loading="lazy" /></a></div>
+          <div class="cw-photos"><a *ngFor="let photo of photosFor(item)" href="#" (click)="$event.preventDefault(); openPhoto(photo)"><img [privateImage]="photoUrl(photo)" [alt]="'Foto di ' + item.name" loading="lazy" /></a></div>
           <p *ngIf="!photosFor(item).length" class="cw-muted">Nessuna foto dell’elemento.</p>
           <h3>Note</h3><p class="cw-note">{{ item.note || 'Nessuna nota.' }}</p>
         </div>

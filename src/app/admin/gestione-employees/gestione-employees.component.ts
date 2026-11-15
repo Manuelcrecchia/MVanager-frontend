@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -8,13 +8,14 @@ import { NoteUnreadService } from '../../service/note-unread.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { downloadFile } from '../../shared/file-download';
 import { firstValueFrom } from 'rxjs';
+import { AdminListState, AdminListStateService } from '../admin-list-state.service';
 
 @Component({
   selector: 'app-gestione-employees',
   templateUrl: './gestione-employees.component.html',
   styleUrls: ['./gestione-employees.component.css'],
 })
-export class GestioneEmployeesComponent implements OnInit {
+export class GestioneEmployeesComponent implements OnInit, OnDestroy {
 
   readonly realtimeResources = ["employees"];
   refreshRealtimeData(): void | boolean | Promise<void | boolean> {
@@ -29,6 +30,7 @@ export class GestioneEmployeesComponent implements OnInit {
   private openEmployees = new Set<number>();
   private busyEmployees = new Set<number>();
   private employeeLoadRequest = 0;
+  private listState?: AdminListState;
 
   // ✅ selezione
   selected = new Set<number>();
@@ -52,12 +54,28 @@ export class GestioneEmployeesComponent implements OnInit {
     private contactPrompt: ContactRequirementPromptService,
     public noteUnread: NoteUnreadService,
     private appDialog: PopupServiceService,
+    private listStateService: AdminListStateService,
   ) {}
 
   ngOnInit(): void {
     this.noteUnread.start();
     this.applyRouteState();
+    if (this.employeeView === 'directory') {
+      this.listState = this.listStateService.connect('employees', () => ({
+        employeeSearch: this.employeeSearch,
+        showArchived: this.showArchived,
+        openEmployees: new Set(this.openEmployees),
+      }), filters => {
+        this.employeeSearch = filters.employeeSearch;
+        this.showArchived = filters.showArchived;
+        this.openEmployees = new Set(filters.openEmployees);
+      });
+    }
     this.getEmployees();
+  }
+
+  ngOnDestroy(): void {
+    this.listState?.disconnect();
   }
 
   setEmployeeView(view: 'directory' | 'settings'): void {
@@ -84,6 +102,10 @@ export class GestioneEmployeesComponent implements OnInit {
       employee?.email,
       employee?.cellulare,
     ].join(' ')).includes(query));
+  }
+
+  trackEmployee(_index: number, employee: { id: number }): number {
+    return employee.id;
   }
 
   clearEmployeeSearch(): void {
@@ -166,6 +188,7 @@ export class GestioneEmployeesComponent implements OnInit {
             this.selected.forEach((id) => {
               if (!ids.has(id)) this.selected.delete(id);
             });
+            this.listState?.restoreScroll();
           } catch (error) {
             console.error('Errore nel parse JSON dei dipendenti:', error);
           }

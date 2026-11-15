@@ -108,3 +108,43 @@ describe('GlobalService', () => {
   });
 
 });
+
+describe('automatic web quote summaries', () => {
+  it('updates campaign quantity, monthly/annual renewals and VAT when inputs change', () => {
+    const service = new GlobalService({ token:'', userCode:'', permissions:[] } as any, {tenant:'test',tenantLabel:'Test'} as any, {} as any);
+    const term = (field:string, quantityField='', whenField='', whenValue='') => ({field,quantityField,whenField,whenValue});
+    const make = (key:string, terms:any[], vatField='') => ({key,dbColumn:key,type:'money',calculation:{mode:vatField?'sum_with_vat':'sum',sourceFields:[...new Set(terms.flatMap(t=>[t.field,t.quantityField,t.whenField].filter(Boolean)))],terms,vatField,decimals:2}});
+    const fields:any[]=[...['sito','campagna','numero','dominio','email','gestione','periodoEmail','periodoGestione','iva'].map(key=>({key,dbColumn:key})),
+      make('primo',[term('sito'),term('campagna','numero'),term('dominio'),term('email'),term('gestione')]),
+      make('mensile',[term('email','','periodoEmail','Mensile'),term('gestione','','periodoGestione','Mensile')]),
+      make('annuale',[term('dominio'),term('email','','periodoEmail','Annuale'),term('gestione','','periodoGestione','Annuale')]),
+      make('lordo',[term('primo')],'iva')];
+    (service as any).tenantConfig={quoteConfig:{fieldMapping:{quote:{fields}}}};
+    const data:any={sito:1000,campagna:50,numero:2,dominio:120,email:10,gestione:200,periodoEmail:'Mensile',periodoGestione:'Annuale',iva:'22%'};
+    service.applyCalculatedFields('quote',data);
+    expect([data.primo,data.mensile,data.annuale,data.lordo]).toEqual([1430,10,320,1744.6]);
+    data.numero=3; data.periodoEmail='Annuale'; data.periodoGestione='Mensile';
+    service.applyCalculatedFields('quote',data);
+    expect([data.primo,data.mensile,data.annuale,data.lordo]).toEqual([1480,200,130,1805.6]);
+    data.numero=0; data.email=0; data.gestione=0; data.dominio=0;
+    service.applyCalculatedFields('quote',data);
+    expect([data.primo,data.mensile,data.annuale,data.lordo]).toEqual([1000,0,0,1220]);
+  });
+});
+
+describe('service selection checkboxes', () => {
+  it('shows only selected service fields, respects type scope and excludes stale amounts', () => {
+    const service=new GlobalService({token:'',userCode:'',permissions:[]} as any,{tenant:'test',tenantLabel:'Test'} as any,{} as any);
+    const fields:any[]=[{key:'websiteSelected',dbColumn:'websiteSelected',type:'boolean',visibleWhen:{field:'tipoPreventivo',value:'WEB'}},{key:'websitePrice',dbColumn:'websitePrice',type:'money',required:true,visibleWhen:{field:'websiteSelected',value:'true'}},{key:'total',dbColumn:'total',type:'money',calculation:{mode:'sum',sourceFields:['websitePrice']}}];
+    (service as any).tenantConfig={quoteConfig:{fieldMapping:{quote:{fields}}}};
+    const value:any={tipoPreventivo:'WEB',websiteSelected:false,websitePrice:500};
+    service.applyCalculatedFields('quote',value);expect(value.total).toBe(0);
+    expect(service.getVisibleFieldMappingFields('quote',value).map(f=>f.key)).not.toContain('websitePrice');
+    expect(service.getMissingRequiredFields('quote',{...value,websitePrice:''})).toEqual([]);
+    value.websiteSelected=true;service.applyCalculatedFields('quote',value);expect(value.total).toBe(500);
+    expect(service.getVisibleFieldMappingFields('quote',value).map(f=>f.key)).toContain('websitePrice');
+    expect(service.getMissingRequiredFields('quote',{...value,websitePrice:''})).toEqual(['websitePrice']);
+    value.tipoPreventivo='MVanager';service.applyCalculatedFields('quote',value);expect(value.total).toBe(0);
+    expect(service.getVisibleFieldMappingFields('quote',value).map(f=>f.key)).not.toContain('websitePrice');
+  });
+});

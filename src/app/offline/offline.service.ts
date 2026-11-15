@@ -4,8 +4,8 @@ import { BehaviorSubject, Observable, filter, firstValueFrom, tap, timeout } fro
 import { OfflineStore } from './offline-store';
 import { compactCompletion, COMPLETION_PREFIX, COMPLETION_TTL, MAX_RECENT_COMPLETIONS } from './offline-completion';
 import { StoredBody, bodyHash, decodeBody, digest, encodeBody, operationId } from './offline-codec';
-import { boundApiResponse, apiTimeoutError } from './http-response-deadline';
-import { canReplayAutomatically, containsCredentials, isOfflineRead, isProtectedWrite, operationLabel, operationScope, scopesOverlap, shiftOperationDay } from './offline-policy';
+import { boundApiResponse, apiResponseTimeoutMs, apiTimeoutError } from './http-response-deadline';
+import { canReplayAutomatically, containsCredentials, isAttendanceCellSave, isOfflineRead, isProtectedWrite, operationLabel, operationScope, scopesOverlap, shiftOperationDay } from './offline-policy';
 
 export interface OfflineSession { baseUrl: string; tenant: string; token: string; role: 'admin' | 'employee'; }
 export const OFFLINE_SESSION = new InjectionToken<() => OfflineSession>('OFFLINE_SESSION');
@@ -220,8 +220,7 @@ export class OfflineService {
       void work(send).then(response => { observer.next(response); observer.complete(); }, error => observer.error(error));
     });
   }
-  private async response(req: HttpRequest<any>, next: HttpHandlerFn, deadline =
-    req.body instanceof FormData || ['blob', 'arraybuffer'].includes(req.responseType) ? 300000 : 120000): Promise<HttpResponse<any>> {
+  private async response(req: HttpRequest<any>, next: HttpHandlerFn, deadline = apiResponseTimeoutMs(req)): Promise<HttpResponse<any>> {
     try {
       return await firstValueFrom(boundApiResponse(req, next(req), deadline).pipe(filter((event): event is HttpResponse<any> => event instanceof HttpResponse)));
     } catch (error: any) {
@@ -259,6 +258,14 @@ export class OfflineService {
         label: operationLabel(path, body), automatic: canReplayAutomatically(req.method, path),
         state: 'waiting', attempts: 0, nextAttempt: 0, foreground: true, foregroundUntil: Date.now() + 15000,
       };
+      // A cell can legitimately go from 4 to 8 and back to 4. Each edit is a
+      // new overwrite; reusing an older receipt would silently skip the last 4.
+      // Background retries still retain this edit's original durable key.
+      if (isAttendanceCellSave(path)) {
+        const baseDedup = candidate.dedup;
+        candidate = Array.from(this.volatile.values()).find(item => item.dedup.startsWith(`${baseDedup}|edit:`)) ||
+          { ...candidate, dedup: `${baseDedup}|edit:${candidate.id}` };
+      }
       candidate = this.volatile.get(candidate.dedup) || candidate;
       const group = req.context.get(OFFLINE_SAVE_GROUP);
       if (group) { candidate.intent = `${owner}|${path}|${group}`; candidate.page = `${page}|${group}`; }
@@ -626,7 +633,8 @@ export class OfflineService {
       await this.store.saveFailure(row);
       return false;
     }
-    if (result.state === 'missing' && !row.automatic && this.cancelPending.has(row.owner)) {
+    if (result.state === 'missing' && !row.automatic &&
+        !(row.method === 'POST' && isAttendanceCellSave(row.path)) && this.cancelPending.has(row.owner)) {
       const cancelled = await this.reserveCancellation(row);
       if (cancelled.state === 'cancelled') {
         await this.failed(row, new HttpErrorResponse({ status: 409, error: { code: 'OFFLINE_REQUIRES_CONNECTION', error: 'Questa operazione richiede i dati aggiornati del server. La copia locale è conservata: riapri il modulo per applicare le modifiche.' } }));
@@ -728,7 +736,10 @@ export class OfflineService {
           if (!manualId && !reconnect && item.nextAttempt > Date.now()) { stalledScopes.add(scope); continue; }
           if (!await this.resolvePredecessor(item)) { stalledScopes.add(scope); continue; }
         }
-        if ((!item.automatic && item.id !== manualId) || (!manualId && !reconnect && item.nextAttempt > Date.now())) { stalledScopes.add(scope); continue; }
+        // Re-evaluate the explicit allowlist for journals produced by older
+        // builds, which stored attendance cells as manual-only operations.
+        const legacyAttendance = item.method === 'POST' && isAttendanceCellSave(item.path);
+        if ((!item.automatic && !legacyAttendance && item.id !== manualId) || (!manualId && !reconnect && item.nextAttempt > Date.now())) { stalledScopes.add(scope); continue; }
         if (this.session()?.owner !== owner) break;
         const leaseToken = await this.claim(item, true);
         if (!leaseToken) {
@@ -773,6 +784,39 @@ export class OfflineService {
     await this.store.forgetCompletion(row.id);
     this.recentCompletions.delete(row.id); this.confirmed.delete(row.id);
     await this.refresh();
+  }
+  canReapplyAttendance(row: PendingOperation): boolean {
+    return row.method === 'POST' && isAttendanceCellSave(row.path) && row.state === 'rejected' &&
+      row.response?.status === 409 && row.response?.body?.code === 'OFFLINE_REQUIRES_CONNECTION' &&
+      row.body.type === 'json' && operationScope(row.path, row.body).includes('|');
+  }
+  async reapplyAttendance(row: PendingOperation): Promise<void> {
+    const session = this.session();
+    if (!session || session.expired || row.owner !== session.owner) return;
+    const stored = await this.store.getOperation(row.id);
+    if (!stored || stored.owner !== session.owner || !this.canReapplyAttendance(stored)) return;
+    // This is an explicit overwrite requested by the user. The old key may
+    // already have been cancelled on the server; never reuse it for the write.
+    const target = new URL(stored.url), base = new URL(session.baseUrl);
+    if (target.origin !== base.origin || target.pathname !== base.pathname + stored.path.slice(1)) return;
+    try {
+      const id = operationId();
+      const replacement: PendingOperation = {
+        ...stored, id, dedup: `${stored.owner}|attendance-recovery:${stored.id}`,
+        intent: `attendance-recovery:${stored.id}`, createdAt: new Date().toISOString(),
+        automatic: true, state: 'waiting', attempts: 0, nextAttempt: 0,
+        foreground: false, foregroundUntil: 0, leaseUntil: 0, leaseOwner: undefined,
+        attempted: false, waitingForLogin: false, blocksQueue: false,
+        response: undefined, error: '', errorCode: undefined, predecessor: undefined,
+      };
+      // Archive and enqueue in one transaction, so two tabs cannot recover the
+      // same rejected copy twice and a storage failure cannot lose its payload.
+      const queued = await this.store.replaceQueued(replacement, stored.id);
+      if (!queued) return;
+      await this.refresh();
+      this.clearRejectionNotice();
+      await this.sync(queued.id);
+    } catch { this.storageError(); }
   }
   async discardOperations(rows: PendingOperation[]): Promise<void> {
     const owner = this.session()?.owner;
