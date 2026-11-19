@@ -2003,3 +2003,9 @@ pre {
     margin-left: 12px;
   }
 }
+
+.unsent-reminders-form {
+  display: grid;
+  gap: 14px;
+  max-width: 840px;
+}

@@ -593,6 +593,7 @@ export class QuotesHomeComponent implements OnDestroy {
 
           if (canCreateCustomer) {
             this.customerModelService.populateFromQuote(quote, numeroPreventivo);
+            this.globalService.copyBillingAddressFromQuote(quote, this.customerModelService as any);
           }
 
           this.http

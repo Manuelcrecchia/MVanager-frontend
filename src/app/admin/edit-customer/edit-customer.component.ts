@@ -1,3 +1,4 @@
+import { fillMappedCustomerProvince } from '../../shared/italian-municipalities/mapped-customer-province';
 import { buildMappedFieldRows, MappedFieldRow, trackByMappedFieldRow, isLinkedFieldRow } from '../mapped-field-layout';
 import { Component, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -334,6 +335,8 @@ export class EditCustomerComponent {
       });
   }
 
+  onBillingAddressChoice(): void { this.refreshVisibleCustomerFields(); }
+
   updateField(field: TenantFieldMappingFieldConfig, value: any): void {
     const target = this.customerModelService as unknown as Record<string, any>;
     target[field.dbColumn] = value;
@@ -341,6 +344,7 @@ export class EditCustomerComponent {
       target[field.key] = value;
     }
     delete this.validationErrors[mappedFieldKey(field)];
+    for (const key of fillMappedCustomerProvince(this.globalService, target, field)) delete this.validationErrors[key];
     this.syncCustomerFieldRules();
   }
 

@@ -43,7 +43,7 @@
     <aside class="invoice-list" *ngIf="pageMode === 'list'">
       <div class="invoice-list-tools">
         <div class="filters">
-          <select [(ngModel)]="statusFilter" (change)="loadInvoices()" aria-label="Stato fattura">
+          <select [(ngModel)]="statusFilter" (change)="onInvoiceStatusFilterChange()" aria-label="Stato fattura">
             <option *ngFor="let item of statuses" [value]="item.key">{{ item.label }}</option>
           </select>
           <select [(ngModel)]="documentKindFilter" aria-label="Tipo documento">
@@ -51,6 +51,9 @@
           </select>
         </div>
         <div class="invoice-secondary-actions">
+          <button type="button" class="ghost-btn" *ngIf="directionFilter === 'outbound'" [class.active]="unsentSdiOnly" [attr.aria-pressed]="unsentSdiOnly" (click)="toggleUnsentSdiFilter()">
+            <i class="fas fa-paper-plane"></i> Da inviare SdI <strong>{{ unsentSdiCount }}</strong><span *ngIf="overdueSdiCount"> · {{ overdueSdiCount }} oltre soglia</span>
+          </button>
           <button type="button" class="ghost-btn" (click)="newProforma()" [disabled]="!canManage"><i class="fas fa-file-invoice"></i> Proforma</button>
           <button type="button" class="ghost-btn" *ngIf="directionFilter === 'outbound'" (click)="importSalesHistory()" [disabled]="!canManage || saving"><i class="fas fa-file-import"></i> Import storico</button>
           <button type="button" class="ghost-btn" *ngIf="directionFilter === 'inbound'" (click)="importPassive()" [disabled]="!canManage || saving"><i class="fas fa-download"></i> Import XML</button>
@@ -108,8 +111,9 @@
           </label>
           <label>
             Serie
-            <input [(ngModel)]="selected.series" name="series" [readonly]="!canEdit()" />
+            <input [(ngModel)]="selected.series" (ngModelChange)="onInvoiceSeriesChange()" name="series" list="invoice-series" placeholder="Nessuna serie" [readonly]="!canEdit()" />
           </label>
+          <datalist id="invoice-series"><option *ngFor="let item of seriesCatalog.series" [value]="item.code">{{ item.label }}</option></datalist>
           <label>
             Tipo
             <select [(ngModel)]="selected.type" name="type" [disabled]="!canEdit()" (change)="onDocumentTypeChange()">
@@ -118,7 +122,7 @@
           </label>
           <label [class.live-invalid]="!!invoiceFieldError('issueDate')">
             Data
-            <input type="date" [(ngModel)]="selected.issueDate" name="issueDate" [readonly]="!canEdit()" />
+            <input type="date" [(ngModel)]="selected.issueDate" (ngModelChange)="onInvoiceDateChange()" name="issueDate" [readonly]="!canEdit()" />
             <small class="field-error" *ngIf="invoiceFieldError('issueDate')">{{ invoiceFieldError('issueDate') }}</small>
           </label>
           <label [class.live-invalid]="!!invoiceFieldError('dueDate')">
@@ -233,11 +237,11 @@
             </select>
           </label>
           <label [class.live-invalid]="!!invoiceFieldError('customerName')">
-            Ragione sociale
+            {{ selected.customerRecipientType === 'private' ? 'Nome e cognome' : 'Ragione sociale' }}
             <input [(ngModel)]="selected.customerName" name="customerName" [readonly]="!canEdit()" />
             <small class="field-error" *ngIf="invoiceFieldError('customerName')">{{ invoiceFieldError('customerName') }}</small>
           </label>
-          <label [class.live-invalid]="!!invoiceFieldError('customerVatNumber')">
+          <label *ngIf="selected.customerRecipientType !== 'private'" [class.live-invalid]="!!invoiceFieldError('customerVatNumber')">
             Partita IVA
             <input [(ngModel)]="selected.customerVatNumber" name="customerVatNumber" [readonly]="!canEdit()" (ngModelChange)="onCustomerVatNumberChange()" />
             <small class="field-error" *ngIf="invoiceFieldError('customerVatNumber')">{{ invoiceFieldError('customerVatNumber') }}</small>
@@ -247,10 +251,9 @@
             <input [(ngModel)]="selected.customerFiscalCode" name="customerFiscalCode" [readonly]="!canEdit()" />
             <small class="field-error" *ngIf="invoiceFieldError('customerFiscalCode')">{{ invoiceFieldError('customerFiscalCode') }}</small>
           </label>
-          <label *ngIf="!isSelfInvoice()" [class.live-invalid]="!!invoiceFieldError('customerSdiCode')">
+          <label *ngIf="!isSelfInvoice() && selected.customerRecipientType !== 'private'" [class.live-invalid]="!!invoiceFieldError('customerSdiCode')">
             {{ selected.customerRecipientType === 'pa' ? 'Codice ufficio PA' : 'Codice SDI (facoltativo)' }}
-            <input [(ngModel)]="selected.customerSdiCode" name="customerSdiCode" [attr.maxlength]="selected.customerRecipientType === 'pa' ? 6 : 7" [readonly]="!canEdit() || selected.customerRecipientType === 'private'" />
-            <small *ngIf="selected.customerRecipientType === 'private'">Impostato automaticamente per il consumatore finale</small>
+            <input [(ngModel)]="selected.customerSdiCode" name="customerSdiCode" [attr.maxlength]="selected.customerRecipientType === 'pa' ? 6 : 7" [readonly]="!canEdit()" />
             <small *ngIf="selected.customerRecipientType === 'business'">Se vuoto, viene usato automaticamente 0000000</small>
             <small *ngIf="selected.customerRecipientType === 'pa'">Codice univoco dell'ufficio destinatario, 6 caratteri</small>
             <small class="field-error" *ngIf="invoiceFieldError('customerSdiCode')">{{ invoiceFieldError('customerSdiCode') }}</small>
@@ -272,7 +275,7 @@
           </label>
           <label [class.live-invalid]="!!invoiceFieldError('customerCity')">
             Comune
-            <input [(ngModel)]="selected.customerCity" name="customerCity" [readonly]="!canEdit()" />
+            <input [(ngModel)]="selected.customerCity" [provinceCity]="selected.customerCity" [(mvItalianProvince)]="selected.customerProvince" [provinceCountry]="selected.customerCountry" name="customerCity" [readonly]="!canEdit()" />
             <small class="field-error" *ngIf="invoiceFieldError('customerCity')">{{ invoiceFieldError('customerCity') }}</small>
           </label>
           <label [class.live-invalid]="!!invoiceFieldError('customerProvince')">
@@ -838,7 +841,7 @@
           </label>
           <label>
             Comune
-            <input [(ngModel)]="selectedDdt.customerCity" name="ddtCustomerCity" [readonly]="selectedDdt.status === 'invoiced'" />
+            <input [(ngModel)]="selectedDdt.customerCity" [provinceCity]="selectedDdt.customerCity" [(mvItalianProvince)]="selectedDdt.customerProvince" [provinceCountry]="selectedDdt.customerCountry" name="ddtCustomerCity" [readonly]="selectedDdt.status === 'invoiced'" />
           </label>
           <label>
             Provincia
@@ -862,7 +865,7 @@
           </label>
           <label>
             Comune
-            <input [(ngModel)]="selectedDdt.destinationCity" name="ddtDestinationCity" [readonly]="selectedDdt.status === 'invoiced'" />
+            <input [(ngModel)]="selectedDdt.destinationCity" [provinceCity]="selectedDdt.destinationCity" [(mvItalianProvince)]="selectedDdt.destinationProvince" [provinceCountry]="selectedDdt.destinationCountry" name="ddtDestinationCity" [readonly]="selectedDdt.status === 'invoiced'" />
           </label>
           <label>
             Provincia
@@ -1068,7 +1071,7 @@
           </label>
           <label>
             Comune
-            <input [(ngModel)]="selectedSupplier.city" name="supplierCity" />
+            <input [(ngModel)]="selectedSupplier.city" [provinceCity]="selectedSupplier.city" [(mvItalianProvince)]="selectedSupplier.province" [provinceCountry]="selectedSupplier.country" name="supplierCity" />
           </label>
           <label>
             Provincia
@@ -1092,6 +1095,43 @@
   </section>
 
   <section class="settings-panel" *ngIf="activeView === 'settings'">
+    <article class="ops-panel">
+      <header class="ddt-header"><div><p class="eyebrow">Numerazione</p><h2>Serie dei documenti</h2></div></header>
+      <p>Richiama una serie mentre compili la fattura. Le nuove serie vengono aggiunte automaticamente quando salvi un documento. La serie vuota indica la numerazione ordinaria.</p>
+      <form (ngSubmit)="saveSeries()" class="settings-form">
+        <div class="form-grid" *ngFor="let item of seriesCatalog.series; let i = index">
+          <label>Codice serie<input [(ngModel)]="item.code" [name]="'seriesCode' + i" maxlength="19" [readonly]="!canManage || savingSeries" /></label>
+          <label>Descrizione<input [(ngModel)]="item.label" [name]="'seriesLabel' + i" maxlength="120" [readonly]="!canManage || savingSeries" /></label>
+        </div>
+        <button type="button" class="secondary-btn" (click)="addSeries()" [disabled]="!canManage || savingSeries">Aggiungi serie</button>
+        <h3>Serie predefinita per tipo documento</h3>
+        <div class="form-grid">
+          <label *ngFor="let type of documentTypes">{{ type.label }}
+            <select [ngModel]="seriesForType(type.key)" (ngModelChange)="seriesCatalog.defaults[type.key] = $event" [name]="'defaultSeries' + type.key" [disabled]="!canManage || savingSeries || type.key === 'PF'">
+              <option *ngFor="let item of seriesCatalog.series" [value]="item.code">{{ item.label }}{{ item.code ? ' (' + item.code + ')' : '' }}</option>
+            </select>
+          </label>
+        </div>
+        <button type="submit" class="primary-btn" [disabled]="!canManage || savingSeries">{{ savingSeries ? 'Salvataggio…' : 'Salva serie' }}</button>
+      </form>
+    </article>
+    <article class="ops-panel">
+      <header class="ddt-header"><div><p class="eyebrow">Invio SdI</p><h2>Promemoria fatture non inviate</h2></div></header>
+      <form class="settings-form unsent-reminders-form" (ngSubmit)="saveUnsentSdiReminders()">
+        <label class="checkbox-field"><input type="checkbox" name="unsentReminderEnabled" [(ngModel)]="unsentReminderEnabled" [disabled]="!canManage || savingUnsentReminders" /> Attiva i promemoria email</label>
+        <label>Destinatari email
+          <textarea name="unsentReminderEmails" [(ngModel)]="unsentReminderEmails" rows="3" placeholder="amministrazione@azienda.it&#10;responsabile@azienda.it" [readonly]="!canManage || savingUnsentReminders"></textarea>
+          <small>Un indirizzo per riga, oppure separati da virgole. Ogni destinatario riceverà il promemoria.</small>
+        </label>
+        <label>Giorni dalla data della fattura
+          <input name="unsentReminderDays" [(ngModel)]="unsentReminderDays" placeholder="2, 5, 10, 11, 12" [readonly]="!canManage || savingUnsentReminders" />
+          <small>Inserisci i giorni separati da virgole, da 1 a 365. Il conteggio segue la data della fattura, non quella di salvataggio.</small>
+        </label>
+        <p>I promemoria partono dal mittente email globale usato per le credenziali. Il controllo avviene ogni ora e si interrompe quando la fattura risulta inviata. Le proforma sono escluse.</p>
+        <p>Il conteggio parte dalla data riportata sulla fattura, anche per le bozze già salvate. Se più giorni di promemoria sono già trascorsi, viene recuperato soltanto l’ultimo.</p>
+        <button type="submit" class="primary-btn" [disabled]="!canManage || savingUnsentReminders">{{ savingUnsentReminders ? 'Salvataggio…' : 'Salva promemoria' }}</button>
+      </form>
+    </article>
     <article class="ops-panel invoice-health" *ngIf="operationalHealth">
       <header class="ddt-header">
         <div>

@@ -90,9 +90,9 @@ interface EmailHealthIssue {
 })
 export class HomeAdminComponent implements OnInit, OnDestroy {
 
-  readonly realtimeResources = ["quotes","customers","employees","employee_contracts","candidates","deadlines","email","internal_warehouse","material_orders","leave_requests","todos"];
+  readonly realtimeResources = ["quotes","customers","employees","employee_contracts","candidates","deadlines","email","internal_warehouse","material_orders","leave_requests","todos","invoices","accounting"];
   refreshRealtimeData(): void | boolean | Promise<void | boolean> {
-    this.loadActiveCandidatesCount(); this.loadDeadlineSummary(); this.loadPendingQuoteReviews(); this.loadPendingEmployeeContractReviews(); this.loadEmailUnreadSummary(); this.loadInternalWarehouseSummary();
+    this.loadActiveCandidatesCount(); this.loadDeadlineSummary(); this.loadPendingQuoteReviews(); this.loadUnsentInvoiceCount(); this.loadPendingEmployeeContractReviews(); this.loadEmailUnreadSummary(); this.loadInternalWarehouseSummary();
   }
   private quoteAcceptanceSubscription?: Subscription;
   private employeeContractSubscription?: Subscription;
@@ -219,6 +219,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       this.loadActiveCandidatesCount();
       this.loadDeadlineSummary();
       this.loadPendingQuoteReviews();
+      this.loadUnsentInvoiceCount();
       this.loadPendingEmployeeContractReviews();
       this.loadEmailUnreadSummary();
       this.loadEmailHealthNotice(false, true);
@@ -362,6 +363,18 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
           console.error('Errore caricamento riepilogo scadenze:', err);
         },
       });
+  }
+
+  unsentInvoiceCount = 0;
+  loadUnsentInvoiceCount(): void {
+    if (!this.canUsePermission('INVOICES_VIEW', 'invoices')) {
+      this.unsentInvoiceCount = 0;
+      return;
+    }
+    this.http.get<{ count: number }>(this.global.url + 'invoices/unsent-sdi-summary', { headers: this.global.headers }).subscribe({
+      next: (summary) => { this.unsentInvoiceCount = Number(summary?.count) || 0; },
+      error: () => { this.unsentInvoiceCount = 0; },
+    });
   }
 
   loadPendingQuoteReviews(): void {
@@ -508,10 +521,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   emailHealthIssueSummary(issue: EmailHealthIssue): string {
-    if (issue.smtpStatus === 'error' && issue.imapStatus === 'error') return 'SMTP e IMAP non funzionano';
-    if (issue.smtpStatus === 'error') return 'Invio email non funzionante';
-    if (issue.imapStatus === 'error') return 'Ricezione email non funzionante';
-    return 'Connessione email non funzionante';
+    if (issue.smtpStatus === 'error' && issue.imapStatus === 'error') return 'Errori SMTP e IMAP registrati';
+    if (issue.smtpStatus === 'error') return 'Ultimo errore SMTP registrato';
+    if (issue.imapStatus === 'error') return 'Ultimo errore IMAP registrato';
+    return 'Errore di connessione registrato';
   }
 
   emailHealthIssueDetail(issue: EmailHealthIssue): string {
@@ -1073,6 +1086,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             action: () => this.navigateToInvoices('invoices', 'outbound'),
             desktopPath: 'invoices',
             queryParams: { view: 'invoices', direction: 'outbound' },
+            badgeCount: () => this.unsentInvoiceCount,
+            badgeClass: () => 'badge bg-danger ms-1',
           },
           {
             label: 'Fatture acquisto',

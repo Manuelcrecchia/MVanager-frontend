@@ -1,3 +1,7 @@
+import {
+  BillingAddressLinkConfig,
+  applyBillingAddressLink,
+} from '../shared/billing-address-link/billing-address-link';
 import { fetchCompleteResponse } from '../offline/http-response-deadline';
 import { fetchOperationalConfig } from '../offline/offline-config-fetch';
 import { Injectable } from '@angular/core';
@@ -270,6 +274,8 @@ export interface TenantQuoteConfig {
 }
 
 export interface TenantCustomerAddressFieldSet {
+  prefix?: string;
+  number?: string;
   address?: string;
   city?: string;
   province?: string;
@@ -280,6 +286,7 @@ export interface TenantCustomerAddressFieldSet {
 }
 
 export interface TenantCustomerAddressConfig {
+  billingLink?: BillingAddressLinkConfig;
   workSameAsBilling?: boolean;
   billing?: TenantCustomerAddressFieldSet;
   work?: TenantCustomerAddressFieldSet;
@@ -365,7 +372,7 @@ export class GlobalService {
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '7.5';
+  version = '7.6';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -1027,6 +1034,69 @@ export class GlobalService {
     );
   }
 
+  getBillingAddressLinkConfig(): BillingAddressLinkConfig | undefined {
+    return (
+      this.tenantConfig?.addressConfig?.billingLink ||
+      this.getTenantQuoteConfig()?.addressConfig?.billingLink
+    );
+  }
+  applyBillingAddressChoice(
+    scope: 'customer' | 'quote',
+    record: Record<string, any>,
+  ): void {
+    const config = this.getBillingAddressLinkConfig();
+    if (config)
+      applyBillingAddressLink(
+        config,
+        scope,
+        record,
+        this.getFieldMappingFields(scope),
+      );
+  }
+  copyBillingAddressFromQuote(
+    quote: Record<string, any>,
+    customer: Record<string, any>,
+  ): void {
+    const config = this.getBillingAddressLinkConfig();
+    if (!config?.enabled) return;
+    for (const group of [config.billing, ...config.sources]) {
+      for (const part of Object.keys(group.quote) as Array<
+        keyof typeof group.quote
+      >) {
+        const from = group.quote[part],
+          to = group.customer[part];
+        if (!from || !to) continue;
+        const value = this.getRecordValueByFieldKey('quote', quote, from);
+        const field = this.getFieldConfig('customer', to);
+        if (value !== undefined) {
+          customer[field?.dbColumn || to] = value;
+          customer[field?.key || to] = value;
+        }
+      }
+    }
+    customer['billingAddressSource'] =
+      quote['billingAddressSource'] || 'independent';
+    this.applyBillingAddressChoice('customer', customer);
+  }
+  private isLinkedBillingField(
+    scope: 'customer' | 'quote',
+    field: TenantFieldMappingFieldConfig,
+    record?: Record<string, any>,
+  ): boolean {
+    const config = this.getBillingAddressLinkConfig();
+    if (
+      !config?.enabled ||
+      !record ||
+      !config.sources.some(
+        (source) => source.id === record['billingAddressSource'],
+      )
+    )
+      return false;
+    return Object.values(config.billing[scope]).some(
+      (key) => key && (key === field.key || key === field.dbColumn),
+    );
+  }
+
   getEffectiveCustomerAddressFields(
     kind: 'work' | 'billing' = 'work',
   ): TenantCustomerAddressFieldSet {
@@ -1151,8 +1221,11 @@ export class GlobalService {
       ? config.workSameAsBilling !== false
       : !hasFallbackWork;
     return {
+      billingLink: config.billingLink,
       workSameAsBilling,
-      billing,
+      billing: config.billingLink?.enabled
+        ? config.billingLink.billing.customer
+        : billing,
       work: this.normalizeCustomerAddressFieldSet(
         config.work || {},
         workSameAsBilling ? billing : fallbackWork,
@@ -1222,7 +1295,10 @@ export class GlobalService {
     record: Record<string, any>,
     fieldSet: TenantCustomerAddressFieldSet,
   ): string {
-    const address = this.readCustomerAddressField(record, fieldSet.address);
+    const address = [fieldSet.prefix, fieldSet.address, fieldSet.number]
+      .map((key) => this.readCustomerAddressField(record, key))
+      .filter(Boolean)
+      .join(' ');
     const zip = this.readCustomerAddressField(record, fieldSet.zip);
     const city = this.readCustomerAddressField(record, fieldSet.city);
     const province = this.readCustomerAddressField(record, fieldSet.province);
@@ -1322,8 +1398,10 @@ export class GlobalService {
     scope: 'quote' | 'customer',
     source?: Record<string, any>,
   ): TenantFieldMappingFieldConfig[] {
+    if (source) this.applyBillingAddressChoice(scope, source);
     return this.getFieldMappingFields(scope).filter(
       (field) =>
+        !this.isLinkedBillingField(scope, field, source) &&
         !!field?.dbColumn &&
         !this.isTechnicalField(scope, field) &&
         !this.isLegacyCustomerOperatorField(scope, field) &&
@@ -1559,6 +1637,7 @@ export class GlobalService {
     scope: 'quote' | 'customer',
     source: Record<string, any>,
   ): string[] {
+    this.applyBillingAddressChoice(scope, source);
     return this.getFieldMappingFields(scope)
       .filter(
         (field) =>
@@ -1652,6 +1731,7 @@ export class GlobalService {
     payload: T,
     source: Record<string, any>,
   ): T {
+    this.applyBillingAddressChoice(scope, source);
     const fields = this.getFieldMappingFields(scope);
     if (!fields.length) {
       return payload;
@@ -1674,6 +1754,8 @@ export class GlobalService {
       }
     });
 
+    if (source['billingAddressSource'] !== undefined)
+      mappedPayload['billingAddressSource'] = source['billingAddressSource'];
     fields.forEach((field) => {
       if (
         !field.dbColumn ||

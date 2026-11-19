@@ -1655,14 +1655,13 @@
 
     <div class="page" [class.home-ios]="isIos">
       <div class="email-health-modal-backdrop" *ngIf="emailHealthNoticeVisible" role="dialog" aria-modal="true">
-        <section class="email-health-modal" aria-label="Problema configurazione email">
+        <section class="email-health-modal" aria-label="Errori di connessione email">
           <header class="email-health-modal-header">
             <span class="email-health-modal-icon">
               <i class="fas fa-exclamation-triangle"></i>
             </span>
             <div>
-              <h2>Attenzione: una o più email non funzionano</h2>
-              <p>Il sistema non riesce a collegarsi ad alcune caselle configurate.</p>
+              <h2>Errori di connessione email registrati</h2>
             </div>
           </header>
 
@@ -1671,6 +1670,12 @@
               <strong>{{ emailHealthIssueTitle(issue) }}</strong>
               <span>{{ emailHealthIssueSummary(issue) }}</span>
               <small>{{ emailHealthIssueDetail(issue) }}</small>
+              <small *ngIf="issue.smtpStatus === 'error' && issue.smtpLastCheckAt">
+                SMTP · {{ issue.smtpLastCheckAt | date:'dd/MM/yyyy HH:mm:ss' }}
+              </small>
+              <small *ngIf="issue.imapStatus === 'error' && issue.imapLastCheckAt">
+                IMAP · {{ issue.imapLastCheckAt | date:'dd/MM/yyyy HH:mm:ss' }}
+              </small>
             </article>
           </div>
 

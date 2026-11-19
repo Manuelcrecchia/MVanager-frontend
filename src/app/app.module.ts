@@ -1,3 +1,5 @@
+import { BillingAddressLinkComponent } from './shared/billing-address-link/billing-address-link.component';
+import { ItalianProvinceDirective } from './shared/italian-municipalities/italian-province.directive';
 import { PrivateImageDirective } from './shared/private-image.directive';
 import { CommandTooltipDirective } from './shared/command-tooltip.directive';
 import { LinkedFieldsComponent } from './admin/linked-fields.component';
@@ -208,6 +210,8 @@ registerLocaleData(localeIt);
     ReliableDetailsDirective,
   ],
   imports: [
+    BillingAddressLinkComponent,
+    ItalianProvinceDirective,
     PrivateImageDirective,
     CommandTooltipDirective,
     LinkedFieldsComponent,

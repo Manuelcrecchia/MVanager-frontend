@@ -34,6 +34,15 @@ describe('AuthInterceptorService online saves', () => {
     expect(popup.showHttpError).toHaveBeenCalledWith(error, jasmine.any(String), 'Sessione scaduta');
     expect(offline.operations.value[0].state).toBe('waiting');
   });
+  it('lascia gestire la conferma delle fatture precedenti senza un popup di errore generico', async () => {
+    const error = new HttpErrorResponse({ status: 409, error: {
+      code: 'PREVIOUS_INVOICES_UNSENT', sequenceWarning: { documents: [{ id: 2 }], fingerprint: 'test' },
+    } });
+    const request = new HttpRequest('POST', baseUrl + 'invoices/send', { id: 3 });
+    await expectAsync(firstValueFrom(interceptor.intercept(request, { handle: () => throwError(() => error) }))).toBeRejectedWith(error);
+    expect(popup.scheduleHttpError).not.toHaveBeenCalled();
+    expect(popup.showHttpError).not.toHaveBeenCalled();
+  });
   it('returns validation details to the form and respects local error handling', async () => {
     const error = new HttpErrorResponse({ status: 422, error: { error: 'Cliente incompleto', fields: ['name'] } });
     const request = req().clone({ setHeaders: { 'X-Skip-Global-Error-Popup': 'true' } });
@@ -47,5 +56,45 @@ describe('AuthInterceptorService online saves', () => {
     expect(offline.operations.value[0].state).toBe('waiting');
     expect(popup.scheduleHttpError).not.toHaveBeenCalled();
     expect(popup.showHttpError).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthInterceptorService errori di accesso', () => {
+  let global: any;
+  let popup: any;
+  let interceptor: AuthInterceptorService;
+  beforeEach(() => {
+    global = { token: 'previous-session', logout: jasmine.createSpy('logout') };
+    popup = { showHttpError: jasmine.createSpy('showHttpError'), scheduleHttpError: jasmine.createSpy('scheduleHttpError') };
+    interceptor = new AuthInterceptorService(global, { tenant: 'test' } as any, popup,
+      { intercept: (request: any, send: any) => send(request) } as any);
+  });
+
+  for (const status of [0, 401, 403, 429, 500]) {
+    it(`lascia alla pagina login il solo messaggio di errore HTTP ${status}`, async () => {
+      const error = new HttpErrorResponse({ status, error: { response: 'Credenziali non valide' } });
+      const request = new HttpRequest('POST', 'http://mvanager.localhost:5001/login/admin', { email: 'test@example.test', password: 'wrong-test' });
+      await expectAsync(firstValueFrom(interceptor.intercept(request, { handle: () => throwError(() => error) }))).toBeRejectedWith(error);
+      expect(popup.showHttpError).not.toHaveBeenCalled();
+      expect(popup.scheduleHttpError).not.toHaveBeenCalled();
+      expect(global.logout).not.toHaveBeenCalled();
+    });
+  }
+
+  for (const path of ['/api/LOGIN/admin/', '/admin/sendCode', '/admin/verifyCode', '/admin/restorePassword']) {
+    it(`gestisce localmente anche il percorso pubblico ${path}`, async () => {
+      const error = new HttpErrorResponse({ status: 401 });
+      await expectAsync(firstValueFrom(interceptor.intercept(new HttpRequest('POST', path, {}), { handle: () => throwError(() => error) }))).toBeRejectedWith(error);
+      expect(popup.showHttpError).not.toHaveBeenCalled();
+      expect(popup.scheduleHttpError).not.toHaveBeenCalled();
+      expect(global.logout).not.toHaveBeenCalled();
+    });
+  }
+
+  it('mantiene la scadenza sessione per le richieste protette con login nella query', async () => {
+    const error = new HttpErrorResponse({ status: 401 });
+    await expectAsync(firstValueFrom(interceptor.intercept(new HttpRequest('GET', '/customers/getAll?returnTo=/login/admin'), { handle: () => throwError(() => error) }))).toBeRejectedWith(error);
+    expect(global.logout).toHaveBeenCalledTimes(1);
+    expect(popup.showHttpError).toHaveBeenCalledTimes(1);
   });
 });

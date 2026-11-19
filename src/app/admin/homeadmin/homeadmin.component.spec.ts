@@ -1,3 +1,4 @@
+import { of } from 'rxjs';
 import { HomeAdminComponent } from './homeadmin.component';
 
 describe('HomeAdminComponent', () => {
@@ -24,6 +25,28 @@ describe('HomeAdminComponent', () => {
       {} as any,
     );
   }
+
+  it('mostra il numero di fatture da inviare sulla voce Fatture vendita', () => {
+    const component = createComponent({}, { url: '/api/', getTenantCustomerAssetsConfig: () => ({}) });
+    const get = jasmine.createSpy('get').and.returnValue(of({ count: 6 }));
+    (component as any).http = { get };
+    spyOn(component, 'canUsePermission').and.returnValue(true);
+    component.loadUnsentInvoiceCount();
+    const button = component.homeCategories.flatMap((category) => category.buttons).find((item) => item.label === 'Fatture vendita');
+    expect(button?.badgeCount?.()).toBe(6);
+    expect(component.realtimeResources).toContain('invoices');
+  });
+
+  it('non carica il contatore fatture senza permessi', () => {
+    const component = createComponent();
+    spyOn(component, 'canUsePermission').and.returnValue(false);
+    const get = jasmine.createSpy('get');
+    (component as any).http = { get };
+    component.unsentInvoiceCount = 6;
+    component.loadUnsentInvoiceCount();
+    expect(component.unsentInvoiceCount).toBe(0);
+    expect(get).not.toHaveBeenCalled();
+  });
 
   it('should be exported', () => {
     expect(HomeAdminComponent).toBeTruthy();

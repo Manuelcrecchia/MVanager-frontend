@@ -2,7 +2,7 @@ import { downloadFile } from '../../shared/file-download';
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { firstValueFrom, Subscription } from 'rxjs';
+import { firstValueFrom, from, Subscription } from 'rxjs';
 import JSZip from 'jszip';
 import { GlobalService } from '../../service/global.service';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
@@ -352,12 +352,21 @@ interface InvoiceCustomerInvoiceDefaults {
   vatProfiles: InvoiceCustomerVatProfile[];
 }
 
+interface UnsentSdiReminderSettings {
+  enabled: boolean;
+  emails: string[];
+  days: number[];
+}
+
+interface InvoiceSeriesCatalog { series: { code: string; label: string }[]; defaults: Record<string, string>; }
 interface InvoiceSettings {
+  seriesCatalog?: InvoiceSeriesCatalog;
   paymentTerms: InvoicePaymentTerm[];
   bankAccounts: InvoiceBankAccount[];
   serviceItems: InvoiceServiceItem[];
   customerInvoiceDefaults?: InvoiceCustomerInvoiceDefaults;
   operationalHealth?: InvoiceOperationalHealth;
+  unsentSdiReminders?: UnsentSdiReminderSettings;
 }
 
 interface InvoiceOperationalHealth {
@@ -417,6 +426,35 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   draftSaveConfirmation = '';
   search = '';
   statusFilter = '';
+  unsentSdiOnly = false;
+  unsentSdiCount = 0;
+  overdueSdiCount = 0;
+  seriesCatalog: InvoiceSeriesCatalog = {
+    series: [{ code: '', label: 'Numerazione ordinaria' }, { code: 'NC', label: 'Note di credito' }, { code: 'ND', label: 'Note di debito' }, { code: 'FD', label: 'Fatture differite' }, { code: 'PF', label: 'Proforma' }],
+    defaults: { TD04: 'NC', TD08: 'NC', TD05: 'ND', TD09: 'ND', TD24: 'FD', TD25: 'FD', PF: 'PF' },
+  };
+  savingSeries = false;
+  seriesForType(type: string): string {
+    return this.seriesCatalog.defaults[type] ?? ({ TD04: 'NC', TD08: 'NC', TD05: 'ND', TD09: 'ND', TD24: 'FD', TD25: 'FD', PF: 'PF' } as Record<string, string>)[type] ?? '';
+  }
+  addSeries(): void { if (this.canManage) this.seriesCatalog.series.push({ code: '', label: '' }); }
+  saveSeries(): void {
+    if (!this.canManage || this.savingSeries) return;
+    this.savingSeries = true;
+    this.http.post<InvoiceSeriesCatalog>(this.global.url + 'invoices/settings/series/save', this.seriesCatalog).subscribe({
+      next: config => { this.seriesCatalog = config; this.savingSeries = false; this.success = 'Serie di numerazione salvate'; },
+      error: error => { this.savingSeries = false; this.error = this.errorText(error); },
+    });
+  }
+  private rememberLocalSeries(invoice: Invoice): void {
+    const code = invoice.series || '';
+    if (!this.seriesCatalog.series.some(item => item.code.toUpperCase() === code.toUpperCase())) this.seriesCatalog.series.push({ code, label: code });
+  }
+
+  unsentReminderEnabled = false;
+  unsentReminderEmails = '';
+  unsentReminderDays = '2, 5, 10, 11, 12';
+  savingUnsentReminders = false;
   directionFilter = 'outbound';
   documentKindFilter = '';
   customers: InvoiceCustomerOption[] = [];
@@ -709,7 +747,13 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   toggleArchive(): void {
-    if (this.activeView === 'invoices') this.showInvoiceArchive = !this.showInvoiceArchive;
+    if (this.activeView === 'invoices') {
+      this.showInvoiceArchive = !this.showInvoiceArchive;
+      if (this.unsentSdiOnly) {
+        this.unsentSdiOnly = false;
+        this.loadInvoices();
+      }
+    }
     if (this.activeView === 'ddt') this.showDdtArchive = !this.showDdtArchive;
   }
 
@@ -1003,7 +1047,9 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   loadInvoices(silent = false): void {
     if (!silent) { this.loading = true; this.error = ''; }
+    if (this.directionFilter === 'outbound') this.loadUnsentSdiSummary();
     const params = new URLSearchParams();
+    if (this.unsentSdiOnly && this.directionFilter === 'outbound') params.set('unsentSdi', '1');
     if (this.statusFilter) params.set('status', this.statusFilter);
     if (this.directionFilter) params.set('direction', this.directionFilter);
     if (this.search.trim()) params.set('search', this.search.trim());
@@ -1022,6 +1068,54 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         this.loading = false;
         this.error = err?.error?.error || 'Errore caricamento fatture';
       },
+    });
+  }
+
+  loadUnsentSdiSummary(): void {
+    this.http.get<{ count: number; overdueCount: number }>(this.global.url + 'invoices/unsent-sdi-summary').subscribe({
+      next: (summary) => {
+        this.unsentSdiCount = Number(summary?.count) || 0;
+        this.overdueSdiCount = Number(summary?.overdueCount) || 0;
+      },
+      error: () => { this.unsentSdiCount = 0; this.overdueSdiCount = 0; },
+    });
+  }
+
+  onInvoiceStatusFilterChange(): void {
+    this.unsentSdiOnly = false;
+    this.loadInvoices();
+  }
+
+  toggleUnsentSdiFilter(): void {
+    this.unsentSdiOnly = !this.unsentSdiOnly;
+    this.statusFilter = '';
+    this.documentKindFilter = '';
+    this.search = '';
+    this.showInvoiceArchive = false;
+    this.loadInvoices();
+  }
+
+  private applyUnsentReminderSettings(config?: UnsentSdiReminderSettings): void {
+    this.unsentReminderEnabled = config?.enabled === true;
+    this.unsentReminderEmails = (config?.emails || []).join('\n');
+    this.unsentReminderDays = (config?.days || [2, 5, 10, 11, 12]).join(', ');
+  }
+
+  saveUnsentSdiReminders(): void {
+    if (!this.canManage || this.savingUnsentReminders) return;
+    this.savingUnsentReminders = true;
+    this.error = '';
+    this.success = '';
+    this.http.post<UnsentSdiReminderSettings>(this.global.url + 'invoices/settings/unsent-sdi-reminders/save', {
+      enabled: this.unsentReminderEnabled, emails: this.unsentReminderEmails, days: this.unsentReminderDays,
+    }).subscribe({
+      next: (config) => {
+        this.applyUnsentReminderSettings(config);
+        this.savingUnsentReminders = false;
+        this.success = 'Promemoria fatture non inviate allo SdI salvati';
+        this.loadUnsentSdiSummary();
+      },
+      error: (error) => { this.savingUnsentReminders = false; this.error = this.errorText(error); },
     });
   }
 
@@ -1226,8 +1320,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
         this.serviceItems = res?.serviceItems || [];
         this.customerInvoiceDefaults = this.normalizeCustomerInvoiceDefaults(res?.customerInvoiceDefaults);
         this.operationalHealth = res?.operationalHealth || null;
+        this.applyUnsentReminderSettings(res?.unsentSdiReminders);
+        if (res?.seriesCatalog) this.seriesCatalog = res.seriesCatalog;
+        if (!this.selected.id && this.pageMode === 'new' && !this.selected.series) this.selected.series = this.seriesForType(this.selected.type);
         this.invoiceSettingsLoaded = true;
         this.applyDefaultInvoiceSettings();
+        if (this.activeView === 'invoices' && this.pageMode === 'new' && !this.selected.id && !this.selected.number) this.loadNextNumber();
         this.startPendingInvoiceFromCustomer();
       },
       error: () => {
@@ -1247,6 +1345,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.clearDraftSaveConfirmation();
     this.clearProfilePrefillMessage();
     this.selected = this.emptyInvoice();
+    this.selected.series = this.seriesForType(this.selected.type);
     this.syncInvoiceEmailRecipient();
     this.selectedCustomerCode = '';
     this.customerQuery = '';
@@ -1421,6 +1520,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   newProforma(): void {
     if (!this.canManage) return;
     this.selected = this.emptyInvoice();
+    this.selected.series = this.seriesForType(this.selected.type);
     this.syncInvoiceEmailRecipient();
     this.selected.type = 'PF';
     this.selected.series = 'PF';
@@ -1462,14 +1562,30 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       });
   }
 
+  private invoiceNumberRequest = 0;
+  private invoiceNumberError = '';
   loadNextNumber(): void {
+    const request = ++this.invoiceNumberRequest;
+    const { year, series, type, issueDate } = this.selected;
     this.http
       .get<{ number: string }>(
-        this.global.url + `invoices/next-number?year=${this.selected.year}&series=${encodeURIComponent(this.selected.series || '')}&type=${encodeURIComponent(this.selected.type || 'TD01')}`,
+        this.global.url + `invoices/next-number?year=${year}&series=${encodeURIComponent(series || '')}&type=${encodeURIComponent(type || 'TD01')}&issueDate=${encodeURIComponent(issueDate || '')}`,
       )
       .subscribe({
         next: (res) => {
-          if (!this.selected.id) this.selected.number = res?.number || '';
+          if (!this.selected.id && request === this.invoiceNumberRequest && this.selected.year === year &&
+            this.selected.series === series && this.selected.type === type && this.selected.issueDate === issueDate) {
+            this.selected.number = res?.number || '';
+            if (this.error === this.invoiceNumberError) this.error = '';
+            this.invoiceNumberError = '';
+          }
+        },
+        error: (error) => {
+          if (request !== this.invoiceNumberRequest || this.selected.id || this.selected.year !== year ||
+            this.selected.series !== series || this.selected.type !== type || this.selected.issueDate !== issueDate) return;
+          this.selected.number = '';
+          this.invoiceNumberError = this.errorText(error);
+          this.error = this.invoiceNumberError;
         },
       });
   }
@@ -1623,6 +1739,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
 
   onCustomerRecipientTypeChange(): void {
     this.selected.customerRecipientType = this.normalizeRecipientType(this.selected.customerRecipientType);
+    if (this.selected.customerRecipientType === 'private') this.selected.customerVatNumber = '';
     if (this.selected.customerRecipientType === 'pa') {
       if (['0000000', 'XXXXXXX'].includes(this.stringValue(this.selected.customerSdiCode).toUpperCase())) {
         this.selected.customerSdiCode = '';
@@ -1732,23 +1849,27 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.selected.customerRecipientType = this.normalizeRecipientType(this.selected.customerRecipientType);
     this.selected.customerCountry = this.stringValue(this.selected.customerCountry || 'IT').toUpperCase().slice(0, 2) || 'IT';
     this.selected.customerFiscalCode = this.stringValue(this.selected.customerFiscalCode).toUpperCase();
-    if (this.selected.customerRecipientType !== 'pa' && !this.stringValue(this.selected.customerSdiCode)) {
+    if (this.selected.customerRecipientType === 'private') this.selected.customerVatNumber = '';
+    if (this.selected.customerRecipientType !== 'pa' && (this.selected.customerRecipientType === 'private' || !this.stringValue(this.selected.customerSdiCode))) {
       this.selected.customerSdiCode = this.defaultSdiForCountry(this.selected.customerCountry);
     }
   }
 
+  onInvoiceSeriesChange(): void {
+    if (!this.selected.id) this.loadNextNumber();
+  }
+
+  onInvoiceDateChange(): void {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(this.selected.issueDate)) return;
+    const year = Number(this.selected.issueDate.slice(0, 4));
+    this.selected.year = year;
+    if (!this.selected.id) this.loadNextNumber();
+  }
+
   onDocumentTypeChange(): void {
     const type = this.stringValue(this.selected.type).toUpperCase();
-    const seriesByType: Record<string, string> = {
-      PF: 'PF',
-      PROFORMA: 'PF',
-      TD04: 'NC',
-      TD05: 'ND',
-      TD24: 'FD',
-      TD25: 'FD',
-    };
     if (!this.selected.id) {
-      this.selected.series = seriesByType[type] || '';
+      this.selected.series = this.seriesForType(type);
       this.loadNextNumber();
     }
     if (this.isSelfInvoice()) {
@@ -1957,6 +2078,53 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     );
   }
 
+  private async persistInvoice(endpoint: string): Promise<Invoice> {
+    const payload = { ...this.selected };
+    let saved: Invoice;
+    try {
+      saved = await firstValueFrom(this.http.post<Invoice>(this.global.url + 'invoices/' + endpoint, payload));
+    } catch (err: any) {
+      const sync = err?.status === 409 ? err.error?.customerSync : null;
+      if (!sync || !Array.isArray(sync.changes)) throw err;
+      const changes = sync.changes.map((change: any) =>
+        `${change.label}: ${change.previous || '(vuoto)'} → ${change.value}`,
+      ).join('\n');
+      let update: boolean;
+      let customerMatchDecision: { customerId: string; action: 'link' | 'create' } | undefined;
+      if (Array.isArray(sync.candidates) && sync.candidates.length) {
+        const choice = await this.appDialog.chooseCustomerMatch({ candidates: sync.candidates, allowCreate: sync.allowCreate === true });
+        if (!choice) throw new Error('Salvataggio annullato');
+        update = choice.action === 'update';
+        customerMatchDecision = { customerId: choice.customerId, action: choice.action === 'create' ? 'create' : 'link' };
+      } else if (sync.matchRequired) {
+        const choice = await this.appDialog.chooseThree(
+          `Esiste già il cliente ${sync.customerId}: ${sync.customerName}, ${sync.customerAddress}.\n\nIl nome corrisponde, ma non è stato possibile identificarlo tramite CF o partita IVA. L’indirizzo può essere cambiato o scritto diversamente. È lo stesso cliente?${changes ? '\n\nDati da aggiornare:\n' + changes : ''}`,
+          'Possibile cliente già presente',
+          { primaryLabel: 'Collega e aggiorna', secondaryLabel: 'Collega senza aggiornare', tertiaryLabel: 'Crea nuovo cliente' },
+        );
+        if (!choice) throw new Error('Salvataggio annullato');
+        update = choice === 'primary';
+        customerMatchDecision = { customerId: sync.customerId, action: choice === 'tertiary' ? 'create' : 'link' };
+      } else {
+        update = await this.appDialog.confirm(
+          `I dati della fattura sono diversi dall’anagrafica del cliente ${sync.customerId}:\n\n${changes}\n\nVuoi aggiornare anche l’anagrafica cliente? La fattura manterrà i dati inseriti in entrambi i casi.`,
+          'Aggiorna anagrafica cliente',
+          { confirmLabel: 'Aggiorna anagrafica', cancelLabel: 'Mantieni anagrafica' },
+        );
+      }
+      saved = await firstValueFrom(this.http.post<Invoice>(this.global.url + 'invoices/' + endpoint, {
+        ...payload, customerSyncDecision: update ? 'update' : 'keep',
+        ...(customerMatchDecision ? { customerMatchDecision } : {}),
+      }));
+    }
+    if (!this.isInbound(saved) && !this.isSelfInvoice(saved) && this.global.hasTenantFeature('customers')) {
+      this.selectedCustomerCode = this.stringValue(saved.customerId);
+      this.loadCustomers();
+    }
+    this.rememberLocalSeries(saved);
+    return saved;
+  }
+
   save(): void {
     if (!this.canManage) return;
     this.prepareRecipientForSubmit();
@@ -1967,7 +2135,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.error = '';
     this.success = '';
     const endpoint = this.selected.id ? 'edit' : 'add';
-    this.http.post<Invoice>(this.global.url + 'invoices/' + endpoint, this.selected).subscribe({
+    from(this.persistInvoice(endpoint)).subscribe({
       next: (res) => {
         this.selected = this.withInvoiceDefaults(res);
         this.pageMode = 'detail';
@@ -2017,7 +2185,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.error = '';
     this.success = '';
     const endpoint = this.selected.id ? 'edit' : 'add';
-    this.http.post<Invoice>(this.global.url + 'invoices/' + endpoint, this.selected).subscribe({
+    from(this.persistInvoice(endpoint)).subscribe({
       next: (saved) => {
         this.selected = this.withInvoiceDefaults(saved);
         this.http.post<any>(this.global.url + 'invoices/validate', { id: this.selected.id }).subscribe({
@@ -2594,7 +2762,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     }
 
     const endpoint = this.selected.id ? 'edit' : 'add';
-    this.http.post<Invoice>(this.global.url + 'invoices/' + endpoint, this.selected).subscribe({
+    from(this.persistInvoice(endpoint)).subscribe({
       next: (saved) => {
         this.selected = this.withInvoiceDefaults(saved);
         this.syncInvoiceEmailRecipient();
@@ -2607,11 +2775,38 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     });
   }
 
+  private async sendWithSequenceConfirmation(invoiceId: number): Promise<Invoice | null> {
+    let sequenceConfirmation: string | undefined;
+    // The server rechecks the current list on every retry, so a changed list needs a new confirmation.
+    while (true) {
+      try {
+        return await firstValueFrom(this.http.post<Invoice>(this.global.url + 'invoices/send', {
+          id: invoiceId, ...(sequenceConfirmation ? { sequenceConfirmation } : {}),
+        }));
+      } catch (error: any) {
+        const warning = error?.status === 409 && error.error?.code === 'PREVIOUS_INVOICES_UNSENT'
+          ? error.error.sequenceWarning : null;
+        if (!warning || !Array.isArray(warning.documents) || !warning.fingerprint) throw error;
+        const choice = await this.appDialog.choosePendingInvoices({ documents: warning.documents,
+          ...(warning.gaps?.length ? { gaps: warning.gaps, currentNumber: warning.currentNumber } : {}),
+        });
+        if (!choice) return null;
+        if (choice.action === 'open') {
+          const document = warning.documents.find((candidate: any) => candidate.id === choice.invoiceId);
+          if (document) this.selectInvoice(this.withInvoiceDefaults(document));
+          return null;
+        }
+        sequenceConfirmation = warning.fingerprint;
+      }
+    }
+  }
+
   private validateAndSendInvoice(invoice: Invoice, recipient = this.stringValue(this.sendEmailRecipient)): void {
     this.http.post<any>(this.global.url + 'invoices/validate', { id: invoice.id }).subscribe({
       next: () => {
-        this.http.post<Invoice>(this.global.url + 'invoices/send', { id: invoice.id }).subscribe({
+        from(this.sendWithSequenceConfirmation(invoice.id!)).subscribe({
           next: (sent) => {
+            if (!sent) { this.saving = false; return; }
             const email = this.stringValue(recipient);
             this.selected = this.withInvoiceDefaults(sent);
             this.syncInvoiceEmailRecipient();
@@ -3215,9 +3410,13 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.saving = true;
     this.error = '';
     this.success = '';
-    this.http.post<any>(this.global.url + 'invoices/' + endpoint, { id: this.selected.id }).subscribe({
+    const request = endpoint === 'send'
+      ? from(this.sendWithSequenceConfirmation(this.selected.id))
+      : this.http.post<any>(this.global.url + 'invoices/' + endpoint, { id: this.selected.id });
+    request.subscribe({
       next: (res) => {
         this.saving = false;
+        if (endpoint === 'send' && !res) return;
         if (res?.id) this.selected = this.withInvoiceDefaults(res);
         const providerAlert = endpoint === 'sync' ? this.providerSyncAlert(res) : '';
         this.success = providerAlert ? '' : message;
@@ -3477,7 +3676,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.selected.customerId = this.stringValue(customer?.['numeroCliente'] || this.customerValue(customer, 'customerId'));
     this.selected.customerRecipientType = recipientType;
     this.selected.customerName = displayName || [firstName, lastName].filter(Boolean).join(' ');
-    this.selected.customerVatNumber = customerVatNumber;
+    this.selected.customerVatNumber = recipientType === 'private' ? '' : customerVatNumber;
     this.selected.customerFiscalCode = customerFiscalCode;
     this.selected.customerPec = this.stringValue(this.customerValue(customer, 'customerPec'));
     this.selected.customerEmail = this.stringValue(this.customerValue(customer, 'customerEmail'));
@@ -3487,7 +3686,9 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     this.selected.customerZip = this.onlyDigits(this.customerAddressPart(customer, 'billing', 'zip', 'customerZip'));
     this.selected.customerCountry = this.stringValue(this.customerAddressPart(customer, 'billing', 'country', 'customerCountry') || 'IT').toUpperCase();
     const sdiCode = this.stringValue(this.customerValue(customer, 'customerSdiCode')).toUpperCase();
-    this.selected.customerSdiCode = sdiCode || (recipientType === 'pa' ? '' : this.defaultSdiForCountry(this.selected.customerCountry));
+    this.selected.customerSdiCode = recipientType === 'private'
+      ? this.defaultSdiForCountry(this.selected.customerCountry)
+      : sdiCode || (recipientType === 'pa' ? '' : this.defaultSdiForCountry(this.selected.customerCountry));
     this.syncInvoiceEmailRecipient();
   }
 
@@ -3562,9 +3763,15 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     if (fieldKey) {
       const configured = this.customerConfiguredValue(customer, fieldKey);
       if (configured !== undefined && configured !== null && String(configured).trim() !== '') {
+        if (part === 'address') {
+          return [fieldSet.prefix ? this.customerConfiguredValue(customer, fieldSet.prefix) : '', configured,
+            fieldSet.number ? this.customerConfiguredValue(customer, fieldSet.number) : ''].map(value => this.stringValue(value)).filter(Boolean).join(' ');
+        }
         return configured;
       }
     }
+    // When separate billing fields are configured, never silently use a work address.
+    if (kind === 'billing' && this.global.getBillingAddressLinkConfig?.()?.enabled) return '';
     return this.customerValue(customer, fallbackRole);
   }
 

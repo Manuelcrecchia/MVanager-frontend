@@ -342,6 +342,7 @@ export class ViewPdfComponent implements OnInit, AfterViewInit, OnDestroy {
           }
 
           this.customerModelService.populateFromQuote(quote, numeroPreventivo);
+          this.globalService.copyBillingAddressFromQuote(quote, this.customerModelService as any);
 
           this.http
             .post(

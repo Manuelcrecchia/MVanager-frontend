@@ -32,6 +32,8 @@ export class AuthInterceptorService implements HttpInterceptor {
     return this.offline.intercept(cloned, request => next.handle(request)).pipe(
       catchError((err: HttpErrorResponse) => {
         if (err.error?.code === 'OFFLINE_PENDING') return throwError(() => err);
+        // Login/recovery screens own their errors; a failed login is not an expired session.
+        if (this.isPublicAuthRequest(cloned.url)) return throwError(() => err);
         if (err.status === 401) {
           this.popup.showHttpError(err, 'Sessione scaduta. Effettua di nuovo il login.', 'Sessione scaduta');
           this.globalService.logout();
@@ -60,16 +62,13 @@ export class AuthInterceptorService implements HttpInterceptor {
       return false;
     }
 
-    const url = req.url.toLowerCase();
-    const silentPaths = [
-      '/login',
-      '/sendcode',
-      '/verifycode',
-      '/restorepassword',
-      '/forgot',
-    ];
+    if (err.status === 409 && err.error?.code === 'PREVIOUS_INVOICES_UNSENT' && err.error?.sequenceWarning) return false;
+    return !this.isPublicAuthRequest(req.url);
+  }
 
-    return !silentPaths.some((path) => url.includes(path));
+  private isPublicAuthRequest(url: string): boolean {
+    const path = new URL(url, 'http://localhost').pathname.toLowerCase();
+    return /(?:^|\/)(?:login|sendcode|verifycode|restorepassword|forgot)(?:\/|$)/.test(path);
   }
 
   private defaultHttpFallback(err: HttpErrorResponse): string {

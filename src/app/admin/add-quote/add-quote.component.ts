@@ -213,6 +213,8 @@ export class AddQuoteComponent {
       });
   }
 
+  onBillingAddressChoice(): void { this.refreshVisibleQuoteFields(); }
+
   updateField(field: TenantFieldMappingFieldConfig, value: any): void {
     const target = this.quoteModelService as unknown as Record<string, any>;
     target[field.dbColumn] = value;

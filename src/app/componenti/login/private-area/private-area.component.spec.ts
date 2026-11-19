@@ -1,12 +1,34 @@
 import { PrivateAreaComponent } from './private-area.component';
 import { fakeAsync, flushMicrotasks } from '@angular/core/testing';
-import { HttpHeaders } from '@angular/common/http';
-import { of } from 'rxjs';
+import { HttpErrorResponse, HttpHeaders, HttpRequest } from '@angular/common/http';
+import { of, throwError } from 'rxjs';
+import { AuthInterceptorService } from '../../../auth-interceptor.service';
 
 describe('PrivateAreaComponent', () => {
   it('should be exported', () => {
     expect(PrivateAreaComponent).toBeTruthy();
   });
+  it('mostra un solo popup per password errata attraversando l’interceptor', async () => {
+    const component: any = Object.create(PrivateAreaComponent.prototype);
+    const popup = { text: '', openPopup: jasmine.createSpy('openPopup'), showHttpError: jasmine.createSpy('showHttpError'), scheduleHttpError: jasmine.createSpy('scheduleHttpError') };
+    const global = { url: '/', headers: new HttpHeaders(), token: 'previous-session', logout: jasmine.createSpy('logout') };
+    const tenant = { tenant: 'test', requiresTenantSelection: false };
+    const interceptor = new AuthInterceptorService(global as any, tenant as any, popup as any,
+      { intercept: (request: any, send: any) => send(request) } as any);
+    component.tenantService = tenant;
+    component.globalService = global;
+    component.popup = popup;
+    component.http = { post: (url: string, body: any) => interceptor.intercept(new HttpRequest('POST', url, body), {
+      handle: () => throwError(() => new HttpErrorResponse({ status: 401, error: { response: 'Credenziali non valide' } })),
+    }) };
+    await component.loginFunction('test@example.test', 'wrong-test');
+    expect(popup.openPopup).toHaveBeenCalledTimes(1);
+    expect(popup.text).toBe('Credenziali non valide');
+    expect(popup.showHttpError).not.toHaveBeenCalled();
+    expect(popup.scheduleHttpError).not.toHaveBeenCalled();
+    expect(global.logout).not.toHaveBeenCalled();
+  });
+
   it('offers navigator setup after a successful manual login before continuing to the pending destination', fakeAsync(() => {
     const component: any = Object.create(PrivateAreaComponent.prototype);
     let finishSetup!: () => void;

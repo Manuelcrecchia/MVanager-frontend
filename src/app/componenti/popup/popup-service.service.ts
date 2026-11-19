@@ -1,7 +1,9 @@
+import { PendingInvoicesDialogComponent, PendingInvoicesDialogData, PendingInvoicesChoice } from './pending-invoices-dialog/pending-invoices-dialog.component';
 import { Injectable } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { PopupComponentComponent } from './popup-component/popup-component.component';
 import { firstValueFrom } from 'rxjs';
+import { CustomerMatchDialogComponent, CustomerMatchDialogData, CustomerMatchChoice } from './customer-match-dialog/customer-match-dialog.component';
 
 export type AppDialogTone = 'error' | 'warning' | 'success' | 'info';
 
@@ -135,6 +137,22 @@ export class PopupServiceService {
     });
     const result = await firstValueFrom(ref.afterClosed());
     return result === 'primary' || result === 'secondary' ? result : null;
+  }
+
+  async choosePendingInvoices(data: PendingInvoicesDialogData): Promise<PendingInvoicesChoice | null> {
+    const ref = this.dialog.open<PendingInvoicesDialogComponent, PendingInvoicesDialogData, PendingInvoicesChoice | null>(PendingInvoicesDialogComponent, {
+      width: '720px', maxWidth: 'calc(100vw - 32px)', maxHeight: '90vh',
+      autoFocus: 'first-tabbable', restoreFocus: true, disableClose: true, data,
+    });
+    return await firstValueFrom(ref.afterClosed()) || null;
+  }
+
+  async chooseCustomerMatch(data: CustomerMatchDialogData): Promise<CustomerMatchChoice | null> {
+    const ref = this.dialog.open<CustomerMatchDialogComponent, CustomerMatchDialogData, CustomerMatchChoice | null>(CustomerMatchDialogComponent, {
+      width: '680px', maxWidth: 'calc(100vw - 32px)', maxHeight: '90vh',
+      autoFocus: 'first-tabbable', restoreFocus: true, disableClose: true, data,
+    });
+    return await firstValueFrom(ref.afterClosed()) || null;
   }
 
   async chooseThree(

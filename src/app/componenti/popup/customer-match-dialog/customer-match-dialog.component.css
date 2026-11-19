@@ -1,0 +1,18 @@
+:host { display: block; color: var(--bs-body-color, #253247); }
+h2 { margin: 0; }
+mat-dialog-content { max-height: 60vh; }
+.candidates { border: 0; padding: 0; margin: 16px 0; min-width: 0; }
+legend, h3 { font-size: 1rem; font-weight: 600; }
+.candidate { display: flex; align-items: flex-start; gap: 12px; padding: 14px; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 10px; cursor: pointer; }
+.candidate.selected { border-color: #2563eb; background: #eff6ff; }
+.candidate:focus-within { outline: 2px solid #2563eb; outline-offset: 2px; }
+.candidate input { margin-top: 4px; flex-shrink: 0; }
+.candidate-details { display: grid; gap: 5px; overflow-wrap: anywhere; min-width: 0; }
+.changes { padding-top: 8px; overflow-wrap: anywhere; }
+.changes ul { padding-left: 20px; }
+mat-dialog-actions { gap: 8px; padding: 16px 24px; justify-content: flex-end; }
+@media (max-width: 600px) {
+  mat-dialog-actions { display: grid; grid-template-columns: 1fr; }
+  mat-dialog-actions button { width: 100%; white-space: normal; }
+  mat-dialog-content { max-height: 50vh; }
+}

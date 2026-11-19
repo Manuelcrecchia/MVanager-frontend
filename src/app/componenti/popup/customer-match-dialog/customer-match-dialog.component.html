@@ -1,0 +1,31 @@
+<h2 mat-dialog-title>Scegli il cliente della fattura</h2>
+<mat-dialog-content>
+  <p>Ci sono più anagrafiche corrispondenti. Seleziona il cliente corretto e scegli se aggiornare i suoi dati con quelli della fattura.</p>
+  <fieldset class="candidates">
+    <legend>Clienti trovati</legend>
+    <label *ngFor="let candidate of data.candidates" class="candidate" [class.selected]="selectedId === candidate.customerId">
+      <input type="radio" name="invoice-customer-match" [value]="candidate.customerId" [(ngModel)]="selectedId">
+      <span class="candidate-details">
+        <strong>{{ candidate.customerName || 'Cliente' }} · {{ candidate.customerId }}</strong>
+        <span>Indirizzo: {{ candidate.customerAddress || 'Non presente' }}</span>
+        <span>CF: {{ candidate.customerFiscalCode || 'Non presente' }}</span>
+        <span>Partita IVA: {{ candidate.customerVatNumber || 'Non presente' }}</span>
+        <span *ngIf="candidate.customerTaxOrVatNumber">CF / Partita IVA: {{ candidate.customerTaxOrVatNumber }}</span>
+      </span>
+    </label>
+  </fieldset>
+  <section *ngIf="selected as customer" aria-live="polite" class="changes">
+    <h3>Dati da aggiornare per {{ customer.customerName || 'il cliente selezionato' }}</h3>
+    <ul *ngIf="customer.changes.length; else noChanges">
+      <li *ngFor="let change of customer.changes"><strong>{{ change.label }}:</strong> {{ change.previous || '(vuoto)' }} → {{ change.value }}</li>
+    </ul>
+    <ng-template #noChanges><p>I dati dell’anagrafica coincidono con quelli della fattura.</p></ng-template>
+    <p>La fattura manterrà i dati inseriti anche se scegli di non aggiornare l’anagrafica.</p>
+  </section>
+</mat-dialog-content>
+<mat-dialog-actions>
+  <button type="button" class="btn btn-primary" [disabled]="!selected" (click)="choose('update')">Collega e aggiorna</button>
+  <button type="button" class="btn btn-outline-primary" [disabled]="!selected" (click)="choose('keep')">Collega senza aggiornare</button>
+  <button *ngIf="data.allowCreate" type="button" class="btn btn-outline-secondary" (click)="choose('create')">Crea nuovo cliente</button>
+  <button type="button" class="btn btn-outline-secondary" (click)="cancel()">Annulla</button>
+</mat-dialog-actions>

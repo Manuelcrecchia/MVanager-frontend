@@ -31,6 +31,8 @@
 
   <p *ngIf="saveMessage" role="status">{{ saveMessage }}</p>
   <form #form="ngForm" class="quote-form">
+    <app-billing-address-link scope="quote" [record]="$any(quoteModelService)" (selectionChange)="onBillingAddressChoice()"></app-billing-address-link>
+
     <div
       class="alert alert-warning"
       *ngIf="!globalService.hasConfiguredFieldMapping('quote')"

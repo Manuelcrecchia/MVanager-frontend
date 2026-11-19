@@ -8,7 +8,7 @@
       </div>
       <div class="quote-meta-item">
         <span>Operatore</span>
-        <strong>{{ globalService.userCode || 'ADMIN' }}</strong>
+        <strong>{{ globalService.userCode || 'Da rilevare al salvataggio' }}</strong>
       </div>
       <div class="quote-meta-item">
         <span>Tipo</span>
@@ -19,6 +19,8 @@
 
   <p *ngIf="saveMessage" role="status">{{ saveMessage }}</p>
   <form #form="ngForm" class="quote-form">
+    <app-billing-address-link scope="quote" [record]="$any(quoteModelService)" (selectionChange)="onBillingAddressChoice()"></app-billing-address-link>
+
     <div
       class="alert alert-warning"
       *ngIf="!globalService.hasConfiguredFieldMapping('quote')"
