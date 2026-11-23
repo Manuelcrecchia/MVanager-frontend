@@ -177,11 +177,7 @@ export class QuotesHomeComponent implements OnDestroy {
           );
 
           this.allQuotes = filteredQuotes.sort((a, b) =>
-            String(b.numeroPreventivo || '').localeCompare(
-              String(a.numeroPreventivo || ''),
-              'it',
-              { numeric: true, sensitivity: 'base' },
-            ),
+            this.globalService.compareBusinessNumbers(this.globalService.quoteNumber(b), this.globalService.quoteNumber(a)),
           );
 
           this.applyQuoteSearch();
@@ -440,6 +436,7 @@ export class QuotesHomeComponent implements OnDestroy {
   private getQuoteSearchText(quote: Record<string, any>): string {
     return [
       quote?.['numeroPreventivo'],
+      this.globalService.quoteNumber(quote),
       this.getQuoteDisplayName(quote),
       this.getQuoteEmail(quote),
       this.getQuotePhone(quote),
@@ -562,7 +559,7 @@ export class QuotesHomeComponent implements OnDestroy {
       })
       .subscribe({
         next: (response) => {
-          alert(`Creato nuovo preventivo ${response.numeroPreventivo}`);
+          alert(`Creato nuovo preventivo ${this.globalService.quoteNumber(response.numeroPreventivo)}`);
           this.showCompletedQuotes = false;
           this.loadQuotes();
         },
@@ -803,7 +800,7 @@ export class QuotesHomeComponent implements OnDestroy {
     if (email) {
       this.openEmailComposer(
         email,
-        `Preventivo ${quote.numeroPreventivo} - ${displayName}`,
+        `Preventivo ${this.globalService.quoteNumber(quote.numeroPreventivo)} - ${displayName}`,
       );
       return;
     }
@@ -812,7 +809,7 @@ export class QuotesHomeComponent implements OnDestroy {
       const detailDisplayName = this.getQuoteDisplayName(detail || quote as any) || displayName;
       this.openEmailComposer(
         this.getQuoteEmail(detail || {}),
-        `Preventivo ${quote.numeroPreventivo} - ${detailDisplayName}`,
+        `Preventivo ${this.globalService.quoteNumber(quote.numeroPreventivo)} - ${detailDisplayName}`,
       );
     });
   }

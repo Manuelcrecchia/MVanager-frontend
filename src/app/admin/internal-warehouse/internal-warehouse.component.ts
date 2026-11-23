@@ -3548,7 +3548,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   }
 
   customerReferenceLabel(customer: any): string {
-    return this.entityReferenceLabel(customer?.numeroCliente, this.customerLabel(customer));
+    return this.entityReferenceLabel(this.global.customerNumber(customer), this.customerLabel(customer));
   }
 
   customerReferenceLabelForRecord(customerId: string | number, customer?: any | null): string {

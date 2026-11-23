@@ -2,6 +2,12 @@ import {
   BillingAddressLinkConfig,
   applyBillingAddressLink,
 } from '../shared/billing-address-link/billing-address-link';
+import {
+  EntityNumberCatalog,
+  invoiceNumber,
+  compareBusinessNumbers,
+  numberCatalogStorage,
+} from '../shared/entity-number-catalog';
 import { fetchCompleteResponse } from '../offline/http-response-deadline';
 import { fetchOperationalConfig } from '../offline/offline-config-fetch';
 import { Injectable } from '@angular/core';
@@ -230,6 +236,7 @@ export interface TenantFieldCalculationConfig {
 }
 
 export interface TenantFieldMappingFieldConfig {
+  billingAliasOf?: string;
   rowGroup?: string;
   rowLayout?: string;
   key: string;
@@ -366,13 +373,33 @@ export interface TenantMapsConfig {
   providedIn: 'root',
 })
 export class GlobalService {
+  private entityNumbers = new EntityNumberCatalog(numberCatalogStorage());
+  observeEntityNumbers(body: unknown): void {
+    this.entityNumbers.observe(body, this.tenantService.tenant);
+  }
+  customerNumber(value: any): string {
+    return this.entityNumbers.format(
+      'customer',
+      value,
+      this.tenantService.tenant,
+    );
+  }
+  quoteNumber(value: any): string {
+    return this.entityNumbers.format('quote', value, this.tenantService.tenant);
+  }
+  invoiceNumber(value: any): string {
+    return invoiceNumber(value);
+  }
+  compareBusinessNumbers(left: string, right: string): number {
+    return compareBusinessNumbers(left, right);
+  }
   /** Segnale locale: dopo una modifica il menu ricarica subito i conteggi delle scadenze. */
   readonly deadlineSummaryChanged$ = new Subject<void>();
 
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '7.6';
+  version = '8.0.1';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -1074,8 +1101,13 @@ export class GlobalService {
         }
       }
     }
-    customer['billingAddressSource'] =
-      quote['billingAddressSource'] || 'independent';
+    const selectedSource = quote['billingAddressSource'];
+    customer['billingAddressSource'] = config.sources.some(
+      (source) =>
+        source.id === selectedSource && source.scopes?.customer !== false,
+    )
+      ? selectedSource
+      : 'independent';
     this.applyBillingAddressChoice('customer', customer);
   }
   private isLinkedBillingField(
@@ -1084,6 +1116,14 @@ export class GlobalService {
     record?: Record<string, any>,
   ): boolean {
     const config = this.getBillingAddressLinkConfig();
+    if (config?.enabled && config.version === 2) {
+      return (
+        !!field.billingAliasOf ||
+        Object.values(config.billing[scope]).some(
+          (key) => key && (key === field.key || key === field.dbColumn),
+        )
+      );
+    }
     if (
       !config?.enabled ||
       !record ||
@@ -1115,11 +1155,21 @@ export class GlobalService {
   ): string {
     if (!record) return '';
 
+    const addressFields = this.getEffectiveCustomerAddressFields(kind);
     const configuredAddress = this.composeCustomerAddressFromFieldSet(
       record,
-      this.getEffectiveCustomerAddressFields(kind),
+      addressFields,
     );
-    if (configuredAddress) return configuredAddress;
+    if (
+      configuredAddress ||
+      [
+        addressFields.address,
+        addressFields.city,
+        addressFields.zip,
+        addressFields.province,
+      ].some(Boolean)
+    )
+      return configuredAddress;
 
     const roleAddress = [
       this.getRecordValueByRole('customer', record, 'customerAddress'),
@@ -1216,7 +1266,9 @@ export class GlobalService {
       config || {},
       'workSameAsBilling',
     );
-    const hasFallbackWork = Object.values(fallbackWork || {}).some(Boolean);
+    const hasFallbackWork = Object.entries(fallbackWork || {}).some(
+      ([part, key]) => !['prefix', 'number'].includes(part) && key,
+    );
     const workSameAsBilling = hasExplicitWorkMode
       ? config.workSameAsBilling !== false
       : !hasFallbackWork;
@@ -1238,6 +1290,8 @@ export class GlobalService {
     fallback: TenantCustomerAddressFieldSet = {},
   ): TenantCustomerAddressFieldSet {
     const keys: Array<keyof TenantCustomerAddressFieldSet> = [
+      'prefix',
+      'number',
       'address',
       'city',
       'province',
@@ -1260,6 +1314,8 @@ export class GlobalService {
       return String(field?.dbColumn || field?.key || '').trim();
     };
     return {
+      prefix: fieldKey('customerBillingPrefix') || fieldKey('customerPrefix'),
+      number: fieldKey('customerBillingNumber') || fieldKey('customerNumber'),
       address:
         fieldKey('customerBillingAddress') || fieldKey('customerAddress'),
       city: fieldKey('customerBillingCity') || fieldKey('customerCity'),
@@ -1281,6 +1337,8 @@ export class GlobalService {
       return String(field?.dbColumn || field?.key || '').trim();
     };
     return {
+      prefix: fieldKey('customerWorkPrefix'),
+      number: fieldKey('customerWorkNumber'),
       address: fieldKey('customerWorkAddress'),
       city: fieldKey('customerWorkCity'),
       province: fieldKey('customerWorkProvince'),
@@ -1295,7 +1353,19 @@ export class GlobalService {
     record: Record<string, any>,
     fieldSet: TenantCustomerAddressFieldSet,
   ): string {
-    const address = [fieldSet.prefix, fieldSet.address, fieldSet.number]
+    const street = this.readCustomerAddressField(record, fieldSet.address);
+    if (
+      ![
+        street,
+        ...[fieldSet.zip, fieldSet.city, fieldSet.province].map((key) =>
+          this.readCustomerAddressField(record, key),
+        ),
+      ].some(Boolean)
+    )
+      return '';
+    const address = (
+      street ? [fieldSet.prefix, fieldSet.address, fieldSet.number] : []
+    )
       .map((key) => this.readCustomerAddressField(record, key))
       .filter(Boolean)
       .join(' ');
@@ -1330,6 +1400,8 @@ export class GlobalService {
   ): string {
     const keys = Object.keys(record || {}).filter((key) => {
       const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (/prefisso|prefix|tipovia|numerocivico|civico/.test(normalized))
+        return false;
       return (
         normalized.includes('indirizzo') ||
         normalized.includes('address') ||
@@ -1643,6 +1715,7 @@ export class GlobalService {
         (field) =>
           !this.isTechnicalField(scope, field) &&
           !this.isLegacyCustomerOperatorField(scope, field) &&
+          !field.billingAliasOf &&
           field.visible !== false &&
           !this.isCalculatedField(field) &&
           field.required === true &&
@@ -1756,8 +1829,12 @@ export class GlobalService {
 
     if (source['billingAddressSource'] !== undefined)
       mappedPayload['billingAddressSource'] = source['billingAddressSource'];
+    if (source['billingAddressMigrationVersion'] !== undefined)
+      mappedPayload['billingAddressMigrationVersion'] =
+        source['billingAddressMigrationVersion'];
     fields.forEach((field) => {
       if (
+        field.billingAliasOf ||
         !field.dbColumn ||
         this.isTechnicalField(scope, field) ||
         field.visible === false

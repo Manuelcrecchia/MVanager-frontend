@@ -1,3 +1,4 @@
+import {numberingServiceStub} from '../../shared/numbering.spec-support';
 import { QuotesHomeComponent } from './quotes-home.component';
 
 describe('QuotesHomeComponent', () => {
@@ -30,7 +31,7 @@ describe('QuotesHomeComponent', () => {
       quotesFrEnd: [],
       allQuotes: [],
       http: { get: () => ({ subscribe: ({ next }: any) => next(quotes) }) },
-      globalService: { url: '', headers: {} },
+      globalService: { ...numberingServiceStub(), url: '', headers: {} },
       route: { snapshot: { queryParamMap: { get: () => null } } },
       isQuoteCompleted: () => false,
       applyQuoteSearch() { this.quotesFrEnd = [...this.allQuotes]; },

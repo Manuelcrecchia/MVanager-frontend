@@ -1,3 +1,4 @@
+import {numberingServiceStub} from '../../shared/numbering.spec-support';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
@@ -13,7 +14,7 @@ describe('CustomerWarehouseComponent history', () => {
     employeeId: 7, employeeName: 'Mario Rossi', createdAt: '2026-09-03T12:00:00Z', beforeJson: { name: 'Armadio' }, afterJson: { name: 'Armadio sala' } };
   beforeEach(async () => {
     spyOn(CustomerWarehouseComponent.prototype, 'ngOnInit').and.stub();
-    await TestBed.configureTestingModule({ imports: [CustomerWarehouseComponent], providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), { provide: GlobalService, useValue: { url: 'http://localhost/api/', hasPermission: () => true } }] }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [CustomerWarehouseComponent], providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), { provide: GlobalService, useValue: { ...numberingServiceStub(), url: 'http://localhost/api/', hasPermission: () => true } }] }).compileComponents();
     fixture = TestBed.createComponent(CustomerWarehouseComponent); component = fixture.componentInstance; http = TestBed.inject(HttpTestingController);
     component.selected = { id: 1, items: [item], pieces: [piece], groups: [{ id: 2, name: 'Sala' }] };
   });

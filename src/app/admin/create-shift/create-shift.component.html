@@ -302,7 +302,7 @@
                       class="extra-customer-option"
                       (mousedown)="selectExtraCustomer(a, customer, $event)"
                     >
-                      <strong>{{ customer.numeroCliente }}</strong>
+                      <strong>{{ globalService.customerNumber(customer.numeroCliente) }}</strong>
                       <span>{{ customer.displayName }}</span>
                     </button>
                     <div

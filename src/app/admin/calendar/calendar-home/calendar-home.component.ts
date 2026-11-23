@@ -526,12 +526,12 @@ export class CalendarHomeComponent implements OnInit, OnDestroy {
 
   private quoteLabel(quote: any): string {
     const title = this.globalService.getRecordDisplayName('quote', quote || {});
-    return `${quote?.numeroPreventivo || ''} - ${title || 'Preventivo'}`.trim();
+    return `${this.globalService.quoteNumber(quote)} - ${title || 'Preventivo'}`.trim();
   }
 
   private customerLabel(customer: any): string {
     const title = this.globalService.getRecordDisplayName('customer', customer || {});
-    return `${customer?.numeroCliente || ''} - ${title || 'Cliente'}`.trim();
+    return `${this.globalService.customerNumber(customer)} - ${title || 'Cliente'}`.trim();
   }
 
   calendarLoadError = '';
@@ -593,7 +593,7 @@ export class CalendarHomeComponent implements OnInit, OnDestroy {
         }
         this.openNewPopup(
           new Date(), inspectionCategory,
-          `${this.autoInspectionService.numeroPreventivo} - ${this.autoInspectionService.displayName}`,
+          `${this.globalService.quoteNumber(this.autoInspectionService.numeroPreventivo)} - ${this.autoInspectionService.displayName}`,
           `Contatto ${this.autoInspectionService.displayName}   Telefono: ${this.autoInspectionService.telefono}`,
           this.autoInspectionService.numeroPreventivo,
         );
@@ -1000,7 +1000,7 @@ export class CalendarHomeComponent implements OnInit, OnDestroy {
       category,
       serviceOrderId
         ? `${serviceOrderDisplayId || numeroCliente} ${displayName} - Ordini di servizio`
-        : `${numeroCliente} - ${displayName}`,
+        : `${this.globalService.customerNumber(numeroCliente)} - ${displayName}`,
       description,
       '',
       serviceOrderId,

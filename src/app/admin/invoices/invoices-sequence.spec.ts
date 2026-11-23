@@ -16,6 +16,13 @@ describe('Controlli prima dell’invio documenti', () => {
     component.selected.id = 3;
   });
 
+  it('conta anche l’anno nel limite del numero fiscale e conserva i documenti caricati da un backend precedente', () => {
+    component.selected.number='1234567890123456';component.selected.series='';component.selected.year=2027;component.selected.numberFormatVersion=1;
+    expect(component.invoiceFieldError('number')).toContain('20 caratteri');
+    component.selected.numberFormatVersion=0;expect(component.invoiceFieldError('number')).toBe('');
+    expect((component as any).withInvoiceDefaults({id:8,number:'1',year:2026}).numberFormatVersion).toBe(0);
+  });
+
   it('mostra la lista e ripete l’invio solo dopo conferma con il riferimento restituito dal server', async () => {
     const sent = { ...component.selected, status: 'sent' };
     http.post.and.returnValues(throwError(() => warning()), of(sent));

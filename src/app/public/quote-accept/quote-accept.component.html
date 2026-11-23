@@ -24,7 +24,7 @@
       <div class="summary-head">
         <div>
           <span class="label">Preventivo</span>
-          <h2>{{ acceptance.numeroPreventivo }}</h2>
+          <h2>{{ globalService.quoteNumber(acceptance.numeroPreventivo) }}</h2>
         </div>
         <span class="status-pill" [class.success]="isAccepted" [class.warning]="isExpired || isCancelled">
           {{ acceptance.status }}

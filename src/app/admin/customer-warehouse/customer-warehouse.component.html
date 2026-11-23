@@ -26,7 +26,7 @@
       </div>
       <div class="cw-grid">
         <button type="button" class="cw-practice" *ngFor="let practice of filteredPractices()" (click)="open(practice)">
-          <span class="cw-practice-heading"><span><small>CLIENTE {{ practice.numeroCliente }}</small><strong>{{ practice.customerDisplayName }}</strong></span><em class="cw-workflow" [attr.data-state]="practiceWorkflow(practice).code">{{ practiceWorkflow(practice).label }}</em></span>
+          <span class="cw-practice-heading"><span><small>CLIENTE {{ global.customerNumber(practice.numeroCliente) }}</small><strong>{{ practice.customerDisplayName }}</strong></span><em class="cw-workflow" [attr.data-state]="practiceWorkflow(practice).code">{{ practiceWorkflow(practice).label }}</em></span>
           <span class="cw-next-step">{{ practiceWorkflow(practice).hint }}</span>
           <span class="cw-counts"><b>{{ practice.counts?.inventoried || 0 }}</b> da caricare · <b>{{ practice.counts?.loaded || 0 }}</b> in magazzino · <b>{{ practice.counts?.unloaded || 0 }}</b> riconsegnati</span>
           <span class="cw-flags"><em class="warn" *ngIf="practice.signatureStatus === 'outdated'">Firma da rinnovare</em></span>
@@ -42,7 +42,7 @@
       <article *ngIf="verification" class="cw-verification" [class.obsolete]="!verification.usable">
         <strong>{{ verification.usable ? 'Etichetta corrente' : 'Etichetta vecchia o non utilizzabile' }}</strong>
         <h3>{{ verification.customer?.displayName || 'Nome cliente non disponibile' }}</h3>
-        <p *ngIf="verification.customer?.numeroCliente != null">Cliente {{ verification.customer.numeroCliente }}</p>
+        <p *ngIf="verification.customer?.numeroCliente != null">Cliente {{ global.customerNumber(verification.customer.numeroCliente) }}</p>
         <p>Dati letti: {{ verification.historical?.groupName }} · {{ verification.historical?.itemName }} · pezzo {{ verification.historical?.pieceNumber }}/{{ verification.historical?.totalPieces }}</p>
         <p *ngIf="verification.current">Dati correnti: {{ verification.current.group?.name }} · {{ verification.current.item?.name }} · pezzo {{ verification.current.piece?.pieceNumber }}/{{ verification.current.piece?.totalPieces }}</p>
         <code *ngIf="verification.current?.label?.code">{{ verification.current.label.code }}</code>
@@ -52,7 +52,7 @@
 
   <ng-container *ngIf="selected">
     <section class="cw-card cw-head">
-      <div><small>CLIENTE {{ selected.numeroCliente }}</small><h2>{{ selected.customerDisplayName }}</h2><span class="cw-workflow" [attr.data-state]="practiceWorkflow(selected).code">{{ practiceWorkflow(selected).label }}</span><p class="cw-muted">{{ practiceWorkflow(selected).hint }}</p><div class="cw-summary-counts"><span><b>{{ selected.counts?.inventoried || 0 }}</b><small>Da caricare</small></span><span><b>{{ selected.counts?.loaded || 0 }}</b><small>In magazzino</small></span><span><b>{{ selected.counts?.unloaded || 0 }}</b><small>Riconsegnati</small></span></div><span class="cw-badge warn" *ngIf="selected.signatureStatus === 'outdated'">Firma da rinnovare</span></div>
+      <div><small>CLIENTE {{ global.customerNumber(selected.numeroCliente) }}</small><h2>{{ selected.customerDisplayName }}</h2><span class="cw-workflow" [attr.data-state]="practiceWorkflow(selected).code">{{ practiceWorkflow(selected).label }}</span><p class="cw-muted">{{ practiceWorkflow(selected).hint }}</p><div class="cw-summary-counts"><span><b>{{ selected.counts?.inventoried || 0 }}</b><small>Da caricare</small></span><span><b>{{ selected.counts?.loaded || 0 }}</b><small>In magazzino</small></span><span><b>{{ selected.counts?.unloaded || 0 }}</b><small>Riconsegnati</small></span></div><span class="cw-badge warn" *ngIf="selected.signatureStatus === 'outdated'">Firma da rinnovare</span></div>
       <details class="cw-signature"><summary>Firma inventario · {{ signatureStatus(selected.signatureStatus) }}</summary><p>Revisione inventario {{ selected.inventoryRevision }}</p><div class="cw-actions"><button type="button" class="btn btn-outline-primary" [disabled]="loading" (click)="requestSignature()">Richiedi nuova firma</button><button type="button" class="btn btn-success" *ngIf="selected.signatureStatus === 'requested'" [disabled]="loading" (click)="completeSignature()">Registra firma acquisita</button></div></details>
     </section>
 

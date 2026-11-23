@@ -41,7 +41,7 @@
         *ngFor="let customer of customers"
         (click)="selectCustomer(customer)"
       >
-        <strong>{{ customer.numeroCliente }}</strong>
+        <strong>{{ global.customerNumber(customer.numeroCliente) }}</strong>
         - {{ customerName(customer) }}
         <span class="text-muted" *ngIf="hasCustomerRole(customer, 'customerPhone')">
           - {{ customerRoleValue(customer, 'customerPhone') }}
@@ -54,7 +54,7 @@
     <div class="customer-card mt-3" *ngIf="selectedCustomer">
       <div>
         <span>Cliente</span>
-        <strong>{{ selectedCustomer.numeroCliente }} - {{ customerName(selectedCustomer) }}</strong>
+        <strong>{{ global.customerNumber(selectedCustomer.numeroCliente) }} - {{ customerName(selectedCustomer) }}</strong>
       </div>
       <div *ngIf="hasCustomerRole(selectedCustomer, 'customerPhone')">
         <span>Telefono</span>

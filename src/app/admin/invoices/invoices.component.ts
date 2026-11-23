@@ -1,4 +1,5 @@
 import { downloadFile } from '../../shared/file-download';
+import {businessDate, invoiceNumber} from '../../shared/entity-number-catalog';
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -48,6 +49,7 @@ interface InvoiceInstallment {
 }
 
 interface Invoice {
+  numberFormatVersion?: number;
   id?: number;
   direction?: 'outbound' | 'inbound';
   accountingDirection?: 'outbound' | 'inbound';
@@ -830,13 +832,14 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   emptyInvoice(): Invoice {
     const now = new Date();
     return {
+      numberFormatVersion: 1,
       number: '',
       year: now.getFullYear(),
       series: '',
       status: 'draft',
       direction: 'outbound',
       type: 'TD01',
-      issueDate: now.toISOString().slice(0, 10),
+      issueDate: businessDate(now),
       dueDate: '',
       customerName: '',
       customerVatNumber: '',
@@ -1237,7 +1240,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   scheduleReference(item: PaymentScheduleItem): string {
-    const number = [item.series, item.number].filter(Boolean).join('/');
+    const number = invoiceNumber(item);
     const installment = item.installmentNumber ? ` - rata ${item.installmentNumber}` : '';
     return `${item.type || 'Documento'} ${number}${installment}`;
   }
@@ -1770,7 +1773,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       .some((key) => !!value(key as keyof Invoice));
 
     switch (field) {
-      case 'number': return value('number') ? ((`${value('series')}${value('series') ? '/' : ''}${value('number')}`).length <= 20 ? '' : 'Serie e numero possono contenere al massimo 20 caratteri') : 'Numero obbligatorio';
+      case 'number': return value('number') ? (invoiceNumber(this.selected).length <= 20 ? '' : 'Serie e numero, incluso l’anno, possono contenere al massimo 20 caratteri') : 'Numero obbligatorio';
       case 'issueDate': return /^\d{4}-\d{2}-\d{2}$/.test(value('issueDate')) ? '' : 'Data fattura obbligatoria';
       case 'dueDate': return !value('dueDate') || /^\d{4}-\d{2}-\d{2}$/.test(value('dueDate')) ? '' : 'Data di scadenza non valida';
       case 'paReferenceType': return hasReference && !value('paReferenceType') ? 'Seleziona il tipo di riferimento' : '';
@@ -2843,7 +2846,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       this.error = 'Puoi creare una nota di credito solo da una fattura di vendita già inviata, consegnata o pagata';
       return;
     }
-    const reason = await this.appDialog.prompt('Indica il motivo della nota di credito.', `Nota credito fattura ${this.selected.series ? this.selected.series + '/' : ''}${this.selected.number}`, 'Crea nota di credito', { inputLabel: 'Motivo' });
+    const reason = await this.appDialog.prompt('Indica il motivo della nota di credito.', `Nota credito fattura ${invoiceNumber(this.selected)}`, 'Crea nota di credito', { inputLabel: 'Motivo' });
     if (reason === null) return;
     this.saving = true;
     this.error = '';
@@ -2872,7 +2875,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
       this.error = 'Seleziona una fattura prima di creare la nota debito';
       return;
     }
-    const reason = await this.appDialog.prompt('Indica il motivo della nota di debito.', `Nota debito fattura ${this.selected.series ? this.selected.series + '/' : ''}${this.selected.number}`, 'Crea nota di debito', { inputLabel: 'Motivo' });
+    const reason = await this.appDialog.prompt('Indica il motivo della nota di debito.', `Nota debito fattura ${invoiceNumber(this.selected)}`, 'Crea nota di debito', { inputLabel: 'Motivo' });
     if (reason === null) return;
     this.saving = true;
     this.error = '';
@@ -3484,7 +3487,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   private toCustomerOption(customer: Record<string, any>): InvoiceCustomerOption {
     const numeroCliente = String(customer?.['numeroCliente'] || '').trim();
     const label = [
-      numeroCliente,
+      this.global.customerNumber(customer),
       this.global.getRecordDisplayName('customer', customer) || customer?.['ragioneSociale'] || customer?.['nome'] || 'Cliente',
       this.customerValue(customer, 'customerVatNumber') || this.customerValue(customer, 'customerFiscalCode') || this.customerValue(customer, 'customerTaxOrVatNumber'),
     ].filter(Boolean).join(' - ');
@@ -3863,6 +3866,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     return {
       ...this.emptyInvoice(),
       ...invoice,
+      numberFormatVersion: Number(invoice.numberFormatVersion || 0),
       customerRecipientType: invoice.customerRecipientType || 'business',
       customerEmail: invoice.customerEmail || '',
       paymentTermId: invoice.paymentTermId ?? null,

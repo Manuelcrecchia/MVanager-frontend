@@ -1,3 +1,4 @@
+import {numberingServiceStub} from './shared/numbering.spec-support';
 import { HttpBackend, HttpErrorResponse, HttpRequest, HttpResponse } from '@angular/common/http';
 import { Injector } from '@angular/core';
 import { firstValueFrom, of, throwError } from 'rxjs';
@@ -12,7 +13,7 @@ describe('AuthInterceptorService online saves', () => {
   const baseUrl = 'https://auth-save.test/';
   const req = () => new HttpRequest('POST', baseUrl + 'customers/save', { name: 'Cliente' });
   beforeEach(async () => {
-    global = { token: 'e30.' + btoa(JSON.stringify({ id: 9, tenantId: 'test', exp: Math.floor(Date.now() / 1000) + 3600 })) + '.test', logout: jasmine.createSpy('logout') };
+    global = { ...numberingServiceStub(), token: 'e30.' + btoa(JSON.stringify({ id: 9, tenantId: 'test', exp: Math.floor(Date.now() / 1000) + 3600 })) + '.test', logout: jasmine.createSpy('logout') };
     const session = (): OfflineSession => ({ baseUrl, tenant: 'test', token: global.token, role: 'admin' });
     offline = new OfflineService({ get: () => session } as unknown as Injector, { handle: () => of(new HttpResponse({ body: { protocol: 1 } })) } as HttpBackend);
     for (const row of await offline.store.all('queue')) await offline.store.remove('queue', row.id);
@@ -64,7 +65,7 @@ describe('AuthInterceptorService errori di accesso', () => {
   let popup: any;
   let interceptor: AuthInterceptorService;
   beforeEach(() => {
-    global = { token: 'previous-session', logout: jasmine.createSpy('logout') };
+    global = { ...numberingServiceStub(), token: 'previous-session', logout: jasmine.createSpy('logout') };
     popup = { showHttpError: jasmine.createSpy('showHttpError'), scheduleHttpError: jasmine.createSpy('scheduleHttpError') };
     interceptor = new AuthInterceptorService(global, { tenant: 'test' } as any, popup,
       { intercept: (request: any, send: any) => send(request) } as any);

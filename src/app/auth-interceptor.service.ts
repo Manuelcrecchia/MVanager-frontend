@@ -1,8 +1,8 @@
 import { OfflineService } from './offline/offline.service';
 import { Injectable } from '@angular/core';
-import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse } from '@angular/common/http';
+import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse, HttpResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, tap } from 'rxjs/operators';
 import { GlobalService } from './service/global.service';
 import { TenantService } from './service/tenant.service';
 import { PopupServiceService } from './componenti/popup/popup-service.service';
@@ -30,6 +30,7 @@ export class AuthInterceptorService implements HttpInterceptor {
     const cloned = req.clone({ headers });
 
     return this.offline.intercept(cloned, request => next.handle(request)).pipe(
+      tap(event => {if (event instanceof HttpResponse) this.globalService.observeEntityNumbers(event.body);}),
       catchError((err: HttpErrorResponse) => {
         if (err.error?.code === 'OFFLINE_PENDING') return throwError(() => err);
         // Login/recovery screens own their errors; a failed login is not an expired session.

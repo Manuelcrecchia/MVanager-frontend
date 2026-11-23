@@ -1,6 +1,20 @@
 import { GlobalService } from './global.service';
 
 describe('GlobalService', () => {
+  it('mantiene prefisso e civico nel percorso di configurazione dell’indirizzo operativo',()=>{
+    const service=addressService();
+    Object.assign((service as any).tenantConfig.addressConfig.work,{prefix:'tipoVia',number:'civico'});
+    (service as any).tenantConfig.quoteConfig.fieldMapping.customer.fields.push({key:'tipoVia',dbColumn:'prefisso_sede'},{key:'civico',dbColumn:'numero_sede'});
+    const fields=service.getEffectiveCustomerAddressFields('work');
+    expect(fields.prefix).toBe('tipoVia');expect(fields.number).toBe('civico');
+    expect(service.buildCustomerAddress({prefisso_sede:'PIAZZA',sede_operativa:'Roma',numero_sede:'12/A',citta_lavoro:'Pescara',cap_lavoro:'65100'},'work')).toBe('PIAZZA Roma 12/A, 65100 Pescara');
+  });
+  it('un prefisso o la nazione predefinita da soli non diventano un indirizzo completo',()=>{
+    const service=addressService();
+    const config=(service as any).tenantConfig.addressConfig;
+    config.work={prefix:'tipoVia',number:'civico',country:'paese'};config.billing={};
+    expect(service.buildCustomerAddress({tipoVia:'VIA',civico:'9',paese:'IT'},'work')).toBe('');
+  });
   it('should be exported', () => {
     expect(GlobalService).toBeTruthy();
   });

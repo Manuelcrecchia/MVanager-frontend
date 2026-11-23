@@ -292,7 +292,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private dialog: MatDialog,
-    private globalService: GlobalService,
+    public globalService: GlobalService,
     private socketService: SocketService,
     public tenantService: TenantService,
     private appDialog: PopupServiceService,
@@ -4670,7 +4670,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   }
 
   extraCustomerLabel(customer: ExtraShiftCustomerOption): string {
-    return [customer?.numeroCliente, customer?.displayName]
+    return [this.globalService.customerNumber(customer), customer?.displayName]
       .map((value) => String(value || '').trim())
       .filter(Boolean)
       .join(' - ');

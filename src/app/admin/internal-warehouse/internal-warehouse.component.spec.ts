@@ -1,9 +1,10 @@
+import {numberingServiceStub} from '../../shared/numbering.spec-support';
 import { InternalWarehouseComponent } from './internal-warehouse.component';
 import { of } from 'rxjs';
 
 describe('InternalWarehouseComponent reference labels', () => {
   function createComponent(): InternalWarehouseComponent {
-    const global = {
+    const global = { ...numberingServiceStub(),
       getRecordDisplayName: (_type: string, record: any) =>
         `${record?.nome || ''} ${record?.cognome || ''}`.trim() || record?.ragioneSociale || '',
       hasPermission: () => true,

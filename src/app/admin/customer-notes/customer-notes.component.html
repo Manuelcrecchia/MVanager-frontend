@@ -9,7 +9,7 @@
         </button>
         <div class="toolbar-title">
           <h1>{{ entityType === 'employee' ? 'Note dipendente' : 'Note cliente' }}</h1>
-          <span class="prev-nom">#{{ numeroCliente }} · {{ displayName }}</span>
+          <span class="prev-nom">#{{ globalService.customerNumber(numeroCliente) }} · {{ displayName }}</span>
         </div>
       </div>
 

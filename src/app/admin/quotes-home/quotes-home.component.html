@@ -54,7 +54,7 @@
             (click)="toggleQuoteOpen(quote.numeroPreventivo)"
           >
             <span class="quote-title">
-            <span class="quote-num">#{{ quote.numeroPreventivo }}</span>
+            <span class="quote-num">#{{ globalService.quoteNumber(quote.numeroPreventivo) }}</span>
             <span class="quote-name">{{ getQuoteDisplayName(quote) }}</span>
             <span
               *ngIf="quote.acceptanceStatus === 'pending' && !isQuoteCompleted(quote)"

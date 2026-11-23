@@ -14,7 +14,7 @@
         <div class="customer-picker customer-picker-search">
           <input [(ngModel)]="customerSearch" [disabled]="editingFromDeadline" (input)="onCustomerSearch()" (focus)="customerMenuOpen = true" (blur)="closeCustomerMenu()" placeholder="Cerca per nome, ragione sociale o codice" autocomplete="off" />
           <div class="customer-options" *ngIf="customerMenuOpen">
-            <button type="button" *ngFor="let customer of filteredCustomers" (mousedown)="$event.preventDefault()" (click)="selectCustomer(customer)">{{ customer.label }} <small>· {{ customer.numeroCliente }}</small></button>
+            <button type="button" *ngFor="let customer of filteredCustomers" (mousedown)="$event.preventDefault()" (click)="selectCustomer(customer)">{{ customer.label }} <small>· {{ global.customerNumber(customer.numeroCliente) }}</small></button>
             <p *ngIf="!filteredCustomers.length">Nessun cliente trovato.</p>
           </div>
         </div>
@@ -27,7 +27,7 @@
           >
             <option value="">Seleziona cliente</option>
             <option *ngFor="let customer of customers" [value]="customer.numeroCliente">
-              {{ customer.label }} · {{ customer.numeroCliente }}
+              {{ customer.label }} · {{ global.customerNumber(customer.numeroCliente) }}
             </option>
           </select>
         </div>

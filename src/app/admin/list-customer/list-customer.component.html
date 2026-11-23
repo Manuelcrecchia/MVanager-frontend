@@ -57,7 +57,7 @@
         <div class="staff-panel__head">
           <div>
             <h2>Risorse richieste</h2>
-            <p>{{ requirementCustomer.numeroCliente }} - {{ getCustomerDisplayName(requirementCustomer) }}</p>
+            <p>{{ globalService.customerNumber(requirementCustomer.numeroCliente) }} - {{ getCustomerDisplayName(requirementCustomer) }}</p>
           </div>
           <button type="button" class="btn btn-light" (click)="requirementCustomer = null">Chiudi</button>
         </div>
@@ -105,7 +105,7 @@
             <!-- HEADER: apre/chiude tendina -->
             <summary class="customer-header-btn">
               <span class="customer-info">
-                <span class="customer-num">#{{ customer.numeroCliente }}</span>
+                <span class="customer-num">#{{ globalService.customerNumber(customer.numeroCliente) }}</span>
                 <span class="customer-nom">{{ getCustomerDisplayName(customer) }}</span>
                 <span class="badge bg-warning text-dark" *ngIf="customer.active === false">Archiviato</span>
                 <span class="badge bg-secondary" *ngIf="customer.anonymizedAt">Anonimizzato</span>

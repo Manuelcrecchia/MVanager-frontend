@@ -1,3 +1,4 @@
+import {numberingServiceStub} from '../../shared/numbering.spec-support';
 import { ListCustomerComponent } from './list-customer.component';
 
 describe('ListCustomerComponent', () => {
@@ -6,7 +7,7 @@ describe('ListCustomerComponent', () => {
   });
 
   it('ordina alfabeticamente per impostazione predefinita e usa il numero cliente come spareggio', () => {
-    const component = new ListCustomerComponent(null as any, null as any, null as any, null as any, null as any, null as any, null as any, null as any, null as any);
+    const component = new ListCustomerComponent(null as any, numberingServiceStub() as any, null as any, null as any, null as any, null as any, null as any, null as any, null as any);
     spyOn(component, 'getCustomerDisplayName').and.callFake((customer: any) => customer.name);
 
     component.customers = [
@@ -20,7 +21,7 @@ describe('ListCustomerComponent', () => {
   });
 
   it('ordina il numero cliente in modo numerico crescente e decrescente', () => {
-    const component = new ListCustomerComponent(null as any, null as any, null as any, null as any, null as any, null as any, null as any, null as any, null as any);
+    const component = new ListCustomerComponent(null as any, numberingServiceStub() as any, null as any, null as any, null as any, null as any, null as any, null as any, null as any);
     component.customers = [{ numeroCliente: '101' }, { numeroCliente: '11' }, { numeroCliente: '2' }];
 
     component.customerSort = 'numberAsc';

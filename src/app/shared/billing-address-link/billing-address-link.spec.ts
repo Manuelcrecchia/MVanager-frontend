@@ -1,7 +1,22 @@
 import { GlobalService } from '../../service/global.service';
 import { BillingAddressLinkComponent } from './billing-address-link.component';
+import { TestBed } from '@angular/core/testing';
 
 describe('scelta indirizzo di fatturazione', () => {
+  it('i vecchi nomi seguono la fatturazione attuale senza riapparire o sovrascrivere le colonne storiche', () => {
+    const service = setup(), config = service.getBillingAddressLinkConfig()!;
+    config.version = 2;
+    (service as any).tenantConfig.quoteConfig.fieldMapping.customer.fields.push({key:'viaDiFatturazione',dbColumn:'viaDiFatturazione',label:'Via precedente',type:'text',required:true,billingAliasOf:'billingStreet'});
+    const record:any = {billingAddressSource:'independent',billingStreet:'Via Attuale 9',billingCity:'Roma',billingZip:'00100',viaDiFatturazione:'Via Storica 1'};
+    expect(service.getVisibleFieldMappingFields('customer',record).map(f=>f.key)).not.toContain('viaDiFatturazione');
+    expect(record.viaDiFatturazione).toBe('Via Attuale 9');
+    const payload:any = service.applyFieldMappingToPayload('customer',{},record);
+    expect(payload.viaDiFatturazione).toBeUndefined();
+    expect(payload.billingStreet).toBe('Via Attuale 9');
+    record.billingStreet = ''; service.applyBillingAddressChoice('customer',record);
+    expect(record.viaDiFatturazione).toBe('');
+    expect(service.getMissingRequiredFields('customer',record)).not.toContain('Via precedente');
+  });
   function setup() {
     const service = new GlobalService({ token: '', userCode: '', permissions: [] } as any, { tenant: 'test', tenantLabel: 'Test' } as any, {} as any);
     const billing = { address: 'billingStreet', city: 'billingCity', zip: 'billingZip', country: 'billingCountry' };
@@ -56,5 +71,42 @@ describe('scelta indirizzo di fatturazione', () => {
     component.record = {from:'Test 1',fromCity:'Roma',fromZip:'00100'};
     spyOn(component.selectionChange, 'emit'); component.choose('departure');
     expect(component.record['billingStreet']).toBe('Test 1'); expect(component.selectionChange.emit).toHaveBeenCalled();
+  });
+
+  it('mostra i campi manuali una volta sola e usa il titolo configurato per la sezione', async () => {
+    const service = setup(), config = service.getBillingAddressLinkConfig()!;
+    config.version = 2; config.manualLabels = {customer:'Compila sede fiscale',quote:'Indirizzo diverso del preventivo'};
+    config.sources[0].scopes = {customer:false,quote:true};
+    await TestBed.configureTestingModule({imports:[BillingAddressLinkComponent],providers:[{provide:GlobalService,useValue:service}]}).compileComponents();
+    const fixture = TestBed.createComponent(BillingAddressLinkComponent), component = fixture.componentInstance;
+    component.scope = 'customer'; component.record = {billingAddressSource:'independent',billingStreet:'Via Storica 1',billingCity:'Roma',billingZip:'00100'};
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Compila sede fiscale');
+    expect(fixture.nativeElement.textContent).not.toContain('Uguale alla partenza');
+    expect(fixture.nativeElement.querySelectorAll('.billing-fields').length).toBe(1);
+    expect(service.getVisibleFieldMappingFields('customer',component.record).map(f=>f.key)).not.toContain('billingStreet');
+    component.update('address','Via Nuova 2');
+    expect(service.applyFieldMappingToPayload('customer',{},component.record)).toEqual(jasmine.objectContaining({billingStreet:'Via Nuova 2',billingAddressSource:'independent'}));
+    component.choose('arrival'); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.billing-fields')).toBeNull();
+    component.choose('independent'); fixture.detectChanges(); expect(fixture.nativeElement.querySelector('.billing-fields')).not.toBeNull();
+    fixture.destroy();
+  });
+
+  it('un’opzione presente soltanto nel preventivo conserva l’indirizzo quando diventa cliente', () => {
+    const service = setup(), config = service.getBillingAddressLinkConfig()!;
+    config.version = 2; config.sources[1].scopes = {customer:false,quote:true};
+    const customer:any = {};
+    service.copyBillingAddressFromQuote({billingAddressSource:'arrival',billingStreet:'Indirizzo fattura 5',billingCity:'Milano',billingZip:'20100',to:'Indirizzo fattura 5'},customer);
+    expect(customer.billingAddressSource).toBe('independent'); expect(customer.billingStreet).toBe('Indirizzo fattura 5');
+  });
+
+  it('ricava la provincia dal comune anche quando l’indirizzo collegato non ha un campo provincia', () => {
+    const service = setup(), config = service.getBillingAddressLinkConfig()!;
+    config.version = 2; config.billing.customer.province = 'billingProvince';
+    const record:any = {billingAddressSource:'departure',from:'Roma 1',fromCity:'Pescara',fromZip:'65100'};
+    service.applyBillingAddressChoice('customer',record);
+    expect(record.billingProvince).toBe('PE');
+    record.fromCity = 'Milano'; service.applyBillingAddressChoice('customer',record); expect(record.billingProvince).toBe('MI');
   });
 });

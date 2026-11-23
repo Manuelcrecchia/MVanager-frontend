@@ -30,7 +30,7 @@
         <div class="order-header-layout">
           <button class="order-header-btn" type="button" (click)="toggleOrder(order.id)">
             <span class="order-title">
-              <span class="entity-id-pill">#{{ order.displayId || (order.numeroCliente + '/' + order.id) }}</span>
+              <span class="entity-id-pill">#{{ order.displayId || (global.customerNumber(order.numeroCliente) + '/' + order.id) }}</span>
               <span class="order-customer-name">{{ customerName(order) }}</span>
               <span class="badge bg-warning text-dark" *ngIf="order.signatureProof?.status === 'pending' || order.signatureProof?.status === 'otp_verified'">In attesa cliente</span>
               <span class="badge bg-info text-dark" *ngIf="order.signatureProof?.status === 'accepted'">Firmato</span>

@@ -76,7 +76,8 @@
           (click)="selectInvoice(invoice)"
         >
           <span class="invoice-row__identity">
-            <strong>{{ invoice.series ? invoice.series + '/' : '' }}{{ invoice.number }}</strong>
+            <strong>{{ global.invoiceNumber(invoice) }}</strong>
+            <small *ngIf="!invoice.numberFormatVersion">Anno {{ invoice.year }}</small>
             <small>{{ invoice.customerName || partyFallback(invoice) }}</small>
           </span>
           <span class="invoice-row__badges">
@@ -107,6 +108,7 @@
           <label [class.live-invalid]="!!invoiceFieldError('number')">
             Numero
             <input [(ngModel)]="selected.number" name="number" [readonly]="!canEdit()" />
+            <small *ngIf="selected.number">Numero documento: {{ global.invoiceNumber(selected) }}</small>
             <small class="field-error" *ngIf="invoiceFieldError('number')">{{ invoiceFieldError('number') }}</small>
           </label>
           <label>

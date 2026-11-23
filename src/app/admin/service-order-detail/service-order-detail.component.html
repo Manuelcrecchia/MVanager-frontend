@@ -12,7 +12,7 @@
         <div><h2>{{ customerName }}</h2><span class="badge bg-warning text-dark" *ngIf="order.status === 'ARCHIVED'">Archiviato</span></div>
       </div>
       <div class="sheet-grid">
-        <div class="sheet-field"><span>Cliente</span><strong>#{{ order.numeroCliente }} · {{ customerName }}</strong></div>
+        <div class="sheet-field"><span>Cliente</span><strong>#{{ global.customerNumber(order.numeroCliente) }} · {{ customerName }}</strong></div>
         <div class="sheet-field"><span>Creato il</span><strong>{{ order.createdAt | date:'dd/MM/yyyy HH:mm' }}</strong></div>
         <div class="sheet-field"><span>Programmazione</span><strong>{{ order.scheduledStart ? (order.scheduledStart | date:'dd/MM/yyyy HH:mm') : 'Non ancora aggiunto al calendario' }}</strong></div>
         <div class="sheet-field" *ngIf="order.scheduledEnd"><span>Fine prevista</span><strong>{{ order.scheduledEnd | date:'dd/MM/yyyy HH:mm' }}</strong></div>

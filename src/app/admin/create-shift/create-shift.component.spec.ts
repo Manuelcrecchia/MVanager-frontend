@@ -1,3 +1,4 @@
+import {numberingServiceStub} from '../../shared/numbering.spec-support';
 import { BehaviorSubject } from 'rxjs';
 import { CreateShiftComponent } from './create-shift.component';
 
@@ -13,7 +14,7 @@ describe('CreateShiftComponent', async () => {
       {} as any,
       {} as any,
       {
-        hasTenantFeature: () => true,
+        ...numberingServiceStub(), hasTenantFeature: () => true,
         getRecordValueByRole: () => null,
       } as any,
       {} as any,

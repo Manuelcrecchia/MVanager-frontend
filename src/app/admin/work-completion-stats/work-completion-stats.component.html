@@ -76,7 +76,7 @@
         <div class="rank-row" *ngFor="let record of stats.best">
           <div>
             <strong>{{ record.clienteNome }}</strong>
-            <span>{{ formatDate(record.completedAt) }} · Cliente {{ record.numeroCliente }}</span>
+            <span>{{ formatDate(record.completedAt) }} · Cliente {{ global.customerNumber(record.numeroCliente) }}</span>
           </div>
           <b>{{ record.averageScore }}</b>
         </div>
@@ -88,7 +88,7 @@
         <div class="rank-row rank-row-low" *ngFor="let record of stats.worst">
           <div>
             <strong>{{ record.clienteNome }}</strong>
-            <span>{{ formatDate(record.completedAt) }} · Cliente {{ record.numeroCliente }}</span>
+            <span>{{ formatDate(record.completedAt) }} · Cliente {{ global.customerNumber(record.numeroCliente) }}</span>
           </div>
           <b>{{ record.averageScore }}</b>
         </div>

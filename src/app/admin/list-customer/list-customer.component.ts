@@ -238,14 +238,7 @@ export class ListCustomerComponent {
 
   private sortCustomers(customers: any[]): any[] {
     const compareNumbers = (left: any, right: any): number => {
-      const leftValue = String(left?.numeroCliente ?? '').trim();
-      const rightValue = String(right?.numeroCliente ?? '').trim();
-      const leftNumber = Number(leftValue);
-      const rightNumber = Number(rightValue);
-      const bothNumeric = leftValue !== '' && rightValue !== '' && Number.isFinite(leftNumber) && Number.isFinite(rightNumber);
-      return bothNumeric
-        ? leftNumber - rightNumber
-        : leftValue.localeCompare(rightValue, 'it', { numeric: true, sensitivity: 'base' });
+      return this.globalService.compareBusinessNumbers(this.globalService.customerNumber(left), this.globalService.customerNumber(right));
     };
 
     return [...customers].sort((left, right) => {
@@ -274,6 +267,7 @@ export class ListCustomerComponent {
   private getCustomerSearchText(customer: any): string {
     return [
       customer?.numeroCliente,
+      this.globalService.customerNumber(customer),
       this.getCustomerDisplayName(customer),
       this.getCustomerEmail(customer),
       this.getCustomerPhone(customer),

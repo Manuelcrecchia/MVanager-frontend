@@ -79,7 +79,7 @@ export class QuoteAcceptComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private http: HttpClient,
-    private globalService: GlobalService,
+    public globalService: GlobalService,
     private tenantService: TenantService,
     private sanitizer: DomSanitizer,
   ) {}

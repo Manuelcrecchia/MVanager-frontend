@@ -4,7 +4,7 @@
     <div class="quote-meta-grid">
       <div class="quote-meta-item">
         <span>Numero</span>
-        <strong>{{ quoteModelService.numeroPreventivo || '-' }}</strong>
+        <strong>{{ globalService.quoteNumber(quoteModelService.numeroPreventivo) || '-' }}</strong>
       </div>
       <div class="quote-meta-item">
         <span>Operatore</span>

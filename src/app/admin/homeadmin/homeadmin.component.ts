@@ -602,13 +602,13 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
         const numeroPreventivo = update?.numeroPreventivo || '';
         if (update?.kind === 'accepted') {
           this.snackBar.open(
-            `Preventivo ${numeroPreventivo} accettato dal cliente`,
+            `Preventivo ${this.global.quoteNumber(numeroPreventivo)} accettato dal cliente`,
             'Chiudi',
             { duration: 5000 },
           );
         } else if (update?.kind === 'office_confirmed') {
           this.snackBar.open(
-            `Preventivo ${numeroPreventivo} verificato dall'ufficio`,
+            `Preventivo ${this.global.quoteNumber(numeroPreventivo)} verificato dall'ufficio`,
             'Chiudi',
             { duration: 5000 },
           );
@@ -704,8 +704,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
     this.customerArchiveReminderOpen = true;
     const customerLabel = reminder.clienteNome
-      ? `${reminder.clienteNome} (#${reminder.numeroCliente})`
-      : `#${reminder.numeroCliente}`;
+      ? `${reminder.clienteNome} (#${this.global.customerNumber(reminder.numeroCliente)})`
+      : `#${this.global.customerNumber(reminder.numeroCliente)}`;
     try {
       const archive = await this.popup.confirm(
         `Il cliente ${customerLabel} ha firmato il foglio di fine lavoro. Vuoi archiviarlo?`,
