@@ -146,6 +146,7 @@
           </button>
         </div>
 
+        <p *ngIf="deleteError" class="alert alert-danger" role="alert">{{ deleteError }}</p>
         <!-- Elenco note filtrate -->
         <div *ngFor="let n of noteFiltrate" class="nota-card">
           <div class="nota-header">
@@ -156,6 +157,9 @@
               <span class="nota-operatore">{{ n.operatore }}</span>
               <span class="nota-datetime">{{ n.data }} alle {{ n.ora }}</span>
             </div>
+            <button *ngIf="canDeleteNote(n)" type="button" class="nota-delete" (click)="deleteNote(n)" [disabled]="deletingId !== null" aria-label="Elimina nota" title="Elimina questa tua nota">
+              <mat-icon>delete</mat-icon><span>{{ deletingId === n.id ? 'Eliminazione…' : 'Elimina' }}</span>
+            </button>
           </div>
 
           <div class="nota-testo" *ngIf="n.testo && !soloAllegati">{{ n.testo }}</div>

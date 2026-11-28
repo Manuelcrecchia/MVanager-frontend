@@ -124,6 +124,31 @@ describe('GlobalService', () => {
 });
 
 describe('automatic web quote summaries', () => {
+  it('calculates and displays two decimals for both monetary and other formulas', () => {
+    const service = new GlobalService(
+      { token: '', userCode: '', permissions: [] } as any,
+      { tenant: 'test', tenantLabel: 'Test' } as any,
+      {} as any,
+    );
+    const result = (key: string, type: string, decimals: number, displayRole = '') => ({
+      key, dbColumn: key, type, displayRole,
+      calculation: { mode: 'sum', sourceFields: ['base'], decimals },
+    });
+    const money = result('amount', 'money', 0);
+    const total = result('total', 'number', 4, 'quoteTotal');
+    const ordinary = result('measure', 'number', 3);
+    const text = result('subtotal', 'text', 0);
+    const fields = [{ key: 'base', dbColumn: 'base', type: 'number' }, money, total, ordinary, text];
+    (service as any).tenantConfig = { quoteConfig: { fieldMapping: { quote: { fields } } } };
+
+    const data: Record<string, unknown> = { base: '12,126' };
+    service.applyCalculatedFields('quote', data);
+    expect(data).toEqual({ base: '12,126', amount: 12.13, total: 12.13, measure: 12.13, subtotal: 12.13 });
+    expect(service.getRecordDisplayValueForField({ amount: 12 }, money as any)).toBe('12,00');
+    expect(service.getRecordDisplayValueForField({ measure: 12 }, ordinary as any)).toBe('12,00');
+    expect(service.getRecordDisplayValueForField({ subtotal: 12 }, text as any)).toBe('12,00');
+  });
+
   it('updates campaign quantity, monthly/annual renewals and VAT when inputs change', () => {
     const service = new GlobalService({ token:'', userCode:'', permissions:[] } as any, {tenant:'test',tenantLabel:'Test'} as any, {} as any);
     const term = (field:string, quantityField='', whenField='', whenValue='') => ({field,quantityField,whenField,whenValue});

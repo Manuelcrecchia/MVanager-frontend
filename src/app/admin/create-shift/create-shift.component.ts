@@ -273,6 +273,12 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
   private pendingSave?: { id: string; date: string; snapshot: string; draft?: DraftHandle };
   saveStatus = '';
   private shiftVersion = '';
+  readonly realtimeResources = ['shifts'];
+  private calendarAppointments: any[] = [];
+  private savedShiftSignature = '';
+  private realtimeRead?: Promise<boolean>;
+  private pendingDeletion?: { id: string; day: string; app: any };
+
   shiftConflict = false;
   hasConflictDraft = false;
   isSaving = false;
@@ -303,106 +309,11 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     const queryDate = this.route.snapshot.queryParamMap.get('date');
     if (queryDate) this.selectedDate = this.parseLocalDate(queryDate);
 
-    this.offline.operations.pipe(takeUntil(this.destroy$)).subscribe(() => this.acceptQueuedConfirmation());
+    this.offline.operations.pipe(takeUntil(this.destroy$)).subscribe(() => { void this.acceptQueuedConfirmation(); void this.acceptQueuedDeletion(); });
     this.loadAppointments();
     this.loadVehiclesCache();
     this.loadEquipmentTargetsCache();
     this.loadExtraCustomerOptions();
-
-    this.socketService.onResourceChanges('shifts').pipe(takeUntil(this.destroy$)).subscribe((change) => {
-      if (this.isSaving) return;
-      const update: any = change.metadata || {};
-      if (update.date && update.date !== this.formatDate(this.selectedDate)) {
-        return;
-      }
-
-      console.log('📡 Aggiornamento ricevuto:', update);
-
-      switch (update.type) {
-        case 'addExtra':
-          if (!this.appointments.some((a) => a.id === update.data.id)) {
-            this.appointments.push(update.data);
-            this.sortAppointments();
-          }
-          break;
-
-        case 'removeExtra':
-          this.appointments = this.appointments.filter(
-            (a) => a.id !== update.data.id,
-          );
-          break;
-
-        case 'changeDuration':
-        case 'updateDuration': {
-          const jobDur = this.appointments.find((a) => a.id === update.data.id);
-          if (jobDur) {
-            jobDur.duration = update.data.duration;
-            jobDur.durationDisplay = this.formatDuration(update.data.duration);
-          }
-          break;
-        }
-
-        case 'updateTitle': {
-          const jobTitle = this.appointments.find(
-            (a) => a.id === update.data.id,
-          );
-          if (jobTitle) jobTitle.title = update.data.title;
-          break;
-        }
-
-        case 'updateDescription': {
-          const jobDesc = this.appointments.find(
-            (a) => a.id === update.data.id,
-          );
-          if (jobDesc) jobDesc.description = update.data.description;
-          break;
-        }
-
-        case 'updateStartDate': {
-          const job = this.appointments.find((a) => a.id === update.data.id);
-          if (job) {
-            job.startDate = update.data.startDate
-              ? new Date(update.data.startDate)
-              : null;
-          }
-          break;
-        }
-
-        case 'assignEmployees':
-          this.assignedShifts[update.data.id] = update.data.employees;
-          this.markAppointmentManualForRoutePlanner(update.data.id);
-          break;
-
-        case 'reorderGeneral':
-          this.appointments.sort(
-            (a, b) =>
-              update.data.find((o: any) => o.id === a.id)?.order -
-              update.data.find((o: any) => o.id === b.id)?.order,
-          );
-          break;
-
-        case 'reorderEmployee':
-          update.data.jobs.forEach((j: any) => {
-            const job = this.appointments.find((a) => a.id === j.id);
-            if (job) {
-              if (!job.sortOrderByEmployee) job.sortOrderByEmployee = {};
-              job.sortOrderByEmployee[update.data.empId] = j.order;
-            }
-          });
-          break;
-
-        case 'reload':
-          this.loadAppointments();
-          this.loadVehiclesCache();
-          this.loadEquipmentTargetsCache();
-          break;
-      }
-
-      this.appointments = [...this.appointments];
-      if (this.routePlannerOpen) {
-        this.generateRoutePlan();
-      }
-    });
 
     this.http
       .get<any[]>(this.globalService.url + 'employees/getAll')
@@ -422,6 +333,58 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.shiftDraft?.stop();
+  }
+
+  private shiftJobKey(app: any): string {
+    return app.shiftId ? `shift:${app.shiftId}` : `${app.isExtra ? 'local' : 'appointment'}:${app.originalAppointmentId || app.id}`;
+  }
+
+  private shiftStateSignature(snapshot = this.shiftSnapshot()): string {
+    const maps = ['assignedShifts', 'assignedEmployeeDurations', 'assignedCapisquadra', 'assignedCapisquadraNotes', 'assignedVehicles', 'assignedEquipment'];
+    return JSON.stringify(snapshot.appointments.map((app: any) => {
+      const { id, ...fields } = app;
+      return { key: this.shiftJobKey(app), fields, assignments: maps.map(key => snapshot[key]?.[id] ?? null) };
+    }));
+  }
+
+  async refreshRealtimeData(): Promise<boolean> {
+    if (this.isSaving || this.loading || this.dialog?.openDialogs?.length || this.pendingSave || this.pendingDeletion || !this.shiftVersion || !this.shiftDraft) return false;
+    await this.shiftDraft.ready;
+    if (this.shiftStateSignature() !== this.savedShiftSignature) return false;
+    if (this.realtimeRead) return this.realtimeRead;
+    const day = this.formatDate(this.selectedDate), requestId = this.appointmentsRequest;
+    this.realtimeRead = (async () => {
+      const response = await firstValueFrom(this.http.get<any[]>(this.globalService.url + `shifts/byDate/${day}`, { observe: 'response' }));
+      if (requestId !== this.appointmentsRequest || day !== this.formatDate(this.selectedDate)) return true;
+      // Never let a read started before the user typed replace those new edits.
+      if (this.isSaving || this.dialog?.openDialogs?.length || this.pendingDeletion || this.shiftStateSignature() !== this.savedShiftSignature) return false;
+      const version = response.headers.get('X-MV-Shift-Version');
+      if (!version || response.headers.has('X-MV-Offline-Cache')) return false;
+      if (version === this.shiftVersion) return true;
+      this.appointments = this.calendarAppointments.map(app => ({ ...app, sortOrderByEmployee: { ...app.sortOrderByEmployee } }));
+      this.resetShiftAssignments();
+      this.shiftVersion = version;
+      this.applyExistingShifts(response.body || []);
+      this.sortAppointments();
+      this.savedShiftSignature = this.shiftStateSignature();
+      this.shiftConflict = false;
+      this.saveStatus = 'Turni aggiornati dal server';
+      this.shiftDraft?.flush();
+      return true;
+    })();
+    try { return await this.realtimeRead; }
+    finally { this.realtimeRead = undefined; }
+  }
+
+  private resetShiftAssignments(): void {
+    this.assignedShifts = {};
+    this.assignedEmployeeDurations = {};
+    this.assignedEmployeeStampingDurations = {};
+    this.assignedEmployeeUnclassifiedDurations = {};
+    this.assignedCapisquadra = {};
+    this.assignedCapisquadraNotes = {};
+    this.assignedVehicles = {};
+    this.assignedEquipment = {};
   }
 
   private shouldIncludeAppointment(a: any): boolean {
@@ -445,7 +408,8 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
   private shiftSnapshot(): any {
     const fields = ['id', 'isExtra', 'originalAppointmentId', 'shiftId', 'title', 'description', 'duration',
-      'requiredEmployees', 'sortOrderByEmployee', 'selectedCustomerNumero', 'selectedCustomerLabel', 'selectedCustomerType'];
+      'requiredEmployees', 'sortOrderByEmployee', 'selectedCustomerNumero', 'selectedCustomerLabel', 'selectedCustomerType',
+      'employeeDocumentBlocks'];
     return {
       shiftVersion: this.shiftVersion,
       appointments: this.appointments.map(app => ({
@@ -466,6 +430,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     this.hasConflictDraft = !!await this.offline.loadDraft(`${location.pathname + location.search}|shift-conflict:${day}`);
     const storedDraft = await this.offline.loadDraftEntry(`${location.pathname + location.search}|shift-day:${day}`);
     this.shiftDraft?.stop();
+    const loadedVersion = this.shiftVersion;
     this.shiftDraft = watchDraft(this.offline, () => this.shiftSnapshot(), value => {
       if (!Array.isArray(value?.appointments)) return;
       // Keep the draft's base version. A fresh GET must never bless stale edits.
@@ -489,7 +454,8 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       for (const key of ['assignedShifts', 'assignedEmployeeDurations', 'assignedCapisquadra', 'assignedCapisquadraNotes', 'assignedVehicles', 'assignedEquipment'] as const) {
         if (value[key] && typeof value[key] === 'object') Object.assign(this[key], value[key]);
       }
-      this.saveStatus = 'Bozza recuperata: modifiche da salvare';
+      if (this.shiftStateSignature() === this.savedShiftSignature) this.shiftVersion = loadedVersion;
+      else this.saveStatus = 'Bozza recuperata: modifiche da salvare';
     }, `${location.pathname + location.search}|shift-day:${this.formatDate(this.selectedDate)}`);
   }
 
@@ -1878,7 +1844,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     return (
       this.globalService.hasTenantFeature('leaveRequests') &&
       (
-        this.globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE') ||
+        this.globalService.hasPermission('EMPLOYEE_PERMITS_VIEW') ||
         this.globalService.hasPermission('SHIFTS_VIEW')
       )
     );
@@ -4897,6 +4863,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
 
   async finalSave(forceSave = false): Promise<void> {
     if (this.isSaving) return;
+    if (this.pendingDeletion) { this.saveStatus = 'Attendo la conferma della rimozione del turno. Le modifiche sono conservate.'; return; }
     if (!this.shiftVersion) {
       this.shiftConflict = true;
       this.saveStatus = 'Manca la versione della giornata. La bozza è conservata: carica i turni attuali prima di salvare.';
@@ -4933,6 +4900,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         employeeDurations: this.getAssignedEmployeeDurations(app),
         capisquadra: this.assignedCapisquadra[app.id] || [],
         capisquadraNotesMap: this.assignedCapisquadraNotes[app.id] || {},
+        employeeDocumentBlocks: app.employeeDocumentBlocks,
         title: app.title,
         description: app.description,
         startDate: start,
@@ -5035,6 +5003,15 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       const app = this.appointments.find(item => String(item.id) === saved.clientId);
       if (app && saved.shiftId) app.shiftId = saved.shiftId;
     }
+    let confirmed: any;
+    try { confirmed = JSON.parse(snapshot); } catch { confirmed = null; }
+    if (Array.isArray(confirmed?.appointments)) {
+      for (const saved of response?.savedShifts || []) {
+        const app = confirmed.appointments.find((item: any) => String(item.id) === saved.clientId);
+        if (app && saved.shiftId) app.shiftId = saved.shiftId;
+      }
+      this.savedShiftSignature = this.shiftStateSignature(confirmed);
+    } else this.savedShiftSignature = '';
     if (changed) {
       this.shiftDraft?.flush();
       this.saveStatus = 'Turni salvati online. Le nuove modifiche sono da salvare.';
@@ -5326,20 +5303,15 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     this.shiftDraft = undefined;
     this.saveStatus = '';
     this.shiftVersion = '';
+    this.savedShiftSignature = '';
+    this.calendarAppointments = [];
     this.loading = true;
     this.refreshRoutePlannerActivePreferences();
     const dateStr = this.formatDate(this.selectedDate);
     const requestId = ++this.appointmentsRequest;
 
     this.appointments = [];
-    this.assignedShifts = {};
-    this.assignedEmployeeDurations = {};
-    this.assignedEmployeeStampingDurations = {};
-    this.assignedEmployeeUnclassifiedDurations = {};
-    this.assignedCapisquadra = {};
-    this.assignedCapisquadraNotes = {};
-    this.assignedVehicles = {};
-    this.assignedEquipment = {};
+    this.resetShiftAssignments();
     this.routePlannerManagedAppointmentIds.clear();
     this.routePlannerManualEmployeeIdsByAppointment.clear();
 
@@ -5407,6 +5379,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
             });
 
           this.sortAppointments();
+          this.calendarAppointments = this.appointments.map(app => ({ ...app, sortOrderByEmployee: { ...app.sortOrderByEmployee } }));
           this.loading = false;
           this.loadExistingShifts();
         },
@@ -5428,6 +5401,17 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         const existing = response.body || [];
         if (requestId !== this.appointmentsRequest || dateStr !== this.formatDate(this.selectedDate)) return;
         this.shiftVersion = response.headers.get('X-MV-Shift-Version') || '';
+        this.applyExistingShifts(existing);
+        this.sortAppointments();
+        this.savedShiftSignature = this.shiftStateSignature();
+        void this.protectShiftDraft();
+        if (this.routePlannerOpen) {
+          this.generateRoutePlan();
+        }
+      });
+  }
+
+  private applyExistingShifts(existing: any[]): void {
         for (const s of existing) {
           if (!s.appointmentId) {
             const extraId = `extra-${s.id}`;
@@ -5452,6 +5436,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
               this.appointments.push({
                 id: extraId,
                 shiftId: s.id,
+                employeeDocumentBlocks: s.employeeDocumentBlocks,
                 appointmentId: null,
                 isExtra: true,
                 title: s.title,
@@ -5522,6 +5507,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
                 this.appointments.push({
                   id: newId,
                   shiftId: s.id,
+                  employeeDocumentBlocks: s.employeeDocumentBlocks,
                   originalAppointmentId: s.appointmentId,
                   appointmentId: s.appointmentId,
                   isExtra: false,
@@ -5569,6 +5555,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
             }
 
             app.shiftId = s.id;
+            app.employeeDocumentBlocks = s.employeeDocumentBlocks;
             app.customer =
               app.customer ||
               s.appointment?.customer ||
@@ -5623,12 +5610,6 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
           }
         }
 
-        this.sortAppointments();
-        void this.protectShiftDraft();
-        if (this.routePlannerOpen) {
-          this.generateRoutePlan();
-        }
-      });
   }
 
   openVehicleDialog(app: any): void {
@@ -5731,7 +5712,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         busyDetails: this.getBusyDetails(app),
         requiredEmployees: app.requiredEmployees,
         selectedDate: this.formatDate(this.selectedDate),
-        numeroCliente: app.numeroCliente || app.appointment?.numeroCliente || null,
+        numeroCliente: app.numeroCliente || app.appointment?.numeroCliente || app.selectedCustomerNumero || null,
       },
     });
 
@@ -5745,6 +5726,7 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
         );
         this.assignedCapisquadra[app.id] = result.capisquadra || [];
         this.assignedCapisquadraNotes[app.id] = result.capisquadraNotesMap || {};
+        app.employeeDocumentBlocks = result.employeeDocumentBlocks;
         this.markAppointmentManualForRoutePlanner(app.id);
         this.scheduleAutosave(app, true);
 
@@ -5899,8 +5881,12 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
     });
   }
 
+  get canDeleteShifts(): boolean {
+    return this.globalService.hasPermission('SHIFTS_DELETE');
+  }
+
   canRemoveExtra(app: any): boolean {
-    return !this.isSaving && !(this.pendingSave && !app.shiftId);
+    return this.canDeleteShifts && !this.isSaving && !this.pendingDeletion && !(this.pendingSave && !app.shiftId);
   }
 
   removeExtra(app: any): void {
@@ -5924,17 +5910,49 @@ export class CreateShiftComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.http
-      .post(this.globalService.url + 'shifts/delete', payload)
-      .subscribe({
-        next: () => {
-          this.appointments = this.appointments.filter((a) => a.id !== app.id);
-        },
-        error: (err) => {
-          console.error('Errore eliminazione turno:', err);
-          alert(this.parseServerError(err));
-        },
-      });
+    if (!this.shiftVersion) { this.saveStatus = 'Carica i turni attuali prima di rimuovere un turno salvato.'; return; }
+    this.isSaving = true;
+    this.http.post<any>(this.globalService.url + 'shifts/delete', payload, {
+      headers: { 'If-Match': this.shiftVersion, 'X-Skip-Global-Error-Popup': 'true' },
+    }).subscribe({
+      next: response => { this.completeShiftDeletion(dateStr, app, response); this.isSaving = false; },
+      error: error => {
+        this.isSaving = false;
+        this.saveStatus = this.parseServerError(error);
+        this.shiftConflict = ['SHIFT_VERSION_CONFLICT', 'SHIFT_VERSION_REQUIRED'].includes(error?.error?.code);
+        if (error?.error?.code === 'OFFLINE_PENDING' && error.error.operationId) {
+          this.pendingDeletion = { id: error.error.operationId, day: dateStr, app };
+          void this.acceptQueuedDeletion();
+        }
+      },
+    });
+  }
+
+  private completeShiftDeletion(day: string, app: any, response: any): void {
+    if (day !== this.formatDate(this.selectedDate)) return;
+    const key = this.shiftJobKey(app);
+    this.appointments = this.appointments.filter(item => this.shiftJobKey(item) !== key);
+    // This version covers exactly the deletion accepted against our If-Match.
+    // A separate GET here could silently adopt unrelated edits by another admin.
+    this.shiftVersion = response?.version || '';
+    if (this.savedShiftSignature) this.savedShiftSignature = JSON.stringify(JSON.parse(this.savedShiftSignature).filter((item: any) => item.key !== key));
+    this.saveStatus = 'Turno rimosso. Le altre modifiche sono da salvare.';
+    this.shiftDraft?.flush();
+  }
+
+  private async acceptQueuedDeletion(): Promise<void> {
+    const pending = this.pendingDeletion;
+    if (!pending || this.isSaving) return;
+    const row = this.offline.operations.value.find(item => item.id === pending.id);
+    if (!row || !['done', 'rejected'].includes(row.state)) return;
+    this.pendingDeletion = undefined;
+    if (row.state === 'done') {
+      this.completeShiftDeletion(pending.day, pending.app, row.response?.body);
+      void this.offline.acknowledge(row);
+    } else {
+      this.saveStatus = row.error || 'Rimozione non confermata. Le modifiche sono conservate.';
+      this.shiftConflict = ['SHIFT_VERSION_CONFLICT', 'SHIFT_VERSION_REQUIRED'].includes(row.response?.body?.code);
+    }
   }
 
   private parseServerError(err: any): string {

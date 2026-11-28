@@ -40,7 +40,13 @@
             class="col-md-6"
             *ngFor="let field of row.fields; trackBy: trackByCustomerField"
           >
-            <ng-container [ngSwitch]="field.type">
+            <ng-container [ngSwitch]="globalService.isCalculatedField(field) ? 'calculated' : field.type">
+              <mat-form-field *ngSwitchCase="'calculated'" appearance="fill" class="w-100">
+                <mat-label>{{ field.label || field.dbColumn }}</mat-label>
+                <input matInput readonly
+                  [value]="globalService.getRecordDisplayValueForField($any(customerModelService), field)" />
+                <mat-hint>Calcolato automaticamente</mat-hint>
+              </mat-form-field>
               <mat-checkbox
                 *ngSwitchCase="'boolean'"
                 [name]="field.dbColumn"
@@ -127,13 +133,26 @@
             <mat-form-field *ngSwitchDefault appearance="fill" class="w-100">
               <mat-label>{{ field.label || field.dbColumn }}</mat-label>
               <input
+                *ngIf="globalService.isMappedAmountField(field); else standardMappedInput"
                 matInput
-                [type]="globalService.getDynamicInputType(field)"
+                appMappedAmount
+                type="text"
+                inputmode="decimal"
                 [name]="field.dbColumn"
                 [required]="globalService.isFieldRequired('customer', field.dbColumn || field.key)"
                 [ngModel]="$any(customerModelService)[field.dbColumn]"
                 (ngModelChange)="updateField(field, $event)"
               />
+              <ng-template #standardMappedInput>
+                <input
+                  matInput
+                  [type]="globalService.getDynamicInputType(field)"
+                  [name]="field.dbColumn"
+                  [required]="globalService.isFieldRequired('customer', field.dbColumn || field.key)"
+                  [ngModel]="$any(customerModelService)[field.dbColumn]"
+                  (ngModelChange)="updateField(field, $event)"
+                />
+              </ng-template>
               <mat-hint class="customer-validation-error" *ngIf="getFieldError(field)">{{ getFieldError(field) }}</mat-hint>
             </mat-form-field>
           </ng-container>
@@ -314,11 +333,13 @@
       </div>
     </section>
 
+    <app-customer-work-register-settings *ngIf="globalService.hasTenantFeature('workRegister') && globalService.hasPermission('WORK_REGISTER_MANAGE')" [customer]="customerModelService"  (configurationChange)="workRegisterConfig=$event" />
     <div class="col-12 text-center mt-4">
       <button mat-raised-button color="primary" type="button" (click)="addCustomer()">
         Salva
       </button>
     </div>
+
   </form>
 </div>
 </div>

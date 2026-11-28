@@ -23,7 +23,7 @@ describe('Runtime permission checks', () => {
   });
 
   it('does not submit writes from read-only invoice, accounting and attendance pages', async () => {
-    const readonly: any = { canManage: false };
+    const readonly: any = { canManage: false, canTransmitInvoice: () => false };
     // No HTTP service is provided: each action must stop before attempting a write.
     InvoicesComponent.prototype.save.call(readonly);
     InvoicesComponent.prototype.send.call(readonly);
@@ -34,5 +34,15 @@ describe('Runtime permission checks', () => {
     RiepilogoPresenzeEditabileComponent.prototype.onCellaChange.call(readonly, {}, 0);
     await RiepilogoPresenzeEditabileComponent.prototype.salvaNotaSingola.call(readonly, {}, 'nota');
     expect(InvoicesComponent.prototype.canEdit.call(readonly)).toBeFalse();
+  });
+
+  it('allows invoice editing independently from SdI transmission and settings', () => {
+    const global = { hasPermission: jasmine.createSpy('hasPermission').and.callFake(key => key === 'INVOICES_MANAGE') };
+    const invoices = Object.assign(Object.create(InvoicesComponent.prototype), { global, selected: { type: 'TD01' } });
+    expect(invoices.canEdit()).toBeTrue();
+    expect(invoices.canTransmitInvoice()).toBeFalse();
+    expect(invoices.canManageInvoiceSettings).toBeFalse();
+    expect(invoices.canDeleteDrafts).toBeFalse();
+    expect(invoices.canSelectInvoiceType('TD04')).toBeFalse();
   });
 });

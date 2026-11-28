@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';
+import { CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot, Router, UrlTree } from '@angular/router';
 import { jwtDecode } from "jwt-decode";
 import { GlobalService } from './service/global.service';
 
@@ -9,7 +9,7 @@ import { GlobalService } from './service/global.service';
 export class AuthGuard implements CanActivate {
   constructor(private router: Router, private globalService: GlobalService) {}
 
-  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean {
+  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | UrlTree {
     const token = this.globalService.token;
     if (!token) {
       this.router.navigate(['/']);
@@ -23,6 +23,9 @@ export class AuthGuard implements CanActivate {
         return false;
       }
   
+      if (decoded.consultationOnly === true && route.routeConfig?.data?.['allowConsultation'] !== true) {
+        return this.router.parseUrl('/homeAdmin');
+      }
       return true;
     } catch (e) {
       this.router.navigate(['/']);

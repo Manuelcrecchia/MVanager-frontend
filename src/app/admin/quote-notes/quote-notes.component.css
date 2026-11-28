@@ -745,3 +745,8 @@ body.bg-light {
     align-items: flex-start;
   }
 }
+
+.nota-delete { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; padding: 8px; color: #b42318; background: transparent; border: 1px solid #f0b7b2; border-radius: 8px; cursor: pointer; }
+.nota-delete:hover { background: #fff1f0; }
+.nota-delete:disabled { opacity: .5; cursor: wait; }
+@media (max-width: 480px) { .nota-delete span { display: none; } .nota-meta { min-width: 0; overflow-wrap: anywhere; } }

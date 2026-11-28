@@ -1,3 +1,4 @@
+import { normalizeWhatsappPhone } from '../../shared/whatsapp';
 import { downloadFile, fileDownloadIO } from '../../shared/file-download';
 import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
@@ -157,10 +158,7 @@ export class ServiceOrdersComponent implements OnInit, OnDestroy {
     const phone = String(
       this.global.getRecordValueByRole('customer', order?.customer || {}, 'customerPhone') || '',
     );
-    let normalized = phone.replace(/[^\d+]/g, '');
-    if (normalized.startsWith('+')) normalized = normalized.slice(1);
-    if (normalized.startsWith('00')) normalized = normalized.slice(2);
-    if (normalized && !normalized.startsWith('39') && normalized.length <= 10) normalized = `39${normalized}`;
+    const normalized = normalizeWhatsappPhone(phone);
     if (!normalized) {
       this.appDialog.showError('Numero di telefono non disponibile per questo cliente.');
       return;
@@ -187,6 +185,7 @@ export class ServiceOrdersComponent implements OnInit, OnDestroy {
   }
 
   async archiveOrder(orderId: number): Promise<void> {
+    if (!this.global.hasPermission('SERVICE_ORDERS_ARCHIVE')) return;
     const confirmed = await this.appDialog.confirm(
       "Vuoi archiviare questo ordine di servizio? Verrà archiviato anche l'appuntamento collegato nel calendario.",
     );
@@ -206,6 +205,7 @@ export class ServiceOrdersComponent implements OnInit, OnDestroy {
   }
 
   async requestRemoteSignature(order: any): Promise<void> {
+    if (!this.global.hasPermission('SERVICE_ORDERS_REQUEST_SIGNATURE')) return;
     const choice = await this.appDialog.choose(
       'Il cliente visualizzerà l’ordine, verificherà la propria email tramite OTP e firmerà dal suo dispositivo.',
       'Richiedi firma ordine di servizio',

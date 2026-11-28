@@ -5,7 +5,7 @@ import { GlobalService } from '../../service/global.service';
 
 type Purpose = 'quotes' | 'inspections' | 'supplierRequests' | 'invoices' | 'deliveryNotes'
   | 'payslips' | 'customerDocuments' | 'employeeDocuments' | 'employeeContracts'
-  | 'serviceOrders' | 'materialDeliveries' | 'workCompletion' | 'assetInterventions';
+  | 'serviceOrders' | 'materialDeliveries' | 'workCompletion' | 'assetInterventions' | 'customerPortal';
 interface Sender {
   email: string;
   username: string;
@@ -39,6 +39,7 @@ export class EmailSendingSettingsComponent implements OnInit {
   loaded = false;
   loadError = '';
   sections: SenderSection[] = [
+    this.section('customerPortal', 'Email avvisi area clienti', 'Avvisi per nuovi documenti condivisi, comunicazioni e risposte o chiusure dei ticket.'),
     this.section('quotes', 'Email invio preventivi', 'Preventivi, richieste di accettazione e conferme al cliente.'),
     this.section('inspections', 'Email invio sopralluoghi', 'Conferme degli appuntamenti di sopralluogo.'),
     this.section('supplierRequests', 'Email invio richiesta fornitori', 'Richieste e ordini di materiali ai fornitori.'),

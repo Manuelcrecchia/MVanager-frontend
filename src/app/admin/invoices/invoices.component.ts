@@ -439,9 +439,9 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   seriesForType(type: string): string {
     return this.seriesCatalog.defaults[type] ?? ({ TD04: 'NC', TD08: 'NC', TD05: 'ND', TD09: 'ND', TD24: 'FD', TD25: 'FD', PF: 'PF' } as Record<string, string>)[type] ?? '';
   }
-  addSeries(): void { if (this.canManage) this.seriesCatalog.series.push({ code: '', label: '' }); }
+  addSeries(): void { if (this.canManageInvoiceSettings) this.seriesCatalog.series.push({ code: '', label: '' }); }
   saveSeries(): void {
-    if (!this.canManage || this.savingSeries) return;
+    if (!this.canManageInvoiceSettings || this.savingSeries) return;
     this.savingSeries = true;
     this.http.post<InvoiceSeriesCatalog>(this.global.url + 'invoices/settings/series/save', this.seriesCatalog).subscribe({
       next: config => { this.seriesCatalog = config; this.savingSeries = false; this.success = 'Serie di numerazione salvate'; },
@@ -1105,7 +1105,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   saveUnsentSdiReminders(): void {
-    if (!this.canManage || this.savingUnsentReminders) return;
+    if (!this.canManageInvoiceSettings || this.savingUnsentReminders) return;
     this.savingUnsentReminders = true;
     this.error = '';
     this.success = '';
@@ -2423,7 +2423,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deleteDdt(): Promise<void> {
-    if (!this.canManage) return;
+    if (!this.canDeleteDrafts) return;
     if (!this.selectedDdt.id || !await this.appDialog.confirm('Eliminare questa bozza DDT?')) return;
     this.saving = true;
     this.error = '';
@@ -2532,12 +2532,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   newPaymentTerm(): void {
-    if (!this.canManage) return;
+    if (!this.canManageInvoiceSettings) return;
     this.selectedPaymentTerm = this.emptyPaymentTerm();
   }
 
   savePaymentTerm(): void {
-    if (!this.canManage) return;
+    if (!this.canManageInvoiceSettings) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2556,7 +2556,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deletePaymentTerm(): Promise<void> {
-    if (!this.canManage) return;
+    if (!this.canManageInvoiceSettings) return;
     if (!this.selectedPaymentTerm.id || !await this.appDialog.confirm('Disattivare questo termine pagamento?')) return;
     this.saving = true;
     this.error = '';
@@ -2580,12 +2580,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   newBankAccount(): void {
-    if (!this.canManage) return;
+    if (!this.canManageInvoiceSettings) return;
     this.selectedBankAccount = this.emptyBankAccount();
   }
 
   saveBankAccount(): void {
-    if (!this.canManage) return;
+    if (!this.canManageInvoiceSettings) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2604,7 +2604,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deleteBankAccount(): Promise<void> {
-    if (!this.canManage) return;
+    if (!this.canManageInvoiceSettings) return;
     if (!this.selectedBankAccount.id || !await this.appDialog.confirm('Disattivare questa banca?')) return;
     this.saving = true;
     this.error = '';
@@ -2628,12 +2628,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   newServiceItem(): void {
-    if (!this.canManage) return;
+    if (!this.canManageInvoiceSettings) return;
     this.selectedServiceItem = this.emptyServiceItem();
   }
 
   saveServiceItem(): void {
-    if (!this.canManage) return;
+    if (!this.canManageInvoiceSettings) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2652,7 +2652,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deleteServiceItem(): Promise<void> {
-    if (!this.canManage) return;
+    if (!this.canManageInvoiceSettings) return;
     if (!this.selectedServiceItem.id || !await this.appDialog.confirm('Disattivare questo servizio?')) return;
     this.saving = true;
     this.error = '';
@@ -2699,7 +2699,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   saveCustomerInvoiceDefaults(): void {
-    if (!this.canManage) return;
+    if (!this.canManageInvoiceSettings) return;
     this.saving = true;
     this.error = '';
     this.success = '';
@@ -2733,12 +2733,12 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   issue(): void {
-    if (!this.canManage) return;
+    if (!this.canIssueInvoice()) return;
     this.runInvoiceAction('issue', 'Fattura emessa localmente');
   }
 
   send(): void {
-    if (!this.canManage) return;
+    if (!this.canTransmitInvoice()) return;
     this.prepareRecipientForSubmit();
     this.runInvoiceAction('send', 'Fattura inviata al provider');
   }
@@ -2749,7 +2749,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   saveValidateSend(): void {
-    if (!this.canManage) return;
+    if (!this.canTransmitInvoice()) return;
     this.prepareRecipientForSubmit();
     if (this.isProforma(this.selected)) {
       this.error = 'La proforma va convertita in fattura prima dell’invio SdI';
@@ -2841,7 +2841,6 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async createCreditNote(): Promise<void> {
-    if (!this.canManage) return;
     if (!this.canCreateCreditNote()) {
       this.error = 'Puoi creare una nota di credito solo da una fattura di vendita già inviata, consegnata o pagata';
       return;
@@ -3241,7 +3240,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   async deleteDraft(): Promise<void> {
-    if (!this.canManage) return;
+    if (!this.canDeleteDrafts) return;
     if (!this.selected.id || !await this.appDialog.confirm('Eliminare questa bozza fattura?')) return;
     this.runInvoiceAction('delete', 'Bozza eliminata', () => {
       this.newInvoice();
@@ -3281,6 +3280,34 @@ export class InvoicesComponent implements OnInit, OnDestroy {
     return this.global.hasPermission('INVOICES_MANAGE');
   }
 
+  get canManageInvoiceSettings(): boolean {
+    return this.global.hasPermission('INVOICES_SETTINGS_MANAGE');
+  }
+
+  get canDeleteDrafts(): boolean {
+    return this.global.hasPermission('INVOICES_DELETE_DRAFTS');
+  }
+
+  get canManageCreditNotes(): boolean {
+    return this.global.hasPermission('INVOICES_CREDIT_NOTES');
+  }
+
+  canIssueInvoice(): boolean {
+    return this.canManage && this.canIssueSelectedDocumentType();
+  }
+
+  canTransmitInvoice(): boolean {
+    return this.global.hasPermission('INVOICES_SEND_SDI') && this.canIssueSelectedDocumentType();
+  }
+
+  canSelectInvoiceType(type: string): boolean {
+    return this.selected.type === type || this.canIssueSelectedDocumentType(type);
+  }
+
+  private canIssueSelectedDocumentType(type = this.selected.type): boolean {
+    return this.isInbound(this.selected) || !['TD04', 'TD08'].includes(type) || this.canManageCreditNotes;
+  }
+
   canEdit(): boolean {
     return this.canManage && (!this.selected.id || ['draft', 'rejected'].includes(this.selected.status));
   }
@@ -3294,7 +3321,7 @@ export class InvoicesComponent implements OnInit, OnDestroy {
   }
 
   canCreateCreditNote(): boolean {
-    if (!this.canManage) return false;
+    if (!this.canManageCreditNotes) return false;
     if (!this.selected.id || this.selected.direction === 'inbound') return false;
     if (this.isProforma(this.selected) || this.isCreditOrDebitNote(this.selected)) return false;
     return ['sent', 'delivered', 'paid'].includes(this.stringValue(this.selected.status).toLowerCase());

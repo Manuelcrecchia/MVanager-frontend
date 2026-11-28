@@ -3,7 +3,7 @@
     <div class="mv-entity-toolbar__title">
       <h1>Permessi</h1>
       <button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="goBack()">← Torna indietro</button>
-      <button type="button" class="btn mv-toolbar-primary" (click)="openCreaModal()">
+      <button type="button" class="btn mv-toolbar-primary" (click)="openCreaModal()" *ngIf="canManage">
         <i class="fas fa-plus" aria-hidden="true"></i> Nuovo
       </button>
     </div>
@@ -51,10 +51,10 @@
 
         <div class="mv-record-actions" *ngIf="isRequestOpen(request.id) && request.status === 'in attesa'">
           <div class="mv-record-actions__inner">
-            <button type="button" class="btn mv-record-action mv-record-action--success action-with-tooltip" (click)="confirmAcceptDirect(request)" aria-label="Accetta permesso" data-tooltip="Accetta permesso">
+            <button type="button" class="btn mv-record-action mv-record-action--success action-with-tooltip" (click)="confirmAcceptDirect(request)" aria-label="Accetta permesso" data-tooltip="Accetta permesso" *ngIf="canManage">
               <i class="fas fa-check"></i>
             </button>
-            <button type="button" class="btn mv-record-action mv-record-action--danger action-with-tooltip" (click)="rifiuta(request.id)" aria-label="Rifiuta permesso" data-tooltip="Rifiuta permesso">
+            <button type="button" class="btn mv-record-action mv-record-action--danger action-with-tooltip" (click)="rifiuta(request.id)" aria-label="Rifiuta permesso" data-tooltip="Rifiuta permesso" *ngIf="canManage">
               <i class="fas fa-times"></i>
             </button>
           </div>

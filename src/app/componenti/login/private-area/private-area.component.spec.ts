@@ -47,4 +47,19 @@ describe('PrivateAreaComponent', () => {
     finishSetup(); flushMicrotasks();
     expect(component.notificationNavigation.consumePendingOrNavigate).toHaveBeenCalledOnceWith('/homeAdmin');
   }));
+  it('continues a verified manual login when biometric credential storage is unavailable', fakeAsync(() => {
+    const component: any = Object.create(PrivateAreaComponent.prototype);
+    component.isMobile = true;
+    component.tenantService = { tenant: 'test', requiresTenantSelection: false };
+    component.globalService = { url: '/', headers: new HttpHeaders(), loadTenantConfig: async () => ({}) };
+    component.authService = {};
+    component.http = { post: () => of({ token: 'signed-in', permissions: ['NOTIFICATIONS_VIEW'] }) };
+    component.bio = { storeCredentials: async () => { throw new Error('Unavailable keychain'); } };
+    component.serviceAnnouncements = { showAfterLogin: async () => {} };
+    component.navigatorSetup = { showAfterLogin: async () => {} };
+    component.notificationNavigation = { consumePendingOrNavigate: jasmine.createSpy('navigate').and.resolveTo() };
+    void component.loginFunction('fittizio@example.test', 'test-only'); flushMicrotasks();
+    expect(component.biometricAvailable).toBeFalse();
+    expect(component.notificationNavigation.consumePendingOrNavigate).toHaveBeenCalledOnceWith('/homeAdmin');
+  }));
 });

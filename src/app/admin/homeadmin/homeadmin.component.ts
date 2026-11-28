@@ -89,14 +89,31 @@ interface EmailHealthIssue {
   styleUrls: ['./homeadmin.component.css'],
 })
 export class HomeAdminComponent implements OnInit, OnDestroy {
+  workplaceIssueCount = 0;
+  loadWorkplaceIssues(): void {
+    if (!this.global.hasPermission('CUSTOMERS_VIEW') || !this.global.hasTenantFeature('stamping') || this.global.consultationOnly) { this.workplaceIssueCount = 0; return; }
+    this.http.get<{count: number}>(this.global.url + 'customers/workplace-issues').subscribe({
+      next: value => this.workplaceIssueCount = value.count || 0,
+      error: () => {},
+    });
+  }
 
-  readonly realtimeResources = ["quotes","customers","employees","employee_contracts","candidates","deadlines","email","internal_warehouse","material_orders","leave_requests","todos","invoices","accounting"];
+  customerTicketCount=0;
+  loadCustomerTicketSummary():void {
+    if(!this.canUsePermission('CUSTOMER_TICKETS_VIEW','customerTickets')){this.customerTicketCount=0;return;}
+    const token=this.global.token;
+    this.http.get<{total:number}>(this.global.url+'admin/customer-portal/tickets/summary',{headers:this.global.headers}).subscribe({next:value=>{if(token===this.global.token)this.customerTicketCount=value.total||0;},error:()=>{}});
+  }
+
+  readonly realtimeResources = ["customer_tickets","quotes","customers","employees","employee_contracts","candidates","deadlines","email","internal_warehouse","material_orders","leave_requests","todos","invoices","accounting"];
   refreshRealtimeData(): void | boolean | Promise<void | boolean> {
+    this.loadWorkplaceIssues();this.loadCustomerTicketSummary();
     this.loadActiveCandidatesCount(); this.loadDeadlineSummary(); this.loadPendingQuoteReviews(); this.loadUnsentInvoiceCount(); this.loadPendingEmployeeContractReviews(); this.loadEmailUnreadSummary(); this.loadInternalWarehouseSummary();
   }
   private quoteAcceptanceSubscription?: Subscription;
   private employeeContractSubscription?: Subscription;
   private customerArchiveReminderSubscription?: Subscription;
+  private customerTicketSubscription?: Subscription;
   private routerEventsSubscription?: Subscription;
   private deadlineSummarySubscription?: Subscription;
   private adminTodoSubscription?: Subscription;
@@ -122,6 +139,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     'email',
     'emailSettings',
     'emailSendingSettings',
+    'customerDocumentSharingSettings',
+    'customerCommunications', 'customerTickets', 'customerPortalEmails',
     'employee-contracts',
     'employee-deadlines',
     'equipment-deadlines',
@@ -137,6 +156,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     'leave-settings',
     'listCustomer',
     'notificationSettings',
+    'periodic-assessment-settings',
     'quoteNotes',
     'quoteSettings',
     'quotesHome',
@@ -211,6 +231,12 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   private customerArchiveReminderOpen = false;
 
   ngOnInit(): void {
+    this.updateDesktopHomeState();
+    this.bindRouterState();
+    if (this.global.consultationOnly) {
+      void this.global.loadTenantConfig(false);
+      return;
+    }
     this.noteUnread.start();
     // Il menu deve riflettere subito i moduli appena pubblicati da MVControl.
     // Senza refresh la feature fatture poteva restare nascosta fino a una nuova sessione.
@@ -226,6 +252,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       this.loadInternalWarehouseSummary();
       this.loadUnassignedPermissionNotice();
       this.loadPendingCustomerArchiveReminders();
+      this.loadWorkplaceIssues();this.loadCustomerTicketSummary();
       if (this.canUseTodoView()) {
         this.loadAdminTodos();
       }
@@ -235,9 +262,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       console.error('Errore caricamento config tenant:', err);
     });
     this.deadlineSummarySubscription = this.global.deadlineSummaryChanged$.subscribe(() => this.loadDeadlineSummary());
-    this.updateDesktopHomeState();
-    this.bindRouterState();
     this.bindQuoteAcceptanceUpdates();
+    this.bindCustomerTicketUpdates();
     this.bindEmployeeContractUpdates();
     this.bindCustomerArchiveReminderUpdates();
     this.bindInternalWarehouseSummaryUpdates();
@@ -248,6 +274,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.customerTicketSubscription?.unsubscribe();
     this.quoteAcceptanceSubscription?.unsubscribe();
     this.employeeContractSubscription?.unsubscribe();
     this.customerArchiveReminderSubscription?.unsubscribe();
@@ -266,7 +293,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   checkPermessiInAttesa(): void {
-    if (!this.canUsePermission('EMPLOYEE_PERMITS_MANAGE')) {
+    if (!this.canUsePermission('EMPLOYEE_PERMITS_VIEW')) {
       this.permessiInAttesa = 0;
       return;
     }
@@ -433,7 +460,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   loadEmailUnreadSummary(): void {
-    if (!this.canUsePermission('EMAIL_VIEW') && !this.canUsePermission('EMAIL_SETTINGS', 'email')) {
+    if (!this.canUsePermission('EMAIL_READ') && !this.canUsePermission('EMAIL_SETTINGS', 'email')) {
       this.emailUnreadCount = 0;
       this.emailAccountIssueCount = 0;
       return;
@@ -459,7 +486,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   }
 
   loadEmailHealthNotice(refresh = false, allowOpen = true): void {
-    if (!this.canUsePermission('EMAIL_VIEW') && !this.canUsePermission('EMAIL_SETTINGS', 'email')) {
+    if (!this.canUsePermission('EMAIL_READ') && !this.canUsePermission('EMAIL_SETTINGS', 'email')) {
       this.emailHealthIssues = [];
       this.emailHealthNoticeVisible = false;
       this.emailAccountIssueCount = 0;
@@ -581,10 +608,15 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     }
 
     this.emailUnreadIntervalId = setInterval(() => {
-      if (this.canUsePermission('EMAIL_VIEW') || this.canUsePermission('EMAIL_SETTINGS', 'email')) {
+      if (this.canUsePermission('EMAIL_READ') || this.canUsePermission('EMAIL_SETTINGS', 'email')) {
         this.loadEmailUnreadSummary();
       }
     }, 30000);
+  }
+
+  private bindCustomerTicketUpdates():void {
+    if(this.customerTicketSubscription)return;
+    this.customerTicketSubscription=this.socketService.onResourceChanges('customer_tickets').subscribe(()=>this.loadCustomerTicketSummary());
   }
 
   private bindQuoteAcceptanceUpdates(): void {
@@ -651,6 +683,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.customerArchiveReminderSubscription = this.socketService
       .onResourceChanges('customers')
       .subscribe((change) => {
+        this.loadWorkplaceIssues();
         const update: any = change.metadata || {};
         if (update?.kind === 'resolved') {
           const notificationId = Number(update?.notificationId);
@@ -758,6 +791,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   navigateToCategorySettings() {
     this.navigateInHome('category-settings');
+  }
+
+  navigateToPeriodicAssessmentSettings() {
+    this.navigateInHome('periodic-assessment-settings');
   }
 
   navigateToQuotesHome() {
@@ -891,6 +928,8 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
     this.navigateInHome('emailSettings');
   }
 
+  navigateToCustomerDocumentSharingSettings() { this.navigateInHome('customerDocumentSharingSettings'); }
+
   navigateToEmailSendingSettings() {
     this.navigateInHome('emailSendingSettings');
   }
@@ -924,24 +963,24 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
       {
         label: 'Email',
         icon: 'fas fa-envelope',
-        permission: 'EMAIL_VIEW',
-        permissionsAny: ['EMAIL_VIEW', 'EMAIL_SETTINGS'],
+        permission: 'EMAIL_READ',
+        permissionsAny: ['EMAIL_READ', 'EMAIL_SETTINGS'],
         action: () => {
-          if (this.canUsePermission('EMAIL_VIEW')) {
+          if (this.canUsePermission('EMAIL_READ')) {
             this.navigateInHome('email');
             return;
           }
 
           this.navigateToEmailSettings();
         },
-        desktopPath: this.canUsePermission('EMAIL_VIEW') ? 'email' : undefined,
+        desktopPath: this.canUsePermission('EMAIL_READ') ? 'email' : undefined,
         badgeCount: () => this.emailUnreadCount + this.emailAccountIssueCount,
         badgeClass: () => this.emailAccountIssueCount > 0 ? 'alert-badge alert-badge-expired' : 'badge bg-danger ms-1',
       },
       {
         label: 'Documenti interni',
         icon: 'fas fa-file',
-        permission: 'INTERNAL_DOCS_ACCESS',
+        permission: 'INTERNAL_DOCS_VIEW',
         feature: 'internalDocuments',
         action: () => this.navigateToInternalDocuments(),
         desktopPath: 'internal-documents',
@@ -1021,7 +1060,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
           {
             label: 'Gestione permessi',
             icon: 'fas fa-clipboard-check',
-            permission: 'EMPLOYEE_PERMITS_MANAGE',
+            permission: 'EMPLOYEE_PERMITS_VIEW',
             feature: 'leaveRequests',
             action: () => this.navigateToGestionePermessi(),
             desktopPath: 'gestionepermessi',
@@ -1042,11 +1081,15 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
             feature: 'customers',
             action: () => this.navigateToListCustomer(),
             desktopPath: 'listCustomer',
-            badgeCount: () => this.noteUnread.typeTotal('customer'),
+            badgeCount: () => this.noteUnread.typeTotal('customer') + this.workplaceIssueCount,
             badgeClass: () => 'badge bg-danger ms-1',
           },
+          { label:'Comunicazioni clienti', icon:'fas fa-envelope', permission:'CUSTOMER_COMMUNICATIONS_VIEW', feature:'customerCommunications', action:()=>this.navigateInHome('customerCommunications'), desktopPath:'customerCommunications' },
+          { label:'Gestione ticket clienti', icon:'fas fa-ticket-alt', permission:'CUSTOMER_TICKETS_VIEW', feature:'customerTickets', action:()=>this.navigateInHome('customerTickets'), desktopPath:'customerTickets', badgeCount:()=>this.customerTicketCount, badgeClass:()=> 'badge bg-danger ms-1' },
+          { label:'Avvisi email area clienti', icon:'fas fa-paper-plane', permission:'CUSTOMER_PORTAL_EMAIL_MANAGE', feature:'customerPortalEmails', action:()=>this.navigateInHome('customerPortalEmails'), desktopPath:'customerPortalEmails' },
           {
             label: 'Gestione Preventivi',
+
             icon: 'fas fa-file-alt',
             permission: 'QUOTES_VIEW',
             feature: 'quotes',
@@ -1786,7 +1829,7 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
 
   get showPermissionSetupNotice(): boolean {
     return (
-      this.canUsePermission('ADMIN_EDIT', 'administrators') &&
+      this.canUsePermission('ADMIN_PERMISSIONS_MANAGE', 'administrators') &&
       this.unassignedPermissionLabels.length > 0
     );
   }
@@ -2094,7 +2137,10 @@ export class HomeAdminComponent implements OnInit, OnDestroy {
   private bindRouterState(): void {
     this.routerEventsSubscription = this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
-      .subscribe(() => this.syncDesktopRouteState());
+      .subscribe(() => {
+        this.syncDesktopRouteState();
+        this.loadWorkplaceIssues();
+      });
 
     this.syncDesktopRouteState();
   }

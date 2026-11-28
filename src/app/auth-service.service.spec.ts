@@ -3,6 +3,9 @@ import { fakeAsync, flush, tick } from '@angular/core/testing';
 import { Preferences } from '@capacitor/preferences';
 
 describe('AuthServiceService', () => {
+  // Load the Capacitor web adapter before fakeAsync advances hours of time;
+  // otherwise its dynamic import can hit the simulated chunk timeout.
+  beforeAll(async () => { await Preferences.get({ key: 'auth-test-adapter-initialization' }); });
   const jwtValidFor = (milliseconds: number): string => {
     const encode = (value: object) => btoa(JSON.stringify(value))
       .replace(/=/g, '')

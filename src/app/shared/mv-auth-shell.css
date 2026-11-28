@@ -1,0 +1,455 @@
+/* Shared by the internal login and customer portal. Use the MVanager design tokens. */
+.mv-auth-shell{
+  --brand-orange:var(--mv-orange-500);
+  --brand-blue:var(--mv-blue-500);
+  --brand-black:var(--mv-ink);
+}
+
+.mv-auth-shell{
+  width:100%;
+  height:100dvh;
+  min-height:100svh;
+  margin:0;
+  overflow:hidden;
+  overscroll-behavior:none;
+  font-family: inherit;
+  background:
+    radial-gradient(900px 500px at 20% 10%, rgba(47,183,255,0.12), transparent 50%),
+    radial-gradient(900px 500px at 80% 10%, rgba(255,122,0,0.10), transparent 50%),
+    radial-gradient(1200px 600px at 50% 100%, rgba(255,122,0,0.06), transparent 50%),
+    linear-gradient(180deg,#eef4ff 0%,#f8fbff 100%);
+  background-attachment:fixed;
+}
+
+.mv-auth-shell app-private-area{
+  display:flex;
+  flex-direction:column;
+  width:100%;
+  height:100dvh;
+  min-height:100svh;
+  overflow:hidden;
+}
+
+.mv-auth-shell .clouds{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  opacity:.25;
+  background:
+    radial-gradient(600px 220px at 20% 78%, rgba(255,255,255,.8), transparent 70%),
+    radial-gradient(700px 260px at 80% 80%, rgba(255,255,255,.8), transparent 70%),
+    radial-gradient(820px 300px at 50% 92%, rgba(255,255,255,.8), transparent 70%);
+  filter:blur(3px);
+}
+
+.mv-auth-shell header{
+  flex:0 0 auto;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  background:rgba(255,255,255,.55);
+  border-bottom:1px solid rgba(255,255,255,.65);
+}
+
+.mv-auth-shell .login-wrap{
+  position:relative;
+  z-index:1;
+  flex:1 1 auto;
+  width:100%;
+  min-width:0;
+  min-height:0!important;
+  height:auto;
+  padding-block:24px;
+  box-sizing:border-box;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+
+.mv-auth-shell .glass-card{
+  width:100%;
+  max-width:420px;
+  border-radius:var(--mv-radius-surface);
+  background:rgba(255,255,255,0.75);
+  border:1px solid rgba(255,255,255,0.9);
+  box-shadow:
+    0 25px 80px rgba(2,6,23,.10),
+    0 8px 24px rgba(2,6,23,.06),
+    inset 0 1px 0 rgba(255,255,255,.5);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  padding:32px 28px 28px;
+  position:relative;
+  overflow:hidden;
+}
+
+.mv-auth-shell .glass-card::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:var(--mv-radius-surface);
+  padding:2px;
+  background:linear-gradient(135deg, rgba(255,122,0,0.15), rgba(47,183,255,0.15), rgba(255,122,0,0.05));
+  -webkit-mask:linear-gradient(var(--mv-surface) 0 0) content-box, linear-gradient(var(--mv-surface) 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  pointer-events:none;
+}
+
+.mv-auth-shell .brand-area{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  margin-bottom:24px;
+}
+
+.mv-auth-shell .brand-badge{
+  width:120px;
+  height:120px;
+  border-radius:var(--mv-radius-surface);
+  padding:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--mv-surface);
+  border:1px solid rgba(255,255,255,.9);
+  box-shadow:
+    0 12px 32px rgba(2,6,23,.10),
+    inset 0 1px 0 rgba(255,255,255,.5);
+}
+
+.mv-auth-shell .brand-badge img{
+  width:100%;
+  height:auto;
+  object-fit:contain;
+  display:block;
+}
+
+.mv-auth-shell .title{
+  margin:12px 0 4px;
+  font-weight:850;
+  font-size:1.2rem;
+  color:var(--brand-black);
+  letter-spacing:-.3px;
+}
+
+.mv-auth-shell .subtitle{
+  color:rgba(15,23,42,.55);
+  font-size:.88rem;
+}
+
+.mv-auth-shell .company-dropdown{
+  position:relative;
+  margin-bottom:20px;
+}
+
+.mv-auth-shell .company-trigger{
+  width:100%;
+  min-height:54px;
+  border-radius:var(--mv-radius-surface);
+  border:1.5px solid rgba(0,0,0,0.08);
+  background:var(--mv-surface);
+  color:var(--brand-black);
+  padding:12px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  text-align:left;
+  cursor:pointer;
+  box-shadow:0 2px 8px rgba(2,6,23,.04);
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+
+.mv-auth-shell .company-trigger:hover,
+.mv-auth-shell .company-trigger.open{
+  border-color:var(--brand-orange);
+  box-shadow:0 0 0 3px rgba(255,122,0,.10), 0 8px 24px rgba(2,6,23,.08);
+}
+
+.mv-auth-shell .company-trigger:disabled{
+  opacity:.6;
+  cursor:default;
+}
+
+.mv-auth-shell .company-trigger-text{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+}
+
+.mv-auth-shell .company-trigger-text strong{
+  font-size:.96rem;
+  line-height:1.2;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.mv-auth-shell .company-trigger-text span{
+  font-size:.78rem;
+  color:rgba(15,23,42,.55);
+  line-height:1.3;
+  margin-top:3px;
+}
+
+.mv-auth-shell .company-caret{
+  flex:0 0 auto;
+  font-size:.9rem;
+  color:rgba(15,23,42,.55);
+  transition:transform .15s ease;
+}
+
+.mv-auth-shell .company-trigger.open .company-caret{
+  transform:rotate(180deg);
+}
+
+.mv-auth-shell .company-menu{
+  position:absolute;
+  top:calc(100% + 8px);
+  left:0;
+  right:0;
+  z-index:20;
+  border-radius:var(--mv-radius-surface);
+  border:1px solid rgba(15,23,42,.10);
+  background:var(--mv-surface);
+  box-shadow:0 18px 44px rgba(2,6,23,.15);
+  padding:6px;
+  max-height:240px;
+  overflow:auto;
+}
+
+.mv-auth-shell .company-option{
+  width:100%;
+  border-radius:var(--mv-radius-surface);
+  border:0;
+  background:var(--mv-surface);
+  color:var(--brand-black);
+  padding:12px;
+  text-align:left;
+  cursor:pointer;
+  transition:background-color .15s ease, color .15s ease;
+}
+
+.mv-auth-shell .company-option:hover{
+  background:rgba(255,122,0,.08);
+}
+
+.mv-auth-shell .company-option strong{
+  display:block;
+  font-size:.95rem;
+  margin-bottom:3px;
+}
+
+.mv-auth-shell .company-option span{
+  display:block;
+  font-size:.78rem;
+  color:rgba(15,23,42,.55);
+  line-height:1.35;
+}
+
+.mv-auth-shell .company-option.active{
+  background:rgba(255,122,0,.12);
+}
+
+.mv-auth-shell .tenant-hint{
+  margin:-6px 0 16px;
+  color:rgba(15,23,42,.5);
+  font-size:.84rem;
+  text-align:center;
+}
+
+.mv-auth-shell .form-label{
+  font-weight:700;
+  color:rgba(15,23,42,.8);
+  font-size:.85rem;
+  margin-bottom:6px;
+}
+
+.mv-auth-shell .input-wrap{
+  position:relative;
+}
+
+.mv-auth-shell .form-control{
+  border-radius:var(--mv-radius-control);
+  border:1.5px solid rgba(0,0,0,0.08);
+  background:var(--mv-surface);
+  padding:12px 14px;
+  font-size:.95rem;
+  transition:border-color .18s ease, box-shadow .18s ease;
+  box-shadow:0 1px 4px rgba(2,6,23,.04);
+}
+
+.mv-auth-shell .form-control:focus{
+  border-color:var(--brand-orange);
+  box-shadow:0 0 0 3px rgba(255,122,0,.10);
+  outline:none;
+}
+
+.mv-auth-shell .form-control::placeholder{
+  color:rgba(15,23,42,.3);
+}
+
+.mv-auth-shell .btn-eye{
+  border-radius:var(--mv-radius-control);
+  border:1.5px solid rgba(0,0,0,0.08);
+  background:var(--mv-surface);
+  padding:12px 14px;
+  font-size:1.1rem;
+  cursor:pointer;
+  transition:border-color .18s ease;
+  box-shadow:0 1px 4px rgba(2,6,23,.04);
+}
+
+/* Il layout globale assegna width:100% agli input: nel gruppo password
+   il campo deve invece lasciare spazio al pulsante per mostrare la password. */
+.mv-auth-shell .input-group{
+  position:relative;
+  display:flex;
+  flex-wrap:nowrap;
+  align-items:stretch;
+}
+
+.mv-auth-shell .input-group > .form-control{
+  width:100%!important;
+  min-width:0;
+  flex:1 1 100%;
+  padding-right:58px;
+}
+
+.mv-auth-shell .input-group > .btn-eye{
+  position:absolute;
+  top:50%;
+  right:6px;
+  z-index:3;
+  width:42px!important;
+  height:42px;
+  min-width:42px;
+  margin:0!important;
+  padding:0!important;
+  display:grid;
+  place-items:center;
+  border:0;
+  border-radius:var(--mv-radius-control);
+  background:transparent;
+  color:var(--mv-text);
+  line-height:1;
+  transform:translateY(-50%);
+  box-shadow:none;
+}
+
+.mv-auth-shell .input-group > .btn-eye svg{
+  display:block;
+  width:22px;
+  height:22px;
+  pointer-events:none;
+}
+
+.mv-auth-shell .btn-eye:hover{
+  background:rgba(15,23,42,.06);
+  color:var(--brand-orange);
+}
+
+.mv-auth-shell .forgot-row{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:6px;
+}
+
+@media (max-height: 760px){
+  .mv-auth-shell .login-wrap{ padding-block:12px; align-items:flex-start!important; }
+  .mv-auth-shell .glass-card{ margin-block:auto; }
+  .mv-auth-shell .glass-card{ padding:22px 24px; }
+  .mv-auth-shell .brand-area{ margin-bottom:14px; }
+  .mv-auth-shell .brand-badge{ width:88px; height:88px; border-radius:var(--mv-radius-surface); }
+}
+
+.mv-auth-shell .forgot-link{
+  color:rgba(15,23,42,.6);
+  text-decoration:none;
+  font-weight:600;
+  font-size:.85rem;
+  cursor:pointer;
+  transition:color .15s ease;
+}
+
+.mv-auth-shell .forgot-link:hover{
+  color:var(--brand-orange);
+  text-decoration:underline;
+}
+
+.mv-auth-shell .btn-login{
+  border-radius:var(--mv-radius-surface);
+  padding:14px 14px;
+  font-weight:900;
+  font-size:1.05rem;
+  border:2px solid rgba(0,0,0,0.12);
+  color:var(--mv-ink);
+  background:linear-gradient(135deg, var(--mv-orange-500), var(--mv-orange-300));
+  box-shadow:0 12px 28px rgba(255,122,0,.30);
+  transition:transform .15s ease, box-shadow .15s ease;
+  letter-spacing:.3px;
+  text-shadow:0 1px 0 rgba(255,255,255,.2);
+}
+
+.mv-auth-shell .btn-login:hover{
+  transform:translateY(-2px);
+  box-shadow:0 16px 40px rgba(255,122,0,.40);
+}
+
+.mv-auth-shell .btn-login:active{
+  transform:translateY(0);
+}
+
+.mv-auth-shell .btn-login:disabled{
+  opacity:.6;
+  filter:saturate(.6);
+}
+
+.mv-auth-shell .btn-biometric{
+  border-radius:var(--mv-radius-control);
+  padding:11px 14px;
+  font-weight:700;
+  font-size:.9rem;
+  border:1.5px solid rgba(0,0,0,0.08);
+  color:var(--brand-black);
+  background:var(--mv-surface);
+  box-shadow:0 2px 8px rgba(2,6,23,.04);
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  margin-top:10px;
+}
+
+.mv-auth-shell .btn-biometric:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 20px rgba(2,6,23,.08);
+  border-color:rgba(0,0,0,0.15);
+}
+
+@media (max-width: 520px){
+  .mv-auth-shell .glass-card{
+    padding:24px 18px 22px;
+    border-radius:var(--mv-radius-surface);
+  }
+
+  .mv-auth-shell .brand-badge{
+    width:100px;
+    height:100px;
+  }
+
+}
+
+.mv-auth-shell .privacy-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  margin-top: 16px;
+}
+
+.mv-auth-shell .privacy-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--mv-text, #0f172a);
+  font-size: .85rem;
+  text-underline-offset: 3px;
+}

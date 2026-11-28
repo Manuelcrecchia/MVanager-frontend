@@ -1,7 +1,7 @@
 <div class="quote-accept-page">
   <section class="hero">
     <div class="hero-copy">
-      <span class="eyebrow">{{ isAssetIntervention ? 'Verbale intervento presidi' : 'Foglio di fine lavoro' }}</span>
+      <span class="eyebrow">{{ isAssetIntervention ? 'Verbale intervento presidi' : (data?.config?.title || 'Valutazione del servizio') }}</span>
       <h1>{{ isAssetIntervention ? 'Conferma e firma dell’intervento' : 'Valutazione e firma del servizio' }}</h1>
       <p>{{ isAssetIntervention ? 'Controllate il verbale, verificate la vostra email e firmate il documento.' : 'Compilate personalmente la scheda, verificate la vostra email e firmate il documento.' }}</p>
     </div>
@@ -14,11 +14,17 @@
     <section class="card summary-card">
       <div class="summary-head">
         <div><span class="label">Cliente</span><h2>{{ data.displayName }}</h2></div>
-        <span class="status-pill" [class.success]="data.status === 'accepted'">{{ data.status }}</span>
+        <span class="status-pill" [class.success]="data.status === 'accepted'">{{ statusLabel }}</span>
       </div>
 
-      <div class="notice success" *ngIf="successMessage">{{ successMessage }}</div>
+      <div class="notice" *ngIf="data.context?.categoryKey || data.context?.workDescription">
+        <strong>{{data.context.categoryLabel || data.context.categoryKey}}</strong>
+        <p *ngIf="data.context.periodStart">Periodo {{data.context.periodStart | date:'dd/MM/yyyy'}} – {{data.context.periodEnd | date:'dd/MM/yyyy'}}</p>
+        <p *ngIf="workDescription">{{workDescription}}</p>
+      </div>
+      <div class="notice success" *ngIf="successMessage && data.status !== 'accepted'">{{ successMessage }}</div>
       <div class="notice error" *ngIf="errorMessage">{{ errorMessage }}</div>
+      <div class="notice" *ngIf="data.status === 'cancelled'">Questo link di firma non è più utilizzabile.</div>
       <div class="actions" *ngIf="pdfUrl">
         <a class="btn btn-secondary" [href]="pdfUrl" target="_blank" rel="noreferrer">Apri il PDF</a>
         <a class="btn btn-secondary" [href]="pdfUrl" target="_blank" rel="noreferrer" download>Scarica il PDF</a>
@@ -41,7 +47,7 @@
 
         <label class="check-row">
           <input type="checkbox" name="acceptTerms" [(ngModel)]="acceptTerms" />
-          <span>Dichiaro di aver controllato e di accettare integralmente {{ isAssetIntervention ? 'il verbale intervento presidi' : 'il foglio di fine lavoro' }}.</span>
+          <span>Dichiaro di aver controllato e di accettare integralmente {{ isAssetIntervention ? 'il verbale intervento presidi' : (data.context?.mode === 'recurring' ? 'la valutazione del periodo indicato' : 'il foglio di fine lavoro') }}.</span>
         </label>
         <label class="check-row">
           <input type="checkbox" name="privacyAcknowledged" [(ngModel)]="privacyAcknowledged" />

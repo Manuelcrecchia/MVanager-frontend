@@ -664,6 +664,10 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
     return this.global.hasPermission('INTERNAL_WAREHOUSE_HISTORY_VIEW');
   }
 
+  get canImportProducts(): boolean {
+    return this.global.hasPermission('INTERNAL_WAREHOUSE_IMPORT');
+  }
+
   get canExport(): boolean {
     return this.global.hasPermission('INTERNAL_WAREHOUSE_EXPORT');
   }
@@ -3434,7 +3438,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   }
 
   exportCsv(kind: 'products' | 'movements'): void {
-    if (!this.canExport) return;
+    if (!this.canExport || (kind === 'movements' && !this.canHistory)) return;
     const path = kind === 'products' ? '/export/products.csv' : '/export/movements.csv';
     this.http.get(this.api(path), { responseType: 'blob' }).subscribe({
       next: (blob) => {
@@ -3519,7 +3523,7 @@ export class InternalWarehouseComponent implements OnInit, OnDestroy {
   }
 
   importProducts(event: Event): void {
-    if (!this.canExport) return;
+    if (!this.canImportProducts) return;
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;

@@ -1,3 +1,4 @@
+import { DocumentExplorerEntry, DocumentExplorerAction, DocumentFolder, documentFolderEntry } from '../../shared/document-explorer/document-explorer.component';
 import { oversizedDocumentMessage, documentUploadError } from '../../shared/document-upload-limits';
 import { downloadFile } from '../../shared/file-download';
 import { Component, OnInit } from '@angular/core';
@@ -18,7 +19,7 @@ export class InternalDocumentsComponent implements OnInit {
   refreshRealtimeData(): void | boolean | Promise<void | boolean> {
     this.loadFolders(); this.loadFiles();
   }
-  folders: string[] = [];
+  folders: DocumentFolder[] = [];
   selectedFolder: string = '';
   files: any[] = [];
   pdfBase64: string = '';
@@ -42,6 +43,62 @@ export class InternalDocumentsComponent implements OnInit {
     this.refreshDirectory();
   }
 
+  get canPrintDocuments(): boolean {
+    return !this.globalService.consultationOnly;
+  }
+
+  private explorerCacheFolders?: DocumentFolder[];
+  private explorerCacheFiles?: any[];
+  private explorerCachePath = '';
+  private explorerCache: DocumentExplorerEntry[] = [];
+
+  get explorerEntries(): DocumentExplorerEntry[] {
+    if (this.explorerCacheFolders === this.folders && this.explorerCacheFiles === this.files && this.explorerCachePath === this.selectedFolder) return this.explorerCache;
+    this.explorerCacheFolders = this.folders;
+    this.explorerCacheFiles = this.files;
+    this.explorerCachePath = this.selectedFolder;
+    this.explorerCache = [
+      ...this.folders.map(documentFolderEntry),
+      ...this.files.map(file => ({ id: 'file:' + file.filename, name: this.displayFileName(file), kind: 'file' as const, data: file, size: file.size, modifiedAt: file.uploadedAt || file.updatedAt, locked: false, detail: '' })),
+    ];
+    return this.explorerCache;
+  }
+
+  navigateExplorer(path: string): void {
+    if (this.isUploading) return;
+    this.selectedFolder = path;
+    this.documentSearch = '';
+    this.folders = [];
+    this.files = [];
+    this.refreshDirectory();
+  }
+
+  createExplorerFolder(name: string): void {
+    this.newFolderName = name;
+    this.createFolder();
+  }
+
+  uploadExplorerFiles(files: File[]): void {
+    void this.uploadFiles(files);
+  }
+
+  onExplorerAction(event: DocumentExplorerAction): void {
+    const { type, entry } = event;
+    if (this.isUploading) return;
+    if (entry.kind === 'folder') {
+      if (type === 'open') this.navigateExplorer([this.selectedFolder, entry.data].filter(Boolean).join('/'));
+      if (type === 'delete') void this.deleteFolder(entry.data);
+      return;
+    }
+    switch (type) {
+      case 'open': this.selectFile(entry.data); break;
+      case 'download': this.downloadCurrentFile(entry.data); break;
+      case 'print': this.printFile(entry.data); break;
+      case 'delete': void this.deleteFile(entry.data); break;
+
+    }
+  }
+
   // ============ FOLDERS ============
 
   get currentPathLabel(): string {
@@ -54,8 +111,9 @@ export class InternalDocumentsComponent implements OnInit {
 
   get filteredFolders(): string[] {
     const query = this.normalizeSearch(this.documentSearch);
-    if (!query) return this.folders;
-    return this.folders.filter((folder) => this.normalizeSearch(folder).includes(query));
+    const names = this.folders.map(folder => folder.name);
+    if (!query) return names;
+    return names.filter((name) => this.normalizeSearch(name).includes(query));
   }
 
   get filteredFiles(): any[] {
@@ -100,22 +158,17 @@ export class InternalDocumentsComponent implements OnInit {
   loadFolders(): void {
     const requestedFolder = this.selectedFolder;
     this.http
-      .post(
+      .post<Array<DocumentFolder | string>>(
         this.globalService.url + 'admin/internal-documents/folders',
-        { path: this.selectedFolder },
+        { path: requestedFolder, includeMetadata: true },
         {
           headers: this.globalService.headers,
-          responseType: 'text',
         },
       )
       .subscribe({
-        next: (res) => {
+        next: (folders) => {
           if (requestedFolder !== this.selectedFolder) return;
-          try {
-            this.folders = JSON.parse(res) || [];
-          } catch {
-            this.folders = [];
-          }
+          this.folders = (folders || []).map(folder => typeof folder === 'string' ? { name: folder } : folder);
         },
         error: (err) => {
           if (requestedFolder !== this.selectedFolder) return;
@@ -388,6 +441,7 @@ export class InternalDocumentsComponent implements OnInit {
   }
 
   printFile(fileOrName: any): void {
+    if (!this.canPrintDocuments) return;
     const filename = this.storedFileName(fileOrName);
     if (!filename) return;
 

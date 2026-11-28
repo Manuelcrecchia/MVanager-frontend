@@ -1,3 +1,4 @@
+import { normalizeWhatsappPhone } from '../../shared/whatsapp';
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -535,6 +536,8 @@ loadShifts(silent = false): void {
 
     return result;
   }
+
+  canExportShifts(): boolean { return this.globalService.hasPermission('SHIFTS_EXPORT'); }
 
   canUseRoutePlanning(): boolean {
     return (
@@ -1124,7 +1127,12 @@ loadShifts(silent = false): void {
     return `https://www.google.com/maps/dir/?${params.toString()}`;
   }
 
+  get canPublishShifts(): boolean {
+    return this.globalService.hasPermission('SHIFTS_PUBLISH');
+  }
+
   toggleEmployeeSelection(empId: number): void {
+    if (!this.canPublishShifts) return;
     if (!empId) return;
 
     const index = this.selectedEmployees.indexOf(empId);
@@ -1139,6 +1147,7 @@ loadShifts(silent = false): void {
   }
 
   toggleSelectAll(): void {
+    if (!this.canPublishShifts) return;
     const allIds = this.groupedKeys()
       .map((name) => this.getEmpId(name))
       .filter((id) => id > 0);
@@ -1161,6 +1170,7 @@ loadShifts(silent = false): void {
   }
 
   savePublication(): void {
+    if (!this.canPublishShifts) return;
     if (this.isSaving) return;
 
     const dateStr = this.formatDate(this.selectedDate);
@@ -1375,16 +1385,11 @@ loadShifts(silent = false): void {
       return;
     }
 
-    const phoneDigits = String(phoneRaw).replace(/\D/g, '');
-
-    if (!phoneDigits) {
+    const phoneWithPrefix = normalizeWhatsappPhone(phoneRaw);
+    if (!phoneWithPrefix) {
       alert('Numero di telefono non valido');
       return;
     }
-
-    const phoneWithPrefix = phoneDigits.startsWith('39')
-      ? phoneDigits
-      : `39${phoneDigits}`;
 
     const message = this.buildWhatsAppMessage(empName, employeeTurns);
     const encoded = encodeURIComponent(message);

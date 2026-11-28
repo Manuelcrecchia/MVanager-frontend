@@ -24,6 +24,7 @@ export class AuthServiceService {
   private activityListenersInstalled = false;
   private postLoginServicesToken: string | null = null;
   private _token: string | null = localStorage.getItem(this.TOKEN_KEY) || sessionStorage.getItem(this.TOKEN_KEY) || null;
+  private _consultationOnly = !!this._token && this.isConsultationToken(this._token);
   private _userCode: string | null = localStorage.getItem(this.USER_CODE_KEY) || sessionStorage.getItem(this.USER_CODE_KEY) || null;
   private _permissions: string[] = (() => {
     try { return JSON.parse(localStorage.getItem(this.PERMISSIONS_KEY) || sessionStorage.getItem(this.PERMISSIONS_KEY) || '[]'); } catch { return []; }
@@ -65,6 +66,7 @@ export class AuthServiceService {
         this.clearSessionState();
       }
     } else {
+      this._consultationOnly = false;
       this.removeValue(this.TOKEN_KEY);
       this.clearLogoutTimer();
       this.stopIdleTracking();
@@ -72,6 +74,10 @@ export class AuthServiceService {
   }
   get token(): string | null {
     return this._token;
+  }
+
+  get consultationOnly(): boolean {
+    return this._consultationOnly;
   }
 
   set userCode(value: string | null) {
@@ -231,6 +237,7 @@ export class AuthServiceService {
       this.EMAIL_KEY,
     ].forEach((key) => this.removeValue(key));
     this._token = null;
+    this._consultationOnly = false;
     this._email = null;
     this._userCode = null;
     this._permissions = [];
@@ -241,7 +248,7 @@ export class AuthServiceService {
   }
 
   initializePostLoginServices(token = this._token, permissions = this._permissions): void {
-    if (!token || this.postLoginServicesToken === token) {
+    if (!token || this.postLoginServicesToken === token || this.isConsultationToken(token)) {
       return;
     }
 
@@ -250,6 +257,14 @@ export class AuthServiceService {
       this.postLoginServicesToken = null;
       console.error('[AuthService] Errore inizializzazione push:', err);
     });
+  }
+
+  private isConsultationToken(token: string): boolean {
+    try {
+      return jwtDecode<{ consultationOnly?: boolean }>(token).consultationOnly === true;
+    } catch {
+      return false;
+    }
   }
 
   logout(): void {
@@ -340,8 +355,10 @@ export class AuthServiceService {
   }
 
   private syncPermissionsFromToken(token: string): void {
+    this._consultationOnly = false;
     try {
       const decoded: any = jwtDecode(token);
+      this._consultationOnly = decoded.consultationOnly === true;
       if (Array.isArray(decoded?.permissions)) {
         this.permissions = decoded.permissions;
       }

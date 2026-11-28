@@ -1,4 +1,5 @@
 import { TenantFieldMappingFieldConfig } from '../service/global.service';
+import { parseMappedNumericText } from '../shared/mapped-amount';
 
 export interface MappedFieldValidationError {
   fieldKey: string;
@@ -52,28 +53,6 @@ function isItalianPostalCode(value: string): boolean {
 
 function isPersonName(value: string): boolean {
   return /^[A-Za-zÀ-ÖØ-öø-ÿ' .-]{2,}$/.test(value.trim());
-}
-
-function parseNumericValue(value: string): number {
-  let normalized = String(value)
-    .trim()
-    .replace(/\s/g, '')
-    .replace(/[^\d,.-]/g, '');
-
-  if (!normalized) return Number.NaN;
-
-  const commaIndex = normalized.lastIndexOf(',');
-  const dotIndex = normalized.lastIndexOf('.');
-  if (commaIndex !== -1 && dotIndex !== -1) {
-    normalized =
-      commaIndex > dotIndex
-        ? normalized.replace(/\./g, '').replace(',', '.')
-        : normalized.replace(/,/g, '');
-  } else if (commaIndex !== -1) {
-    normalized = normalized.replace(',', '.');
-  }
-
-  return Number(normalized);
 }
 
 function isValidDate(value: string): boolean {
@@ -141,7 +120,7 @@ export function validateMappedField(
     message,
   });
 
-  if ((type === 'number' || type === 'money') && Number.isNaN(parseNumericValue(text))) {
+  if ((type === 'number' || type === 'money') && Number.isNaN(parseMappedNumericText(text))) {
     return fail('deve essere un numero valido.');
   }
 

@@ -1,3 +1,4 @@
+import { PopupServiceService } from '../../componenti/popup/popup-service.service';
 import { defer, of, throwError } from 'rxjs';
 import { AttachmentViewerService } from '../../shared/attachment-viewer/attachment-viewer.service';
 import { OfflineService } from '../../offline/offline.service';
@@ -35,6 +36,7 @@ export interface AllegatoNota {
 
 export interface NotaPreventivo {
   id?: number;
+  canDelete?: boolean;
   numeroPreventivo: string;
   operatore: string;
   data: string;
@@ -61,6 +63,8 @@ export class QuoteNotesComponent implements OnInit {
   note: NotaPreventivo[] = [];
   nuovaNota = '';
   nuoviAllegati: AllegatoNota[] = [];
+  deletingId: number | null = null;
+  deleteError = '';
   loading = false;
   sending = false;
   uploadProgress: number | null = null;
@@ -155,6 +159,7 @@ export class QuoteNotesComponent implements OnInit {
     private location: Location,
     private sanitizer: DomSanitizer,
     private noteUnread: NoteUnreadService,
+    private appDialog: PopupServiceService,
   ) {}
 
   ngOnInit() {
@@ -167,6 +172,28 @@ export class QuoteNotesComponent implements OnInit {
       this.route.snapshot.queryParamMap.get('returnTo'),
     );
     this.loadNote();
+  }
+
+  canDeleteNote(note: NotaPreventivo): boolean {
+    return Boolean(note.id && note.canDelete && this.canManageNotes && !this.globalService.consultationOnly);
+  }
+
+  async deleteNote(note: NotaPreventivo): Promise<void> {
+    if (!this.canDeleteNote(note) || this.deletingId !== null) return;
+    if (!await this.appDialog.confirm('Eliminare questa nota e i suoi eventuali allegati?')) return;
+    if (this.destroyed || !this.canDeleteNote(note)) return;
+    this.deletingId = note.id!;
+    this.deleteError = '';
+    this.http.delete(this.globalService.url + 'quotes' + '/notes/' + note.id, { headers: this.globalService.headers }).subscribe({
+      next: () => {
+        this.note = this.note.filter(item => item.id !== note.id);
+        this.deletingId = null;
+      },
+      error: error => {
+        this.deletingId = null;
+        this.deleteError = error.error?.error || 'Impossibile eliminare la nota. Riprova.';
+      },
+    });
   }
 
   loadNote(silent = false) {

@@ -129,7 +129,7 @@
             </button>
 
             <button type="button"
-              *ngIf="globalService.hasPermission('QUOTES_MANAGE') && !isQuoteCompleted(quote) && !quote.isLocked && !quote.anonymizedAt"
+              *ngIf="globalService.hasPermission('QUOTES_DELETE') && !isQuoteCompleted(quote) && !quote.isLocked && !quote.anonymizedAt"
               class="btn btn-quote-action btn-quote-delete mv-record-action mv-record-action--danger action-with-tooltip"
               (click)="delete(quote.numeroPreventivo)"
               title="Elimina il preventivo"
@@ -151,7 +151,7 @@
             </button>
 
             <button type="button"
-              *ngIf="!isQuoteCompleted(quote) && globalService.hasPermission('EMAIL_VIEW')"
+              *ngIf="!isQuoteCompleted(quote) && globalService.hasPermission('EMAIL_COMPOSE')"
               class="btn btn-quote-action btn-quote-email mv-record-action mv-record-action--email action-with-tooltip"
               (click)="composeQuoteEmail(quote)"
               title="Crea una nuova email con il cliente già come destinatario"
@@ -162,7 +162,7 @@
             </button>
 
             <button type="button"
-              *ngIf="!isQuoteCompleted(quote)"
+              *ngIf="!isQuoteCompleted(quote) && globalService.hasPermission('QUOTES_REQUEST_SIGNATURE')"
               class="btn btn-quote-action btn-quote-chat mv-record-action mv-record-action--signature action-with-tooltip"
               (click)="sendAcceptanceLink(quote.numeroPreventivo)"
               title="Genera il link di accettazione e scegli WhatsApp o email"
@@ -252,7 +252,7 @@
             </button>
 
             <button type="button"
-              *ngIf="isQuoteCompleted(quote) && !quote.anonymizedAt && globalService.hasPermission('QUOTES_MANAGE')"
+              *ngIf="isQuoteCompleted(quote) && !quote.anonymizedAt && globalService.hasPermission('QUOTES_ANONYMIZE')"
               class="btn btn-quote-action btn-quote-delete mv-record-action mv-record-action--danger action-with-tooltip"
               (click)="anonymizeQuote(quote.numeroPreventivo)"
               title="Elimina definitivamente i dati personali del preventivo archiviato"

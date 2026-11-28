@@ -119,7 +119,7 @@
           <label>
             Tipo
             <select [(ngModel)]="selected.type" name="type" [disabled]="!canEdit()" (change)="onDocumentTypeChange()">
-              <option *ngFor="let item of documentTypes" [value]="item.key">{{ item.label }}</option>
+              <option *ngFor="let item of documentTypes" [value]="item.key" [disabled]="!canSelectInvoiceType(item.key)">{{ item.label }}</option>
             </select>
           </label>
           <label [class.live-invalid]="!!invoiceFieldError('issueDate')">
@@ -478,7 +478,7 @@
                 <span class="draft-save-confirmation" *ngIf="draftSaveConfirmation" role="status" aria-live="polite">
                   <i class="fas fa-check-circle"></i>{{ draftSaveConfirmation }}
                 </span>
-                <button type="button" class="primary-btn action-primary-wide" (click)="saveValidateSend()" [disabled]="!canManage || saving || invoiceHasLiveErrors() || isProforma(selected) || (selected.id && !canSendElectronic())">Invia SDI + email</button>
+                <button type="button" class="primary-btn action-primary-wide" (click)="saveValidateSend()" [disabled]="!canTransmitInvoice() || saving || invoiceHasLiveErrors() || isProforma(selected) || (selected.id && !canSendElectronic())">Invia SDI + email</button>
                 <button type="button" class="ghost-btn" (click)="downloadPdf()" [disabled]="saving || !selected.id">PDF</button>
               </div>
             </section>
@@ -486,7 +486,7 @@
             <section class="action-group">
               <span class="action-group__label">Documento</span>
               <div class="action-group__buttons">
-                <button type="button" class="ghost-btn" (click)="createCreditNote()" [disabled]="!canManage || saving || !canCreateCreditNote()">Nota credito</button>
+                <button type="button" class="ghost-btn" (click)="createCreditNote()" [disabled]="!canManageCreditNotes || saving || !canCreateCreditNote()">Nota credito</button>
                 <button type="button" class="ghost-btn" (click)="createDebitNote()" [disabled]="!canManage || saving || !selected.id || selected.type === 'TD05' || isProforma(selected)">Nota debito</button>
                 <button type="button" class="ghost-btn" (click)="convertProforma()" [disabled]="!canManage || saving || !selected.id || !isProforma(selected)">Converti proforma</button>
                 <button type="button" class="ghost-btn" (click)="emailInvoice()" [disabled]="!canManage || saving || !selected.id || !sendEmailRecipient">Invia email</button>
@@ -506,12 +506,12 @@
               <summary>Avanzate/provider</summary>
               <div class="action-group__buttons">
                 <button type="button" class="ghost-btn" (click)="saveAndValidate()" [disabled]="!canManage || saving || !canEdit() || isProforma(selected)">Salva e valida</button>
-                <button type="button" class="ghost-btn" (click)="issue()" [disabled]="!canManage || saving || !selected.id">Emetti</button>
-                <button type="button" class="ghost-btn" (click)="send()" [disabled]="!canManage || saving || !canSendElectronic()">Invia provider</button>
+                <button type="button" class="ghost-btn" (click)="issue()" [disabled]="!canIssueInvoice() || saving || !selected.id">Emetti</button>
+                <button type="button" class="ghost-btn" (click)="send()" [disabled]="!canTransmitInvoice() || saving || !canSendElectronic()">Invia provider</button>
                 <button type="button" class="ghost-btn" (click)="validate()" [disabled]="!canManage || saving || !canSendElectronic()">Valida</button>
                 <button type="button" class="ghost-btn" (click)="sync()" [disabled]="!canManage || saving || !selected.id">Aggiorna stato</button>
                 <button type="button" class="ghost-btn" (click)="generateXml()" [disabled]="!canManage || saving || !canSendElectronic()">XML</button>
-                <button type="button" class="ghost-btn danger" (click)="deleteDraft()" [disabled]="!canManage || saving || selected.status !== 'draft'">Elimina</button>
+                <button type="button" class="ghost-btn danger" (click)="deleteDraft()" [disabled]="!canDeleteDrafts || saving || selected.status !== 'draft'">Elimina</button>
               </div>
             </details>
           </div>
@@ -956,7 +956,7 @@
             <button type="button" class="primary-btn" (click)="createInvoiceFromDdt()" [disabled]="!canManage || saving || (selectedDdtIds.length === 0 && (!selectedDdt.id || selectedDdt.status !== 'issued'))">Fattura differita {{ selectedDdtIds.length ? '(' + selectedDdtIds.length + ')' : '' }}</button>
             <button type="button" class="ghost-btn" (click)="downloadDdtPdf()" [disabled]="saving || !selectedDdt.id">PDF DDT</button>
             <button type="button" class="ghost-btn" (click)="emailDdt()" [disabled]="!canManage || saving || !selectedDdt.id">Email DDT</button>
-            <button type="button" class="ghost-btn danger" (click)="deleteDdt()" [disabled]="!canManage || saving || !selectedDdt.id || selectedDdt.status !== 'draft'">Elimina DDT</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteDdt()" [disabled]="!canDeleteDrafts || saving || !selectedDdt.id || selectedDdt.status !== 'draft'">Elimina DDT</button>
             <button type="button" class="ghost-btn danger" (click)="cancelDdt()" *ngIf="selectedDdt.status === 'issued'" [disabled]="!canManage || saving">Annulla DDT</button>
           </div>
         </footer>
@@ -1102,36 +1102,36 @@
       <p>Richiama una serie mentre compili la fattura. Le nuove serie vengono aggiunte automaticamente quando salvi un documento. La serie vuota indica la numerazione ordinaria.</p>
       <form (ngSubmit)="saveSeries()" class="settings-form">
         <div class="form-grid" *ngFor="let item of seriesCatalog.series; let i = index">
-          <label>Codice serie<input [(ngModel)]="item.code" [name]="'seriesCode' + i" maxlength="19" [readonly]="!canManage || savingSeries" /></label>
-          <label>Descrizione<input [(ngModel)]="item.label" [name]="'seriesLabel' + i" maxlength="120" [readonly]="!canManage || savingSeries" /></label>
+          <label>Codice serie<input [(ngModel)]="item.code" [name]="'seriesCode' + i" maxlength="19" [readonly]="!canManageInvoiceSettings || savingSeries" /></label>
+          <label>Descrizione<input [(ngModel)]="item.label" [name]="'seriesLabel' + i" maxlength="120" [readonly]="!canManageInvoiceSettings || savingSeries" /></label>
         </div>
-        <button type="button" class="secondary-btn" (click)="addSeries()" [disabled]="!canManage || savingSeries">Aggiungi serie</button>
+        <button type="button" class="secondary-btn" (click)="addSeries()" [disabled]="!canManageInvoiceSettings || savingSeries">Aggiungi serie</button>
         <h3>Serie predefinita per tipo documento</h3>
         <div class="form-grid">
           <label *ngFor="let type of documentTypes">{{ type.label }}
-            <select [ngModel]="seriesForType(type.key)" (ngModelChange)="seriesCatalog.defaults[type.key] = $event" [name]="'defaultSeries' + type.key" [disabled]="!canManage || savingSeries || type.key === 'PF'">
+            <select [ngModel]="seriesForType(type.key)" (ngModelChange)="seriesCatalog.defaults[type.key] = $event" [name]="'defaultSeries' + type.key" [disabled]="!canManageInvoiceSettings || savingSeries || type.key === 'PF'">
               <option *ngFor="let item of seriesCatalog.series" [value]="item.code">{{ item.label }}{{ item.code ? ' (' + item.code + ')' : '' }}</option>
             </select>
           </label>
         </div>
-        <button type="submit" class="primary-btn" [disabled]="!canManage || savingSeries">{{ savingSeries ? 'Salvataggio…' : 'Salva serie' }}</button>
+        <button type="submit" class="primary-btn" [disabled]="!canManageInvoiceSettings || savingSeries">{{ savingSeries ? 'Salvataggio…' : 'Salva serie' }}</button>
       </form>
     </article>
     <article class="ops-panel">
       <header class="ddt-header"><div><p class="eyebrow">Invio SdI</p><h2>Promemoria fatture non inviate</h2></div></header>
       <form class="settings-form unsent-reminders-form" (ngSubmit)="saveUnsentSdiReminders()">
-        <label class="checkbox-field"><input type="checkbox" name="unsentReminderEnabled" [(ngModel)]="unsentReminderEnabled" [disabled]="!canManage || savingUnsentReminders" /> Attiva i promemoria email</label>
+        <label class="checkbox-field"><input type="checkbox" name="unsentReminderEnabled" [(ngModel)]="unsentReminderEnabled" [disabled]="!canManageInvoiceSettings || savingUnsentReminders" /> Attiva i promemoria email</label>
         <label>Destinatari email
-          <textarea name="unsentReminderEmails" [(ngModel)]="unsentReminderEmails" rows="3" placeholder="amministrazione@azienda.it&#10;responsabile@azienda.it" [readonly]="!canManage || savingUnsentReminders"></textarea>
+          <textarea name="unsentReminderEmails" [(ngModel)]="unsentReminderEmails" rows="3" placeholder="amministrazione@azienda.it&#10;responsabile@azienda.it" [readonly]="!canManageInvoiceSettings || savingUnsentReminders"></textarea>
           <small>Un indirizzo per riga, oppure separati da virgole. Ogni destinatario riceverà il promemoria.</small>
         </label>
         <label>Giorni dalla data della fattura
-          <input name="unsentReminderDays" [(ngModel)]="unsentReminderDays" placeholder="2, 5, 10, 11, 12" [readonly]="!canManage || savingUnsentReminders" />
+          <input name="unsentReminderDays" [(ngModel)]="unsentReminderDays" placeholder="2, 5, 10, 11, 12" [readonly]="!canManageInvoiceSettings || savingUnsentReminders" />
           <small>Inserisci i giorni separati da virgole, da 1 a 365. Il conteggio segue la data della fattura, non quella di salvataggio.</small>
         </label>
         <p>I promemoria partono dal mittente email globale usato per le credenziali. Il controllo avviene ogni ora e si interrompe quando la fattura risulta inviata. Le proforma sono escluse.</p>
         <p>Il conteggio parte dalla data riportata sulla fattura, anche per le bozze già salvate. Se più giorni di promemoria sono già trascorsi, viene recuperato soltanto l’ultimo.</p>
-        <button type="submit" class="primary-btn" [disabled]="!canManage || savingUnsentReminders">{{ savingUnsentReminders ? 'Salvataggio…' : 'Salva promemoria' }}</button>
+        <button type="submit" class="primary-btn" [disabled]="!canManageInvoiceSettings || savingUnsentReminders">{{ savingUnsentReminders ? 'Salvataggio…' : 'Salva promemoria' }}</button>
       </form>
     </article>
     <article class="ops-panel invoice-health" *ngIf="operationalHealth">
@@ -1157,7 +1157,7 @@
           <p class="eyebrow">Scadenze</p>
           <h2>Termini pagamento</h2>
         </div>
-        <button type="button" class="ghost-btn" (click)="newPaymentTerm()" [disabled]="!canManage">Nuovo termine</button>
+        <button type="button" class="ghost-btn" (click)="newPaymentTerm()" [disabled]="!canManageInvoiceSettings">Nuovo termine</button>
       </header>
       <div class="settings-layout">
         <div class="settings-list">
@@ -1171,46 +1171,46 @@
           <div class="form-grid compact">
             <label>
               Codice
-              <input [(ngModel)]="selectedPaymentTerm.code" name="paymentTermCode" />
+              <input [disabled]="!canManageInvoiceSettings" [(ngModel)]="selectedPaymentTerm.code" name="paymentTermCode" />
             </label>
             <label>
               Nome
-              <input [(ngModel)]="selectedPaymentTerm.name" name="paymentTermName" required />
+              <input [disabled]="!canManageInvoiceSettings" [(ngModel)]="selectedPaymentTerm.name" name="paymentTermName" required />
             </label>
             <label>
               Metodo
-              <select [(ngModel)]="selectedPaymentTerm.method" name="paymentTermMethod">
+              <select [disabled]="!canManageInvoiceSettings" [(ngModel)]="selectedPaymentTerm.method" name="paymentTermMethod">
                 <option *ngFor="let item of paymentMethods" [value]="item.key">{{ item.label }}</option>
               </select>
             </label>
             <label>
               Rate
-              <input type="number" min="1" [(ngModel)]="selectedPaymentTerm.installmentCount" name="paymentTermInstallmentCount" />
+              <input [disabled]="!canManageInvoiceSettings" type="number" min="1" [(ngModel)]="selectedPaymentTerm.installmentCount" name="paymentTermInstallmentCount" />
             </label>
             <label>
               Prima scadenza gg
-              <input type="number" min="0" [(ngModel)]="selectedPaymentTerm.firstDueDays" name="paymentTermFirstDueDays" />
+              <input [disabled]="!canManageInvoiceSettings" type="number" min="0" [(ngModel)]="selectedPaymentTerm.firstDueDays" name="paymentTermFirstDueDays" />
             </label>
             <label>
               Intervallo gg
-              <input type="number" min="1" [(ngModel)]="selectedPaymentTerm.intervalDays" name="paymentTermIntervalDays" />
+              <input [disabled]="!canManageInvoiceSettings" type="number" min="1" [(ngModel)]="selectedPaymentTerm.intervalDays" name="paymentTermIntervalDays" />
             </label>
             <label class="checkbox-field">
               <span>Fine mese</span>
-              <input type="checkbox" [(ngModel)]="selectedPaymentTerm.endOfMonth" name="paymentTermEndOfMonth" />
+              <input [disabled]="!canManageInvoiceSettings" type="checkbox" [(ngModel)]="selectedPaymentTerm.endOfMonth" name="paymentTermEndOfMonth" />
             </label>
             <label class="checkbox-field">
               <span>Default</span>
-              <input type="checkbox" [(ngModel)]="selectedPaymentTerm.isDefault" name="paymentTermDefault" />
+              <input [disabled]="!canManageInvoiceSettings" type="checkbox" [(ngModel)]="selectedPaymentTerm.isDefault" name="paymentTermDefault" />
             </label>
             <label class="checkbox-field">
               <span>Attivo</span>
-              <input type="checkbox" [(ngModel)]="selectedPaymentTerm.active" name="paymentTermActive" />
+              <input [disabled]="!canManageInvoiceSettings" type="checkbox" [(ngModel)]="selectedPaymentTerm.active" name="paymentTermActive" />
             </label>
           </div>
           <div class="actions">
-            <button type="submit" class="primary-btn" [disabled]="!canManage || saving">Salva termine</button>
-            <button type="button" class="ghost-btn danger" (click)="deletePaymentTerm()" [disabled]="!canManage || saving || !selectedPaymentTerm.id">Disattiva</button>
+            <button type="submit" class="primary-btn" [disabled]="!canManageInvoiceSettings || saving">Salva termine</button>
+            <button type="button" class="ghost-btn danger" (click)="deletePaymentTerm()" [disabled]="!canManageInvoiceSettings || saving || !selectedPaymentTerm.id">Disattiva</button>
           </div>
         </form>
       </div>
@@ -1222,7 +1222,7 @@
           <p class="eyebrow">Incassi</p>
           <h2>Banche e IBAN</h2>
         </div>
-        <button type="button" class="ghost-btn" (click)="newBankAccount()" [disabled]="!canManage">Nuova banca</button>
+        <button type="button" class="ghost-btn" (click)="newBankAccount()" [disabled]="!canManageInvoiceSettings">Nuova banca</button>
       </header>
       <div class="settings-layout">
         <div class="settings-list">
@@ -1236,32 +1236,32 @@
           <div class="form-grid compact">
             <label>
               Banca
-              <input [(ngModel)]="selectedBankAccount.bankName" name="bankName" />
+              <input [disabled]="!canManageInvoiceSettings" [(ngModel)]="selectedBankAccount.bankName" name="bankName" />
             </label>
             <label>
               Intestatario
-              <input [(ngModel)]="selectedBankAccount.holder" name="bankHolder" />
+              <input [disabled]="!canManageInvoiceSettings" [(ngModel)]="selectedBankAccount.holder" name="bankHolder" />
             </label>
             <label class="wide">
               IBAN
-              <input [(ngModel)]="selectedBankAccount.iban" name="bankIban" required />
+              <input [disabled]="!canManageInvoiceSettings" [(ngModel)]="selectedBankAccount.iban" name="bankIban" required />
             </label>
             <label>
               BIC
-              <input [(ngModel)]="selectedBankAccount.bic" name="bankBic" />
+              <input [disabled]="!canManageInvoiceSettings" [(ngModel)]="selectedBankAccount.bic" name="bankBic" />
             </label>
             <label class="checkbox-field">
               <span>Default</span>
-              <input type="checkbox" [(ngModel)]="selectedBankAccount.isDefault" name="bankDefault" />
+              <input [disabled]="!canManageInvoiceSettings" type="checkbox" [(ngModel)]="selectedBankAccount.isDefault" name="bankDefault" />
             </label>
             <label class="checkbox-field">
               <span>Attiva</span>
-              <input type="checkbox" [(ngModel)]="selectedBankAccount.active" name="bankActive" />
+              <input [disabled]="!canManageInvoiceSettings" type="checkbox" [(ngModel)]="selectedBankAccount.active" name="bankActive" />
             </label>
           </div>
           <div class="actions">
-            <button type="submit" class="primary-btn" [disabled]="!canManage || saving">Salva banca</button>
-            <button type="button" class="ghost-btn danger" (click)="deleteBankAccount()" [disabled]="!canManage || saving || !selectedBankAccount.id">Disattiva</button>
+            <button type="submit" class="primary-btn" [disabled]="!canManageInvoiceSettings || saving">Salva banca</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteBankAccount()" [disabled]="!canManageInvoiceSettings || saving || !selectedBankAccount.id">Disattiva</button>
           </div>
         </form>
       </div>
@@ -1273,7 +1273,7 @@
           <p class="eyebrow">Righe fattura</p>
           <h2>Catalogo servizi</h2>
         </div>
-        <button type="button" class="ghost-btn" (click)="newServiceItem()" [disabled]="!canManage">Nuovo servizio</button>
+        <button type="button" class="ghost-btn" (click)="newServiceItem()" [disabled]="!canManageInvoiceSettings">Nuovo servizio</button>
       </header>
       <div class="settings-layout">
         <div class="settings-list">
@@ -1287,49 +1287,49 @@
           <div class="form-grid compact">
             <label>
               Codice
-              <input [(ngModel)]="selectedServiceItem.code" name="serviceCode" required />
+              <input [disabled]="!canManageInvoiceSettings" [(ngModel)]="selectedServiceItem.code" name="serviceCode" required />
             </label>
             <label>
               Nome
-              <input [(ngModel)]="selectedServiceItem.name" name="serviceName" required />
+              <input [disabled]="!canManageInvoiceSettings" [(ngModel)]="selectedServiceItem.name" name="serviceName" required />
             </label>
             <label>
               UM
-              <input [(ngModel)]="selectedServiceItem.unit" name="serviceUnit" />
+              <input [disabled]="!canManageInvoiceSettings" [(ngModel)]="selectedServiceItem.unit" name="serviceUnit" />
             </label>
             <label>
               Prezzo
-              <input type="number" step="0.01" [(ngModel)]="selectedServiceItem.unitPrice" name="serviceUnitPrice" />
+              <input [disabled]="!canManageInvoiceSettings" type="number" step="0.01" [(ngModel)]="selectedServiceItem.unitPrice" name="serviceUnitPrice" />
             </label>
             <label>
               Tipo prezzo
-              <select [(ngModel)]="selectedServiceItem.priceIncludesVat" name="servicePriceIncludesVat">
+              <select [disabled]="!canManageInvoiceSettings" [(ngModel)]="selectedServiceItem.priceIncludesVat" name="servicePriceIncludesVat">
                 <option [ngValue]="false">IVA esclusa</option>
                 <option [ngValue]="true">IVA inclusa</option>
               </select>
             </label>
             <label>
               IVA
-              <input type="number" step="0.01" [(ngModel)]="selectedServiceItem.vatRate" name="serviceVatRate" />
+              <input [disabled]="!canManageInvoiceSettings" type="number" step="0.01" [(ngModel)]="selectedServiceItem.vatRate" name="serviceVatRate" />
             </label>
             <label>
               Natura
-              <select [(ngModel)]="selectedServiceItem.vatNature" name="serviceVatNature" [disabled]="+selectedServiceItem.vatRate !== 0">
+              <select [(ngModel)]="selectedServiceItem.vatNature" name="serviceVatNature" [disabled]="!canManageInvoiceSettings || +selectedServiceItem.vatRate !== 0">
                 <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
               </select>
             </label>
             <label class="checkbox-field">
               <span>Attivo</span>
-              <input type="checkbox" [(ngModel)]="selectedServiceItem.active" name="serviceActive" />
+              <input [disabled]="!canManageInvoiceSettings" type="checkbox" [(ngModel)]="selectedServiceItem.active" name="serviceActive" />
             </label>
             <label class="wide">
               Descrizione
-              <textarea rows="2" [(ngModel)]="selectedServiceItem.description" name="serviceDescription"></textarea>
+              <textarea [disabled]="!canManageInvoiceSettings" rows="2" [(ngModel)]="selectedServiceItem.description" name="serviceDescription"></textarea>
             </label>
           </div>
           <div class="actions">
-            <button type="submit" class="primary-btn" [disabled]="!canManage || saving">Salva servizio</button>
-            <button type="button" class="ghost-btn danger" (click)="deleteServiceItem()" [disabled]="!canManage || saving || !selectedServiceItem.id">Disattiva</button>
+            <button type="submit" class="primary-btn" [disabled]="!canManageInvoiceSettings || saving">Salva servizio</button>
+            <button type="button" class="ghost-btn danger" (click)="deleteServiceItem()" [disabled]="!canManageInvoiceSettings || saving || !selectedServiceItem.id">Disattiva</button>
           </div>
         </form>
       </div>
@@ -1359,18 +1359,18 @@
           <div class="form-grid compact">
             <label class="checkbox-field">
               <span>Attiva</span>
-              <input type="checkbox" [(ngModel)]="customerInvoiceDefaults.enabled" name="customerInvoiceDefaultsEnabled" />
+              <input [disabled]="!canManageInvoiceSettings" type="checkbox" [(ngModel)]="customerInvoiceDefaults.enabled" name="customerInvoiceDefaultsEnabled" />
             </label>
             <label>
               Servizio default
-              <select [(ngModel)]="customerInvoiceDefaults.defaultServiceCode" name="customerInvoiceDefaultServiceCode">
+              <select [disabled]="!canManageInvoiceSettings" [(ngModel)]="customerInvoiceDefaults.defaultServiceCode" name="customerInvoiceDefaultServiceCode">
                 <option value="">Primo servizio attivo</option>
                 <option *ngFor="let service of activeServiceItems()" [value]="service.code">{{ service.code }} - {{ service.name }}</option>
               </select>
             </label>
             <label>
               Importo da
-              <select [(ngModel)]="customerInvoiceDefaults.amountSource" name="customerInvoiceAmountSource">
+              <select [disabled]="!canManageInvoiceSettings" [(ngModel)]="customerInvoiceDefaults.amountSource" name="customerInvoiceAmountSource">
                 <option value="service">Catalogo servizi</option>
                 <option value="customerField">Campo cliente</option>
                 <option value="fixed">Importo fisso</option>
@@ -1378,23 +1378,23 @@
             </label>
             <label>
               Campo importo
-              <input [(ngModel)]="customerInvoiceDefaults.amountField" name="customerInvoiceAmountField" [disabled]="customerInvoiceDefaults.amountSource !== 'customerField'" placeholder="importoFattura" />
+              <input [(ngModel)]="customerInvoiceDefaults.amountField" name="customerInvoiceAmountField" [disabled]="!canManageInvoiceSettings || customerInvoiceDefaults.amountSource !== 'customerField'" placeholder="importoFattura" />
             </label>
             <label>
               Importo fisso
-              <input type="number" step="0.01" [(ngModel)]="customerInvoiceDefaults.fixedAmount" name="customerInvoiceFixedAmount" [disabled]="customerInvoiceDefaults.amountSource !== 'fixed'" />
+              <input type="number" step="0.01" [(ngModel)]="customerInvoiceDefaults.fixedAmount" name="customerInvoiceFixedAmount" [disabled]="!canManageInvoiceSettings || customerInvoiceDefaults.amountSource !== 'fixed'" />
             </label>
             <label class="wide">
               Descrizione
-              <textarea rows="2" [(ngModel)]="customerInvoiceDefaults.descriptionTemplate" name="customerInvoiceDescriptionTemplate"></textarea>
+              <textarea [disabled]="!canManageInvoiceSettings" rows="2" [(ngModel)]="customerInvoiceDefaults.descriptionTemplate" name="customerInvoiceDescriptionTemplate"></textarea>
             </label>
             <label>
               Campo profilo IVA
-              <input [(ngModel)]="customerInvoiceDefaults.vatProfileSourceField" name="customerInvoiceVatProfileSourceField" placeholder="customerVatProfile" />
+              <input [disabled]="!canManageInvoiceSettings" [(ngModel)]="customerInvoiceDefaults.vatProfileSourceField" name="customerInvoiceVatProfileSourceField" placeholder="customerVatProfile" />
             </label>
             <label>
               Profilo default
-              <select [(ngModel)]="customerInvoiceDefaults.defaultVatProfileCode" name="customerInvoiceDefaultVatProfileCode">
+              <select [disabled]="!canManageInvoiceSettings" [(ngModel)]="customerInvoiceDefaults.defaultVatProfileCode" name="customerInvoiceDefaultVatProfileCode">
                 <option *ngFor="let profile of customerInvoiceDefaults.vatProfiles" [value]="profile.code">{{ profile.code || '-' }} - {{ profile.label }}</option>
               </select>
             </label>
@@ -1411,26 +1411,26 @@
               <span></span>
             </div>
             <div class="vat-profile-row" *ngFor="let profile of customerInvoiceDefaults.vatProfiles; let i = index">
-              <label class="vat-field"><span>Codice</span><input [(ngModel)]="profile.code" [name]="'customerVatProfileCode' + i" /></label>
-              <label class="vat-field"><span>Etichetta</span><input [(ngModel)]="profile.label" [name]="'customerVatProfileLabel' + i" /></label>
-              <label class="vat-field"><span>IVA</span><input type="number" step="0.01" [(ngModel)]="profile.vatRate" [name]="'customerVatProfileRate' + i" (ngModelChange)="onCustomerVatProfileRateChange(profile)" /></label>
-              <label class="vat-field"><span>Natura</span><select [(ngModel)]="profile.vatNature" [name]="'customerVatProfileNature' + i" [disabled]="+profile.vatRate !== 0">
+              <label class="vat-field"><span>Codice</span><input [disabled]="!canManageInvoiceSettings" [(ngModel)]="profile.code" [name]="'customerVatProfileCode' + i" /></label>
+              <label class="vat-field"><span>Etichetta</span><input [disabled]="!canManageInvoiceSettings" [(ngModel)]="profile.label" [name]="'customerVatProfileLabel' + i" /></label>
+              <label class="vat-field"><span>IVA</span><input [disabled]="!canManageInvoiceSettings" type="number" step="0.01" [(ngModel)]="profile.vatRate" [name]="'customerVatProfileRate' + i" (ngModelChange)="onCustomerVatProfileRateChange(profile)" /></label>
+              <label class="vat-field"><span>Natura</span><select [(ngModel)]="profile.vatNature" [name]="'customerVatProfileNature' + i" [disabled]="!canManageInvoiceSettings || +profile.vatRate !== 0">
                 <option *ngFor="let nature of vatNatures" [value]="nature.key">{{ nature.label }}</option>
               </select></label>
-              <label class="vat-field vat-field--check"><span>Split</span><input type="checkbox" [(ngModel)]="profile.splitPayment" [name]="'customerVatProfileSplit' + i" (ngModelChange)="onCustomerVatProfileSplitPaymentChange(profile)" /></label>
-              <label class="vat-field"><span>Esigibilità</span><select [(ngModel)]="profile.vatExigibility" [name]="'customerVatProfileExigibility' + i">
+              <label class="vat-field vat-field--check"><span>Split</span><input [disabled]="!canManageInvoiceSettings" type="checkbox" [(ngModel)]="profile.splitPayment" [name]="'customerVatProfileSplit' + i" (ngModelChange)="onCustomerVatProfileSplitPaymentChange(profile)" /></label>
+              <label class="vat-field"><span>Esigibilità</span><select [disabled]="!canManageInvoiceSettings" [(ngModel)]="profile.vatExigibility" [name]="'customerVatProfileExigibility' + i">
                 <option value="I">Immediata</option>
                 <option value="D">Differita</option>
                 <option value="S">Split payment</option>
               </select></label>
-              <button type="button" class="icon-btn danger" (click)="removeCustomerVatProfile(i)" [disabled]="customerInvoiceDefaults.vatProfiles.length <= 1">
+              <button type="button" class="icon-btn danger" (click)="removeCustomerVatProfile(i)" [disabled]="!canManageInvoiceSettings || customerInvoiceDefaults.vatProfiles.length <= 1">
                 <span class="material-icons">close</span>
               </button>
             </div>
           </div>
           <div class="actions">
-            <button type="button" class="ghost-btn" (click)="addCustomerVatProfile()">Aggiungi profilo IVA</button>
-            <button type="submit" class="primary-btn" [disabled]="!canManage || saving">Salva generazione</button>
+            <button [disabled]="!canManageInvoiceSettings" type="button" class="ghost-btn" (click)="addCustomerVatProfile()">Aggiungi profilo IVA</button>
+            <button type="submit" class="primary-btn" [disabled]="!canManageInvoiceSettings || saving">Salva generazione</button>
           </div>
         </form>
       </div>

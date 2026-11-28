@@ -1,6 +1,10 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import { Router } from '@angular/router';
 import { Preferences } from '@capacitor/preferences';
+import { jwtDecode } from 'jwt-decode';
+import { AuthServiceService } from '../auth-service.service';
+
+interface NotificationTarget { tenantId: string; route: string; }
 
 @Injectable({
   providedIn: 'root',
@@ -8,15 +12,15 @@ import { Preferences } from '@capacitor/preferences';
 export class NotificationNavigationService {
   private readonly pendingRouteKey = 'pendingNotificationRoute';
 
-  constructor(private router: Router) {}
+  constructor(private router: Router, private injector: Injector) {}
 
   async saveFromPayload(payload: unknown): Promise<void> {
-    const route = this.resolveRoute(payload);
-    if (!route) return;
+    const target = this.resolveTarget(payload);
+    if (!target) return;
 
     await Preferences.set({
       key: this.pendingRouteKey,
-      value: route,
+      value: JSON.stringify(target),
     });
   }
 
@@ -34,20 +38,67 @@ export class NotificationNavigationService {
   }
 
   async navigateFromPayload(payload: unknown): Promise<boolean> {
-    const route = this.resolveRoute(payload);
-    if (!route) return false;
+    const target = this.resolveTarget(payload);
+    if (!target) return false;
+
+    if (target.tenantId !== this.currentTenant()) {
+      await Preferences.set({ key: this.pendingRouteKey, value: JSON.stringify(target) });
+      // Resolve auth lazily: auth initializes push, which owns this navigator.
+      // Changing company always requires its own authenticated session.
+      this.injector.get(AuthServiceService).logout();
+      await this.router.navigateByUrl('/', { replaceUrl: true });
+      return true;
+    }
 
     await Preferences.remove({ key: this.pendingRouteKey });
-    await this.router.navigateByUrl(route);
+    await this.router.navigateByUrl(target.route);
     return true;
   }
 
   private async consumePendingRoute(): Promise<string | null> {
-    const result = await Preferences.get({ key: this.pendingRouteKey });
-    if (!result.value) return null;
+    const target = await this.pendingTarget();
+    if (!target || target.tenantId !== this.currentTenant()) return null;
 
     await Preferences.remove({ key: this.pendingRouteKey });
-    return this.normalizeRoute(result.value);
+    return target.route;
+  }
+
+  async getPendingTenantId(): Promise<string | null> {
+    return (await this.pendingTarget())?.tenantId || null;
+  }
+
+  private async pendingTarget(): Promise<NotificationTarget | null> {
+    const { value } = await Preferences.get({ key: this.pendingRouteKey });
+    if (!value) return null;
+    try {
+      const target = JSON.parse(value);
+      if (this.validTenant(target?.tenantId) && typeof target.route === 'string') {
+        return { tenantId: target.tenantId, route: this.normalizeRoute(target.route) };
+      }
+    } catch { /* Old pending routes contain no company and cannot be opened safely. */ }
+    await Preferences.remove({ key: this.pendingRouteKey });
+    return null;
+  }
+
+  private currentTenant(): string {
+    const auth = this.injector.get(AuthServiceService);
+    if (!auth.token || !auth.getTokenRemainingTime(auth.token)) return '';
+    try {
+      const data = jwtDecode<{ tenantId?: string }>(auth.token);
+      return this.validTenant(data.tenantId) ? data.tenantId! : '';
+    } catch { return ''; }
+  }
+
+  private validTenant(value: unknown): boolean {
+    return typeof value === 'string' && /^[a-z0-9][a-z0-9_-]{1,79}$/.test(value);
+  }
+
+  private resolveTarget(payload: unknown): NotificationTarget | null {
+    const data = this.extractData(payload);
+    const source = (payload || {}) as Record<string, unknown>;
+    const tenantId = data['tenantId'] ?? (source['notification'] || source['data'] ? '' : this.currentTenant());
+    const route = this.resolveRoute(payload);
+    return this.validTenant(tenantId) && route ? { tenantId: tenantId as string, route } : null;
   }
 
   private resolveRoute(payload: unknown): string | null {

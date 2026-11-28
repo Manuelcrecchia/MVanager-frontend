@@ -1,9 +1,15 @@
+import { ShiftExportComponent } from './admin/shift-home/shift-export.component';
+import { AccessScopePickerComponent } from './admin/access-scope/access-scope-picker.component';
+import { DocumentExplorerComponent } from './shared/document-explorer/document-explorer.component';
+import {CustomerWorkRegisterSettingsComponent} from './admin/customer-work-register-settings.component';
 import { BillingAddressLinkComponent } from './shared/billing-address-link/billing-address-link.component';
+import { CustomerStampingLocationComponent } from './admin/customer-stamping-location/customer-stamping-location.component';
 import { ItalianProvinceDirective } from './shared/italian-municipalities/italian-province.directive';
 import { PrivateImageDirective } from './shared/private-image.directive';
 import { CommandTooltipDirective } from './shared/command-tooltip.directive';
 import { LinkedFieldsComponent } from './admin/linked-fields.component';
 import { OfflineFieldDraftDirective } from './offline/offline-field-draft.directive';
+import { MappedAmountDirective } from './shared/mapped-amount.directive';
 import { OFFLINE_SESSION } from './offline/offline.service';
 import { OfflineStatusComponent } from './offline/offline-status.component';
 import { TenantService } from './service/tenant.service';
@@ -209,14 +215,18 @@ registerLocaleData(localeIt);
     AttachmentViewerComponent,
     ReliableDetailsDirective,
   ],
-  imports: [
+  imports: [CustomerWorkRegisterSettingsComponent, ShiftExportComponent,
+    DocumentExplorerComponent,
+    AccessScopePickerComponent,
     BillingAddressLinkComponent,
+    CustomerStampingLocationComponent,
     ItalianProvinceDirective,
     PrivateImageDirective,
     CommandTooltipDirective,
     LinkedFieldsComponent,
     OfflineStatusComponent,
     OfflineFieldDraftDirective,
+    MappedAmountDirective,
     BrowserModule,
     AppRoutingModule,
     MatSlideToggleModule,

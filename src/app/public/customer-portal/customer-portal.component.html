@@ -1,0 +1,132 @@
+<div class="customer-home" *ngIf="!loading && session && !session.passwordChangeRequired; else authentication">
+  <div class="home-clouds" aria-hidden="true"></div>
+  <aside class="portal-sidebar" aria-label="Navigazione area clienti">
+    <div class="sidebar-brand">
+      <img src="assets/logo.png" alt="MVanager" class="home-logo" />
+      <ng-container *ngTemplateOutlet="accountActions; context: { $implicit: 'desktop' }"></ng-container>
+    </div>
+    <nav class="sidebar-nav" aria-label="Menu principale">
+      <p class="nav-label">Menu principale</p>
+      <button *ngFor="let section of visibleSections" type="button" class="home-nav-button" [class.active]="!editingPassword && selectedSection?.id === section.id" [attr.aria-current]="!editingPassword && selectedSection?.id === section.id ? 'page' : null" (click)="selectSection(section)" [disabled]="busy">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="section.icon" /></svg>
+        {{ section.title }} <span *ngIf="sectionCount(section.id)" class="badge bg-danger">{{sectionCount(section.id)}}</span>
+      </button>
+    </nav>
+    <p class="customer-identity">Cliente {{ session.username || session.numeroCliente }}</p>
+  </aside>
+  <main class="home-content">
+    <header class="home-header" [class.mobile-landing]="!editingPassword && !selectedSection">
+      <div class="home-heading">
+        <p class="home-kicker">Area clienti</p>
+        <h1>{{ editingPassword ? 'Cambia password' : selectedSection?.title || 'Pannello principale' }}</h1>
+        <p class="company-name">{{ companyName }}</p>
+        <p class="customer-identity mobile-identity">Cliente {{ session.username || session.numeroCliente }}</p>
+      </div>
+      <div class="mobile-account">
+        <ng-container *ngTemplateOutlet="accountActions; context: { $implicit: 'mobile' }"></ng-container>
+      </div>
+    </header>
+    <p *ngIf="error" class="message error" role="alert">{{ error }}</p>
+    <p *ngIf="notice" class="message success" role="status">{{ notice }}</p>
+    <section *ngIf="editingPassword; else homeSections" class="password-panel" aria-label="Cambia password">
+      <ng-container *ngTemplateOutlet="passwordFields"></ng-container>
+    </section>
+    <ng-template #homeSections>
+      <section *ngIf="selectedSection; else mobileSections" class="section-panel" [attr.aria-label]="selectedSection.title">
+        <p>{{ selectedSection.description }}</p>
+        <ng-container *ngIf="selectedSection.id==='documents';else upcomingSection">
+          <app-customer-documents *ngIf="documentsEnabled;else documentsUnavailable" [api]="api" [tenant]="tenant" [token]="token" (sessionExpired)="documentSessionExpired()" />
+          <ng-template #documentsUnavailable><p>La consultazione dei documenti non è abilitata per questa azienda.</p></ng-template>
+        </ng-container>
+        <ng-template #upcomingSection>
+          <app-customer-communications *ngIf="selectedSection.id==='communications'&&communicationsEnabled" [api]="api" [tenant]="tenant" [token]="token" (sessionExpired)="documentSessionExpired()" (changed)="refreshSummary()" />
+          <app-customer-tickets *ngIf="selectedSection.id==='tickets'&&ticketsEnabled" [api]="api" [tenant]="tenant" [token]="token" [initialTicket]="initialTicket" (sessionExpired)="documentSessionExpired()" (changed)="refreshSummary()" />
+        </ng-template>
+        <button type="button" class="btn btn-outline-secondary mobile-back" (click)="showHome()">Torna alla home</button>
+      </section>
+    </ng-template>
+    <ng-template #mobileSections>
+      <div class="sections mobile-landing">
+        <article *ngFor="let section of visibleSections">
+          <button type="button" class="section-entry" (click)="selectSection(section)">
+            <span class="section-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="section.icon" /></svg></span>
+            <h2>{{ section.title }}</h2>
+            <p>{{ section.description }}</p>
+            <span class="soon">Apri {{section.title.toLowerCase()}} <span *ngIf="sectionCount(section.id)" class="badge bg-danger">{{sectionCount(section.id)}}</span></span>
+          </button>
+        </article>
+      </div>
+    </ng-template>
+  </main>
+</div>
+
+<ng-template #accountActions let-placement>
+  <div class="account-actions">
+    <div class="portal-settings">
+      <button class="account-icon" type="button" aria-label="Impostazioni" title="Impostazioni" [attr.aria-expanded]="settingsMenuOpen" [attr.aria-controls]="'customer-settings-' + placement" (click)="settingsMenuOpen = !settingsMenuOpen">
+        <span class="settings-icon" aria-hidden="true">⚙</span>
+      </button>
+      <nav *ngIf="settingsMenuOpen" class="settings-menu" [id]="'customer-settings-' + placement" aria-label="Impostazioni account">
+        <button type="button" (click)="openPasswordChange()">Cambia password</button>
+        <a href="https://mvtechcore.it/privacy/mvanagerclienti" target="_blank" rel="noopener noreferrer" (click)="closeSettings()">Informativa privacy</a>
+        <a href="https://mvtechcore.it/supporto/mvanager" target="_blank" rel="noopener noreferrer" (click)="closeSettings()">Assistenza</a>
+      </nav>
+    </div>
+    <button class="account-icon logout-button" type="button" (click)="logout()" [disabled]="busy" aria-label="Esci" title="Esci">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v16h5 M9 12h12 M16 7l5 5-5 5" /></svg>
+    </button>
+  </div>
+</ng-template>
+
+<ng-template #authentication>
+  <main class="mv-auth-shell portal">
+    <div class="clouds" aria-hidden="true"></div>
+    <div *ngIf="loading" class="loading" role="status">Caricamento area clienti…</div>
+    <div class="portal-content login-wrap" *ngIf="!loading">
+      <section class="glass-card portal-auth-card">
+        <div class="brand-area">
+          <div class="brand-badge"><img src="assets/logo.png" alt="MVanager" /></div>
+          <h1 class="title">Area clienti</h1>
+          <p class="subtitle">{{ companyName || 'Accedi alla tua area riservata' }}</p>
+        </div>
+        <p *ngIf="error" class="message error" role="alert">{{ error }}</p>
+        <p *ngIf="notice" class="message success" role="status">{{ notice }}</p>
+        <form class="login-card" *ngIf="!session && ready" (ngSubmit)="login()" #loginForm="ngForm">
+          <h2 class="visually-hidden">Accedi all’area clienti</h2>
+          <label class="form-label" for="customer-username">Nome utente (numero cliente)</label>
+          <input class="form-control" id="customer-username" name="username" [(ngModel)]="username" autocomplete="username" required maxlength="255" [disabled]="busy" aria-describedby="customer-username-hint">
+          <small id="customer-username-hint">Inserisci il numero cliente completo riportato nell’email, incluso l’anno.</small>
+          <label class="form-label" for="customer-password">Password</label>
+          <input class="form-control" id="customer-password" name="password" [(ngModel)]="password" type="password" autocomplete="current-password" required [disabled]="busy">
+          <button class="btn btn-login primary" type="submit" [disabled]="busy || loginForm.invalid">{{ busy ? 'Accesso in corso…' : 'Accedi' }}</button>
+          <p class="help">Hai dimenticato la password? Contatta la tua azienda di riferimento per ricevere nuove credenziali.</p>
+        </form>
+        <ng-container *ngIf="session && session.passwordChangeRequired">
+          <h2 class="password-title">Scegli la tua password</h2>
+          <p class="help">Per proseguire, sostituisci la password temporanea ricevuta via email.</p>
+          <ng-container *ngTemplateOutlet="passwordFields"></ng-container>
+          <button class="btn btn-outline-secondary auth-logout" type="button" (click)="logout()" [disabled]="busy">Esci</button>
+        </ng-container>
+        <nav class="privacy-links" aria-label="Privacy e assistenza">
+          <a href="https://mvtechcore.it/privacy/mvanagerclienti" target="_blank" rel="noopener noreferrer">Informativa privacy</a>
+          <a href="https://mvtechcore.it/supporto/mvanager" target="_blank" rel="noopener noreferrer">Assistenza</a>
+        </nav>
+      </section>
+    </div>
+    <footer>Area riservata clienti · MVanager</footer>
+  </main>
+</ng-template>
+
+<ng-template #passwordFields>
+  <form class="login-card" (ngSubmit)="changePassword()" #passwordForm="ngForm">
+    <label class="form-label" for="current-password">Password attuale</label>
+    <input class="form-control" id="current-password" name="currentPassword" type="password" [(ngModel)]="currentPassword" autocomplete="current-password" required [disabled]="busy">
+    <label class="form-label" for="new-password">Nuova password</label>
+    <input class="form-control" id="new-password" name="newPassword" type="password" [(ngModel)]="newPassword" autocomplete="new-password" minlength="8" required [disabled]="busy" aria-describedby="password-hint">
+    <small id="password-hint">Almeno 8 caratteri. Scegli una password che non usi altrove.</small>
+    <label class="form-label" for="confirm-password">Conferma nuova password</label>
+    <input class="form-control" id="confirm-password" name="confirmPassword" type="password" [(ngModel)]="confirmPassword" autocomplete="new-password" required [disabled]="busy">
+    <button class="btn btn-login primary" type="submit" [disabled]="busy || passwordForm.invalid">{{ busy ? 'Salvataggio…' : 'Salva password' }}</button>
+    <button class="btn btn-outline-secondary" type="button" *ngIf="session && !session.passwordChangeRequired" (click)="cancelPasswordChange()" [disabled]="busy">Annulla</button>
+  </form>
+</ng-template>

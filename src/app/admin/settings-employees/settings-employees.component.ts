@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { GlobalService, TenantEmployeeFieldConfig } from '../../service/global.service';
 import { Router } from '@angular/router';
 import { downloadFile as saveAs } from '../../shared/file-download';
@@ -91,6 +92,7 @@ export class SettingsEmployeesComponent implements OnInit, OnChanges {
 
   editingIndex: number | null = null;
   employeeEdit: any = {};
+  resettingPassword = false;
   private employeeEditOriginal: any = {};
   private readonly baseEmployeeFieldKeys = new Set([
     'nome',
@@ -528,6 +530,23 @@ export class SettingsEmployeesComponent implements OnInit, OnChanges {
     this.editingIndex = null;
     this.employeeEdit = {};
     this.employeeEditOriginal = {};
+  }
+
+  async regeneratePassword(): Promise<void> {
+    const id = this.employeeEdit.id;
+    if (!id || this.resettingPassword) return;
+    this.resettingPassword = true;
+    try {
+      if (!await this.appDialog.confirm('Rigenerare la password e inviarla all’indirizzo email salvato per questo dipendente? Le sessioni attive verranno chiuse.')) return;
+      await firstValueFrom(this.http.post(this.globalService.url + 'employees/regeneratePassword', { id }, {
+        headers: this.globalService.headers,
+      }));
+      alert('Nuova password inviata.');
+    } catch (error: any) {
+      alert(error?.error?.error || 'Rigenerazione password non riuscita.');
+    } finally {
+      this.resettingPassword = false;
+    }
   }
 
   saveEdit() {

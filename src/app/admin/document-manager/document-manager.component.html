@@ -13,300 +13,39 @@
     <button class="mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button>
   </div>
 </header>
-
-<!-- background -->
-<div class="mv-bg">
-  <div class="mv-page container-fluid">
-    <div class="mv-shell">
-      <!-- SIDEBAR -->
-      <aside class="mv-card mv-sidebar">
-        <div class="mv-card__head">
-          <h3 class="mv-h3">Cartelle</h3>
-          <p class="mv-sub">{{ currentPathLabel }}</p>
-        </div>
-
-        <div class="mv-card__body">
-          <div class="mv-document-search">
-            <mat-icon>search</mat-icon>
-            <input
-              type="search"
-              [(ngModel)]="documentSearch"
-              placeholder="Cerca cartella o file"
-            />
-          </div>
-
-          <button
-            mat-button
-            (click)="selectRoot()"
-            class="folder-btn root-folder-btn"
-            [class.selected]="!selectedFolder"
-            type="button"
-          >
-            <mat-icon>home</mat-icon>
-            Directory principale
-          </button>
-
-          <button
-            *ngIf="canGoUp"
-            mat-button
-            (click)="goUp()"
-            class="folder-btn root-folder-btn"
-            type="button"
-          >
-            <mat-icon>arrow_upward</mat-icon>
-            Torna su
-          </button>
-
-          <mat-list class="folder-list">
-            <mat-list-item *ngFor="let folder of filteredFolders" class="folder-item">
-              <div class="folder-row">
-                <button
-                  mat-button
-                  (click)="selectFolder(folder)"
-                  class="folder-btn"
-                  [class.selected]="folder === selectedFolder"
-                  type="button"
-                >
-                  <mat-icon>folder</mat-icon>
-                  {{ folder }}
-                </button>
-
-                <button
-                  *ngIf="!isDeadlineManagedFolder(folder)"
-                  mat-icon-button
-                  color="warn"
-                  (click)="deleteFolder(folder)"
-                  matTooltip="Elimina"
-                  class="icon-btn icon-danger folder-delete-btn"
-                  type="button"
-                >
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </div>
-            </mat-list-item>
-          </mat-list>
-        </div>
-
-        <div class="mv-divider"></div>
-
-        <!-- NEW FOLDER -->
-        <div class="mv-card__footer" *ngIf="!isDeadlineManagedFolder()">
-          <div class="mv-inline">
-            <mat-form-field appearance="fill" class="mv-field">
-              <mat-label>Nuova cartella</mat-label>
-              <input matInput [(ngModel)]="newFolderName" />
-            </mat-form-field>
-
-            <button
-              mat-raised-button
-              class="mv-cta"
-              color="accent"
-              (click)="createFolder()"
-              type="button"
-            >
-              + Crea
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      <!-- MAIN -->
-      <main class="mv-main">
-        <section class="mv-card mv-main-card">
-          <div class="mv-card__head mv-main-head">
-            <div>
-              <h3 class="mv-h3">
-                File in “{{ currentPathLabel }}”
-              </h3>
-
-              <p class="mv-sub">
-                Carica, invia o scarica documenti
-              </p>
-            </div>
-
-            <!-- UPLOAD (stesso funzionamento) -->
-            <input
-              type="file"
-              #fileInput
-              multiple
-              (change)="uploadFile($event)"
-              hidden
-            />
-
-            <div class="mv-actions" *ngIf="!isDeadlineManagedFolder()">
-              <button
-                mat-raised-button
-                class="mv-cta mv-cta--primary"
-                color="primary"
-                (click)="fileInput.click()"
-                type="button"
-              >
-                ⬆️ Carica File
-              </button>
-            </div>
-          </div>
-
-          <div class="mv-card__body">
-            <div
-              *ngIf="!isDeadlineManagedFolder()"
-              class="mv-drop-zone"
-              [class.mv-drop-zone--active]="isFileDragActive"
-              [class.mv-drop-zone--disabled]="isUploading"
-              role="button"
-              tabindex="0"
-              (click)="fileInput.click()"
-              (keydown.enter)="fileInput.click()"
-              (keydown.space)="fileInput.click(); $event.preventDefault()"
-              (dragover)="onFileDragOver($event)"
-              (dragleave)="onFileDragLeave($event)"
-              (drop)="onFileDrop($event)"
-            >
-              <mat-icon>cloud_upload</mat-icon>
-              <div>
-                <strong>{{ isUploading ? 'Caricamento in corso...' : 'Allega documenti' }}</strong>
-                <span>Trascina o seleziona uno o piu file</span>
-              </div>
-            </div>
-
-            <!-- LISTA FILE -->
-            <mat-list class="mv-files">
-              <div class="mv-file-row" *ngFor="let file of filteredFiles">
-                <!-- CLICK SOLO SU NOME/ICONA -->
-                <button
-                  mat-button
-                  class="mv-file-btn"
-                  (click)="selectFile(file)"
-                  type="button"
-                >
-                  <div class="mv-file-left">
-                    <div class="mv-file-ico">📄</div>
-
-                    <div class="mv-file-meta">
-                      <div class="mv-file-name-row">
-                        <div
-                          class="mv-file-name"
-                          #fileNameBox
-                          [attr.title]="displayFileName(file)"
-                        >
-                          <span class="mv-file-name__text">{{ displayFileName(file) }}</span>
-                        </div>
-                        <span class="mv-badge mv-badge--locked" *ngIf="file.managedBy === 'deadline'">
-                          Da scadenza
-                        </span>
-                      </div>
-
-                      <div class="mv-file-status-right">
-                        <span class="mv-badge mv-badge--ok" *ngIf="file.viewed">
-                          ✅ Visualizzato
-                          {{ file.viewedAt | date: "dd/MM/yyyy HH:mm" }}
-                        </span>
-
-                        <span class="mv-badge mv-badge--pending" *ngIf="!file.viewed">
-                          ⏳ Non visualizzato
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-
-                <!-- AZIONI -->
-                <div class="mv-file-actions">
-                  <button
-                    mat-icon-button
-                    class="mv-icon-btn mv-icon-btn--view"
-                    (click)="selectFile(file); $event.stopPropagation()"
-                    matTooltip="Visualizza"
-                    type="button"
-                  >
-                    <mat-icon>visibility</mat-icon>
-                  </button>
-
-                  <button
-                    mat-icon-button
-                    class="mv-icon-btn mv-icon-btn--download"
-                    (click)="downloadCurrentFile(file); $event.stopPropagation()"
-                    matTooltip="Scarica"
-                    type="button"
-                  >
-                    <mat-icon>download</mat-icon>
-                  </button>
-
-                  <button
-                    mat-icon-button
-                    class="mv-icon-btn mv-icon-btn--print"
-                    (click)="printFile(file); $event.stopPropagation()"
-                    matTooltip="Stampa"
-                    type="button"
-                  >
-                    <mat-icon>print</mat-icon>
-                  </button>
-
-                  <button
-                    mat-icon-button
-                    class="mv-icon-btn mv-icon-btn--accent"
-                    (click)="sendFileMail(file); $event.stopPropagation()"
-                    matTooltip="Invia via mail"
-                    type="button"
-                  >
-                    <mat-icon>mail</mat-icon>
-                  </button>
-
-                  <button
-                    *ngIf="file.managedBy !== 'deadline'"
-                    mat-icon-button
-                    class="mv-icon-btn mv-icon-btn--rename"
-                    (click)="renameFile(file); $event.stopPropagation()"
-                    matTooltip="Rinomina"
-                    type="button"
-                  >
-                    <mat-icon>edit</mat-icon>
-                  </button>
-
-                  <button
-                    *ngIf="file.managedBy !== 'deadline'"
-                    mat-icon-button
-                    class="mv-icon-btn mv-icon-btn--danger"
-                    (click)="deleteFile(file); $event.stopPropagation()"
-                    matTooltip="Elimina"
-                    type="button"
-                  >
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </div>
-              </div>
-            </mat-list>
-
-            <!-- EMPTY STATE -->
-            <div
-              class="mv-empty"
-              *ngIf="(!files || files.length === 0) && (!folders || folders.length === 0)"
-            >
-              <div class="mv-empty__icon">📁</div>
-              <div class="mv-empty__title">Nessun elemento in questa cartella</div>
-              <div class="mv-empty__text">
-                Carica un documento o crea una sottocartella per iniziare.
-              </div>
-            </div>
-
-            <div
-              class="mv-empty"
-              *ngIf="(files.length > 0 || folders.length > 0) && filteredFiles.length === 0 && filteredFolders.length === 0"
-            >
-              <div class="mv-empty__icon">⌕</div>
-              <div class="mv-empty__title">Nessun documento trovato</div>
-              <div class="mv-empty__text">
-                Modifica la ricerca o svuota il campo per vedere tutti gli elementi.
-              </div>
-            </div>
-          </div>
-        </section>
-
+<div class="mv-bg"><div class="mv-page container-fluid"><div class="document-workspace">
+<p *ngIf="documentAccessError" class="alert alert-danger" role="alert">{{ documentAccessError }}</p>
+<section *ngIf="canShareWithCustomer" class="mv-card sharing-overview" aria-label="Condivisione archivio cliente">
+  <div class="sharing-overview-heading"><h2>Visibilità dell’archivio cliente</h2><span *ngIf="sharingRoot" class="archive-visibility" [class.is-shared]="sharingRoot.status==='shared'" [class.is-hidden]="sharingRoot.status==='hidden'">{{sharingRootLabel}}</span></div>
+  <p>Condividi o nascondi l’intero archivio di questo cliente con un solo comando, incluse tutte le cartelle e i documenti futuri. Questi comandi sostituiscono le eccezioni attuali.</p>
+  <p *ngIf="sharingRoot?.explicit===false" class="alert alert-warning" role="status">Per questo cliente è attivo “Nascondi tutto”. Questa scelta prevale anche su “Condividi tutto” nelle impostazioni aziendali. Usa “Usa regole aziendali” per rimuovere il blocco dell’archivio.</p>
+  <p *ngIf="sharingRoot?.hasExceptions" class="alert alert-warning" role="status">Sono presenti scelte personalizzate su cartelle o file di questo cliente: hanno precedenza sulle impostazioni aziendali.</p>
+  <div class="sharing-archive-actions">
+    <button *ngIf="sharingRoot?.status!=='shared'" type="button" class="btn btn-primary" (click)="setArchiveVisibility(true)" [disabled]="sharingBusy||sharingRootLoading">Condividi tutto</button>
+    <button *ngIf="sharingRoot?.status!=='hidden'" type="button" class="btn btn-outline-secondary" (click)="setArchiveVisibility(false)" [disabled]="sharingBusy||sharingRootLoading">Nascondi tutto</button>
+    <button *ngIf="sharingRoot && sharingRoot.explicit!==null" type="button" class="btn btn-outline-secondary" (click)="setArchiveVisibility(null)" [disabled]="sharingBusy||sharingRootLoading">Usa regole aziendali</button>
+  </div>
+  <p class="sharing-overview-help">Il menu ⋯ o il tasto destro permette di cambiare singoli file e cartelle. Condividere o nascondere una cartella applica la scelta a tutto il suo contenuto.</p>
+</section>
+<p *ngIf="sharingError" class="alert alert-danger" role="alert">{{sharingError}}</p>
+<p *ngIf="sharingNotice" class="alert alert-success" role="status">{{sharingNotice}}</p>
+<app-document-explorer
+  *ngIf="!documentAccessError"
+  [entries]="explorerEntries" [path]="selectedFolder" rootLabel="Documenti" dateLabel="Data di caricamento / creazione"
+  [uploading]="isUploading" [managedFolder]="isDeadlineManagedFolder()"
+  [writable]="!isDeadlineManagedFolder() && canUseDocumentAction('EDIT')" [allowRename]="true"
+  [allowDelete]="!isDeadlineManagedFolder() && canUseDocumentAction('DELETE')"
+  [allowEmail]="canUseDocumentAction('SEND')" [allowPrint]="canPrintDocuments"
+  [allowCustomerSharing]="canShareWithCustomer && !sharingBusy"
+  (navigate)="navigateExplorer($event)" (action)="onExplorerAction($event)"
+  (createFolder)="createExplorerFolder($event)" (upload)="uploadExplorerFiles($event)"
+></app-document-explorer>
         <!-- FILE VIEWER - PDF -->
         <section class="mv-card mv-viewer" *ngIf="pdfBase64 && fileType === 'pdf'">
           <div class="mv-card__head mv-viewer-head">
             <div>
               <h3 class="mv-h3">Anteprima PDF</h3>
-              <p class="mv-sub">Stampa o scarica rapidamente il documento</p>
+              <p class="mv-sub">{{ canPrintDocuments ? 'Stampa o scarica rapidamente il documento' : 'Scarica il documento' }}</p>
             </div>
           </div>
 
@@ -322,6 +61,7 @@
             <ng-template #customToolbar>
               <div class="mv-pdf-toolbar">
                 <button
+                  *ngIf="canPrintDocuments"
                   mat-raised-button
                   class="mv-cta mv-cta--soft"
                   color="accent"
@@ -350,7 +90,7 @@
           <div class="mv-card__head mv-viewer-head">
             <div>
               <h3 class="mv-h3">Anteprima Immagine</h3>
-              <p class="mv-sub">Visualizza, stampa o scarica l'immagine</p>
+              <p class="mv-sub">{{ canPrintDocuments ? "Visualizza, stampa o scarica l'immagine" : "Visualizza o scarica l'immagine" }}</p>
             </div>
           </div>
 
@@ -365,6 +105,7 @@
 
           <div class="mv-pdf-toolbar">
             <button
+              *ngIf="canPrintDocuments"
               mat-raised-button
               class="mv-cta mv-cta--soft"
               color="accent"
@@ -444,7 +185,5 @@
             </div>
           </div>
         </section>
-      </main>
-    </div>
-  </div>
-</div>
+
+</div></div></div>

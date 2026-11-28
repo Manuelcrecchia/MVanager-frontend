@@ -8,7 +8,7 @@
         <button
           type="button"
           class="btn mv-toolbar-primary"
-          *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE')"
+          *ngIf="!consultation && globalService.hasPermission('CUSTOMERS_MANAGE')"
           (click)="navigateToAddCustomer()"
         >
           <i class="fas fa-plus" aria-hidden="true"></i>
@@ -17,6 +17,7 @@
       </div>
 
       <div class="customer-search-bar mv-entity-toolbar__controls">
+        <button type="button" *ngIf="!consultation && !showArchived && workplaceIssueCount" class="btn btn-warning btn-sm" (click)="onlyWorkplaceIssues = !onlyWorkplaceIssues; applyCustomerSearch()" [attr.aria-pressed]="onlyWorkplaceIssues">{{ onlyWorkplaceIssues ? 'Mostra tutti' : 'Indirizzi da verificare' }} <span class="badge bg-danger">{{ workplaceIssueCount }}</span></button>
         <label class="customer-search-field">
           <span class="visually-hidden">Cerca cliente</span>
           <i class="fas fa-search" aria-hidden="true"></i>
@@ -25,7 +26,7 @@
             type="search"
             [(ngModel)]="customerSearch"
             (ngModelChange)="applyCustomerSearch()"
-            placeholder="Numero, nominativo, email o telefono"
+            [placeholder]="consultation ? 'Numero o nominativo' : 'Numero, nominativo, email o telefono'"
           />
         </label>
         <label class="customer-sort-field">
@@ -45,7 +46,7 @@
         >
           Pulisci
         </button>
-        <button type="button" class="btn btn-light btn-sm" (click)="toggleShowArchived()">
+        <button *ngIf="!consultation" type="button" class="btn btn-light btn-sm" (click)="toggleShowArchived()">
           {{ showArchived ? 'Nascondi archiviati' : 'Mostra archivio' }}
         </button>
       </div>
@@ -97,7 +98,17 @@
         <div class="col-12" *ngFor="let customer of customersFrEnd; trackBy: trackCustomer">
 
           <div class="customer-card-shell">
-          <details #card appReliableDetails class="customer-card"
+          <div *ngIf="consultation && !canOpenCustomerDocuments(customer)" class="customer-card">
+            <div class="customer-header-btn">
+              <span class="customer-info">
+                <span class="customer-num">#{{ globalService.customerNumber(customer.numeroCliente) }}</span>
+                <span class="customer-nom">{{ getCustomerDisplayName(customer) }}</span>
+                <span *ngIf="ticketCounts[customer.numeroCliente]" class="badge bg-danger">{{ticketCounts[customer.numeroCliente]}} ticket da leggere</span>
+                <span *ngFor="let issue of workplaceIssues[customer.numeroCliente] || []" class="badge" [class.bg-warning]="issue.tone === 'warning'" [class.text-dark]="issue.tone === 'warning'" [class.bg-danger]="issue.tone === 'danger'">{{ issue.label }}</span>
+              </span>
+            </div>
+          </div>
+          <details *ngIf="!consultation || canOpenCustomerDocuments(customer)" #card appReliableDetails class="customer-card"
             [open]="isCustomerOpen(customer.numeroCliente)"
             (toggle)="setCustomerOpen(customer.numeroCliente, card.open)"
             [class.customer-card--archive-reminder]="isArchiveReminderCustomer(customer)">
@@ -107,7 +118,9 @@
               <span class="customer-info">
                 <span class="customer-num">#{{ globalService.customerNumber(customer.numeroCliente) }}</span>
                 <span class="customer-nom">{{ getCustomerDisplayName(customer) }}</span>
+                <span *ngIf="ticketCounts[customer.numeroCliente]" class="badge bg-danger">{{ticketCounts[customer.numeroCliente]}} ticket da leggere</span>
                 <span class="badge bg-warning text-dark" *ngIf="customer.active === false">Archiviato</span>
+                <span *ngFor="let issue of workplaceIssues[customer.numeroCliente] || []" class="badge" [class.bg-warning]="issue.tone === 'warning'" [class.text-dark]="issue.tone === 'warning'" [class.bg-danger]="issue.tone === 'danger'">{{ issue.label }}</span>
                 <span class="badge bg-secondary" *ngIf="customer.anonymizedAt">Anonimizzato</span>
               </span>
 
@@ -115,7 +128,7 @@
             </summary>
 
             <!-- INFO RAPIDE (email + telefono) -->
-            <div class="customer-meta-row">
+            <div *ngIf="!consultation" class="customer-meta-row">
               <span *ngIf="getCustomerEmail(customer)" class="meta-item">
                 <mat-icon>email</mat-icon>{{ getCustomerEmail(customer) }}
               </span>
@@ -125,12 +138,12 @@
             </div>
 
             <!-- AZIONI -->
-            <div class="archive-reminder-box" *ngIf="isArchiveReminderCustomer(customer)">
+            <div class="archive-reminder-box" *ngIf="!consultation && isArchiveReminderCustomer(customer)">
               <span>Lavoro completato: valuta se archiviare questo cliente.</span>
               <button
                 type="button"
                 class="btn btn-warning btn-sm"
-                *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
+                *ngIf="globalService.hasPermission('CUSTOMERS_ARCHIVE') && customer.active !== false"
                 (click)="archiveOnlyCustomer(customer)"
               >
                 Archivia senza ZIP
@@ -140,101 +153,104 @@
               class="customer-actions mv-record-actions"
             >
               <div class="customer-actions-inner mv-record-actions__inner">
-                <button
-                  type="button"
-                  *ngIf="
-                    globalService.hasTenantFeature('stamping') &&
-                    globalService.isCustomerTagStampingMode() &&
-                    globalService.hasPermission('CUSTOMERS_MANAGE') &&
-                    globalService.hasPermission('STAMPING_MANAGE') &&
-                    !customer.anonymizedAt
-                  "
-                  mat-raised-button
-                  [routerLink]="['/gestioneTagCliente', customer.numeroCliente]"
-                  class="mv-record-action mv-record-action--evidence action-with-tooltip"
-                  title="Gestisci i tag del cliente"
-                  aria-label="Gestisci tag cliente"
-                  data-tooltip="Gestisci tag"
-                >
-                  <mat-icon>label</mat-icon>
-                </button>
+                <button type="button" class="btn btn-outline-primary" *ngIf="!consultation&&globalService.hasTenantFeature('customerTickets')&&globalService.hasPermission('CUSTOMER_TICKETS_VIEW')&&!customer.anonymizedAt" (click)="openTickets(customer)">Ticket <span *ngIf="ticketCounts[customer.numeroCliente]" class="badge bg-danger">{{ticketCounts[customer.numeroCliente]}}</span></button>
+                <ng-container *ngIf="!consultation">
+                  <button
+                    type="button"
+                    *ngIf="
+                      globalService.hasTenantFeature('stamping') &&
+                      globalService.isCustomerTagStampingMode() &&
+                      globalService.hasPermission('CUSTOMERS_MANAGE') &&
+                      globalService.hasPermission('STAMPING_MANAGE') &&
+                      !customer.anonymizedAt
+                    "
+                    mat-raised-button
+                    [routerLink]="['/gestioneTagCliente', customer.numeroCliente]"
+                    class="mv-record-action mv-record-action--evidence action-with-tooltip"
+                    title="Gestisci i tag del cliente"
+                    aria-label="Gestisci tag cliente"
+                    data-tooltip="Gestisci tag"
+                  >
+                    <mat-icon>label</mat-icon>
+                  </button>
+
+                  <button type="button"
+                    *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
+                    mat-raised-button
+                    (click)="navigateToEditCustomer(customer.numeroCliente)"
+                    class="mv-record-action mv-record-action--edit action-with-tooltip"
+                    title="Modifica i dati del cliente"
+                    aria-label="Modifica cliente"
+                    data-tooltip="Modifica cliente"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
+
+                  <button type="button"
+                    *ngIf="canGenerateSalesInvoice(customer)"
+                    mat-raised-button
+                    (click)="generateSalesInvoice(customer)"
+                    class="mv-record-action mv-record-action--confirm action-with-tooltip"
+                    title="Genera una fattura vendita con i dati del cliente già compilati"
+                    aria-label="Genera fattura vendita"
+                    data-tooltip="Genera fattura vendita"
+                  >
+                    <mat-icon>receipt_long</mat-icon>
+                  </button>
+
+                  <button type="button"
+                    *ngIf="canGenerateSalesInvoice(customer)"
+                    mat-raised-button
+                    (click)="manageInvoiceProfile(customer)"
+                    class="mv-record-action mv-record-action--edit action-with-tooltip"
+                    title="Gestisci profilo di fatturazione"
+                    aria-label="Gestisci profilo di fatturazione"
+                    data-tooltip="Profilo fatturazione"
+                  >
+                    <mat-icon>tune</mat-icon>
+                  </button>
+
+                  <button type="button"
+                    *ngIf="globalService.hasPermission('CUSTOMERS_ARCHIVE') && customer.active !== false"
+                    mat-raised-button
+                    (click)="archiveCustomer(customer)"
+                    class="mv-record-action mv-record-action--danger action-with-tooltip"
+                    title="Scarica l'archivio completo del cliente e poi lo archivia"
+                    aria-label="Archivia cliente"
+                    data-tooltip="Archivia"
+                  >
+                    <mat-icon>archive</mat-icon>
+                  </button>
+
+                  <button type="button"
+                    *ngIf="globalService.hasPermission('CUSTOMERS_ARCHIVE') && customer.active === false && !customer.anonymizedAt"
+                    mat-raised-button
+                    (click)="unarchiveCustomer(customer)"
+                    class="mv-record-action mv-record-action--signature action-with-tooltip"
+                    title="Riattiva il cliente archiviato"
+                    aria-label="Riattiva cliente"
+                    data-tooltip="Riattiva"
+                  >
+                    <mat-icon>unarchive</mat-icon>
+                  </button>
+
+                  <button type="button"
+                    *ngIf="globalService.hasPermission('CUSTOMERS_ANONYMIZE') && customer.active === false && !customer.anonymizedAt"
+                    mat-raised-button
+                    (click)="anonymizeCustomer(customer)"
+                    class="mv-record-action mv-record-action--danger action-with-tooltip"
+                    title="Elimina definitivamente i dati personali del cliente archiviato"
+                    aria-label="Anonimizza cliente"
+                    data-tooltip="Anonimizza"
+                  >
+                    <mat-icon>person_off</mat-icon>
+                  </button>
+                </ng-container>
 
                 <button type="button"
-                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
+                  *ngIf="canOpenCustomerDocuments(customer)"
                   mat-raised-button
-                  (click)="navigateToEditCustomer(customer.numeroCliente)"
-                  class="mv-record-action mv-record-action--edit action-with-tooltip"
-                  title="Modifica i dati del cliente"
-                  aria-label="Modifica cliente"
-                  data-tooltip="Modifica cliente"
-                >
-                  <mat-icon>edit</mat-icon>
-                </button>
-
-                <button type="button"
-                  *ngIf="canGenerateSalesInvoice(customer)"
-                  mat-raised-button
-                  (click)="generateSalesInvoice(customer)"
-                  class="mv-record-action mv-record-action--confirm action-with-tooltip"
-                  title="Genera una fattura vendita con i dati del cliente già compilati"
-                  aria-label="Genera fattura vendita"
-                  data-tooltip="Genera fattura vendita"
-                >
-                  <mat-icon>receipt_long</mat-icon>
-                </button>
-
-                <button type="button"
-                  *ngIf="canGenerateSalesInvoice(customer)"
-                  mat-raised-button
-                  (click)="manageInvoiceProfile(customer)"
-                  class="mv-record-action mv-record-action--edit action-with-tooltip"
-                  title="Gestisci profilo di fatturazione"
-                  aria-label="Gestisci profilo di fatturazione"
-                  data-tooltip="Profilo fatturazione"
-                >
-                  <mat-icon>tune</mat-icon>
-                </button>
-
-                <button type="button"
-                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
-                  mat-raised-button
-                  (click)="archiveCustomer(customer)"
-                  class="mv-record-action mv-record-action--danger action-with-tooltip"
-                  title="Scarica l'archivio completo del cliente e poi lo archivia"
-                  aria-label="Archivia cliente"
-                  data-tooltip="Archivia"
-                >
-                  <mat-icon>archive</mat-icon>
-                </button>
-
-                <button type="button"
-                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active === false && !customer.anonymizedAt"
-                  mat-raised-button
-                  (click)="unarchiveCustomer(customer)"
-                  class="mv-record-action mv-record-action--signature action-with-tooltip"
-                  title="Riattiva il cliente archiviato"
-                  aria-label="Riattiva cliente"
-                  data-tooltip="Riattiva"
-                >
-                  <mat-icon>unarchive</mat-icon>
-                </button>
-
-                <button type="button"
-                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active === false && !customer.anonymizedAt"
-                  mat-raised-button
-                  (click)="anonymizeCustomer(customer)"
-                  class="mv-record-action mv-record-action--danger action-with-tooltip"
-                  title="Elimina definitivamente i dati personali del cliente archiviato"
-                  aria-label="Anonimizza cliente"
-                  data-tooltip="Anonimizza"
-                >
-                  <mat-icon>person_off</mat-icon>
-                </button>
-
-                <button type="button"
-                  *ngIf="globalService.hasPermission('CUSTOMER_DOCS_MANAGE') && customer.active !== false"
-                  mat-raised-button
-                  (click)="viewDocuments(customer.numeroCliente)"
+                  (click)="viewDocuments(customer)"
                   class="mv-record-action mv-record-action--email action-with-tooltip"
                   title="Apri i documenti caricati per questo cliente"
                   aria-label="Apri documenti cliente"
@@ -243,61 +259,64 @@
                   <mat-icon>folder</mat-icon>
                 </button>
 
-                <button type="button"
-                  *ngIf="globalService.hasTenantFeature('workCompletion') && globalService.hasPermission('WORK_COMPLETION_MANAGE') && customer.active !== false"
-                  mat-raised-button
-                  (click)="openWorkCompletion(customer)"
-                  class="mv-record-action mv-record-action--signature action-with-tooltip"
-                  title="Invia al cliente il link per compilare e firmare il foglio di fine lavoro"
-                  aria-label="Invia foglio fine lavoro"
-                  data-tooltip="Invia foglio fine lavoro"
-                >
-                  <mat-icon>assignment_turned_in</mat-icon>
-                </button>
+                <ng-container *ngIf="!consultation">
+                  <button type="button"
+                    *ngIf="globalService.hasTenantFeature('workCompletion') && globalService.hasPermission('WORK_COMPLETION_VIEW')"
+                    mat-raised-button
+                    (click)="openWorkCompletion(customer)"
+                    class="mv-record-action mv-record-action--signature action-with-tooltip"
+                    title="Fogli di fine lavoro e valutazioni periodiche"
+                    aria-label="Fogli di fine lavoro"
+                    data-tooltip="Fogli di fine lavoro"
+                  >
+                    <mat-icon>assignment_turned_in</mat-icon>
+                  </button>
 
-                <button type="button"
-                  *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
-                  mat-raised-button
-                  (click)="openStaffRequirements(customer)"
-                  class="mv-record-action mv-record-action--evidence action-with-tooltip"
-                  title="Imposta categorie e numero di personale richiesto"
-                  aria-label="Personale richiesto"
-                  data-tooltip="Personale richiesto"
-                >
-                  <mat-icon>groups</mat-icon>
-                </button>
+                  <button type="button" *ngIf="globalService.hasTenantFeature('workRegister') && globalService.hasPermission('WORK_REGISTER_VIEW')" mat-raised-button [routerLink]="['/homeAdmin/listCustomer', customer.numeroCliente, 'work-registers']" class="mv-record-action action-with-tooltip" title="Registri del lavoro" aria-label="Registri del lavoro" data-tooltip="Registri del lavoro"><mat-icon>checklist</mat-icon></button>
+                  <button type="button" *ngIf="globalService.hasTenantFeature('workCompletion') && globalService.hasPermission('QUALITY_CONTROL_VIEW')" mat-raised-button [routerLink]="['/homeAdmin/listCustomer', customer.numeroCliente, 'quality-control']" class="mv-record-action mv-record-action--evidence action-with-tooltip" title="Controlli qualità interni" aria-label="Controlli qualità interni" data-tooltip="Controlli qualità interni"><mat-icon>fact_check</mat-icon></button>
 
-                <button type="button"
-                  *ngIf="!customer.anonymizedAt"
-                  mat-raised-button
-                  (click)="openCustomerWhatsApp(customer)"
-                  class="mv-record-action mv-record-action--whatsapp action-with-tooltip"
-                  title="Apri la chat WhatsApp del cliente senza messaggio precompilato"
-                  aria-label="Apri WhatsApp"
-                  data-tooltip="Apri WhatsApp"
-                >
-                  <i class="fab fa-whatsapp"></i>
-                </button>
+                  <button type="button"
+                    *ngIf="globalService.hasPermission('CUSTOMERS_MANAGE') && customer.active !== false"
+                    mat-raised-button
+                    (click)="openStaffRequirements(customer)"
+                    class="mv-record-action mv-record-action--evidence action-with-tooltip"
+                    title="Imposta categorie e numero di personale richiesto"
+                    aria-label="Personale richiesto"
+                    data-tooltip="Personale richiesto"
+                  >
+                    <mat-icon>groups</mat-icon>
+                  </button>
 
-                <button type="button"
-                  *ngIf="globalService.hasPermission('EMAIL_VIEW') && !customer.anonymizedAt"
-                  mat-raised-button
-                  (click)="composeCustomerEmail(customer)"
-                  class="mv-record-action mv-record-action--email action-with-tooltip"
-                  title="Crea una nuova email con il cliente già come destinatario"
-                  aria-label="Scrivi email"
-                  data-tooltip="Scrivi email"
-                >
-                  <mat-icon>mail</mat-icon>
-                </button>
+                  <button type="button"
+                    *ngIf="!customer.anonymizedAt"
+                    mat-raised-button
+                    (click)="openCustomerWhatsApp(customer)"
+                    class="mv-record-action mv-record-action--whatsapp action-with-tooltip"
+                    title="Apri la chat WhatsApp del cliente senza messaggio precompilato"
+                    aria-label="Apri WhatsApp"
+                    data-tooltip="Apri WhatsApp"
+                  >
+                    <i class="fab fa-whatsapp"></i>
+                  </button>
 
-  </div>
-
+                  <button type="button"
+                    *ngIf="globalService.hasPermission('EMAIL_COMPOSE') && !customer.anonymizedAt"
+                    mat-raised-button
+                    (click)="composeCustomerEmail(customer)"
+                    class="mv-record-action mv-record-action--email action-with-tooltip"
+                    title="Crea una nuova email con il cliente già come destinatario"
+                    aria-label="Scrivi email"
+                    data-tooltip="Scrivi email"
+                  >
+                    <mat-icon>mail</mat-icon>
+                  </button>
+                </ng-container>
+              </div>
             </div>
 
           </details>
 
-          <span class="customer-header-actions">
+          <span class="customer-header-actions" *ngIf="!consultation">
             <button
               type="button"
               class="btn btn-sm btn-customer-quick-action action-with-tooltip"

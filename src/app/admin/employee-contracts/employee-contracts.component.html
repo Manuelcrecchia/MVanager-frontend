@@ -240,7 +240,7 @@
             </button>
 
             <button type="button"
-              *ngIf="!showCompletedContracts && canSend(contract)"
+              *ngIf="!showCompletedContracts && canRequestSignature(contract)"
               class="btn btn-quote-action btn-quote-chat action-with-tooltip"
               (click)="sendSignatureLink(contract)"
               title="Genera e invia su WhatsApp il link per far firmare il contratto"

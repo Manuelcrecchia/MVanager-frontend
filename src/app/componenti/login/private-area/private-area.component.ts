@@ -20,7 +20,7 @@ import { AgendaNavigatorSetupService } from '../../../service/agenda-navigator-s
 @Component({
   selector: 'app-private-area',
   templateUrl: './private-area.component.html',
-  styleUrl: './private-area.component.css',
+  styleUrls: ['../../../shared/mv-auth-shell.css', './private-area.component.css'],
 })
 export class PrivateAreaComponent {
   version = this.globalService.version;
@@ -68,6 +68,12 @@ export class PrivateAreaComponent {
       }
     } else {
       this.loadCompanies();
+    }
+
+    if (this.isMobile) {
+      const pendingTenant = await this.notificationNavigation.getPendingTenantId();
+      const company = this.companies.find(candidate => candidate.tenantId === pendingTenant);
+      if (company) await this.tenantService.setCompany(company);
     }
 
     this.selectedTenant = this.tenantService.selectedTenant;
@@ -121,7 +127,7 @@ export class PrivateAreaComponent {
     console.log('[Login] Tenant selezionato:', tenant);
 
     this.http
-      .post<{ response?: string; token?: string; codiceOperatore?: string; permissions?: string[] }>(
+      .post<{ response?: string; token?: string; codiceOperatore?: string; permissions?: string[]; consultationOnly?: boolean }>(
         this.globalService.url + 'login/admin',
         { email, password },
         { headers: this.globalService.headers.set('X-Tenant-Id', tenant) }
@@ -169,17 +175,24 @@ export class PrivateAreaComponent {
           if (!automatic) {
             if (this.isMobile) {
               console.log('🔒 Salvo credenziali biometriche...');
-              await this.bio.storeCredentials(
-                email,
-                password,
-                this.tenantService.tenant,
-              );
-              this.biometricAvailable = true;
+              try {
+                await this.bio.storeCredentials(email, password, this.tenantService.tenant);
+                this.biometricAvailable = true;
+              } catch {
+                // Remembering credentials is optional after a verified password
+                // login; an unavailable keychain must not block company access.
+                this.biometricAvailable = false;
+                console.warn('[Login] Credenziali biometriche non salvate; accesso manuale consentito.');
+              }
             } else {
               this.saveRememberedWebCredentials(email, password);
             }
           }
 
+          if (res.consultationOnly === true) {
+            await this.router.navigateByUrl('/homeAdmin');
+            return;
+          }
           await this.serviceAnnouncements.showAfterLogin();
           await this.navigatorSetup.showAfterLogin();
           await this.notificationNavigation.consumePendingOrNavigate('/homeAdmin');

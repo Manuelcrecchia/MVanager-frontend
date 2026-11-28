@@ -1,3 +1,4 @@
+import { normalizeWhatsappPhone } from '../../shared/whatsapp';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -284,7 +285,7 @@ loadContracts(silent = false): void {
       return;
     }
 
-    const normalizedPhone = this.normalizePhoneForWhatsApp(rawPhone);
+    const normalizedPhone = normalizeWhatsappPhone(rawPhone);
     if (!normalizedPhone) {
       this.errorMessage = 'Numero di telefono non disponibile per questo contratto.';
       return;
@@ -320,6 +321,7 @@ loadContracts(silent = false): void {
   }
 
   sendSignatureLink(contract: EmployeeContract): void {
+    if (!this.canRequestSignature(contract)) return;
     this.errorMessage = '';
     this.successMessage = '';
 
@@ -424,6 +426,7 @@ loadContracts(silent = false): void {
   }
 
   async deleteContract(contract: EmployeeContract): Promise<void> {
+    if (!this.canDelete(contract)) return;
     if (!await this.appDialog.confirm(`Eliminare definitivamente la bozza ${contract.contractNumber}?`)) return;
 
     this.errorMessage = '';
@@ -596,6 +599,10 @@ loadContracts(silent = false): void {
     );
   }
 
+  canRequestSignature(contract: EmployeeContract): boolean {
+    return this.canSend(contract) && this.globalService.hasPermission('EMPLOYEE_CONTRACTS_REQUEST_SIGNATURE');
+  }
+
   canSendContractPdf(contract: EmployeeContract): boolean {
     return (
       this.globalService.hasPermission('EMPLOYEE_CONTRACTS_MANAGE') &&
@@ -623,7 +630,7 @@ loadContracts(silent = false): void {
   }
 
   canComposeEmail(): boolean {
-    return this.globalService.hasPermission('EMAIL_VIEW');
+    return this.globalService.hasPermission('EMAIL_COMPOSE');
   }
 
   canEdit(contract: EmployeeContract): boolean {
@@ -634,7 +641,7 @@ loadContracts(silent = false): void {
   }
 
   canDelete(contract: EmployeeContract): boolean {
-    return this.canEdit(contract);
+    return this.canEdit(contract) && this.globalService.hasPermission('EMPLOYEE_CONTRACTS_DELETE');
   }
 
   canDuplicate(contract: EmployeeContract): boolean {
@@ -986,17 +993,6 @@ loadContracts(silent = false): void {
       .replace(/\p{Diacritic}/gu, '')
       .toLowerCase()
       .trim();
-  }
-
-  private normalizePhoneForWhatsApp(phone: string): string {
-    let cleaned = String(phone || '').replace(/[^\d+]/g, '');
-    if (!cleaned) return '';
-    if (cleaned.startsWith('+')) cleaned = cleaned.slice(1);
-    if (cleaned.startsWith('00')) cleaned = cleaned.slice(2);
-    if (!cleaned.startsWith('39') && cleaned.length <= 10) {
-      cleaned = `39${cleaned}`;
-    }
-    return cleaned;
   }
 
   private isValidEmail(email: string): boolean {

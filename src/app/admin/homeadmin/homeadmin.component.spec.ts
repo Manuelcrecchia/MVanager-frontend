@@ -1,7 +1,15 @@
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { HomeAdminComponent } from './homeadmin.component';
 
 describe('HomeAdminComponent', () => {
+  it('aggiorna il badge ticket nel menu anche quando è aperta una pagina figlia',()=>{
+    const component=createComponent({}, {url:'/api/',token:'test-token',headers:{}}),events=new Subject<any>();
+    spyOn(component,'canUsePermission').and.returnValue(true);
+    (component as any).socketService={onResourceChanges:()=>events};
+    (component as any).http={get:()=>of({total:3})};
+    (component as any).bindCustomerTicketUpdates();events.next({resource:'customer_tickets'});
+    expect(component.customerTicketCount).toBe(3);(component as any).customerTicketSubscription.unsubscribe();
+  });
   function createComponent(router: any = {}, global: any = {}): HomeAdminComponent {
     const renderer = {
       addClass: jasmine.createSpy('addClass'),

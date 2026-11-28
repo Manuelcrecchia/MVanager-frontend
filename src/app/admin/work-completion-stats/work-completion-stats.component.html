@@ -1,113 +1,22 @@
-<div class="stats-page">
-  <header class="mv-entity-toolbar">
-    <div class="mv-entity-toolbar__title"><h1>Statistiche</h1><button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="back()">← Torna indietro</button></div>
-    <div class="mv-entity-toolbar__controls">
-      <button class="btn btn-light" type="button" (click)="loadStats()">↻ Aggiorna</button>
-    </div>
-  </header>
-
-  <section class="stats-hero">
-    <div>
-      <p class="eyebrow">Fogli fine lavoro</p>
-      <p>Analisi delle valutazioni lasciate dai clienti a fine intervento.</p>
-    </div>
-    <div class="stats-kpis">
-      <div class="kpi">
-        <strong>{{ stats?.total || 0 }}</strong>
-        <span>Fogli valutati</span>
-      </div>
-      <div class="kpi">
-        <strong>{{ stats?.averageScore || 0 }}</strong>
-        <span>Media generale</span>
-      </div>
-      <div class="kpi">
-        <strong>{{ stats?.satisfactionYesRate || 0 }}%</strong>
-        <span>Esiti positivi</span>
-      </div>
-    </div>
-  </section>
-
-  <section class="filters-panel">
-    <label>
-      Dal
-      <input class="form-control" type="date" [(ngModel)]="from" (change)="loadStats()" />
-    </label>
-    <label>
-      Al
-      <input class="form-control" type="date" [(ngModel)]="to" (change)="loadStats()" />
-    </label>
-    <label>
-      Cliente
-      <input class="form-control" placeholder="Numero cliente" [(ngModel)]="numeroCliente" />
-    </label>
-    <div class="filter-actions">
-      <button class="btn btn-primary" type="button" (click)="loadStats()">Filtra</button>
-      <button class="btn btn-outline-light" type="button" (click)="resetFilters()">Reset</button>
-    </div>
-  </section>
-
-  <div *ngIf="error" class="alert alert-danger mt-3">{{ error }}</div>
-  <div *ngIf="loading" class="empty-state">Caricamento statistiche...</div>
-
-  <ng-container *ngIf="!loading && stats">
-    <section class="score-grid">
-      <article class="score-card" *ngFor="let question of stats.questions">
-        <div>
-          <span>{{ question.label }}</span>
-          <strong>{{ stats.averages[question.key] || 0 }}</strong>
-        </div>
-        <div class="score-bar"><i [style.width.%]="scorePercentForQuestion(question, stats.averages[question.key] || 0)"></i></div>
-      </article>
-    </section>
-
-    <section class="distribution-grid">
-      <article class="panel" *ngFor="let question of stats.questions">
-        <h3>{{ question.label }}</h3>
-        <div class="distribution-row" *ngFor="let entry of distributionEntries(stats.dimensions[question.key])">
-          <span>{{ getOptionLabel(question, entry.key) }}</span>
-          <strong>{{ entry.value }}</strong>
-        </div>
-      </article>
-    </section>
-
-    <section class="rank-grid">
-      <article class="panel">
-        <h3>Punteggi maggiori</h3>
-        <div class="rank-row" *ngFor="let record of stats.best">
-          <div>
-            <strong>{{ record.clienteNome }}</strong>
-            <span>{{ formatDate(record.completedAt) }} · Cliente {{ global.customerNumber(record.numeroCliente) }}</span>
-          </div>
-          <b>{{ record.averageScore }}</b>
-        </div>
-        <p class="empty-line" *ngIf="stats.best.length === 0">Nessun dato nel periodo.</p>
-      </article>
-
-      <article class="panel">
-        <h3>Punteggi minori</h3>
-        <div class="rank-row rank-row-low" *ngFor="let record of stats.worst">
-          <div>
-            <strong>{{ record.clienteNome }}</strong>
-            <span>{{ formatDate(record.completedAt) }} · Cliente {{ global.customerNumber(record.numeroCliente) }}</span>
-          </div>
-          <b>{{ record.averageScore }}</b>
-        </div>
-        <p class="empty-line" *ngIf="stats.worst.length === 0">Nessun dato nel periodo.</p>
-      </article>
-    </section>
-
-    <section class="panel">
-      <h3>Note e disservizi</h3>
-      <div class="notes-list">
-        <div class="note-row" *ngFor="let record of stats.notes">
-          <div>
-            <strong>{{ record.clienteNome }}</strong>
-            <span>{{ formatDate(record.completedAt) }} · punteggio {{ record.averageScore }}</span>
-          </div>
-          <p>{{ record.note }}</p>
-        </div>
-        <p class="empty-line" *ngIf="stats.notes.length === 0">Nessuna nota nel periodo.</p>
-      </div>
-    </section>
+<main class="standard-management-page stats-page">
+  <header class="mv-entity-toolbar"><div class="mv-entity-toolbar__title"><h1>Statistiche e qualità</h1><span>Valutazioni, scadenze e controlli del servizio</span></div><button type="button" class="back" (click)="back()">← Home</button></header>
+  <nav class="dataset-tabs" aria-label="Statistiche disponibili"><button *ngIf="access.feedback" [class.active]="kind==='feedback'" (click)="switchKind('feedback')">Valutazioni dei clienti</button><button *ngIf="access.quality" [class.active]="kind==='quality'" (click)="switchKind('quality')">Controlli qualità interni</button></nav>
+  <p role="alert" class="notice error" *ngIf="error">{{error}}</p><p class="notice" *ngIf="ready && !access.feedback && !access.quality">Non hai ancora un permesso per consultare i dati delle statistiche. È possibile abilitare separatamente valutazioni dei clienti e controlli interni.</p>
+  <ng-container *ngIf="ready && access[kind]">
+    <section class="filters"><label>Dal<input type="date" [(ngModel)]="from" /></label><label>Al<input type="date" [(ngModel)]="to" /></label><label>Le date si riferiscono a<select [(ngModel)]="dateBasis"><option value="period">Periodo / fine lavoro</option><option value="completion">Compilazione (solo completati)</option></select></label><label>Categoria<select [(ngModel)]="categoryKey"><option value="">Tutte le categorie</option><option *ngFor="let c of stats?.categories || global.getAppointmentCategoryDetails()" [value]="c.key">{{c.label || c.key}}</option></select></label><label>Codice cliente<input [(ngModel)]="numeroCliente" placeholder="Tutti i clienti" /></label><label>Cerca<input [(ngModel)]="search" placeholder="Cliente, lavoro o responsabile" (keyup.enter)="loadStats()" /></label><div class="filter-actions"><button class="primary" (click)="loadStats()" [disabled]="loading">Applica filtri</button><button (click)="resetFilters()">Azzera</button></div></section>
+    <div *ngIf="kind==='feedback'" class="mode-tabs" aria-label="Tipo di valutazione"><button [class.active]="mode==='all'" (click)="switchMode('all')">Tutte</button><button [class.active]="mode==='recurring'" (click)="switchMode('recurring')">Ordinarie</button><button [class.active]="mode==='one_off'" (click)="switchMode('one_off')">Straordinarie</button><button [class.active]="mode==='unclassified'" (click)="switchMode('unclassified')">Storico da classificare</button></div>
+    <p *ngIf="loading" role="status" class="notice">Aggiornamento statistiche…</p>
+    <ng-container *ngIf="stats">
+      <section class="kpis" aria-label="Riepilogo del periodo"><article><span>Attività e documenti</span><strong>{{stats.summary.total}}</strong><small>{{stats.summary.expected}} verifiche attese</small></article><button [class.selected]="status==='completed'" (click)="filterStatus('completed')"><span>Compilate</span><strong>{{stats.summary.completed}}</strong><small>{{stats.summary.completionRate===null?'Copertura non calcolabile':stats.summary.completionRate+'% delle verifiche attese'}}</small></button><button [class.selected]="status==='pending'" *ngIf="kind==='feedback'" (click)="filterStatus('pending')"><span>In attesa del cliente</span><strong>{{stats.summary.pending}}</strong><small>Richiesta aperta</small></button><button [class.selected]="status===(kind==='quality'?'to_complete':'to_request')" (click)="filterStatus(kind==='quality'?'to_complete':'to_request')"><span>{{kind==='quality'?'Da eseguire':'Da richiedere'}}</span><strong>{{stats.summary.toRequest}}</strong><small>{{kind==='quality'?'Controlli ancora da compilare':'Questionario ancora da inviare'}}</small></button><button [class.selected]="status==='overdue'" class="late" (click)="filterStatus('overdue')"><span>Scadenza superata</span><strong>{{stats.summary.overdue}}</strong><small>Attività ancora incomplete</small></button><article *ngIf="kind==='feedback'"><span>Indice soddisfazione</span><strong>{{stats.satisfactionPercent===null?'—':stats.satisfactionPercent+'%'}}</strong><small>{{stats.ratingCount}} {{stats.ratingCount===1?'valutazione con risposte':'valutazioni con risposte'}}</small></article><article *ngIf="kind==='quality'"><span>Con criticità</span><strong>{{stats.summary.issues}}</strong><small>{{stats.summary.conforming}} conformi · {{stats.summary.withPhotos}} con foto</small></article></section>
+      <p class="notice hint" *ngIf="stats.summary.toLink">{{stats.summary.toLink}} lavori hanno documenti storici senza un collegamento certo all’appuntamento: sono indicati come «Documento da collegare» e non come valutazioni mancanti.</p>
+      <section class="charts"><article class="card"><h2>Andamento del periodo</h2><p class="muted">Compilate rispetto alle attività registrate, mese per mese.</p><div class="trend" *ngFor="let m of stats.monthly"><span>{{m.month}}</span><div><i [style.width.%]="m.total?m.completed/m.total*100:0"></i></div><strong>{{m.completed}} / {{m.total}}</strong></div><p class="muted" *ngIf="!stats.monthly.length">Nessun dato nel periodo.</p></article><article class="card"><h2>{{kind==='quality'?'Controlli per categoria':'Valutazioni per categoria'}}</h2><div class="category-row" *ngFor="let c of stats.byCategory"><span>{{label(c.key)}}</span><strong>{{c.completed}} / {{c.total}} compilate</strong></div><p class="muted" *ngIf="!stats.byCategory.length">Nessun dato nel periodo.</p></article></section>
+      <section class="card activity"><div class="section-heading"><div><h2>{{kind==='quality'?'Registro dei controlli interni':'Registro delle valutazioni'}}</h2><p class="muted">Il periodo di riferimento e la data di compilazione sono mostrati separatamente.</p></div><label>Stato<select [(ngModel)]="status" (ngModelChange)="loadStats()"><option value="all">Tutti gli stati</option><option value="completed">Compilate</option><option *ngIf="kind==='feedback'" value="to_request">Da richiedere</option><option *ngIf="kind==='quality'" value="to_complete">Da eseguire</option><option *ngIf="kind==='feedback'" value="pending">In attesa</option><option value="overdue">Scadenza superata</option><option value="scheduled">Programmate</option><option *ngIf="kind==='feedback'" value="expired">Richieste scadute</option><option *ngIf="kind==='feedback'" value="not_sent">Invio non riuscito</option><option *ngIf="kind==='feedback'" value="to_link">Documento da collegare</option></select></label></div>
+        <p class="muted table-hint">Scorri la tabella per vedere tutte le colonne.</p><div class="table-wrap"><table><thead><tr><th>Cliente e servizio</th><th>Periodo / fine lavoro</th><th>Richiesta</th><th>Compilazione</th><th>Stato e risultato</th><th>Dettagli</th></tr></thead><tbody><tr *ngFor="let row of stats.rows"><td><strong>{{row.clienteNome}}</strong><span>{{label(row.categoryKey)}}</span><small>{{modeLabel(row.mode)}}</small></td><td><span *ngIf="row.periodStart">{{row.periodStart | date:'dd/MM/yyyy'}} –</span>{{(row.dueOn || row.referenceDate) | date:'dd/MM/yyyy'}}<small *ngIf="row.workDescription">{{row.workDescription}}</small></td><td>{{row.requestedAt ? (row.requestedAt | date:'dd/MM/yyyy HH:mm') : '—'}}</td><td>{{row.completedAt ? (row.completedAt | date:dateFormat(row.completedAt)) : '—'}}<small *ngIf="row.inspectorName">{{row.inspectorName}}</small><small *ngIf="row.inspectedOn">Controllo del {{row.inspectedOn | date:'dd/MM/yyyy'}}</small></td><td><span class="badge" [class.done]="row.status==='completed'" [class.warning]="row.overdue">{{statusLabel(row.status)}}</span><small *ngIf="row.overdue">In ritardo</small><small *ngIf="row.daysLate">Compilata {{row.daysLate}} {{row.daysLate===1?'giorno':'giorni'}} {{kind==='quality'?'dopo la scadenza':'dopo la fine del periodo'}}</small><strong *ngIf="row.satisfactionPercent!==null">{{row.satisfactionPercent}}%</strong><small *ngIf="row.outcome">{{outcomeLabel(row.outcome)}}</small></td><td><button (click)="showDetails(row)" [attr.aria-expanded]="selected?.id===row.id">Dettagli</button><button *ngIf="canOpen()" (click)="openRow(row)">Scheda cliente</button><button *ngIf="canOpen() && row.hasPdf && (row.proofId || row.recordId)" (click)="download(row)">PDF</button></td></tr></tbody></table></div><p class="empty" *ngIf="!stats.rows.length">Nessuna attività corrisponde ai filtri selezionati.</p>
+        <div class="pagination"><span>{{stats.totalFiltered}} risultati · Pagina {{page+1}} di {{pageCount}}</span><div><button [disabled]="page===0 || loading" (click)="changePage(-1)">← Precedenti</button><button [disabled]="page+1>=pageCount || loading" (click)="changePage(1)">Successivi →</button></div></div>
+      </section>
+      <section class="card detail" *ngIf="selected"><div class="section-heading"><h2>{{selected.clienteNome}} · {{modeLabel(selected.mode)}}</h2><button (click)="selected=null">Chiudi dettagli</button></div><p>{{selected.workDescription}}</p><p *ngIf="selected.reference"><strong>{{selected.reference}}</strong></p><dl><ng-container *ngFor="let q of selected.questions"><dt>{{q.label}}</dt><dd>{{answerLabel(q,selected)}}</dd></ng-container></dl><p *ngIf="selected.note"><strong>Note</strong><br/>{{selected.note}}</p><p *ngIf="kind==='quality' && selected.status==='completed'">{{selected.photos || 0}} foto allegate · {{selected.hasSignature?'Documento firmato':'Firma non registrata'}}</p><p *ngIf="selected.status==='to_link'" class="muted">I documenti presenti non indicano a quale appuntamento si riferiscono. Non viene dedotta una mancata compilazione.</p><p *ngIf="selected.status!=='completed' && selected.status!=='to_link'" class="muted">Non è ancora registrata una compilazione per questa attività.</p></section>
+      <section class="question-grid" *ngIf="kind==='feedback' && stats.questionStats?.length"><article class="card" *ngFor="let question of stats.questionStats"><h3>{{question.label}}</h3><p class="muted">{{question.count}} risposte</p><div class="category-row" *ngFor="let option of question.distribution"><span>{{option.label}}</span><strong>{{option.count}}</strong></div></article></section>
+      <p class="footnote">Le valutazioni periodiche attese dipendono dalle scadenze configurate. Per gli straordinari viene usata la fine dell’appuntamento. Lo storico privo di categoria resta separato. I punteggi dei modelli sono riportati su una scala da 0 a 100; gli esiti interni non riconosciuti sono indicati come non classificati.</p>
+    </ng-container>
   </ng-container>
-</div>
+</main>

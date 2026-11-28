@@ -13,6 +13,7 @@ import { ServiceAnnouncementService } from './service/service-announcement.servi
 import { RealtimeSyncService } from './service/realtime-sync.service';
 import { AgendaWidgetService } from './service/agenda-widget.service';
 import { AgendaNavigatorSetupService } from './service/agenda-navigator-setup.service';
+import { isCustomerPortalHost } from './public/customer-portal/customer-portal-host';
 
 export function calendarDayDifference(fromDate: string, toDate: string): number {
   const parse = (value: string): number => {
@@ -38,6 +39,7 @@ export class AppComponent {
 
   get showAiAssistant(): boolean {
     return Boolean(this.globalService.token) &&
+      !this.router.url.startsWith('/consultazione') &&
       !this.isLoginRoute() &&
       !this.isPublicRoute();
   }
@@ -259,7 +261,7 @@ export class AppComponent {
     const url = this.router.url.split('?')[0];
     // These links are opened by external customers. A locally remembered
     // employee/admin session must never reveal internal UI or billing information.
-    return url.startsWith('/quote-accept/') ||
+    return url === '/clienti' || url.startsWith('/clienti/') || isCustomerPortalHost(window.location.hostname) || url.startsWith('/quote-accept/') ||
       url.startsWith('/contract-accept/') ||
       url.startsWith('/work-completion-accept/') ||
       url.startsWith('/service-order-accept/') ||

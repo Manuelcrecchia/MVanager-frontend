@@ -404,7 +404,7 @@
           </div>
 
           <button type="button"
-            *ngIf="a.isExtra"
+            *ngIf="a.isExtra && canDeleteShifts"
             class="btn btn-sm btn-outline-danger"
             [disabled]="!canRemoveExtra(a)"
             [title]="canRemoveExtra(a) ? 'Elimina lavoro extra' : 'Attendi la conferma del salvataggio prima di eliminare il lavoro extra'"

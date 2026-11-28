@@ -14,6 +14,7 @@ export class AssignDialogComponent implements OnInit {
   selectedEmployees: number[] = [];
   selectedCapisquadra: number[] = [];
   capisquadraNotes: { [employeeId: number]: string } = {};
+  employeeDocumentBlocks: Partial<Record<'work_completion' | 'periodic_evaluation' | 'quality_control', boolean>> = {};
   busyIds: number[] = [];
   forceConfirmed = false;
   shiftContext: any = null;
@@ -34,6 +35,7 @@ export class AssignDialogComponent implements OnInit {
     this.selectedEmployees = [...(this.data.assigned || [])];
     this.selectedCapisquadra = [...(this.data.capisquadra || [])];
     this.capisquadraNotes = { ...(this.data.capisquadraNotes || {}) };
+    this.employeeDocumentBlocks = { ...this.data.employeeDocumentBlocks };
 
     if (this.data.busyDetails) {
       this.busyIds = this.data.busyDetails.map((c: any) => c.employeeId);
@@ -82,7 +84,7 @@ export class AssignDialogComponent implements OnInit {
     return (
       this.globalService.hasTenantFeature('leaveRequests') &&
       (
-        this.globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE') ||
+        this.globalService.hasPermission('EMPLOYEE_PERMITS_VIEW') ||
         this.globalService.hasPermission('SHIFTS_VIEW')
       )
     );
@@ -221,6 +223,7 @@ export class AssignDialogComponent implements OnInit {
       employees: this.selectedEmployees,
       capisquadra: this.selectedCapisquadra,
       capisquadraNotesMap: this.capisquadraNotes,
+      employeeDocumentBlocks: this.employeeDocumentBlocks,
       forceConfirmed: this.forceConfirmed
     };
     console.log('[assign-dialog] Closing with:', result);

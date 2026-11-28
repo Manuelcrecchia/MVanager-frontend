@@ -190,7 +190,7 @@
               matInput
               readonly
               [name]="field.dbColumn"
-              [ngModel]="globalService.getRecordValueForField($any(quoteModelService), field)"
+              [ngModel]="globalService.getRecordDisplayValueForField($any(quoteModelService), field)"
             />
             <mat-hint>Calcolato automaticamente</mat-hint>
           </mat-form-field>
@@ -278,13 +278,26 @@
             <mat-form-field *ngSwitchDefault appearance="fill" class="w-100">
               <mat-label>{{ field.label || field.dbColumn }}</mat-label>
               <input
+                *ngIf="globalService.isMappedAmountField(field); else standardMappedInput"
                 matInput
-                [type]="globalService.getDynamicInputType(field)"
+                appMappedAmount
+                type="text"
+                inputmode="decimal"
                 [name]="field.dbColumn"
                 [required]="globalService.isFieldRequired('quote', field.dbColumn || field.key)"
                 [ngModel]="$any(quoteModelService)[field.dbColumn]"
                 (ngModelChange)="updateField(field, $event)"
               />
+              <ng-template #standardMappedInput>
+                <input
+                  matInput
+                  [type]="globalService.getDynamicInputType(field)"
+                  [name]="field.dbColumn"
+                  [required]="globalService.isFieldRequired('quote', field.dbColumn || field.key)"
+                  [ngModel]="$any(quoteModelService)[field.dbColumn]"
+                  (ngModelChange)="updateField(field, $event)"
+                />
+              </ng-template>
               <mat-hint class="quote-validation-error" *ngIf="getFieldError(field)">{{ getFieldError(field) }}</mat-hint>
             </mat-form-field>
           </ng-container>

@@ -10,7 +10,7 @@
     <div class="col-md-3" *ngIf="canManageInternal"><button class="category-link" [class.active]="selectedType === 'internal'" type="button" (click)="select('internal')"><strong>Interne</strong><span>Gestisci categorie interne</span></button></div>
   </div>
 
-  <section class="card p-4">
+  <section class="card p-4" *ngIf="canEditSelected">
     <h3 class="h5">{{ editingId ? 'Modifica categoria ' + singularTitle : 'Nuova categoria ' + singularTitle }}</h3>
     <p class="text-muted small">{{ helperText }}</p>
     <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
@@ -26,6 +26,6 @@
     <datalist [id]="folderSuggestionsId"><option *ngFor="let folder of folderSuggestions" [value]="folder"></option></datalist>
     <div class="mt-4 d-flex gap-2 justify-content-end"><button class="btn btn-light" type="button" (click)="reset()">Annulla</button><button class="btn btn-primary" type="button" [disabled]="saving" (click)="save()">{{ editingId ? 'Salva' : 'Crea categoria' }}</button></div>
   </section>
-  <section class="card mt-4 p-4"><h3 class="h5">Categorie {{ title }} configurate</h3><div *ngIf="loading" class="text-muted">Caricamento…</div><div *ngIf="!loading && !categories.length" class="text-muted">Nessuna categoria configurata.</div><div class="category-item" *ngFor="let category of categories"><div><strong>{{ category.name }}</strong><small>{{ category.description }}</small><span>{{ category.certifications.length }} scadenze standard</span></div><div><button type="button" class="btn btn-sm btn-outline-secondary me-2" (click)="edit(category)">Modifica</button><button type="button" class="btn btn-sm btn-outline-danger" (click)="remove(category)">Elimina</button></div></div></section>
+  <section class="card mt-4 p-4"><h3 class="h5">Categorie {{ title }} configurate</h3><div *ngIf="loading" class="text-muted">Caricamento…</div><div *ngIf="!loading && !categories.length" class="text-muted">Nessuna categoria configurata.</div><div class="category-item" *ngFor="let category of categories"><div><strong>{{ category.name }}</strong><small>{{ category.description }}</small><span>{{ category.certifications.length }} scadenze standard</span></div><div *ngIf="canEditSelected"><button type="button" class="btn btn-sm btn-outline-secondary me-2" (click)="edit(category)">Modifica</button><button type="button" class="btn btn-sm btn-outline-danger" (click)="remove(category)">Elimina</button></div></div></section>
 </div>
 </div>

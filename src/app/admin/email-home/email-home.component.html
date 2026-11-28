@@ -1,5 +1,5 @@
 <div class="email-management-page">
-  <header class="mv-entity-toolbar"><div class="mv-entity-toolbar__title"><h1>Email</h1><button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="back()">← Torna indietro</button><button class="btn mv-toolbar-primary" type="button" (click)="newEmail()" [disabled]="accounts.length === 0"><i class="fas fa-pen"></i> Nuova email</button></div></header>
+  <header class="mv-entity-toolbar"><div class="mv-entity-toolbar__title"><h1>Email</h1><button type="button" class="btn mv-toolbar-back mv-mobile-home-back" (click)="back()">← Torna indietro</button><button class="btn mv-toolbar-primary" type="button" (click)="newEmail()" [disabled]="accounts.length === 0" *ngIf="canCompose"><i class="fas fa-pen"></i> Nuova email</button></div></header>
 <div class="mail-shell" [class.detail-open]="detailOpen">
   <aside class="mail-sidebar">
     <div class="sidebar-section">
@@ -111,7 +111,7 @@
       </button>
       <span class="message-meta">
         <time *ngIf="messageDate(message)">{{ messageDate(message) | date:'dd/MM HH:mm' }}</time>
-        <button class="trash-btn" type="button" (click)="trash(message, $event)" title="Cestino">
+        <button class="trash-btn" type="button" (click)="trash(message, $event)" title="Cestino" *ngIf="canOrganize">
           <i class="fas fa-trash"></i>
         </button>
       </span>
@@ -294,26 +294,26 @@
           </details>
         </div>
         <div class="detail-actions">
-          <button class="detail-action-btn command-icon" type="button" (click)="editDraft(selectedMessage)" [appCommandTooltip]="editActionLabel(selectedMessage)" [attr.aria-label]="editActionLabel(selectedMessage)" *ngIf="isDraftMessage(selectedMessage)">
+          <button class="detail-action-btn command-icon" type="button" (click)="editDraft(selectedMessage)" [appCommandTooltip]="editActionLabel(selectedMessage)" [attr.aria-label]="editActionLabel(selectedMessage)" *ngIf="canCompose && isDraftMessage(selectedMessage)">
             <i class="fas fa-pen" aria-hidden="true"></i>
           </button>
-          <button class="detail-action-btn command-icon" type="button" (click)="reply(selectedMessage)" appCommandTooltip="Rispondi al mittente" aria-label="Rispondi" *ngIf="!isDraftMessage(selectedMessage)">
+          <button class="detail-action-btn command-icon" type="button" (click)="reply(selectedMessage)" appCommandTooltip="Rispondi al mittente" aria-label="Rispondi" *ngIf="canCompose && !isDraftMessage(selectedMessage)">
             <i class="fas fa-reply" aria-hidden="true"></i>
           </button>
-          <button class="detail-action-btn command-icon" type="button" (click)="replyAll(selectedMessage)" appCommandTooltip="Rispondi al mittente e agli altri destinatari" aria-label="Rispondi a tutti" *ngIf="!isDraftMessage(selectedMessage) && canReplyAll(selectedMessage)">
+          <button class="detail-action-btn command-icon" type="button" (click)="replyAll(selectedMessage)" appCommandTooltip="Rispondi al mittente e agli altri destinatari" aria-label="Rispondi a tutti" *ngIf="canCompose && !isDraftMessage(selectedMessage) && canReplyAll(selectedMessage)">
             <i class="fas fa-reply-all" aria-hidden="true"></i>
           </button>
-          <button class="detail-action-btn command-icon" type="button" (click)="forward(selectedMessage)" appCommandTooltip="Inoltra il messaggio" aria-label="Inoltra" *ngIf="!isDraftMessage(selectedMessage)">
+          <button class="detail-action-btn command-icon" type="button" (click)="forward(selectedMessage)" appCommandTooltip="Inoltra il messaggio" aria-label="Inoltra" *ngIf="canCompose && !isDraftMessage(selectedMessage)">
             <i class="fas fa-share" aria-hidden="true"></i>
           </button>
           <details class="message-more-actions">
             <summary class="detail-action-btn command-icon" appCommandTooltip="Altre azioni sul messaggio" aria-label="Altre azioni"><i class="fas fa-ellipsis-h" aria-hidden="true"></i></summary>
             <div class="message-more-menu">
-              <button class="detail-action-btn" type="button" (click)="markUnread(selectedMessage)" *ngIf="!isDraftMessage(selectedMessage)">Segna come da leggere</button>
+              <button class="detail-action-btn" type="button" (click)="markUnread(selectedMessage)" *ngIf="canOrganize && !isDraftMessage(selectedMessage)">Segna come da leggere</button>
               <button class="detail-action-btn" type="button" (click)="printMessage(selectedMessage)">Stampa</button>
             </div>
           </details>
-          <button class="detail-action-btn command-icon" type="button" (click)="trash(selectedMessage)" appCommandTooltip="Sposta il messaggio nel cestino" aria-label="Sposta nel cestino">
+          <button class="detail-action-btn command-icon" type="button" (click)="trash(selectedMessage)" appCommandTooltip="Sposta il messaggio nel cestino" aria-label="Sposta nel cestino" *ngIf="canOrganize">
             <i class="fas fa-trash" aria-hidden="true"></i>
           </button>
         </div>

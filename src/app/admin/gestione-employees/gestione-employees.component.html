@@ -65,7 +65,7 @@
           <button type="button" *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')" class="btn btn-employee-action mv-record-action mv-record-action--edit action-with-tooltip" (click)="openEmployeeSettings('edit', emp)" title="Modifica dipendente" aria-label="Modifica dipendente" data-tooltip="Modifica dipendente"><i class="fas fa-pen-to-square"></i></button>
           <button type="button" *ngIf="globalService.hasPermission('EMPLOYEE_EDIT')" class="btn btn-employee-action mv-record-action mv-record-action--evidence action-with-tooltip" (click)="openEmployeeSettings('categories', emp)" title="Categorie dipendente" aria-label="Categorie dipendente" data-tooltip="Categorie dipendente"><i class="fas fa-tags"></i></button>
           <button type="button"
-            *ngIf="globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE')"
+            *ngIf="globalService.hasPermission('EMPLOYEE_PERMITS_VIEW')"
             class="btn btn-employee-action btn-employee-permits mv-record-action mv-record-action--calendar action-with-tooltip"
             (click)="goToPermessiAssenze(emp.id)"
             title="Apri permessi e assenze del dipendente"
@@ -76,7 +76,7 @@
           </button>
 
           <button type="button"
-            *ngIf="globalService.hasPermission('EMPLOYEE_DOCS_MANAGE')"
+            *ngIf="globalService.hasPermission('EMPLOYEE_DOCS_VIEW')"
             class="btn btn-employee-action btn-employee-docs mv-record-action mv-record-action--signature action-with-tooltip"
             (click)="goToDocument(emp.id)"
             title="Apri i documenti caricati per questo dipendente"
@@ -108,7 +108,7 @@
           </button>
 
           <button type="button"
-            *ngIf="globalService.hasPermission('EMAIL_VIEW')"
+            *ngIf="globalService.hasPermission('EMAIL_COMPOSE')"
             class="btn btn-employee-action btn-employee-email mv-record-action mv-record-action--email action-with-tooltip"
             (click)="composeEmployeeEmail(emp)"
             title="Crea una nuova email con il dipendente già come destinatario"

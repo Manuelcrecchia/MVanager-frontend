@@ -20,6 +20,27 @@ import {
   styleUrl: './edit-customer.component.css',
 })
 export class EditCustomerComponent {
+  workRegisterConfig:any=undefined;
+  sendingCredentials = false;
+  credentialsMessage = '';
+  private portalCustomerId = '';
+  get canManageCustomerAccounts(): boolean {
+    return !!this.portalCustomerId && this.portalCustomerId === String(this.customerModelService.numeroCliente) &&
+      this.globalService.hasTenantFeature('customerAccounts') && this.globalService.hasPermission('CUSTOMER_ACCOUNTS_MANAGE');
+  }
+  async regeneratePortalPassword(): Promise<void> {
+    if (this.sendingCredentials || !this.canManageCustomerAccounts) return;
+    this.sendingCredentials = true;
+    this.credentialsMessage = '';
+    try {
+      await this.http.post(this.globalService.url + 'customers/regeneratePassword', {
+        numeroCliente: this.portalCustomerId,
+      }, { headers: this.globalService.headers }).toPromise();
+      this.credentialsMessage = 'Nuove credenziali inviate all’indirizzo email salvato del cliente. Le sessioni precedenti sono state chiuse.';
+    } catch (error: any) {
+      this.credentialsMessage = error.error?.error || 'Invio non riuscito. Verifica l’indirizzo email salvato del cliente e riprova.';
+    } finally { this.sendingCredentials = false; }
+  }
   canConfigureVehicleRequirements = false;
   canConfigureEquipmentRequirements = false;
   canConfigureEmployeeRequirements = false;
@@ -312,6 +333,7 @@ export class EditCustomerComponent {
   }
 
   private caricaClienteFromDb(numeroCliente: string): void {
+    this.portalCustomerId = '';
     this.http
       .post(this.globalService.url + 'customers/getCustomer', { numeroCliente }, {
         headers: this.globalService.headers,
@@ -323,6 +345,7 @@ export class EditCustomerComponent {
             Object.assign(this.customerModelService as any, res[0]);
             this.syncCustomerFieldRules();
             const customerId = String(res[0].numeroCliente || numeroCliente);
+            this.portalCustomerId = customerId;
             if (this.canConfigureEmployeeRequirements) { this.loadStaffRequirements(customerId); this.loadSpecificRequirements('employee', customerId); }
             if (this.canConfigureEquipmentRequirements) { this.loadEquipmentRequirements(customerId); this.loadResourceRequirements('equipment', customerId); }
             if (this.canConfigureVehicleRequirements) { this.loadResourceRequirements('vehicle', customerId); this.loadSpecificRequirements('vehicle', customerId); }
@@ -563,6 +586,7 @@ export class EditCustomerComponent {
       },
       source,
     );
+    if (this.workRegisterConfig !== undefined) (body as Record<string, any>)['workRegisterConfig'] = this.workRegisterConfig;
 
     this.http
       .post(this.globalService.url + 'customers/edit', body, {

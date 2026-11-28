@@ -1,3 +1,4 @@
+import { normalizeWhatsappPhone } from '../../shared/whatsapp';
 import { downloadFile } from '../../shared/file-download';
 import { HttpClient } from '@angular/common/http';
 import { Component, Input, OnDestroy, ViewChild } from '@angular/core';
@@ -530,6 +531,7 @@ export class QuotesHomeComponent implements OnDestroy {
   }
 
   delete(numeroPreventivo: string) {
+    if (!this.globalService.hasPermission('QUOTES_DELETE')) return;
     const body = { numeroPreventivo };
 
     this.http
@@ -671,6 +673,7 @@ export class QuotesHomeComponent implements OnDestroy {
   }
 
   async anonymizeQuote(numeroPreventivo: string): Promise<void> {
+    if (!this.globalService.hasPermission('QUOTES_ANONYMIZE')) return;
     if (!await this.popup.confirm(
       `Anonimizzare definitivamente il preventivo ${numeroPreventivo}? Dati personali, note, PDF e dati di accettazione saranno rimossi e il preventivo non potrà più essere ripristinato.`,
     )) return;
@@ -690,6 +693,7 @@ export class QuotesHomeComponent implements OnDestroy {
   }
 
   invio(numeroPreventivo: string) {
+    if (!this.globalService.hasPermission('QUOTES_SEND')) return;
     const body = { numeroPreventivo };
 
     this.http
@@ -715,6 +719,7 @@ export class QuotesHomeComponent implements OnDestroy {
   }
 
   sendAcceptanceLink(numeroPreventivo: string) {
+    if (!this.globalService.hasPermission('QUOTES_REQUEST_SIGNATURE')) return;
     const listedQuote = this.allQuotes.find((quote) => quote.numeroPreventivo === numeroPreventivo) as any;
     const email = this.getQuoteEmail(listedQuote || {});
     if (email) {
@@ -751,7 +756,6 @@ export class QuotesHomeComponent implements OnDestroy {
     const body = {
       numeroPreventivo,
       deliveryChannel: sendByEmail ? 'email' : 'whatsapp',
-      expiresInDays: 14,
     };
 
     this.http
@@ -834,7 +838,7 @@ export class QuotesHomeComponent implements OnDestroy {
   }
 
   private openWhatsApp(phone: string): void {
-    const normalizedPhone = this.normalizePhoneForWhatsApp(phone);
+    const normalizedPhone = normalizeWhatsappPhone(phone);
     if (!normalizedPhone) {
       this.popup.text = 'Numero di telefono non disponibile.';
       this.popup.openPopup();
@@ -861,17 +865,6 @@ export class QuotesHomeComponent implements OnDestroy {
     this.router.navigate(['/homeAdmin/email'], {
       queryParams: { composeTo: email, composeSubject: subject },
     });
-  }
-
-  private normalizePhoneForWhatsApp(phone: string): string {
-    let cleaned = String(phone || '').replace(/[^\d+]/g, '');
-    if (!cleaned) return '';
-    if (cleaned.startsWith('+')) cleaned = cleaned.slice(1);
-    if (cleaned.startsWith('00')) cleaned = cleaned.slice(2);
-    if (!cleaned.startsWith('39') && cleaned.length <= 10) {
-      cleaned = `39${cleaned}`;
-    }
-    return cleaned;
   }
 
   private isValidEmail(email: string): boolean {

@@ -133,7 +133,7 @@ export class OfflineService {
     try {
       const session = this.injector.get(OFFLINE_SESSION)();
       const claims = JSON.parse(atob(session.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      if (!claims.id || String(claims.tenantId) !== session.tenant) return null;
+      if (!claims.id || claims.consultationOnly === true || String(claims.tenantId) !== session.tenant) return null;
       const baseUrl = new URL(session.baseUrl, location.href).href.replace(/\/?$/, '/');
       return { ...session, baseUrl, owner: `${baseUrl}|${session.tenant}|${session.role}|${claims.id}`, expired: Number(claims.exp || 0) * 1000 <= Date.now() };
     } catch { return null; }
@@ -384,7 +384,7 @@ export class OfflineService {
       if (candidate.path === '/shifts/saveMultiple' && candidate.body.type === 'json') {
         const receipt = previous.response?.body || this.confirmed.get(previous.id)?.body;
         const mappings = receipt?.savedShifts || [];
-        if (receipt?.version && (!previous.draftWriter || previous.draftWriter === candidate.draftWriter)) candidate.headers['If-Match'] = receipt.version;
+        if (receipt?.version && previous.headers['If-Match'] && previous.headers['If-Match'] === candidate.headers['If-Match'] && (!previous.draftWriter || previous.draftWriter === candidate.draftWriter)) candidate.headers['If-Match'] = receipt.version;
         for (const item of candidate.body.value.shifts || []) {
           if (item.shiftId || item.appointmentId) continue;
           const saved = mappings.find((mapping: any) => mapping.clientId && mapping.clientId === item.clientId);
@@ -411,7 +411,7 @@ export class OfflineService {
         if (row.path === '/shifts/saveMultiple' && row.body.type === 'json') {
           const text = result.bodyEncoding === 'base64' ? new TextDecoder().decode(Uint8Array.from(atob(result.responseBody || ''), char => char.charCodeAt(0))) : result.responseBody || '';
           const receipt = text ? JSON.parse(text) : null;
-          if (receipt?.version && (!previous.draftWriter || previous.draftWriter === row.draftWriter)) row.headers['If-Match'] = receipt.version;
+          if (receipt?.version && previous.headers['If-Match'] && previous.headers['If-Match'] === row.headers['If-Match'] && (!previous.draftWriter || previous.draftWriter === row.draftWriter)) row.headers['If-Match'] = receipt.version;
           for (const item of row.body.value.shifts || []) {
             if (item.shiftId || item.appointmentId) continue;
             const saved = (receipt?.savedShifts || []).find((mapping: any) => mapping.clientId && mapping.clientId === item.clientId);

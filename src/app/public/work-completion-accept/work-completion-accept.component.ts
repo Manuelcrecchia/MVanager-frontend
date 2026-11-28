@@ -1,6 +1,7 @@
 import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
+import { formatDate } from '@angular/common';
 import { GlobalService } from '../../service/global.service';
 import { TenantService } from '../../service/tenant.service';
 
@@ -48,6 +49,19 @@ export class WorkCompletionAcceptComponent implements OnInit {
 
   get pending(): boolean {
     return this.data?.status === 'pending' || this.data?.status === 'otp_verified';
+  }
+  get statusLabel(): string {
+    const labels: Record<string, string> = {
+      accepted: 'Firmato', pending: 'In attesa di firma', otp_verified: 'Email verificata',
+      expired: 'Scaduto', cancelled: 'Annullato',
+    };
+    return labels[this.data?.status] || '';
+  }
+  get workDescription(): string {
+    const { workDescription = '', periodStart, periodEnd } = this.data?.context || {};
+    if (!periodStart || !periodEnd) return workDescription;
+    const date = (value: string) => formatDate(value, 'dd/MM/yyyy', 'it-IT');
+    return workDescription === `${date(periodStart)} – ${date(periodEnd)}` ? '' : workDescription;
   }
 
   ngOnInit(): void {
@@ -222,6 +236,7 @@ export class WorkCompletionAcceptComponent implements OnInit {
   }
 
   private pdf(): string {
+    if (this.data?.documentType !== 'customer_asset_intervention' && this.data?.status === 'cancelled') return '';
     const url = new URL(this.data?.pdfUrl || this.api('/pdf'), window.location.origin);
     const tenant = this.params().get('tenant');
     if (tenant) url.searchParams.set('tenant', tenant);

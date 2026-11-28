@@ -328,7 +328,7 @@
                 <button class="icon-btn" type="button" (click)="startEditNote(note)" [disabled]="noteSaving" aria-label="Modifica nota" title="Modifica nota">
                   <i class="fas fa-pen"></i>
                 </button>
-                <button class="icon-btn danger" type="button" (click)="deleteNote(note)" [disabled]="noteSaving" aria-label="Elimina nota" title="Elimina nota">
+                <button *ngIf="note.canDelete" class="icon-btn danger" type="button" (click)="deleteNote(note)" [disabled]="noteSaving" aria-label="Elimina nota" title="Elimina nota">
                   <i class="fas fa-trash"></i>
                 </button>
               </div>

@@ -77,6 +77,10 @@ export class GestionePermessiComponent implements OnInit {
     });
   }
 
+  get canManage(): boolean {
+    return this.globalService.hasPermission('EMPLOYEE_PERMITS_MANAGE');
+  }
+
   openCreaModal(): void {
     this.creaData = {
       employeeId: '',

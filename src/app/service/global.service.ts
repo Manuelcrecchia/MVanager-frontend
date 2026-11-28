@@ -10,6 +10,12 @@ import {
 } from '../shared/entity-number-catalog';
 import { fetchCompleteResponse } from '../offline/http-response-deadline';
 import { fetchOperationalConfig } from '../offline/offline-config-fetch';
+import {
+  MAPPED_DECIMALS,
+  formatMappedDecimal,
+  isMappedAmountField,
+  parseMappedNumericText,
+} from '../shared/mapped-amount';
 import { Injectable } from '@angular/core';
 import { HttpHeaders } from '@angular/common/http';
 import { Capacitor } from '@capacitor/core';
@@ -32,6 +38,7 @@ interface TenantBackendConfig {
     disabled?: string[];
     disabledPermissions?: string[];
     permissionDependencies?: Record<string, { permissions?: string[] }>;
+    permissionReplacements?: Record<string, string[]>;
   };
   leaveConfig?: {
     categories?: TenantLeaveCategoryConfig[];
@@ -145,6 +152,7 @@ export interface TenantLeaveCategoryConfig {
 }
 
 export interface TenantStampingConfig {
+  locationRadiusMeters?: number;
   mode?: 'customer_tag' | 'warehouse';
   warehouseTagId?: string;
   warehouseLocationId?: string;
@@ -156,6 +164,8 @@ export interface TenantStampingConfig {
 }
 
 export interface TenantWarehouseStampingLocation {
+  latitude?: number | null;
+  longitude?: number | null;
   tagId: string;
   locationId: string;
   label: string;
@@ -399,7 +409,7 @@ export class GlobalService {
   notifyDeadlineSummaryChanged(): void {
     this.deadlineSummaryChanged$.next();
   }
-  version = '8.0.1';
+  version = '8.1.2';
   private tenantConfig: TenantBackendConfig | null = null;
   private tenantConfigPromise: Promise<TenantBackendConfig | null> | null =
     null;
@@ -587,32 +597,64 @@ export class GlobalService {
     return this.authService.permissions || [];
   }
 
+  get consultationOnly(): boolean {
+    return this.authService.consultationOnly;
+  }
+
+  updateSessionPermissions(token: string, permissions: string[]): void {
+    if (token && token === this.token)
+      this.authService.permissions = permissions;
+  }
+
   hasPermission(key: string): boolean {
     const tenantPermissions = this.tenantConfig?.permissions;
     const available = new Set(
       tenantPermissions?.available || tenantPermissions?.permissions || [],
     );
-    const disabled =
+    const disabled = new Set(
       tenantPermissions?.disabled ||
-      tenantPermissions?.disabledPermissions ||
-      [];
-    const granted = new Set<string>();
+        tenantPermissions?.disabledPermissions ||
+        [],
+    );
     const dependencies = tenantPermissions?.permissionDependencies || {};
+    const replacements = tenantPermissions?.permissionReplacements || {};
     const hasCatalog =
       Array.isArray(tenantPermissions?.available) ||
       Array.isArray(tenantPermissions?.permissions);
-    const add = (permission: string) => {
+
+    const canGrant = (
+      permission: string,
+      visiting = new Set<string>(),
+    ): boolean => {
       if (
-        granted.has(permission) ||
-        disabled.includes(permission) ||
-        (hasCatalog && !available.has(permission))
-      )
-        return;
+        disabled.has(permission) ||
+        (hasCatalog && !available.has(permission)) ||
+        visiting.has(permission)
+      ) {
+        return false;
+      }
+      visiting.add(permission);
+      const allowed = (dependencies[permission]?.permissions || []).every(
+        (parent) => canGrant(parent, visiting),
+      );
+      visiting.delete(permission);
+      return allowed;
+    };
+
+    const granted = new Set<string>();
+    const add = (permission: string) => {
+      if (granted.has(permission)) return;
       granted.add(permission);
       for (const dependency of dependencies[permission]?.permissions || [])
         add(dependency);
     };
-    for (const permission of this.permissions) add(permission);
+    for (const grant of this.permissions) {
+      for (const permission of Object.hasOwn(replacements, grant)
+        ? replacements[grant]
+        : [grant]) {
+        if (canGrant(permission)) add(permission);
+      }
+    }
     return granted.has(key);
   }
 
@@ -947,6 +989,10 @@ export class GlobalService {
             label: String(
               location?.label || location?.warehouseLabel || '',
             ).trim(),
+            latitude:
+              location.latitude == null ? null : Number(location.latitude),
+            longitude:
+              location.longitude == null ? null : Number(location.longitude),
           }))
           .filter(
             (location: TenantWarehouseStampingLocation) =>
@@ -960,6 +1006,7 @@ export class GlobalService {
 
     return {
       mode: rawConfig.mode === 'warehouse' ? 'warehouse' : 'customer_tag',
+      locationRadiusMeters: rawConfig.locationRadiusMeters ?? 200,
       warehouseTagId: primaryLocation.tagId,
       warehouseLocationId: primaryLocation.locationId,
       warehouseLabel: primaryLocation.label,
@@ -1862,6 +1909,18 @@ export class GlobalService {
     return this.readMappedValue(source, field);
   }
 
+  readonly isMappedAmountField = isMappedAmountField;
+
+  getRecordDisplayValueForField(
+    source: Record<string, any>,
+    field: TenantFieldMappingFieldConfig,
+  ): unknown {
+    const value = this.getRecordValueForField(source, field);
+    return isMappedAmountField(field) || this.isCalculatedField(field)
+      ? formatMappedDecimal(value)
+      : value;
+  }
+
   isAnonymizedRecord(record: Record<string, any> | null | undefined): boolean {
     if (!record) return false;
     if (record['anonymizedAt']) return true;
@@ -1933,8 +1992,7 @@ export class GlobalService {
       total = subtotal * (vatRate / 100);
     }
 
-    const decimals = this.normalizeCalculationDecimals(calculation.decimals);
-    const factor = 10 ** decimals;
+    const factor = 10 ** MAPPED_DECIMALS;
     return Math.round((total + Number.EPSILON) * factor) / factor;
   }
 
@@ -2015,16 +2073,6 @@ export class GlobalService {
       .filter(Boolean);
   }
 
-  private normalizeCalculationDecimals(value: unknown): number {
-    if (value === null || value === undefined || String(value).trim() === '') {
-      return 2;
-    }
-    const parsed = Number(value);
-    return Number.isFinite(parsed)
-      ? Math.max(0, Math.min(6, Math.round(parsed)))
-      : 2;
-  }
-
   private readCalculationSourceValue(
     source: Record<string, any>,
     fields: TenantFieldMappingFieldConfig[],
@@ -2064,25 +2112,7 @@ export class GlobalService {
     if (typeof value === 'boolean') return value ? 1 : 0;
     if (typeof value === 'object') return 0;
 
-    let normalized = String(value)
-      .trim()
-      .replace(/\s/g, '')
-      .replace(/[^\d,.-]/g, '');
-
-    if (!normalized) return 0;
-
-    const commaIndex = normalized.lastIndexOf(',');
-    const dotIndex = normalized.lastIndexOf('.');
-    if (commaIndex !== -1 && dotIndex !== -1) {
-      normalized =
-        commaIndex > dotIndex
-          ? normalized.replace(/\./g, '').replace(',', '.')
-          : normalized.replace(/,/g, '');
-    } else if (commaIndex !== -1) {
-      normalized = normalized.replace(',', '.');
-    }
-
-    const parsed = Number(normalized);
+    const parsed = parseMappedNumericText(String(value));
     return Number.isFinite(parsed) ? parsed : 0;
   }
 

@@ -1,15 +1,10 @@
+import { DocumentExplorerEntry, DocumentExplorerAction, CustomerDocumentVisibility, DocumentFolder, documentFolderEntry } from '../../shared/document-explorer/document-explorer.component';
 import { oversizedDocumentMessage, documentUploadError } from '../../shared/document-upload-limits';
 import { downloadFile } from '../../shared/file-download';
 import {
-  AfterViewInit,
   Component,
-  ElementRef,
-  HostListener,
-  NgZone,
   OnDestroy,
   OnInit,
-  QueryList,
-  ViewChildren,
 } from '@angular/core';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
@@ -23,37 +18,41 @@ import { ContactRequirementPromptService } from '../../service/contact-requireme
   templateUrl: './document-manager.component.html',
   styleUrls: ['./document-manager.component.css'],
 })
-export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestroy {
+export class DocumentManagerComponent implements OnInit, OnDestroy {
 
   readonly realtimeResources = ["documents"];
   refreshRealtimeData(): void | boolean | Promise<void | boolean> {
-    this.loadFolders(); this.loadFiles();
+    this.loadFolders(); this.loadFiles();void this.loadSharingRoot();
   }
-  @ViewChildren('fileNameBox') fileNameBoxes?: QueryList<ElementRef<HTMLElement>>;
 
   userId: string = '';
   isCustomer: boolean = false;
   prefix: 'employee' | 'customer' = 'employee';
 
-  folders: string[] = [];
+  folders: DocumentFolder[] = [];
   selectedFolder: string = '';
   files: any[] = [];
   pdfBase64: string = '';
   newFolderName: string = '';
   email: string = '';
   entityDisplayName: string = '';
+  documentAccessError = '';
   documentSearch: string = '';
   isFileDragActive = false;
   isUploading = false;
+  sharingBusy = false;
+  sharingError = '';
+  sharingNotice = '';
+  sharingRoot:CustomerDocumentVisibility|null=null;
+  sharingRootLoading=false;
+  private sharingRequest=0;
 
   currentFilename: string = ''; // 👈 NECESSARIO PER STAMPA E DOWNLOAD CORRETTI
   fileType: 'pdf' | 'image' | 'signed' | 'other' = 'other';
   imageBase64: string = '';
   fileBlob: Blob | null = null;
-  private fileNameChangesSubscription?: Subscription;
   private routeParamsSubscription?: Subscription;
   private routeQuerySubscription?: Subscription;
-  private fileNameMeasureFrame = 0;
   private pendingFolderTarget = '';
   private pendingDocumentTarget = '';
   private shouldOpenPendingDocument = false;
@@ -65,7 +64,6 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
     private router: Router,
     private http: HttpClient,
     public globalService: GlobalService,
-    private ngZone: NgZone,
     private contactPrompt: ContactRequirementPromptService,
     private appDialog: PopupServiceService,
   ) {}
@@ -75,9 +73,13 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
       this.userId = params.get('id') || '';
       this.isCustomer = this.route.snapshot.url.some((segment) => segment.path === 'client');
       this.prefix = this.isCustomer ? 'customer' : 'employee';
+      this.email = '';
       this.entityDisplayName = '';
       this.selectedFolder = '';
+      this.sharingRoot=null;this.sharingError='';this.sharingNotice='';
       this.documentSearch = '';
+      this.folders = [];
+      this.files = [];
       this.applyDocumentRouteQuery(this.route.snapshot.queryParamMap);
       this.refreshDirectory();
       this.loadEmailIfNeeded();
@@ -89,56 +91,114 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
     });
   }
 
-  ngAfterViewInit(): void {
-    this.fileNameChangesSubscription = this.fileNameBoxes?.changes.subscribe(() => {
-      this.queueFileNameMeasure();
-    });
-    this.queueFileNameMeasure();
-  }
-
   ngOnDestroy(): void {
-    this.fileNameChangesSubscription?.unsubscribe();
     this.routeParamsSubscription?.unsubscribe();
     this.routeQuerySubscription?.unsubscribe();
-    if (this.fileNameMeasureFrame) {
-      cancelAnimationFrame(this.fileNameMeasureFrame);
-      this.fileNameMeasureFrame = 0;
+  }
+
+  private explorerCacheFolders?: DocumentFolder[];
+  private explorerCacheFiles?: any[];
+  private explorerCachePath = '';
+  private explorerCache: DocumentExplorerEntry[] = [];
+
+  get explorerEntries(): DocumentExplorerEntry[] {
+    if (this.explorerCacheFolders === this.folders && this.explorerCacheFiles === this.files && this.explorerCachePath === this.selectedFolder) return this.explorerCache;
+    this.explorerCacheFolders = this.folders;
+    this.explorerCacheFiles = this.files;
+    this.explorerCachePath = this.selectedFolder;
+    this.explorerCache = [
+      ...this.folders.map(folder => ({
+        ...documentFolderEntry(folder),
+        locked: this.isDeadlineManagedFolder(folder.name),
+      })),
+      ...this.files.map(file => ({ id: 'file:' + file.filename, name: this.displayFileName(file), kind: 'file' as const, data: file, size: file.size, modifiedAt: file.uploadedAt || file.updatedAt, locked: file.managedBy === 'deadline', detail: file.viewed ? 'Visualizzato' : '', customerVisibility:file.customerVisibility })),
+    ];
+    return this.explorerCache;
+  }
+
+  navigateExplorer(path: string): void {
+    if (this.isUploading) return;
+    this.selectedFolder = path;
+    this.documentSearch = '';
+    this.folders = [];
+    this.files = [];
+    this.refreshDirectory();
+  }
+
+  canUseDocumentAction(action: 'EDIT' | 'DELETE' | 'SEND'): boolean {
+    const area = this.isCustomer ? 'CUSTOMER' : 'EMPLOYEE';
+    return this.globalService.hasPermission(`${area}_DOCS_${action}`);
+  }
+
+  get canPrintDocuments(): boolean {
+    return !this.globalService.consultationOnly;
+  }
+
+  createExplorerFolder(name: string): void {
+    this.newFolderName = name;
+    this.createFolder();
+  }
+
+  uploadExplorerFiles(files: File[]): void {
+    void this.uploadFiles(files);
+  }
+
+  onExplorerAction(event: DocumentExplorerAction): void {
+    const { type, entry } = event;
+    if (this.isUploading) return;
+    if (['share-customer','hide-customer','inherit-customer'].includes(type)) { void this.shareWithCustomer(event); return; }
+    if (entry.kind === 'folder') {
+      if (type === 'open') this.navigateExplorer([this.selectedFolder, entry.data].filter(Boolean).join('/'));
+      if (type === 'delete') void this.deleteFolder(entry.data);
+      return;
+    }
+    switch (type) {
+      case 'open': this.selectFile(entry.data); break;
+      case 'download': this.downloadCurrentFile(entry.data); break;
+      case 'print': this.printFile(entry.data); break;
+      case 'delete': void this.deleteFile(entry.data); break;
+      case 'rename': void this.renameFile(entry.data); break;
+      case 'email': this.sendFileMail(entry.data); break;
     }
   }
 
-  @HostListener('window:resize')
-  onWindowResize(): void {
-    this.queueFileNameMeasure();
+  get canShareWithCustomer():boolean {
+    return this.isCustomer && !this.globalService.consultationOnly && this.globalService.hasTenantFeature('customerPortalDocuments') && this.globalService.hasPermission('CUSTOMER_DOCS_SHARE');
   }
-
-  private queueFileNameMeasure(): void {
-    if (this.fileNameMeasureFrame) return;
-
-    this.ngZone.runOutsideAngular(() => {
-      this.fileNameMeasureFrame = requestAnimationFrame(() => {
-        this.fileNameMeasureFrame = 0;
-        this.measureFileNames();
-      });
-    });
+  private async shareWithCustomer(event:DocumentExplorerAction):Promise<void> {
+    if (!this.canShareWithCustomer || this.sharingBusy) return;
+    this.sharingBusy=true;this.sharingError='';this.sharingNotice='';
+    const {entry,type}=event;
+    const entryPath=[this.selectedFolder,entry.kind==='folder'?entry.data:entry.data.filename].filter(Boolean).join('/');
+    try {
+      await firstValueFrom(this.http.post(this.globalService.url+'admin/customer-document-sharing/visibility',{
+        numeroCliente:this.userId,path:entryPath,kind:entry.kind,visible:type==='share-customer'?true:type==='hide-customer'?false:null,
+      },{headers:this.globalService.headers}));
+      this.sharingNotice='Visibilità aggiornata.';this.loadFolders();this.loadFiles();void this.loadSharingRoot();
+    } catch(e:any) { this.sharingError=e.error?.error||'Impossibile aggiornare la visibilità. Riprova.'; }
+    finally { this.sharingBusy=false; }
   }
-
-  private measureFileNames(): void {
-    const boxes = this.fileNameBoxes?.toArray() || [];
-    for (const boxRef of boxes) {
-      const box = boxRef.nativeElement;
-      const text = box.querySelector<HTMLElement>('.mv-file-name__text');
-      if (!text) continue;
-
-      box.classList.remove('mv-file-name--scroll');
-      box.style.removeProperty('--mv-title-scroll');
-
-      const overflow = text.scrollWidth > box.clientWidth + 8;
-      if (!overflow) continue;
-
-      const distance = text.scrollWidth - box.clientWidth + 28;
-      box.style.setProperty('--mv-title-scroll', `-${distance}px`);
-      box.classList.add('mv-file-name--scroll');
-    }
+  get sharingRootLabel():string {
+    return this.sharingRoot?.status==='shared'?'Tutto condiviso':this.sharingRoot?.status==='hidden'?'Tutto nascosto':'Condivisione personalizzata';
+  }
+  async loadSharingRoot():Promise<void> {
+    if(!this.canShareWithCustomer)return;
+    const customerId=this.userId,request=++this.sharingRequest;this.sharingRootLoading=true;
+    try {
+      const state=await firstValueFrom(this.http.get<CustomerDocumentVisibility>(this.globalService.url+'admin/customer-document-sharing/customers/'+encodeURIComponent(customerId),{headers:this.globalService.headers}));
+      if(request===this.sharingRequest&&customerId===this.userId)this.sharingRoot=state;
+    }catch(e:any){if(request===this.sharingRequest)this.sharingError=e.error?.error||'Impossibile caricare la visibilità dell’archivio.';}
+    finally{if(request===this.sharingRequest)this.sharingRootLoading=false;}
+  }
+  async setArchiveVisibility(visible:boolean|null):Promise<void> {
+    if(!this.canShareWithCustomer||this.sharingBusy||this.sharingRootLoading)return;
+    this.sharingBusy=true;this.sharingError='';this.sharingNotice='';
+    try {
+      this.sharingRoot=await firstValueFrom(this.http.put<CustomerDocumentVisibility>(this.globalService.url+'admin/customer-document-sharing/customers/'+encodeURIComponent(this.userId)+'/all',{visible},{headers:this.globalService.headers}));
+      this.sharingNotice=visible===true?'Tutte le cartelle e tutti i documenti sono condivisi con questo cliente.':visible===false?'Tutte le cartelle e tutti i documenti sono nascosti a questo cliente.':'Ripristinate le regole aziendali dell’archivio.';
+      this.loadFolders();this.loadFiles();
+    }catch(e:any){this.sharingError=e.error?.error||'Impossibile aggiornare la visibilità dell’archivio.';}
+    finally{this.sharingBusy=false;}
   }
 
   private getPayload(extra: any = {}) {
@@ -157,8 +217,9 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
 
   get filteredFolders(): string[] {
     const query = this.normalizeSearch(this.documentSearch);
-    if (!query) return this.folders;
-    return this.folders.filter((folder) => this.normalizeSearch(folder).includes(query));
+    const names = this.folders.map(folder => folder.name);
+    if (!query) return names;
+    return names.filter((name) => this.normalizeSearch(name).includes(query));
   }
 
   get filteredFiles(): any[] {
@@ -253,7 +314,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
 
     const nextTarget = targetParts[currentParts.length];
     const matchedFolder = this.folders.find((folder) =>
-      this.lookupMatches(folder, nextTarget),
+      this.lookupMatches(folder.name, nextTarget),
     );
 
     if (!matchedFolder) {
@@ -262,7 +323,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
       return false;
     }
 
-    this.selectedFolder = this.joinPath(this.selectedFolder, matchedFolder);
+    this.selectedFolder = this.joinPath(this.selectedFolder, matchedFolder.name);
     this.refreshDirectory();
     return true;
   }
@@ -330,6 +391,8 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
   private refreshDirectory(): void {
     this.foldersLoaded = false;
     this.filesLoaded = false;
+    this.documentAccessError = '';
+    void this.loadSharingRoot();
     this.loadFolders();
     this.loadFiles();
     this.clearFilePreview();
@@ -337,6 +400,8 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
 
   private loadEmailIfNeeded() {
     const endpoint = this.isCustomer ? 'customers/getAll' : 'employees/getAll';
+    const userId = this.userId;
+    const prefix = this.prefix;
 
     this.http
       .get(this.globalService.url + endpoint, {
@@ -345,6 +410,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
       })
       .subscribe({
         next: (res) => {
+          if (userId !== this.userId || prefix !== this.prefix) return;
           try {
             const users = JSON.parse(res);
             const user = this.isCustomer
@@ -357,6 +423,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
           }
         },
         error: (err) => {
+          if (userId !== this.userId || prefix !== this.prefix || this.globalService.consultationOnly) return;
           console.error('Errore caricamento email:', err);
           alert('Errore durante il caricamento dei dati');
         },
@@ -365,6 +432,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
 
   private getEntityDisplayName(user: any): string {
     if (!user) return '';
+    if (this.globalService.consultationOnly) return user.consultationName || '';
 
     const fullName = [user.nome, user.cognome]
       .map((part) => String(part || '').trim())
@@ -410,23 +478,27 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
 
   loadFolders(): void {
     const requestedFolder = this.selectedFolder;
-    const body = this.getPayload({ path: this.selectedFolder });
+    const userId = this.userId;
+    const prefix = this.prefix;
+    const body = this.getPayload({ path: requestedFolder, includeMetadata: true });
 
     this.http
-      .post(this.globalService.url + 'documents/folders', body, {
+      .post<Array<DocumentFolder | string>>(this.globalService.url + 'documents/folders', body, {
         headers: this.globalService.headers,
-        responseType: 'text',
       })
       .subscribe({
-        next: (res) => {
-          if (requestedFolder !== this.selectedFolder) return;
-          try {
-            this.folders = JSON.parse(res);
-            this.foldersLoaded = true;
-            this.tryApplyDocumentRouteTarget();
-          } catch {}
+        next: (folders) => {
+          if (requestedFolder !== this.selectedFolder || userId !== this.userId || prefix !== this.prefix) return;
+          this.folders = folders.map(folder => typeof folder === 'string' ? { name: folder } : folder);
+          this.foldersLoaded = true;
+          this.tryApplyDocumentRouteTarget();
         },
         error: (err) => {
+          if (requestedFolder !== this.selectedFolder || userId !== this.userId || prefix !== this.prefix) return;
+          if (this.globalService.consultationOnly) {
+            this.documentAccessError = this.parseServerError(err);
+            return;
+          }
           console.error('Errore caricamento cartelle:', err);
           alert('Errore durante il caricamento dei dati');
         },
@@ -513,6 +585,8 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
 
   loadFiles(): void {
     const requestedFolder = this.selectedFolder;
+    const userId = this.userId;
+    const prefix = this.prefix;
     const body = this.getPayload({ folder: this.selectedFolder });
 
     this.http
@@ -522,15 +596,19 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
       })
       .subscribe({
         next: (res) => {
-          if (requestedFolder !== this.selectedFolder) return;
+          if (requestedFolder !== this.selectedFolder || userId !== this.userId || prefix !== this.prefix) return;
           try {
             this.files = JSON.parse(res);
             this.filesLoaded = true;
             this.tryApplyDocumentRouteTarget();
-            this.queueFileNameMeasure();
           } catch {}
         },
         error: (err) => {
+          if (requestedFolder !== this.selectedFolder || userId !== this.userId || prefix !== this.prefix) return;
+          if (this.globalService.consultationOnly) {
+            this.documentAccessError = this.parseServerError(err);
+            return;
+          }
           console.error('Errore caricamento file:', err);
           alert('Errore durante il caricamento dei dati');
         },
@@ -746,6 +824,7 @@ export class DocumentManagerComponent implements OnInit, AfterViewInit, OnDestro
   }
 
   printFile(fileOrName: any): void {
+    if (!this.canPrintDocuments) return;
     const filename = this.storedFileName(fileOrName);
     if (!filename) return;
 

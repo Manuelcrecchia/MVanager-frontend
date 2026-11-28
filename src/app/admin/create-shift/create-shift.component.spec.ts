@@ -1,5 +1,6 @@
 import {numberingServiceStub} from '../../shared/numbering.spec-support';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
+import { HttpHeaders, HttpResponse } from '@angular/common/http';
 import { CreateShiftComponent } from './create-shift.component';
 
 describe('CreateShiftComponent', async () => {
@@ -15,6 +16,7 @@ describe('CreateShiftComponent', async () => {
       {} as any,
       {
         ...numberingServiceStub(), hasTenantFeature: () => true,
+        hasPermission: () => true,
         getRecordValueByRole: () => null,
       } as any,
       {} as any,
@@ -26,6 +28,100 @@ describe('CreateShiftComponent', async () => {
     return component;
   }
 
+  it('advances the plan version after deleting a saved extra on this computer', async () => {
+    const component: any = createComponent(), response = new Subject<any>();
+    const oldVersion = component.shiftVersion, newVersion = '"' + 'b'.repeat(64) + '"';
+    component.appointments = [{ id: 'extra-1', shiftId: 1, isExtra: true, duration: 60 }, { id: 2, duration: 30 }];
+    component.savedShiftSignature = component.shiftStateSignature();
+    component.socketService = { emitUpdate: () => {} };
+    component.shiftDraft = { flush: () => {} };
+    component.http = { post: jasmine.createSpy('post').and.returnValue(response) };
+    component.removeExtra(component.appointments[0]);
+    expect(component.http.post.calls.mostRecent().args[2].headers['If-Match']).toBe(oldVersion);
+    expect(component.isSaving).toBeTrue();
+    response.next({ version: newVersion, deleted: 1 }); response.complete();
+    expect(component.shiftVersion).toBe(newVersion);
+    expect(component.appointments.map((app: any) => app.id)).toEqual([2]);
+    expect(component.shiftStateSignature()).toBe(component.savedShiftSignature);
+    await component.finalSave(true);
+    expect(component.http.post.calls.mostRecent().args[2].headers['If-Match']).toBe(newVersion);
+  });
+  it('refreshes a clean editor on a committed socket invalidation, including remote deletions', async () => {
+    const component: any = createComponent(), response = new Subject<any>();
+    component.appointments = [{ id: 1, duration: 60 }, { id: 'extra', shiftId: 3, isExtra: true, duration: 30 }];
+    component.calendarAppointments = [{ id: 1, duration: 60 }];
+    component.assignedShifts = { 1: [10], extra: [10] };
+    component.savedShiftSignature = component.shiftStateSignature();
+    component.shiftDraft = { ready: Promise.resolve(), flush: jasmine.createSpy('flush') };
+    component.http = { get: () => response };
+    const refreshing = component.refreshRealtimeData(); await Promise.resolve();
+    response.next(new HttpResponse({ body: [], headers: new HttpHeaders({ 'X-MV-Shift-Version': 'new-version' }) }));
+    response.complete();
+    expect(await refreshing).toBeTrue();
+    expect(component.appointments.map((app: any) => app.id)).toEqual([1]);
+    expect(component.assignedShifts).toEqual({});
+    expect(component.shiftVersion).toBe('new-version');
+    expect(component.shiftDraft.flush).toHaveBeenCalled();
+  });
+  it('defers socket refresh with unsaved edits and rejects a read overtaken by new typing', async () => {
+    const component: any = createComponent(), response = new Subject<any>();
+    component.appointments = [{ id: 1, duration: 60, description: 'Originale' }];
+    component.savedShiftSignature = component.shiftStateSignature();
+    component.shiftDraft = { ready: Promise.resolve(), flush: () => {} };
+    component.http = { get: jasmine.createSpy('get').and.returnValue(response) };
+    component.appointments[0].description = 'Bozza';
+    expect(await component.refreshRealtimeData()).toBeFalse(); expect(component.http.get).not.toHaveBeenCalled();
+    component.appointments[0].description = 'Originale';
+    const refreshing = component.refreshRealtimeData(); await Promise.resolve();
+    component.appointments[0].description = 'Scritta durante lettura';
+    response.next(new HttpResponse({ body: [], headers: new HttpHeaders({ 'X-MV-Shift-Version': 'new-version' }) })); response.complete();
+    expect(await refreshing).toBeFalse(); expect(component.appointments[0].description).toBe('Scritta durante lettura');
+  });
+  it('accepts a delayed deletion receipt before allowing the next day save', async () => {
+    const component: any = createComponent();
+    component.selectedDate = new Date(2026, 9, 5);
+    const app = { id: 'extra', shiftId: 3, isExtra: true, duration: 60 };
+    component.appointments = [app]; component.pendingDeletion = { id: 'delete-1', day: '2026-10-05', app };
+    component.http = { post: jasmine.createSpy('post') };
+    await component.finalSave(); expect(component.http.post).not.toHaveBeenCalled();
+    component.offline.operations.next([{ id: 'delete-1', state: 'done', response: { body: { version: 'confirmed-version' } } }]);
+    await component.acceptQueuedDeletion();
+    expect(component.pendingDeletion).toBeUndefined(); expect(component.appointments).toEqual([]);
+    expect(component.shiftVersion).toBe('confirmed-version'); expect(component.offline.acknowledge).toHaveBeenCalled();
+  });
+  it('treats a manual reorder as unsaved work during a socket refresh', async () => {
+    const component: any = createComponent();
+    component.appointments = [{ id: 1, duration: 60 }, { id: 2, duration: 60 }];
+    component.savedShiftSignature = component.shiftStateSignature();
+    component.shiftDraft = { ready: Promise.resolve(), flush: () => {} };
+    component.http = { get: jasmine.createSpy('get') };
+    component.socketService = { emitUpdate: () => {} };
+    component.dropGeneral({ previousIndex: 0, currentIndex: 1 });
+    expect(await component.refreshRealtimeData()).toBeFalse();
+    expect(component.appointments.map((app: any) => app.id)).toEqual([2, 1]);
+    expect(component.http.get).not.toHaveBeenCalled();
+  });
+  it('keeps an open assignment dialog safe from a realtime replacement', async () => {
+    const component: any = createComponent();
+    component.dialog = { openDialogs: [{}] };
+    component.http = { get: jasmine.createSpy('get') };
+    expect(await component.refreshRealtimeData()).toBeFalse(); expect(component.http.get).not.toHaveBeenCalled();
+  });
+  it('aligns an unchanged recovered copy to the fresh server version without blessing stale edits', async () => {
+    const component: any = createComponent();
+    component.appointments = [{ id: 'a', duration: 60 }];
+    const freshVersion = component.shiftVersion;
+    component.savedShiftSignature = component.shiftStateSignature();
+    const value = { ...component.shiftSnapshot(), shiftVersion: 'older-version' };
+    component.offline = {
+      refresh: async () => {}, loadShiftIdentities: async () => ({}), loadDraft: async () => null,
+      loadDraftEntry: async () => ({ savedAt: 1, value }), operations: new BehaviorSubject([]),
+      session: () => ({ owner: 'test' }), registerDraftPage: () => () => {}, notice: new BehaviorSubject(''),
+    };
+    await component.protectShiftDraft(); await component.shiftDraft.ready;
+    expect(component.shiftVersion).toBe(freshVersion);
+    component.ngOnDestroy();
+  });
   it('stops an unversioned draft instead of submitting a blind overwrite', async () => {
     const component = createComponent(), post = jasmine.createSpy('post');
     (component as any).shiftVersion = '';
@@ -253,6 +349,16 @@ describe('CreateShiftComponent', async () => {
     component.isSaving = false; (component as any).pendingSave = { id: 'pending' };
     component.removeExtra(extra); expect(component.appointments).toEqual([extra]);
     expect((component as any).socketService.emitUpdate).not.toHaveBeenCalled();
+  });
+  it('does not delete a saved shift with edit permission alone', () => {
+    const component = createComponent(), post = jasmine.createSpy('post');
+    component.globalService.hasPermission = key => key === 'SHIFTS_MANAGE';
+    (component as any).http = { post };
+    const extra = { id: 'extra-a', isExtra: true, shiftId: 42 };
+    component.appointments = [extra];
+    component.removeExtra(extra);
+    expect(post).not.toHaveBeenCalled();
+    expect(component.appointments).toEqual([extra]);
   });
   it('warns immediately when work starts before the customer opens', async () => {
     const component = createComponent();

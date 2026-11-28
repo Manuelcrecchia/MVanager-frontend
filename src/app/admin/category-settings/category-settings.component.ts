@@ -33,6 +33,12 @@ export class CategorySettingsComponent implements OnInit {
   get canManageEquipment(): boolean { return this.global.hasPermission('EQUIPMENT_SETTINGS_MANAGE'); }
   get canManageVehicles(): boolean { return this.global.hasPermission('VEHICLE_SETTINGS_MANAGE'); }
   get canManageInternal(): boolean { return this.global.hasPermission('INTERNAL_DEADLINES_EDIT'); }
+  get canEditSelected(): boolean {
+    return this.selectedType === 'customer'
+      ? this.global.hasPermission('CUSTOMER_DEADLINE_CATEGORIES_MANAGE')
+      : this.canManage(this.selectedType);
+  }
+
   get availableTypes(): CategoryType[] {
     return (['customer', 'vehicle', 'equipment', 'employee', 'internal'] as CategoryType[]).filter((type) => this.canManage(type));
   }
@@ -85,6 +91,7 @@ export class CategorySettingsComponent implements OnInit {
   edit(category: ManagedCategory): void { this.editingId = Number(category.id) || null; this.draft = JSON.parse(JSON.stringify(category)); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   reset(): void { this.editingId = null; this.draft = this.emptyDraft(); this.error = ''; }
   save(): void {
+    if (!this.canEditSelected) return;
     if (!this.draft.name.trim()) { this.error = 'Inserisci il nome della categoria.'; return; }
     this.saving = true; this.error = '';
     this.http.post(this.global.url + this.endpoint('save'), { ...this.draft, id: this.editingId }).subscribe({
@@ -93,6 +100,7 @@ export class CategorySettingsComponent implements OnInit {
     });
   }
   async remove(category: ManagedCategory): Promise<void> {
+    if (!this.canEditSelected) return;
     if (!await this.appDialog.confirm(`Eliminare la categoria ${this.singularTitle} "${category.name}"?`)) return;
     this.http.post(this.global.url + this.endpoint('delete'), { id: category.id }).subscribe({ next: () => this.load(), error: () => this.error = 'Impossibile eliminare la categoria.' });
   }

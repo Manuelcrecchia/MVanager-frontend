@@ -124,6 +124,10 @@ export class CustomerWorkCompletionComponent implements OnInit {
     this.router.navigateByUrl('/homeAdmin/listCustomer');
   }
 
+  get canManage(): boolean {
+    return this.global.hasPermission('WORK_COMPLETION_MANAGE');
+  }
+
   async createRequest(): Promise<void> {
     const choice = await this.popup.choose(
       'Il cliente compilerà il foglio, verificherà la propria email con un codice OTP e firmerà dal suo dispositivo. Via email riceverà anche il PDF preliminare; con WhatsApp verrà aperto il messaggio pronto.',

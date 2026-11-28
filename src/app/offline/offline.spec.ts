@@ -85,6 +85,18 @@ describe('Durable offline saves', () => {
     await send(grouped({ shifts: [{ data: '2026-10-05', clientId: 'extra', shiftId: 7, title: 'New' }] }).clone({ setHeaders: { 'If-Match': oldVersion } }));
     expect(requests.find(req => req.url.endsWith('/saveMultiple'))!.headers.get('If-Match')).toBe(newVersion);
   });
+  it('never replaces a freshly loaded shift version with an older receipt from this same computer', async () => {
+    const initialVersion = '"' + 'a'.repeat(64) + '"';
+    const receiptVersion = '"' + 'b'.repeat(64) + '"';
+    const freshVersion = '"' + 'c'.repeat(64) + '"';
+    online.and.returnValue(false);
+    await send(grouped({ shifts: [{ data: '2026-10-05', clientId: 'work', appointmentId: 1, title: 'Old' }] }).clone({ setHeaders: { 'If-Match': initialVersion } })).catch(() => {});
+    const previous = service.operations.value[0];
+    await service.store.markConfirmed({ ...previous, state: 'done', response: { body: { savedShifts: [], version: receiptVersion }, status: 200, headers: {} } });
+    online.and.returnValue(true);
+    await send(grouped({ shifts: [{ data: '2026-10-05', clientId: 'work', appointmentId: 1, title: 'Fresh edit' }] }).clone({ setHeaders: { 'If-Match': freshVersion } }));
+    expect(requests.find(req => req.url.endsWith('/saveMultiple'))!.headers.get('If-Match')).toBe(freshVersion);
+  });
   it('never adopts another tab receipt version for different local edits', async () => {
     const oldVersion = '"' + 'a'.repeat(64) + '"', otherVersion = '"' + 'b'.repeat(64) + '"';
     online.and.returnValue(false);
@@ -383,6 +395,14 @@ describe('Durable offline saves', () => {
     const result: any = await firstValueFrom(service.intercept(req, () => throwError(() => new HttpErrorResponse({ status: 0 }))));
     expect(result.body).toEqual(['Cliente']); expect(result.headers.get('X-MV-Offline-Cache')).toBe('true');
     session.token = token(2);
+    await expectAsync(firstValueFrom(service.intercept(req, () => throwError(() => new HttpErrorResponse({ status: 0 }))))).toBeRejected();
+  });
+
+  it('does not serve previously cached customers after the same account enters consultation', async () => {
+    const req = new HttpRequest('GET', session.baseUrl + 'customers/getAll');
+    await firstValueFrom(service.intercept(req, () => of(new HttpResponse({ body: ['Cliente riservato'] }))));
+    const claims = { id: 1, tenantId: session.tenant, exp: Math.floor(Date.now() / 1000) + 60, consultationOnly: true };
+    session.token = `e30.${btoa(JSON.stringify(claims))}.signature`;
     await expectAsync(firstValueFrom(service.intercept(req, () => throwError(() => new HttpErrorResponse({ status: 0 }))))).toBeRejected();
   });
   it('sends with a durable identity and acknowledges only a server receipt', async () => {

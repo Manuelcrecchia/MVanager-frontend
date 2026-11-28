@@ -1,0 +1,194 @@
+<main class="standard-management-page quality-page">
+  <header class="mv-entity-toolbar"><div class="mv-entity-toolbar__title"><h1>{{internal?'Controlli qualità interni':'Fogli di fine lavoro'}}</h1><span>{{data?.customer?.displayName || numeroCliente}}</span></div><a class="back" routerLink="/homeAdmin/listCustomer">← Clienti</a></header>
+  <nav *ngIf="global.hasPermission('WORK_COMPLETION_VIEW') && global.hasPermission('QUALITY_CONTROL_VIEW')" class="switcher" aria-label="Documenti del cliente"><a [routerLink]="['/homeAdmin/listCustomer',numeroCliente,'work-completion']" [class.active]="!internal">Fogli di fine lavoro</a><a [routerLink]="['/homeAdmin/listCustomer',numeroCliente,'quality-control']" [class.active]="internal">Controlli interni</a></nav>
+  <p role="alert" class="notice error" *ngIf="error && !showForm">{{error}}</p><p role="status" class="notice success" *ngIf="message">{{message}}</p><p *ngIf="loading" class="notice">Caricamento…</p>
+  <ng-container *ngIf="data">
+    <section class="card work-sheet-actions" *ngIf="canManage && !internal && !showForm">
+      <h2>{{ category?.mode === 'recurring' ? 'Valutazione periodica' : 'Foglio di fine lavoro' }}</h2>
+      <div class="action-buttons">
+        <button class="primary" type="button" (click)="start()">Invia al cliente</button>
+        <button type="button" (click)="start(null, 'onsite')">Compila su questo dispositivo</button>
+        <button type="button" (click)="start(null, 'paper')">Stampa o allega</button>
+      </div>
+    </section>
+    <section class="filter-bar" *ngIf="!showForm && (categories.length > 1 || category)"><label *ngIf="categories.length > 1">Servizio<select [(ngModel)]="categoryKey" (ngModelChange)="categoryChanged()"><option value="">Tutte le categorie</option><option *ngFor="let c of categories" [value]="c.key">{{c.label}}</option></select></label><div class="service-summary" *ngIf="category"><strong>{{label(categoryKey)}}</strong><span>{{internal?'Verifiche eseguite dal personale abilitato':modeLabel(category.mode)}}</span></div><button class="primary" *ngIf="canManage && category && internal" (click)="start()">+ Nuovo controllo</button></section>
+    <div class="tabs" role="tablist" *ngIf="!showForm"><button role="tab" [attr.aria-selected]="tab==='tasks'" [class.active]="tab==='tasks'" (click)="tab='tasks'">Scadenze <span>{{tasks.length}}</span></button><button role="tab" [attr.aria-selected]="tab==='settings'" [class.active]="tab==='settings'" (click)="tab='settings'">Programmazione</button><button *ngIf="showHistoryTab || tab==='history'" role="tab" [attr.aria-selected]="tab==='history'" [class.active]="tab==='history'" (click)="tab='history'">{{ internal ? 'Controlli registrati' : 'Richieste e firme' }}</button></div>
+    <section class="card" *ngIf="tab==='tasks' && !showForm"><h2>{{internal?'Controlli da eseguire':'Valutazioni da richiedere'}}</h2><p class="muted">{{internal?'Completa la verifica interna e firma il documento.':'Il promemoria avvisa il responsabile: la richiesta al cliente parte solo quando decidi di inviarla.'}}</p>
+    <div class="empty" *ngIf="!tasks.length">
+      <strong>Nessuna attività in scadenza</strong>
+      <p *ngIf="internal && category && qualityScheduleEnabled && plan.qualityNextDueOn">Prossimo controllo il {{plan.qualityNextDueOn | date:'dd/MM/yyyy'}}.</p>
+      <p *ngIf="internal && category && qualityScheduleEnabled && !plan.qualityNextDueOn && category.qualityFirstDueRule">In attesa della data di inizio del servizio.</p>
+      <p *ngIf="internal && category && !qualityScheduleEnabled">Puoi attivare i promemoria nelle <a routerLink="/homeAdmin/periodic-assessment-settings">impostazioni aziendali</a> o nella Programmazione del cliente.</p>
+      <p *ngIf="!internal && category?.mode === 'recurring' && plan.workNextDueOn">Prossima scadenza il {{plan.workNextDueOn | date:'dd/MM/yyyy'}}.</p>
+      <p *ngIf="!internal && category?.mode === 'recurring' && !plan.workNextDueOn && category?.firstDueRule">In attesa della data di inizio del servizio.</p>
+      <p *ngIf="!internal && category?.mode === 'recurring' && !plan.workNextDueOn && !category?.firstDueRule">Imposta la regola aziendale in <a routerLink="/homeAdmin/periodic-assessment-settings">Valutazioni periodiche</a>.</p>
+    </div><article class="task-row" *ngFor="let t of tasks"><div><strong>{{label(t.categoryKey)}}</strong><span>Periodo {{t.periodStart | date:'dd/MM/yyyy'}} – {{t.dueOn | date:'dd/MM/yyyy'}}</span><small>Scadenza {{t.dueOn | date:'dd/MM/yyyy'}}</small></div><span class="badge" [class.sent]="t.status==='requested'">{{statusLabel(t.status)}}</span><div class="row-actions" *ngIf="canManage">
+      <button *ngIf="internal" (click)="start(t)">Esegui controllo</button>
+      <ng-container *ngIf="!internal">
+        <button type="button" (click)="start(t)">Invia al cliente</button>
+        <button type="button" (click)="start(t, 'onsite')">Compila qui</button>
+        <button type="button" (click)="start(t, 'paper')">Stampa o allega</button>
+      </ng-container>
+    </div></article></section>
+    <section class="card" *ngIf="tab==='settings' && !showForm"><h2>Programmazione per questo cliente</h2><p class="muted" *ngIf="!category">Seleziona una categoria per configurare le scadenze del cliente.</p><ng-container *ngIf="category"><fieldset [disabled]="!canManage || busy"><div class="form-grid"><label *ngIf="!internal">
+      Modalità per questo cliente
+      <select [(ngModel)]="plan.workMode">
+        <option value="">Come la categoria{{ categoryWorkMode ? ' · ' + modeLabel(categoryWorkMode) : '' }}</option>
+        <option *ngIf="categoryWorkMode !== 'recurring' || plan.workMode === 'one_off'"
+          [disabled]="categoryWorkMode === 'recurring'" value="one_off">{{ categoryWorkMode === 'recurring' ? 'A fine lavoro (impostazione precedente)' : 'A fine lavoro' }}</option>
+        <option value="recurring">Valutazione periodica</option>
+        <option value="disabled">Valutazione disabilitata</option>
+      </select>
+    </label>
+      <label *ngIf="internal">Controlli periodici per questo cliente
+        <select [ngModel]="plan.qualityScheduleMode || (plan.qualityEnabled ? 'enabled' : 'inherit')" (ngModelChange)="plan.qualityScheduleMode = $event">
+          <option value="inherit">Come la categoria · {{ category.qualitySchedule?.enabled ? 'Attivi' : 'Disattivati' }}</option>
+          <option value="enabled">Attivi</option>
+          <option value="disabled">Disattivati</option>
+        </select>
+      </label>
+      <ng-container *ngIf="internal ? qualityScheduleEnabled : workScheduleRecurring">
+        <label>Ripeti ogni
+          <input type="number" min="1" step="1" [ngModel]="individualIntervalCount" (ngModelChange)="setIndividualFrequency($event, individualIntervalUnit)" />
+          <small>Lascia vuoto per usare la frequenza aziendale<span *ngIf="companyFrequency"> di {{companyFrequency}}</span>.</small>
+        </label>
+        <label>Unità della frequenza
+          <select [ngModel]="individualIntervalUnit" (ngModelChange)="setIndividualFrequency(individualIntervalCount, $event)">
+            <option value="days">Giorni</option>
+            <option value="weeks">Settimane</option>
+            <option value="months">Mesi</option>
+            <option value="years">Anni</option>
+          </select>
+        </label>
+      </ng-container>
+      <div *ngIf="internal && qualityScheduleEnabled">
+        <p *ngIf="plan.qualityAutomatic && plan.qualityNextDueOn && !plan.qualityDueDateOverride">
+          <strong>Scadenza automatica</strong> {{plan.qualityNextDueOn | date:'dd/MM/yyyy'}}
+        </p>
+        <label>{{category.qualityFirstDueRule ? 'Data personalizzata (facoltativa)' : 'Prima / prossima scadenza'}}
+          <input type="date" [ngModel]="plan.qualityDueDateOverride ?? plan.qualityNextDueOn" (ngModelChange)="plan.qualityDueDateOverride = $event" />
+          <small *ngIf="category.qualityFirstDueRule">Lascia vuoto per usare la regola aziendale.</small>
+          <small *ngIf="!category.qualityFirstDueRule">Imposta qui la data o configura la regola in <a routerLink="/homeAdmin/periodic-assessment-settings">Valutazioni periodiche</a>.</small>
+        </label>
+      </div>
+      <div *ngIf="!internal && workScheduleRecurring">
+        <p *ngIf="plan.workNextDueOn && category.firstDueRule && plan.workAutomatic && !plan.workDueDateOverride">
+          <strong>Scadenza automatica</strong> {{plan.workNextDueOn | date:'dd/MM/yyyy'}}
+        </p>
+        <label>{{category.firstDueRule ? 'Data personalizzata (facoltativa)' : 'Prima / prossima scadenza'}}
+          <input type="date" [ngModel]="plan.workDueDateOverride ?? plan.workNextDueOn" (ngModelChange)="plan.workDueDateOverride = $event" />
+          <small *ngIf="category.firstDueRule">Lascia vuoto per usare la regola aziendale.</small>
+          <small *ngIf="!category.firstDueRule && categoryWorkMode === 'recurring'">Puoi impostare la regola aziendale in <a routerLink="/homeAdmin/periodic-assessment-settings">Valutazioni periodiche</a>.</small>
+        </label>
+      </div>
+    </div><p class="muted">{{internal?'Il promemoria è destinato agli utenti con il permesso «Compila controlli qualità interni».':'Il promemoria è destinato agli admin con il permesso di gestire i fogli di fine lavoro. Non viene inviata automaticamente alcuna email al cliente.'}}</p><button *ngIf="canManage" class="primary" (click)="savePlan()">{{busy?'Salvataggio…':'Salva programmazione'}}</button></fieldset></ng-container></section>
+    <section class="card form-card" *ngIf="showForm">
+      <div class="card-heading">
+        <div>
+          <h2>{{ internal ? category?.qualityControl?.title : workSheetTitle }}</h2>
+          <p class="muted" *ngIf="internal && category">{{ label(categoryKey) }}</p>
+        </div>
+        <button type="button" [disabled]="busy" (click)="closeForm()">Chiudi</button>
+      </div>
+      <fieldset [disabled]="busy || !!onsiteLink">
+        <div class="form-grid">
+          <label *ngIf="!internal && categories.length > 1">
+            Servizio / categoria
+            <select [ngModel]="categoryKey" (ngModelChange)="selectWorkSheetCategory($event)">
+              <option value="">Scegli la categoria</option>
+              <option *ngFor="let item of workSheetCategories" [value]="item.key">{{ item.label }}</option>
+            </select>
+            <small *ngIf="!workSheetCategories.length">Le valutazioni sono disabilitate per tutte le categorie.</small>
+          </label>
+          <label *ngIf="!internal && !task && category?.mode === 'recurring'">
+            Periodo da valutare
+            <select [ngModel]="periodChoice" (ngModelChange)="selectEvaluationPeriod($event)">
+              <option value="">Scegli il periodo</option>
+              <option value="extra">Valutazione extra</option>
+              <option *ngIf="previousWorkTask as previous" value="previous">Periodo precedente · {{ previous.dueOn | date:'dd/MM/yyyy' }}</option>
+              <option *ngIf="category.nextWorkPeriod as next" value="next">Prossima scadenza · {{ next.dueOn | date:'dd/MM/yyyy' }}</option>
+            </select>
+          </label>
+          <p *ngIf="!internal && category?.mode === 'recurring' && evaluationPeriod as period">
+            <strong>Periodo valutato</strong>
+            {{ period.periodStart | date:'dd/MM/yyyy' }} – {{ period.periodEnd | date:'dd/MM/yyyy' }}
+            <br *ngIf="period.dueOn" />
+            <small *ngIf="period.dueOn">Vale per la scadenza del {{ period.dueOn | date:'dd/MM/yyyy' }}.</small>
+            <small *ngIf="periodChoice === 'extra'">Viene registrata separatamente.</small>
+          </p>
+          <label *ngIf="!internal && !task && category?.mode === 'one_off'">
+            Appuntamento del lavoro
+            <select [(ngModel)]="appointmentId" (ngModelChange)="selectAppointment()">
+              <option value="">Seleziona il lavoro nel calendario</option>
+              <option *ngFor="let appointment of workAppointments" [value]="appointment.id">{{ appointment.title }} · {{ appointment.endDate | date:'dd/MM/yyyy' }}</option>
+            </select>
+          </label>
+          <label *ngIf="internal || (workSheetContextReady && category?.mode !== 'recurring')">
+            Periodo o intervento {{ internal ? 'verificato' : 'valutato' }} *
+            <textarea [(ngModel)]="workDescription" rows="2" placeholder="Es. pulizia del mese di novembre"></textarea>
+          </label>
+          <label *ngIf="internal">Data del controllo *<input type="date" [(ngModel)]="inspectedOn" /></label>
+        </div>
+      <ng-container *ngIf="internal"><p *ngIf="category?.qualityControl?.introText">{{category.qualityControl.introText}}</p><div class="questions"><label *ngFor="let q of questions">{{q.label}} <span *ngIf="q.required">*</span><textarea *ngIf="q.type==='text'" [(ngModel)]="answers[q.key]" rows="2"></textarea><select *ngIf="q.type!=='text'" [(ngModel)]="answers[q.key]"><option value="">Seleziona una risposta</option><option *ngFor="let o of q.options" [value]="o.value">{{o.label}}</option></select></label></div><label *ngIf="category?.qualityControl?.noteEnabled">{{category.qualityControl.noteLabel || 'Note'}}<textarea [(ngModel)]="note" rows="3"></textarea></label><div class="attachments">
+        <h3>Foto del controllo</h3>
+        <p class="muted">Facoltative · fino a {{ photoLimit }} foto da {{ photoMaxMb }} MB ciascuna, anche HEIC. Saranno incluse nel PDF.</p>
+        <div class="photo-actions">
+          <button type="button" [disabled]="busy || photos.length >= photoLimit" (click)="qualityCamera.click()">Scatta foto</button>
+          <button type="button" [disabled]="busy || photos.length >= photoLimit" (click)="qualityGallery.click()">Allega foto</button>
+        </div>
+        <input #qualityCamera hidden type="file" accept="image/*" capture="environment" (change)="addPhotos($event)" />
+        <input #qualityGallery hidden type="file" accept="image/*,.heic,.heif" multiple (change)="addPhotos($event)" />
+        <small aria-live="polite">{{ photos.length }} / {{ photoLimit }} foto</small>
+        <p *ngIf="photoError" role="alert" class="notice error">{{ photoError }}</p>
+        <div class="photo-list">
+          <figure *ngFor="let photo of photos; let i = index">
+            <img *ngIf="photo.url" [src]="photo.url" [alt]="photo.file.name" />
+            <figcaption>{{ photo.file.name }}</figcaption>
+            <button type="button" [disabled]="busy" (click)="removePhoto(i)" [attr.aria-label]="'Rimuovi ' + photo.file.name">×</button>
+          </figure>
+        </div>
+      </div><div class="signature"><h3>Firma del responsabile *</h3><p class="muted">La registrazione conserva l’utente collegato, la data e la copia firmata del documento.</p><canvas #signatureCanvas width="900" height="240" aria-label="Disegna la firma del responsabile" (pointerdown)="pointerDown($event)" (pointermove)="pointerMove($event)" (pointerup)="pointerUp()" (pointercancel)="pointerUp()"></canvas><button (click)="clearSignature()">Cancella firma</button></div><p *ngIf="error" role="alert" class="notice error">{{error}}</p><div class="submit"><span>Il PDF firmato sarà salvato nei documenti del cliente.</span><button class="primary" (click)="saveControl()">{{busy?'Generazione PDF…':'Firma e registra controllo'}}</button></div></ng-container>
+        <div *ngIf="!internal && workSheetContextReady" class="request-actions">
+          <p *ngIf="error" role="alert" class="notice error">{{ error }}</p>
+          <p *ngIf="workSheetAction === 'onsite'">Passa il dispositivo al cliente. Il cliente compila il foglio e conferma la propria email prima di firmare.</p>
+          <div class="action-buttons" [ngSwitch]="workSheetAction">
+            <button *ngSwitchCase="'send'" class="primary" type="button" (click)="sendRequest()">Scegli come inviare</button>
+            <ng-container *ngSwitchCase="'onsite'">
+              <button *ngIf="!onsiteLink" class="primary" type="button" (click)="prepareOnsiteQuestionnaire()">Prepara il questionario</button>
+              <a *ngIf="onsiteLink" class="questionnaire-link primary" [href]="onsiteLink" target="_blank" rel="noopener noreferrer">Apri il questionario</a>
+            </ng-container>
+            <ng-container *ngSwitchCase="'paper'">
+              <button class="primary" type="button" (click)="paperPreview()">Scarica il modulo da stampare</button>
+              <label class="file-button">Allega il modulo firmato<input type="file" accept="application/pdf,image/png,image/jpeg" (change)="paperFile($event)" /></label>
+            </ng-container>
+          </div>
+        </div>
+      </fieldset>
+    </section>
+    <section class="card" *ngIf="tab==='history' && !showForm">
+      <h2>{{internal ? 'Storico dei controlli' : 'Richieste e firme'}}</h2>
+      <p class="empty" *ngIf="!history.length">Nessun documento registrato.</p>
+      <article class="task-row" *ngFor="let r of history">
+        <div>
+          <strong>{{internal ? r.reference : label(r.context?.categoryKey)}}</strong>
+          <span>{{internal ? r.workDescription : r.context?.workDescription || 'Valutazione del servizio'}}</span>
+          <small *ngIf="internal">{{r.inspectedOn | date:'dd/MM/yyyy'}} · {{r.inspectorName}}</small>
+          <small *ngIf="!internal">
+            Richiesta del {{r.requestedAt | date:'dd/MM/yyyy HH:mm'}}
+            <span *ngIf="r.acceptedAt"> · Firmata il {{r.acceptedAt | date:'dd/MM/yyyy HH:mm'}}</span>
+          </small>
+        </div>
+        <span class="badge" *ngIf="!internal">{{statusLabel(r.status)}}</span>
+        <div class="row-actions">
+          <a *ngIf="!internal && r.archivedInDocuments && canOpenCustomerDocs" [routerLink]="['/homeAdmin/documenti/client', numeroCliente]">Documenti cliente</a>
+          <button *ngIf="internal || (r.hasPdf && !(r.archivedInDocuments && canOpenCustomerDocs))" (click)="download(r)">
+            {{internal || r.status === 'accepted' ? 'Scarica PDF firmato' : 'Scarica anteprima'}}
+          </button>
+          <button *ngIf="!internal" (click)="evidence(r)">Dati firma</button>
+          <button *ngIf="canCancelRequest(r)" type="button" [disabled]="busy" (click)="cancelRequest(r)">Annulla richiesta</button>
+        </div>
+      </article>
+      <button *ngIf="historyHasMore" (click)="load(true)">Mostra documenti precedenti</button>
+    </section>
+  </ng-container>
+</main>

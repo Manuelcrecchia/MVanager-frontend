@@ -1,9 +1,27 @@
 import {numberingServiceStub} from '../../shared/numbering.spec-support';
 import { ListCustomerComponent } from './list-customer.component';
+import { of } from 'rxjs';
 
 describe('ListCustomerComponent', () => {
   it('should be exported', () => {
     expect(ListCustomerComponent).toBeTruthy();
+  });
+
+  it('filtra i clienti con problemi di indirizzo e ripristina la lista quando sono corretti', () => {
+    const component = new ListCustomerComponent({ get: () => of({ issues: {} }) } as any, { ...numberingServiceStub(), getRecordDisplayName: (_scope: string, customer: any) => customer.numeroCliente, url: '/api/', hasTenantFeature: () => true } as any, null as any, null as any, null as any, null as any, null as any, null as any, null as any);
+    component.customers = [{ numeroCliente: '1' }, { numeroCliente: '2' }];
+    component.workplaceIssues = { '2': [{ code: 'CIVIC_MISSING', label: 'Civico da verificare', tone: 'warning' }] };
+    component.onlyWorkplaceIssues = true;
+    component.applyCustomerSearch();
+    expect(component.customersFrEnd.map(customer => customer.numeroCliente)).toEqual(['2']);
+    component.showArchived = true;
+    component.applyCustomerSearch();
+    expect(component.customersFrEnd.length).toBe(2);
+    component.showArchived = false;
+    component.loadWorkplaceIssues();
+    expect(component.workplaceIssueCount).toBe(0);
+    expect(component.onlyWorkplaceIssues).toBeFalse();
+    expect(component.customersFrEnd.length).toBe(2);
   });
 
   it('ordina alfabeticamente per impostazione predefinita e usa il numero cliente come spareggio', () => {

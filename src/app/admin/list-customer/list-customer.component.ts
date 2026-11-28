@@ -1,8 +1,9 @@
+import { normalizeWhatsappPhone } from '../../shared/whatsapp';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 import { CustomerModelService } from '../../service/customer-model.service';
-import { Component, Input } from '@angular/core';
+import { Component } from '@angular/core';
 import { downloadFile as saveAs } from '../../shared/file-download';
 import { forkJoin, Subscription } from 'rxjs';
 import { PopupServiceService } from '../../componenti/popup/popup-service.service';
@@ -17,8 +18,28 @@ import { AdminListState, AdminListStateService } from '../admin-list-state.servi
   styleUrl: './list-customer.component.css',
 })
 export class ListCustomerComponent {
+  ticketCounts:Record<string,number>={};
+  loadTicketCounts():void{if(this.consultation||!this.globalService.hasTenantFeature('customerTickets')||!this.globalService.hasPermission('CUSTOMER_TICKETS_VIEW')){this.ticketCounts={};return;}
+    const token=this.globalService.token;this.http.get<{customers:Record<string,number>}>(this.globalService.url+'admin/customer-portal/tickets/summary',{headers:this.globalService.headers}).subscribe({next:value=>{if(token===this.globalService.token)this.ticketCounts=value.customers||{};},error:()=>{}});}
+  openTickets(customer:any){this.router.navigate(['/homeAdmin/customerTickets'],{queryParams:{customerId:String(customer.numeroCliente)}});}
+  workplaceIssues: Record<string, {code: string; label: string; tone: string}[]> = {};
+  onlyWorkplaceIssues = false;
+  get workplaceIssueCount(): number { return Object.keys(this.workplaceIssues).length; }
+  loadWorkplaceIssues(): void {
+    if (this.consultation || !this.globalService.hasTenantFeature('stamping')) return;
+    this.http.get<{issues: ListCustomerComponent['workplaceIssues']}>(this.globalService.url + 'customers/workplace-issues').subscribe({
+      next: value => {
+        this.workplaceIssues = value.issues || {};
+        if (!this.workplaceIssueCount) this.onlyWorkplaceIssues = false;
+        this.applyCustomerSearch();
+      }, error: () => {},
+    });
+  }
+  get consultation(): boolean {
+    return this.globalService.consultationOnly;
+  }
 
-  readonly realtimeResources = ["customers"];
+  readonly realtimeResources = ["customers","customer_tickets"];
   readonly realtimeHandledLocally = true;
   refreshRealtimeData(): void | boolean | Promise<void | boolean> {
     this.getCustomers(true);
@@ -63,8 +84,10 @@ export class ListCustomerComponent {
   ) {}
 
   ngOnInit(): void {
-    this.noteUnread.start();
-    this.archiveReminderCustomerId = String(this.route.snapshot.queryParamMap.get('archiveReminder') || '').trim();
+    if (!this.consultation) {
+      this.noteUnread.start();
+      this.archiveReminderCustomerId = String(this.route.snapshot.queryParamMap.get('archiveReminder') || '').trim();
+    }
     if (this.archiveReminderCustomerId) {
       this.customerSearch = this.archiveReminderCustomerId;
     }
@@ -79,10 +102,11 @@ export class ListCustomerComponent {
       this.showArchived = filters.showArchived;
       this.openCustomers = new Set(filters.openCustomers);
     }, !this.archiveReminderCustomerId);
-    this.getCustomers();
+    this.getCustomers();this.loadTicketCounts();
+    if (this.consultation) return;
     this.customerRealtimeSubscription = this.socketService
-      .onResourceChanges('customers')
-      .subscribe(() => this.getCustomers(true));
+      .onResourceChanges(['customers','customer_tickets'])
+      .subscribe(change => {this.loadTicketCounts();if(change.resource==='customers')this.getCustomers(true);});
     if (this.globalService.hasPermission('EMPLOYEE_VIEW')) {
       this.getEmployeeCategories();
     }
@@ -172,6 +196,7 @@ export class ListCustomerComponent {
           try {
             const data = JSON.parse(response);
             this.customers = Array.isArray(data) ? data : [];
+            this.loadWorkplaceIssues();
             this.applyCustomerSearch();
             this.listState?.restoreScroll();
           } catch (err) {
@@ -202,6 +227,12 @@ export class ListCustomerComponent {
       .trim();
   }
 
+  private filterWorkplaceIssues(customers: any[]): any[] {
+    return this.onlyWorkplaceIssues && !this.showArchived
+      ? customers.filter(customer => this.workplaceIssues[String(customer.numeroCliente)]?.length)
+      : customers;
+  }
+
   searchNumeroCliente(v: string): void {
     const q = this.normalize(v);
     const filtered = q
@@ -209,7 +240,7 @@ export class ListCustomerComponent {
           this.normalize(c?.numeroCliente?.toString()).startsWith(q),
         )
       : [...this.customers];
-    this.customersFrEnd = this.sortCustomers(filtered);
+    this.customersFrEnd = this.sortCustomers(this.filterWorkplaceIssues(filtered));
   }
 
   searchNominativo(v: string): void {
@@ -219,7 +250,7 @@ export class ListCustomerComponent {
           this.normalize(this.getCustomerDisplayName(c)).includes(q),
         )
       : [...this.customers];
-    this.customersFrEnd = this.sortCustomers(filtered);
+    this.customersFrEnd = this.sortCustomers(this.filterWorkplaceIssues(filtered));
   }
 
   applyCustomerSearch(): void {
@@ -229,7 +260,7 @@ export class ListCustomerComponent {
           this.normalize(this.getCustomerSearchText(customer)).includes(q),
         )
       : [...this.customers];
-    this.customersFrEnd = this.sortCustomers(filtered);
+    this.customersFrEnd = this.sortCustomers(this.filterWorkplaceIssues(filtered));
   }
 
   changeCustomerSort(): void {
@@ -275,6 +306,7 @@ export class ListCustomerComponent {
   }
 
   getCustomerDisplayName(customer: any): string {
+    if (this.consultation) return customer.consultationName;
     return this.globalService.getRecordDisplayName('customer', customer);
   }
 
@@ -318,6 +350,7 @@ export class ListCustomerComponent {
   }
 
   async archiveCustomer(customer: any): Promise<void> {
+    if (!this.globalService.hasPermission('CUSTOMERS_ARCHIVE')) return;
     if (
       !await this.appDialog.confirm(
         `Vuoi scaricare l'archivio completo e archiviare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}"?`,
@@ -353,6 +386,7 @@ export class ListCustomerComponent {
   }
 
   async archiveOnlyCustomer(customer: any): Promise<void> {
+    if (!this.globalService.hasPermission('CUSTOMERS_ARCHIVE')) return;
     if (!await this.appDialog.confirm(`Archiviare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}" senza scaricare lo ZIP?`)) return;
 
     this.http
@@ -375,6 +409,7 @@ export class ListCustomerComponent {
   }
 
   async unarchiveCustomer(customer: any): Promise<void> {
+    if (!this.globalService.hasPermission('CUSTOMERS_ARCHIVE')) return;
     if (!await this.appDialog.confirm(`Riattivare il cliente "${this.getCustomerDisplayName(customer) || customer.numeroCliente}"?`)) return;
 
     this.http
@@ -394,6 +429,7 @@ export class ListCustomerComponent {
   }
 
   async anonymizeCustomer(customer: any): Promise<void> {
+    if (!this.globalService.hasPermission('CUSTOMERS_ANONYMIZE')) return;
     const label = this.getCustomerDisplayName(customer) || customer.numeroCliente;
     if (!await this.appDialog.confirm(
       `Anonimizzare definitivamente il cliente "${label}"? Dati personali, note e documenti saranno eliminati e il cliente non potrà più essere riattivato.`,
@@ -656,68 +692,19 @@ export class ListCustomerComponent {
       },
     });
   }
-  viewDocuments(numeroCliente: string) {
-    // Naviga o apri modale, a seconda di come gestisci i documenti
-    this.router.navigate(['/homeAdmin/documenti/client', numeroCliente]);
+  canOpenCustomerDocuments(customer: any): boolean {
+    return this.globalService.hasPermission('CUSTOMER_DOCS_VIEW') &&
+      (this.consultation ? customer.consultationDocuments === true : customer.active !== false);
   }
 
-  async openWorkCompletion(customer: any): Promise<void> {
-    const numeroCliente = String(customer?.numeroCliente || '').trim();
-    if (!numeroCliente) return;
-    const email = this.getCustomerEmail(customer);
-    if (!email) {
-      this.appDialog.showError(
-        'Non puoi generare la richiesta: nell’anagrafica del cliente non è presente un indirizzo email.',
-        'Email cliente mancante',
-      );
-      return;
-    }
-    if (!this.isValidEmail(email)) {
-      this.appDialog.showError(
-        'Non puoi generare la richiesta: l’indirizzo email salvato per il cliente non è valido.',
-        'Email cliente non valida',
-      );
-      return;
-    }
+  viewDocuments(customer: any): void {
+    if (!this.canOpenCustomerDocuments(customer)) return;
+    this.router.navigate(['/homeAdmin/documenti/client', customer.numeroCliente]);
+  }
 
-    const choice = await this.appDialog.choose(
-      'Il cliente compilerà personalmente il foglio, verificherà la propria email con un codice OTP e firmerà dal suo dispositivo. Via email riceverà anche il PDF preliminare; su WhatsApp verrà aperto il messaggio pronto.',
-      'Invia foglio di fine lavoro',
-      {
-        primaryLabel: 'Invia via email',
-        secondaryLabel: 'Invia su WhatsApp',
-        cancelLabel: 'Annulla',
-      },
-    );
-    if (!choice) return;
-    const sendByEmail = choice === 'primary';
-    this.http.post<any>(
-      this.globalService.url + 'admin/work-completion/request',
-      {
-        numeroCliente,
-        deliveryChannel: sendByEmail ? 'email' : 'manual',
-      },
-      { headers: this.globalService.headers },
-    ).subscribe({
-      next: (result) => {
-        if (!sendByEmail && (result?.whatsappUrl || result?.approvalUrl)) {
-          window.open(result.whatsappUrl || result.approvalUrl, '_blank');
-        }
-        this.appDialog.show(
-          sendByEmail
-            ? 'Email con link e PDF inviata al cliente.'
-            : 'Link generato e messaggio WhatsApp aperto.',
-          'Richiesta creata',
-          'success',
-        );
-      },
-      error: (err) => {
-        this.appDialog.showHttpError(
-          err,
-          'Impossibile generare la richiesta del foglio di fine lavoro.',
-        );
-      },
-    });
+  openWorkCompletion(customer: any): void {
+    const numeroCliente = String(customer?.numeroCliente || '').trim();
+    if (numeroCliente) this.router.navigate(['/homeAdmin/listCustomer', numeroCliente, 'work-completion']);
   }
 
   openStaffRequirements(customer: any): void {
@@ -812,7 +799,7 @@ export class ListCustomerComponent {
   }
 
   openCustomerWhatsApp(customer: any): void {
-    const normalizedPhone = this.normalizePhoneForWhatsApp(this.getCustomerPhone(customer));
+    const normalizedPhone = normalizeWhatsappPhone(this.getCustomerPhone(customer));
     if (!normalizedPhone) {
       alert('Numero di telefono non disponibile.');
       return;
@@ -841,17 +828,6 @@ export class ListCustomerComponent {
           : '',
       },
     });
-  }
-
-  private normalizePhoneForWhatsApp(phone: string): string {
-    let cleaned = String(phone || '').replace(/[^\d+]/g, '');
-    if (!cleaned) return '';
-    if (cleaned.startsWith('+')) cleaned = cleaned.slice(1);
-    if (cleaned.startsWith('00')) cleaned = cleaned.slice(2);
-    if (!cleaned.startsWith('39') && cleaned.length <= 10) {
-      cleaned = `39${cleaned}`;
-    }
-    return cleaned;
   }
 
   private isValidEmail(email: string): boolean {

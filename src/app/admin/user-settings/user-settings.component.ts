@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
 import { Router } from '@angular/router';
+import { finalize } from 'rxjs';
+import { AdminAccessScope, ScopeKey, SCOPED_PERMISSION, legacyScope, isLimitedScope } from '../access-scope/access-scope';
 
 interface PermissionOption {
   key: string;
@@ -9,14 +11,19 @@ interface PermissionOption {
   description?: string;
 }
 
-interface AdminRow {
-  id: number;
+interface AdminDraft {
   nome: string;
   cognome: string;
   email: string;
   codiceOperatore: string;
   permissions: string[];
+}
+
+interface AdminRow extends AdminDraft {
+  id: number;
   isPrimaryAdmin?: boolean;
+  accessScope?: AdminAccessScope | null;
+  consultationOnly?: boolean;
 }
 
 @Component({
@@ -33,25 +40,24 @@ export class UserSettingsComponent implements OnInit {
   // Lista permessi disponibili (presa dal backend)
   permissionOptions: PermissionOption[] = [];
 
-  adminAdd: {
-    nome: string;
-    cognome: string;
-    email: string;
-    codiceOperatore: string;
-    permissions: string[];
-  } = {
-    nome: '',
-    cognome: '',
-    email: '',
-    codiceOperatore: '',
-    permissions: [],
-  };
+  @ViewChild('pageHeading') private pageHeading?: ElementRef<HTMLElement>;
+  @ViewChild('scopePicker', { read: ElementRef }) private scopePicker?: ElementRef<HTMLElement>;
 
   admins: AdminRow[] = [];
-
-  editingIndex: number | null = null;
-  adminEdit: any = {}; // buffer edit
-  private adminEditOriginal: any = {};
+  adminSearch = '';
+  permissionSearch = '';
+  expandedAdminId: number | null = null;
+  editorMode: 'new' | 'edit' | null = null;
+  adminAdd = this.emptyDraft();
+  adminEdit: AdminRow | null = null;
+  loadingAdmins = false;
+  saving = false;
+  resettingPassword = false;
+  deletingAdminId: number | null = null;
+  formError = '';
+  accessScope = legacyScope();
+  activeScopeKey: ScopeKey | null = null;
+  private scopeChanged = false;
 
   permissionGroups: Array<{
     title: string;
@@ -60,6 +66,7 @@ export class UserSettingsComponent implements OnInit {
   availablePermissionKeys = new Set<string>();
 
   private permissionDeps: Record<string, string[]> = {};
+  private currentUserPermissions: Set<string> | null = null;
 
   constructor(
     private http: HttpClient,
@@ -73,6 +80,7 @@ export class UserSettingsComponent implements OnInit {
   }
 
   fetchPermissionOptions() {
+    const token = this.globalService.token;
     this.http
       .get(this.globalService.url + 'admin/permissions/list', {
         headers: this.globalService.headers,
@@ -80,6 +88,7 @@ export class UserSettingsComponent implements OnInit {
       })
       .subscribe({
         next: (response) => {
+          if (token !== this.globalService.token) return;
           let parsed: any;
           try {
             parsed = JSON.parse(response);
@@ -87,6 +96,12 @@ export class UserSettingsComponent implements OnInit {
             parsed = response;
           }
 
+          this.currentUserPermissions = Array.isArray(parsed?.currentUserPermissions)
+            ? new Set(parsed.currentUserPermissions)
+            : null;
+          if (this.currentUserPermissions) {
+            this.globalService.updateSessionPermissions(token, [...this.currentUserPermissions]);
+          }
           this.permissionDeps = Object.fromEntries(
             Object.entries(parsed?.permissionDependencies || {}).map(([key, rule]: [string, any]) => [
               key, Array.isArray(rule?.permissions) ? rule.permissions : [],
@@ -161,9 +176,17 @@ export class UserSettingsComponent implements OnInit {
     return { key, label: key };
   }
 
+  hasCurrentPermission(key: string): boolean {
+    return this.currentUserPermissions?.has(key) ?? this.globalService.hasPermission(key);
+  }
+
+  canAssignPermission(key: string): boolean {
+    return this.hasCurrentPermission('ADMIN_PERMISSIONS_MANAGE') && this.availablePermissionKeys.has(key);
+  }
+
   togglePermission(target: { permissions: string[] }, key: string) {
     if (!target.permissions) target.permissions = [];
-    if (!this.availablePermissionKeys.has(key)) return;
+    if (!this.canAssignPermission(key)) return;
 
     const idx = target.permissions.indexOf(key);
     const willBeChecked = idx < 0;
@@ -176,17 +199,73 @@ export class UserSettingsComponent implements OnInit {
     return target?.isPrimaryAdmin === true && [
       'ADMIN_VIEW',
       'ADMIN_CREATE',
-      'ADMIN_EDIT',
+      'ADMIN_PROFILE_EDIT',
+      'ADMIN_PERMISSIONS_MANAGE',
       'ADMIN_DELETE',
     ].includes(key);
   }
 
+  get pageTitle(): string {
+    if (this.editorMode === 'new') return 'Nuovo amministratore';
+    if (this.editorMode === 'edit') return 'Modifica amministratore';
+    return 'Gestisci utenti';
+  }
+
+  get filteredAdmins(): AdminRow[] {
+    const terms = this.normalizeSearch(this.adminSearch).split(/\s+/).filter(Boolean);
+    if (!terms.length) return this.admins;
+    return this.admins.filter(admin => {
+      const searchable = this.normalizeSearch(
+        `#${admin.id} ${admin.nome} ${admin.cognome} ${admin.email} ${admin.codiceOperatore}`,
+      );
+      return terms.every(term => searchable.includes(term));
+    });
+  }
+
+  get visiblePermissionGroups(): typeof this.permissionGroups {
+    const search = this.normalizeSearch(this.permissionSearch.trim());
+    if (!search) return this.permissionGroups;
+    return this.permissionGroups.map(group => ({
+      ...group,
+      items: this.normalizeSearch(group.title).includes(search)
+        ? group.items
+        : group.items.filter(permission =>
+          this.normalizeSearch(`${permission.label} ${permission.description || ''}`).includes(search)),
+    })).filter(group => group.items.length);
+  }
+
+  trackPermissionGroup(_index: number, group: { title: string }): string {
+    return group.title;
+  }
+
+  trackAdmin(_index: number, admin: AdminRow): number {
+    return admin.id;
+  }
+
+  toggleAdmin(admin: AdminRow): void {
+    this.expandedAdminId = this.expandedAdminId === admin.id ? null : admin.id;
+  }
+
+  private normalizeSearch(value: string): string {
+    return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  }
+
+  private emptyDraft(): AdminDraft {
+    return { nome: '', cognome: '', email: '', codiceOperatore: '', permissions: [] };
+  }
+
+  private focusHeading(): void {
+    requestAnimationFrame(() => this.pageHeading?.nativeElement.focus());
+  }
+
   fetchAdmins() {
+    this.loadingAdmins = true;
     this.http
       .get(this.globalService.url + 'admin/getAll', {
         headers: this.globalService.headers,
         responseType: 'text',
       })
+      .pipe(finalize(() => this.loadingAdmins = false))
       .subscribe({
         next: (response) => {
           let parsed: any;
@@ -204,7 +283,6 @@ export class UserSettingsComponent implements OnInit {
                 ? parsed.admins
                 : [];
 
-          // ✅ QUI È LA FIX VERA
           this.admins = arr.map((a: any) => ({
             ...a,
             permissions: this.filterAvailablePermissions(Array.isArray(a.permissions)
@@ -228,13 +306,14 @@ export class UserSettingsComponent implements OnInit {
     const pick = (keys: string[]) =>
       keys.map((k) => byKey.get(k)).filter(Boolean) as PermissionOption[];
 
-    return [
+    const groups = [
       {
         title: 'Amministratori',
         items: pick([
           'ADMIN_VIEW',
           'ADMIN_CREATE',
-          'ADMIN_EDIT',
+          'ADMIN_PROFILE_EDIT',
+          'ADMIN_PERMISSIONS_MANAGE',
           'ADMIN_DELETE',
         ]),
       },
@@ -254,7 +333,11 @@ export class UserSettingsComponent implements OnInit {
           'EMPLOYEE_CREATE',
           'EMPLOYEE_EDIT',
           'EMPLOYEE_DELETE',
-          'EMPLOYEE_DOCS_MANAGE',
+          'EMPLOYEE_DOCS_VIEW',
+          'EMPLOYEE_DOCS_EDIT',
+          'EMPLOYEE_DOCS_DELETE',
+          'EMPLOYEE_DOCS_SEND',
+          'EMPLOYEE_PERMITS_VIEW',
           'EMPLOYEE_PERMITS_MANAGE',
         ]),
       },
@@ -292,6 +375,7 @@ export class UserSettingsComponent implements OnInit {
           'CUSTOMER_DEADLINES_CREATE',
           'CUSTOMER_DEADLINES_EDIT',
           'CUSTOMER_DEADLINES_DELETE',
+          'CUSTOMER_DEADLINE_CATEGORIES_MANAGE',
         ]),
       },
       {
@@ -303,27 +387,54 @@ export class UserSettingsComponent implements OnInit {
           'INTERNAL_DEADLINES_DELETE',
         ]),
       },
-      { title: 'Documenti interni', items: pick(['INTERNAL_DOCS_ACCESS']) },
-      { title: 'Documenti clienti', items: pick(['CUSTOMER_DOCS_MANAGE']) },
+      { title: 'Documenti interni', items: pick(['INTERNAL_DOCS_VIEW', 'INTERNAL_DOCS_EDIT', 'INTERNAL_DOCS_DELETE']) },
+      { title: 'Documenti clienti', items: pick(['CUSTOMER_DOCS_VIEW', 'CUSTOMER_DOCS_EDIT', 'CUSTOMER_DOCS_DELETE', 'CUSTOMER_DOCS_SEND']) },
       {
         title: 'Preventivi',
         items: pick([
           'QUOTES_VIEW',
           'QUOTES_MANAGE',
+          'QUOTES_SEND',
+          'QUOTES_REQUEST_SIGNATURE',
+          'QUOTES_DELETE',
+          'QUOTES_ANONYMIZE',
           'QUOTES_NOTES_VIEW',
           'QUOTES_NOTES_MANAGE',
           'SETTINGS_QUOTES',
         ]),
       },
       {
+        title: 'Fatture elettroniche',
+        items: pick([
+          'INVOICES_VIEW',
+          'INVOICES_MANAGE',
+          'INVOICES_SEND_SDI',
+          'INVOICES_DELETE_DRAFTS',
+          'INVOICES_CREDIT_NOTES',
+          'INVOICES_SETTINGS_MANAGE',
+        ]),
+      },
+      {
+        title: 'Contratti dipendenti',
+        items: pick([
+          'EMPLOYEE_CONTRACTS_VIEW',
+          'EMPLOYEE_CONTRACTS_MANAGE',
+          'EMPLOYEE_CONTRACTS_REQUEST_SIGNATURE',
+          'EMPLOYEE_CONTRACTS_DELETE',
+        ]),
+      },
+      {
         title: 'Ordini di servizio',
-        items: pick(['SERVICE_ORDERS_VIEW', 'SERVICE_ORDERS_MANAGE']),
+        items: pick(['SERVICE_ORDERS_VIEW', 'SERVICE_ORDERS_MANAGE', 'SERVICE_ORDERS_REQUEST_SIGNATURE', 'SERVICE_ORDERS_ARCHIVE']),
       },
       {
         title: 'Clienti',
         items: pick([
           'CUSTOMERS_VIEW',
           'CUSTOMERS_MANAGE',
+          'CUSTOMERS_ARCHIVE',
+          'CUSTOMERS_ANONYMIZE',
+          'CUSTOMERS_DELETE',
           'CUSTOMERS_NOTES_VIEW',
           'CUSTOMERS_NOTES_MANAGE',
         ]),
@@ -332,7 +443,20 @@ export class UserSettingsComponent implements OnInit {
         title: 'Riepilogo ore clienti',
         items: pick(['CUSTOMERS_HOURS_VIEW', 'CUSTOMERS_HOURS_MANAGE']),
       },
-      { title: 'Turni', items: pick(['SHIFTS_VIEW', 'SHIFTS_MANAGE']) },
+      { title: 'Turni', items: pick(['SHIFTS_VIEW', 'SHIFTS_MANAGE', 'SHIFTS_PUBLISH', 'SHIFTS_DELETE', 'SHIFTS_EXPORT']) },
+      {
+        title: 'Magazzino interno',
+        items: pick([
+          'INTERNAL_WAREHOUSE_VIEW',
+          'INTERNAL_WAREHOUSE_IN',
+          'INTERNAL_WAREHOUSE_OUT',
+          'INTERNAL_WAREHOUSE_PRODUCTS_MANAGE',
+          'INTERNAL_WAREHOUSE_ADJUST',
+          'INTERNAL_WAREHOUSE_HISTORY_VIEW',
+          'INTERNAL_WAREHOUSE_IMPORT',
+          'INTERNAL_WAREHOUSE_EXPORT',
+        ]),
+      },
       {
         title: 'Presenze',
         items: pick(['ATTENDANCE_VIEW', 'ATTENDANCE_MANAGE']),
@@ -355,13 +479,17 @@ export class UserSettingsComponent implements OnInit {
       },
       {
         title: 'Email aziendali',
-        items: pick(['EMAIL_VIEW', 'EMAIL_SETTINGS']),
+        items: pick(['EMAIL_READ', 'EMAIL_COMPOSE', 'EMAIL_ORGANIZE', 'EMAIL_SETTINGS']),
       },
       {
         title: 'Statistiche',
         items: pick(['STATS_VIEW']),
       },
     ].filter((g) => g.items.length > 0);
+    const grouped = new Set(groups.flatMap(group => group.items.map(item => item.key)));
+    const other = options.filter(item => !grouped.has(item.key));
+    if (other.length) groups.push({ title: 'Altri permessi', items: other });
+    return groups;
   }
 
   private ensurePermissionDeps(
@@ -395,102 +523,149 @@ export class UserSettingsComponent implements OnInit {
     }
   }
 
-  addAdmin() {
-    const body = {
-      nome: this.adminAdd.nome,
-      cognome: this.adminAdd.cognome,
-      email: this.adminAdd.email,
-      codiceOperatore: this.adminAdd.codiceOperatore,
-      permissions: this.filterAvailablePermissions(this.adminAdd.permissions || []),
-    };
+  openNewAdmin(): void {
+    if (!this.hasCurrentPermission('ADMIN_CREATE')) return;
+    this.adminAdd = this.emptyDraft();
+    this.accessScope = legacyScope();
+    this.openEditor('new');
+  }
 
+  startEditAdmin(target: AdminRow): void {
+    if (!this.hasCurrentPermission('ADMIN_PROFILE_EDIT')) return;
+    this.adminEdit = { ...target, permissions: [...target.permissions] };
+    this.accessScope = legacyScope(target.accessScope);
+    this.openEditor('edit');
+  }
+
+  private openEditor(mode: 'new' | 'edit'): void {
+    this.editorMode = mode;
+    this.activeScopeKey = null;
+    this.scopeChanged = false;
+    this.permissionSearch = '';
+    this.formError = '';
+    this.focusHeading();
+  }
+
+  closeEditor(): void {
+    if (this.saving) return;
+    this.editorMode = null;
+    this.adminEdit = null;
+    this.activeScopeKey = null;
+    this.formError = '';
+    this.focusHeading();
+  }
+
+  scopeKey(permission: string): ScopeKey | undefined {
+    return SCOPED_PERMISSION[permission];
+  }
+
+  get limitedConsultation(): boolean {
+    return isLimitedScope(this.accessScope);
+  }
+
+  scopeSummary(section: ScopeKey): string {
+    if (section === 'customerDocuments' && this.accessScope.customerDocuments === null && this.accessScope.customers !== null) {
+      return 'Tutti dei clienti scelti';
+    }
+    return this.accessScope[section] === null ? 'Tutti' : 'Solo selezionati';
+  }
+
+  openScope(section: ScopeKey, permission: string): void {
+    if (this.saving || this.adminEdit?.isPrimaryAdmin || !this.canAssignPermission(permission)) return;
+    this.activeScopeKey = section;
+    requestAnimationFrame(() => this.scopePicker?.nativeElement.focus());
+  }
+
+  applyScope(scope: AdminAccessScope): void {
+    this.accessScope = scope;
+    this.scopeChanged = true;
+    this.activeScopeKey = null;
+  }
+
+  saveAdmin(): void {
+    if (this.saving || this.activeScopeKey) return;
+    const editing = this.editorMode === 'edit';
+    const draft = editing ? this.adminEdit : this.adminAdd;
+    if (!this.editorMode || !draft) return;
+    if (!editing && !this.hasCurrentPermission('ADMIN_CREATE')) return;
+    if (editing) {
+      const current = this.admins.find(admin => admin.id === this.adminEdit?.id);
+      if (!current || !this.hasCurrentPermission('ADMIN_PROFILE_EDIT')) {
+        this.formError = 'Il profilo non è più disponibile per la modifica.';
+        return;
+      }
+    }
+
+    const { nome, cognome, email, codiceOperatore, permissions } = draft;
+    const body = {
+      nome, cognome, email, codiceOperatore,
+      ...(editing ? { id: this.adminEdit?.id } : {}),
+      ...(this.scopeChanged ? { accessScope: this.limitedConsultation ? this.accessScope : null } : {}),
+      ...(!editing || this.hasCurrentPermission('ADMIN_PERMISSIONS_MANAGE')
+        ? { permissions: this.filterAvailablePermissions(permissions) }
+        : {}),
+    };
+    this.formError = '';
+    this.saving = true;
     this.http
-      .post(this.globalService.url + 'admin/add', body, {
+      .post(this.globalService.url + (editing ? 'admin/edit' : 'admin/add'), body, {
         headers: this.globalService.headers,
         responseType: 'text',
       })
+      .pipe(finalize(() => this.saving = false))
       .subscribe({
         next: (response) => {
-          try {
-            const outcome = JSON.parse(response);
-            if (outcome.saved === true && Array.isArray(outcome.saveWarnings)) {
-              alert(outcome.saveWarnings.join('\n'));
-            }
-          } catch { /* Existing servers return the text "OK". */ }
-          this.adminAdd = {
-            nome: '',
-            cognome: '',
-            email: '',
-            codiceOperatore: '',
-            permissions: [],
-          };
+          if (!editing) this.showCreationWarnings(response);
+          this.saving = false;
+          this.closeEditor();
+          this.fetchPermissionOptions();
           this.fetchAdmins();
         },
         error: (err) => {
-          console.error('Errore creazione admin:', err);
-          alert(this.parseServerError(err));
+          this.formError = this.parseServerError(err);
         },
       });
   }
 
-  deleteAdmin(i: number) {
-    const body = { email: this.admins[i].email };
-    this.http
-      .post(this.globalService.url + 'admin/delete', body, {
-        headers: this.globalService.headers,
-        responseType: 'text',
-      })
+  private showCreationWarnings(response: string): void {
+    try {
+      const outcome = JSON.parse(response);
+      if (outcome.saved === true && Array.isArray(outcome.saveWarnings)) {
+        alert(outcome.saveWarnings.join('\n'));
+      }
+    } catch {
+      // The API may return a plain-text success response.
+    }
+  }
+
+  regeneratePassword(): void {
+    const id = this.adminEdit?.id;
+    if (!id || this.resettingPassword || !this.hasCurrentPermission('ADMIN_PROFILE_EDIT')) return;
+    if (!window.confirm('Rigenerare la password e inviarla all’indirizzo email salvato per questo amministratore? Le sessioni attive verranno chiuse.')) return;
+    this.resettingPassword = true;
+    this.http.post(this.globalService.url + 'admin/regeneratePassword', { id }, { headers: this.globalService.headers })
+      .pipe(finalize(() => this.resettingPassword = false))
       .subscribe({
-        next: () => {
-          if (this.editingIndex === i) this.cancelEditAdmin();
-          this.fetchAdmins();
-        },
-        error: (err) => {
-          console.error('Errore cancellazione admin:', err);
-          alert(this.parseServerError(err));
-        },
+        next: () => alert('Nuova password inviata.'),
+        error: error => alert(this.parseServerError(error)),
       });
   }
 
-  startEditAdmin(i: number) {
-    this.editingIndex = i;
-    this.adminEditOriginal = { ...this.admins[i] };
-    this.adminEdit = {
-      ...this.admins[i],
-      permissions: [...(this.admins[i].permissions || [])],
-    };
-  }
-
-  cancelEditAdmin() {
-    this.editingIndex = null;
-    this.adminEdit = {};
-    this.adminEditOriginal = {};
-  }
-
-  saveEditAdmin() {
-    if (this.editingIndex === null) return;
-
-    const body: any = {
-      id: this.adminEdit.id,
-      nome: this.adminEdit.nome,
-      cognome: this.adminEdit.cognome,
-      email: this.adminEdit.email,
-      codiceOperatore: this.adminEdit.codiceOperatore,
-      permissions: this.filterAvailablePermissions(this.adminEdit.permissions || []),
-    };
-
+  deleteAdmin(target: AdminRow): void {
+    if (this.deletingAdminId !== null || target.isPrimaryAdmin || !this.hasCurrentPermission('ADMIN_DELETE')) return;
+    this.deletingAdminId = target.id;
     this.http
-      .post(this.globalService.url + 'admin/edit', body, {
+      .post(this.globalService.url + 'admin/delete', { email: target.email }, {
         headers: this.globalService.headers,
         responseType: 'text',
       })
+      .pipe(finalize(() => this.deletingAdminId = null))
       .subscribe({
         next: () => {
-          this.cancelEditAdmin();
+          if (this.expandedAdminId === target.id) this.expandedAdminId = null;
           this.fetchAdmins();
         },
         error: (err) => {
-          console.error('Errore modifica admin:', err);
           alert(this.parseServerError(err));
         },
       });

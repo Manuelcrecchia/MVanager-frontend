@@ -13,6 +13,7 @@ import { resolveApiBaseUrl } from './global.service';
 import { NotificationNavigationService } from './notification-navigation.service';
 import { InspectionAlarmSyncService } from './inspection-alarm-sync.service';
 import { AgendaWidgetService } from './agenda-widget.service';
+import { finalize } from 'rxjs/operators';
 
 interface TenantMobileConfig {
   features?: string[];
@@ -29,12 +30,37 @@ interface MobileCapabilities {
   canSyncInspectionAlarms: boolean;
 }
 
+interface PushRegistrationContext {
+  generation: number;
+  tenantId: string;
+  key: string;
+  apiUrl: string;
+  headers: HttpHeaders;
+}
+
+// Native boundaries remain replaceable in tests without altering application flows.
+export const mobilePushNative = {
+  removeListeners: () => PushNotifications.removeAllListeners(),
+  on: PushNotifications.addListener.bind(PushNotifications),
+  requestPermissions: () => PushNotifications.requestPermissions(),
+  register: () => PushNotifications.register(),
+  requestFirebasePermissions: () => FirebaseMessaging.requestPermissions(),
+  getFirebaseToken: () => FirebaseMessaging.getToken(),
+  onFirebaseToken: (listener: (event: { token: string }) => void) => FirebaseMessaging.addListener('tokenReceived', listener),
+};
+
 @Injectable({
   providedIn: 'root',
 })
 export class MobilePushService {
   private initialized = false;
   private token: string | null = null;
+  private generation = 0;
+  private registrationContext: PushRegistrationContext | null = null;
+  private firebaseListenerInitialized = false;
+  private readonly registrationsInFlight = new Set<string>();
+  private registeredDeviceKey = '';
+  private latestNativeToken = '';
 
   constructor(
     private http: HttpClient,
@@ -52,9 +78,19 @@ export class MobilePushService {
       return;
     }
 
+    const context: PushRegistrationContext = {
+      generation: this.initialized && this.registrationContext?.key === `${this.tenantService.tenant}|${token}`
+        ? this.generation : ++this.generation,
+      tenantId: this.tenantService.tenant,
+      key: `${this.tenantService.tenant}|${token}`,
+      apiUrl: this.apiUrl,
+      headers: this.headers,
+    };
+
     this.agendaWidget.initialize(token, permissions).catch(error => console.warn('[AgendaWidget] Attivazione non riuscita', error));
 
-    const capabilities = await this.resolveCapabilities(permissions);
+    const capabilities = await this.resolveCapabilities(permissions, context);
+    if (context.generation !== this.generation) return;
     if (capabilities.canSyncInspectionAlarms) {
       this.inspectionAlarmSync.setToken(token);
       await this.inspectionAlarmSync.syncSoon('after-login', true);
@@ -62,26 +98,33 @@ export class MobilePushService {
       await this.inspectionAlarmSync.clearAll();
     }
 
-    if (!capabilities.canUseNotifications || this.initialized) {
+    if (!capabilities.canUseNotifications) {
+      this.registrationContext = null;
+      return;
+    }
+    if (this.initialized && this.registrationContext?.key === context.key) {
+      this.registrationContext = { ...context };
+      if (this.latestNativeToken) this.registerDeviceToken(this.latestNativeToken, context);
       return;
     }
 
     this.initialized = true;
-    await PushNotifications.removeAllListeners();
+    this.registrationContext = context;
+    await mobilePushNative.removeListeners();
+    if (context.generation !== this.generation) return;
 
-    PushNotifications.addListener('registration', (token: Token) => {
-      console.log('[Push] Token iOS/APNs ricevuto', token.value);
-      this.registerDeviceToken(token.value);
+    mobilePushNative.on('registration', (token: Token) => {
+      this.registerDeviceToken(token.value, context);
     });
 
-    PushNotifications.addListener('registrationError', (error: unknown) => {
+    mobilePushNative.on('registrationError', (error: unknown) => {
       console.error('[Push] Registrazione fallita', error);
     });
 
-    PushNotifications.addListener(
+    mobilePushNative.on(
       'pushNotificationReceived',
       (notification: PushNotificationSchema) => {
-        console.log('[Push] Notifica ricevuta', notification);
+        if (String(notification.data?.tenantId || '') !== this.tenantService.tenant) return;
         void this.agendaWidget.refresh(true);
         this.inspectionAlarmSync.syncSoon('push-received').catch((err) => {
           console.error('[Push] Errore sync promemoria appuntamento:', err);
@@ -89,41 +132,55 @@ export class MobilePushService {
       },
     );
 
-    PushNotifications.addListener(
+    mobilePushNative.on(
       'pushNotificationActionPerformed',
       async (action: ActionPerformed) => {
-        console.log('[Push] Notifica aperta', action);
-        await this.inspectionAlarmSync.syncSoon('push-opened', true);
+        if (String(action.notification.data?.tenantId || '') === this.tenantService.tenant) {
+          await this.inspectionAlarmSync.syncSoon('push-opened', true);
+        }
         await this.notificationNavigation.navigateFromPayload(action);
       },
     );
 
     if (platform === 'ios') {
-      const permission = await PushNotifications.requestPermissions();
+      const permission = await mobilePushNative.requestPermissions();
+      if (context.generation !== this.generation) return;
       if (permission.receive !== 'granted') {
         this.initialized = false;
+        this.registrationContext = null;
         return;
       }
 
-      await PushNotifications.register();
+      await mobilePushNative.register();
       return;
     }
 
     if (platform === 'android') {
-      const permission = await FirebaseMessaging.requestPermissions();
+      if (!this.firebaseListenerInitialized) {
+        await mobilePushNative.onFirebaseToken(event => {
+          if (this.registrationContext) this.registerDeviceToken(event.token, this.registrationContext);
+        });
+        this.firebaseListenerInitialized = true;
+      }
+      const permission = await mobilePushNative.requestFirebasePermissions();
+      if (context.generation !== this.generation) return;
       if (permission.receive !== 'granted') {
         this.initialized = false;
+        this.registrationContext = null;
         return;
       }
 
-      const result = await FirebaseMessaging.getToken();
-      this.registerDeviceToken(result.token);
+      const result = await mobilePushNative.getFirebaseToken();
+      this.registerDeviceToken(result.token, context);
     }
 
     await this.notificationNavigation.navigatePendingIfAny();
   }
 
   reset(): void {
+    this.generation++;
+    this.registrationContext = null;
+    this.registeredDeviceKey = '';
     this.agendaWidget.clear();
     this.initialized = false;
     this.token = null;
@@ -132,31 +189,38 @@ export class MobilePushService {
     });
   }
 
-  private registerDeviceToken(pushToken: string): void {
+  private registerDeviceToken(pushToken: string, context: PushRegistrationContext): void {
     const platform = Capacitor.getPlatform();
 
-    if (!pushToken || (platform !== 'android' && platform !== 'ios')) {
+    if (context.generation !== this.generation || !this.registrationContext || !pushToken || (platform !== 'android' && platform !== 'ios')) {
       return;
     }
+    this.latestNativeToken = pushToken;
+    const key = `${context.key}|${pushToken}`;
+    if (this.registeredDeviceKey === key || this.registrationsInFlight.has(key)) return;
+    this.registrationsInFlight.add(key);
 
     this.http
       .post(
-        this.apiUrl + 'admin/notifications/devices/register',
+        context.apiUrl + 'admin/notifications/devices/register',
         { platform, push_token: pushToken },
-        { headers: this.headers },
+        { headers: context.headers },
       )
+      .pipe(finalize(() => this.registrationsInFlight.delete(key)))
       .subscribe({
-        next: (response) =>
-          console.log('[Push] Token registrato sul backend', response),
+        next: () => {
+          if (context.generation === this.generation) this.registeredDeviceKey = key;
+        },
         error: (err) => console.error('[Push] Errore registrazione token', err),
       });
   }
 
   private async resolveCapabilities(
     userPermissions: string[],
+    context: PushRegistrationContext,
   ): Promise<MobileCapabilities> {
     try {
-      const config = await this.fetchTenantConfig();
+      const config = await this.fetchTenantConfig(context);
       const userPermissionSet = new Set(Array.isArray(userPermissions) ? userPermissions : []);
       const canUseNotifications =
         this.hasFeature(config, 'notifications') &&
@@ -172,11 +236,11 @@ export class MobilePushService {
     }
   }
 
-  private fetchTenantConfig(): Promise<TenantMobileConfig> {
+  private fetchTenantConfig(context: PushRegistrationContext): Promise<TenantMobileConfig> {
     return new Promise((resolve, reject) => {
       this.http
-        .get<TenantMobileConfig>(this.apiUrl + 'tenant/config?refresh=true', {
-          headers: this.headers,
+        .get<TenantMobileConfig>(context.apiUrl + 'tenant/config?refresh=true', {
+          headers: context.headers,
         })
         .subscribe({ next: resolve, error: reject });
     });

@@ -15,11 +15,13 @@ describe('AssignDialogComponent', () => {
       {} as any,
     );
     component.selectedEmployees = [10];
+    component.employeeDocumentBlocks = { periodic_evaluation: true };
 
     await component.onSave();
 
     expect(dialogRef.close).toHaveBeenCalledWith(jasmine.objectContaining({
       employees: [10],
+      employeeDocumentBlocks: { periodic_evaluation: true },
       forceConfirmed: false,
     }));
   });

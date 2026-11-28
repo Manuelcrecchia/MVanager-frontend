@@ -1,0 +1,81 @@
+<section class="explorer" aria-label="Esplora documenti">
+  <div class="explorer-toolbar">
+    <div class="navigation">
+      <button type="button" class="icon-button" [disabled]="!path || uploading" (click)="goUp()" title="Cartella superiore" aria-label="Cartella superiore"><mat-icon>arrow_upward</mat-icon></button>
+      <nav aria-label="Percorso cartella" class="breadcrumbs">
+        <button type="button" (click)="goTo('')" [disabled]="uploading" [attr.aria-current]="!path ? 'page' : null"><mat-icon>home</mat-icon>{{ rootLabel }}</button>
+        <ng-container *ngFor="let crumb of breadcrumbs; let last = last">
+          <mat-icon class="chevron">chevron_right</mat-icon><button type="button" (click)="goTo(crumb.path)" [disabled]="uploading" [attr.aria-current]="last ? 'page' : null">{{ crumb.name }}</button>
+        </ng-container>
+      </nav>
+    </div>
+    <label class="search"><mat-icon>search</mat-icon><input type="search" [(ngModel)]="query" placeholder="Cerca in questa cartella" aria-label="Cerca in questa cartella" /></label>
+  </div>
+  <div class="commands">
+    <div class="command-group">
+      <button type="button" class="primary-button" *ngIf="writable" (click)="fileInput.click()" [disabled]="uploading"><mat-icon>upload</mat-icon>{{ uploading ? 'Caricamento…' : 'Carica documenti' }}</button>
+      <button type="button" *ngIf="writable" (click)="beginFolder()" [disabled]="uploading"><mat-icon>create_new_folder</mat-icon>Nuova cartella</button>
+      <button type="button" *ngIf="selected" (click)="perform('open')" [disabled]="uploading"><mat-icon>open_in_new</mat-icon>Apri</button>
+    </div>
+    <div class="command-group display-controls">
+      <label class="sort">Ordina <select [(ngModel)]="sort" aria-label="Ordina elementi"><option value="name">Nome</option><option value="modified">{{ dateLabel }}</option></select></label>
+      <div class="view-switch" role="group" aria-label="Vista documenti">
+        <button type="button" class="icon-button" [class.active]="view === 'list'" [attr.aria-pressed]="view === 'list'" (click)="view = 'list'" title="Vista elenco" aria-label="Vista elenco"><mat-icon>view_list</mat-icon></button>
+        <button type="button" class="icon-button" [class.active]="view === 'grid'" [attr.aria-pressed]="view === 'grid'" (click)="view = 'grid'" title="Vista griglia" aria-label="Vista griglia"><mat-icon>grid_view</mat-icon></button>
+      </div>
+    </div>
+  </div>
+  <form *ngIf="creatingFolder" class="new-folder" (ngSubmit)="submitFolder()">
+    <mat-icon>create_new_folder</mat-icon>
+    <label>Nome della nuova cartella<input #folderNameInput name="folderName" [(ngModel)]="folderName" autocomplete="off" maxlength="150" (keydown.escape)="cancelFolder(); $event.preventDefault()" /></label>
+    <button type="submit" class="primary-button" [disabled]="!validFolderName">Crea cartella</button><button type="button" (click)="cancelFolder()">Annulla</button>
+    <span class="folder-error" *ngIf="folderName && !validFolderName">Usa un nome diverso, senza / o \.</span>
+  </form>
+  <div *ngIf="managedFolder" class="managed-hint"><mat-icon>lock</mat-icon>Cartella gestita dalle scadenze. Aggiungi o modifica i documenti dalla relativa scadenza.</div>
+  <div class="workspace" [class.dragging]="dragging" [class.uploading]="uploading" [attr.aria-busy]="loading || uploading" (contextmenu)="showContext($event, null)" (dragenter)="dragEnter($event)" (dragover)="dragOver($event)" (dragleave)="dragLeave($event)" (drop)="drop($event)">
+    <div class="list-head" *ngIf="view === 'list' && visibleEntries.length" aria-hidden="true"><span>Nome</span><span>{{ dateLabel }}</span><span>Dimensione</span><span></span></div>
+    <div class="entries" [class.grid]="view === 'grid'" role="list" aria-label="File e cartelle">
+      <div *ngFor="let entry of visibleEntries; trackBy: trackEntry" class="entry" [class.selected]="selectedId === entry.id" [class.folder]="entry.kind === 'folder'" role="listitem" (contextmenu)="showContext($event, entry)">
+        <button type="button" class="entry-main" [disabled]="uploading" (click)="select(entry)" (dblclick)="perform('open', entry)" (keydown.enter)="perform('open', entry); $event.preventDefault()" [attr.aria-label]="entry.name + (entry.kind === 'folder' ? ', cartella' : ', file')" [attr.aria-pressed]="selectedId === entry.id" [title]="entry.name">
+          <mat-icon class="entry-icon">{{ icon(entry) }}</mat-icon>
+          <span class="entry-label"><strong>{{ entry.name }}</strong><small *ngIf="entry.detail">{{ entry.detail }}</small><span *ngIf="entry.customerVisibility" class="customer-visibility-badge" [class.is-shared]="visibilityStatus(entry)==='shared'" [class.is-hidden]="visibilityStatus(entry)==='hidden'" [title]="visibilityLabel(entry)"><mat-icon aria-hidden="true">{{visibilityStatus(entry)==='hidden'?'visibility_off':visibilityStatus(entry)==='partial'?'tonality':'visibility'}}</mat-icon>{{visibilityStatusLabel(entry)}}</span><small *ngIf="entry.locked" class="locked"><mat-icon>lock</mat-icon>Gestito dalle scadenze</small></span>
+          <span class="entry-date">{{ entry.modifiedAt ? (entry.modifiedAt | date:'dd/MM/yyyy HH:mm') : '—' }}</span>
+          <span class="entry-size">{{ size(entry.size) }}</span>
+        </button>
+        <button type="button" class="icon-button item-menu" [disabled]="uploading" [matMenuTriggerFor]="itemMenu" (click)="showItemMenu(entry)" [attr.aria-label]="'Azioni per ' + entry.name" title="Azioni"><mat-icon>more_horiz</mat-icon></button>
+      </div>
+    </div>
+    <div class="empty" *ngIf="!loading && !visibleEntries.length">
+      <mat-icon>{{ query ? 'search_off' : 'folder_open' }}</mat-icon>
+      <strong>{{ query ? 'Nessun risultato in questa cartella' : 'Questa cartella è vuota' }}</strong>
+      <p>{{ query ? 'Prova un altro nome oppure cancella la ricerca.' : writable ? 'Carica i documenti o trascinali qui per iniziare.' : '' }}</p>
+      <button type="button" *ngIf="query" (click)="query = ''">Cancella ricerca</button>
+    </div>
+    <div class="drop-overlay" *ngIf="dragging" aria-live="polite"><mat-icon>cloud_upload</mat-icon>Rilascia i documenti in questa cartella</div>
+  </div>
+  <footer aria-live="polite"><span>{{ visibleEntries.length }} elementi<span *ngIf="selected"> · Selezionato: {{ selected.name }}</span></span><span class="usage-hint">Un clic seleziona · Doppio clic apre · ⋯ per le azioni</span><span *ngIf="uploading">Caricamento in corso…</span></footer>
+  <input #fileInput type="file" multiple hidden (change)="chooseFiles($event)" [disabled]="!writable || uploading" />
+</section>
+<div class="context-anchor" [style.left.px]="menuX" [style.top.px]="menuY" [matMenuTriggerFor]="itemMenu" #contextTrigger="matMenuTrigger"></div>
+<mat-menu #itemMenu="matMenu">
+  <ng-container *ngIf="contextEntry as entry">
+    <button mat-menu-item (click)="perform('open', entry)"><mat-icon>open_in_new</mat-icon>Apri</button>
+    <ng-container *ngIf="allowCustomerSharing && entry.customerVisibility">
+      <button mat-menu-item *ngIf="!entry.customerVisibility.visible" (click)="perform('share-customer', entry)"><mat-icon>visibility</mat-icon>Abilita visualizzazione al cliente</button>
+      <button mat-menu-item *ngIf="entry.customerVisibility.visible" (click)="perform('hide-customer', entry)"><mat-icon>visibility_off</mat-icon>Disabilita visualizzazione al cliente</button>
+      <button mat-menu-item *ngIf="entry.customerVisibility?.explicit !== null && entry.customerVisibility?.explicit !== undefined" (click)="perform('inherit-customer', entry)"><mat-icon>settings_backup_restore</mat-icon>Ripristina regole ereditate</button>
+    </ng-container>
+    <ng-container *ngIf="entry.kind === 'file'">
+      <button mat-menu-item (click)="perform('download', entry)"><mat-icon>download</mat-icon>Scarica</button>
+      <button mat-menu-item *ngIf="allowPrint" (click)="perform('print', entry)"><mat-icon>print</mat-icon>Stampa</button>
+      <button mat-menu-item *ngIf="allowEmail" (click)="perform('email', entry)"><mat-icon>mail</mat-icon>Invia via email</button>
+      <button mat-menu-item *ngIf="writable && !entry.locked && allowRename" (click)="perform('rename', entry)"><mat-icon>edit</mat-icon>Rinomina</button>
+    </ng-container>
+    <button mat-menu-item *ngIf="allowDelete && !entry.locked" class="delete-action" (click)="perform('delete', entry)"><mat-icon>delete_outline</mat-icon>Elimina</button>
+  </ng-container>
+  <ng-container *ngIf="!contextEntry">
+    <button mat-menu-item *ngIf="writable" [disabled]="uploading" (click)="beginFolder()"><mat-icon>create_new_folder</mat-icon>Nuova cartella</button>
+    <button mat-menu-item *ngIf="writable" [disabled]="uploading" (click)="fileInput.click()"><mat-icon>upload</mat-icon>Carica documenti</button>
+    <button mat-menu-item [disabled]="!path || uploading" (click)="goUp()"><mat-icon>arrow_upward</mat-icon>Cartella superiore</button>
+  </ng-container>
+</mat-menu>

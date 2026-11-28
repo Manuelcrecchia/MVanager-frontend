@@ -18,24 +18,25 @@
   </section>
 
   <section class="work-card intro-step" *ngIf="!loading && customer && !success">
-    <div class="step-icon">✉</div>
-    <h1>Invia il foglio al cliente</h1>
-    <p>Il questionario non viene compilato da MVanager: sarà il cliente a completarlo personalmente dal link ricevuto.</p>
-    <div class="info-box">
+    <div class="step-icon" *ngIf="canManage">✉</div>
+    <h1>{{ canManage ? 'Invia il foglio al cliente' : 'Stato del foglio di fine lavoro' }}</h1>
+    <p *ngIf="canManage">Il questionario non viene compilato da MVanager: sarà il cliente a completarlo personalmente dal link ricevuto.</p>
+    <div class="info-box" *ngIf="canManage">
       Cliente: <strong>{{ displayName }}</strong><br />
       Il sistema controllerà che nell’anagrafica sia presente un indirizzo email valido.
     </div>
-    <button type="button" class="btn btn-primary mt-4" (click)="createRequest()" [disabled]="saving">
+    <button type="button" class="btn btn-primary mt-4" (click)="createRequest()" [disabled]="saving" *ngIf="canManage">
       {{ saving ? 'Generazione in corso…' : 'Genera e invia richiesta' }}
     </button>
-    <button type="button" class="btn btn-outline-primary mt-4" (click)="openPaperPreview()" [disabled]="saving">
+    <button type="button" class="btn btn-outline-primary mt-4" (click)="openPaperPreview()" [disabled]="saving" *ngIf="canManage">
       Apri / stampa foglio
     </button>
-    <button type="button" class="btn btn-outline-primary mt-4" (click)="registerPaperSignature(paperFileInput)" [disabled]="saving">
+    <button type="button" class="btn btn-outline-primary mt-4" (click)="registerPaperSignature(paperFileInput)" [disabled]="saving" *ngIf="canManage">
       Registra firma cartacea
     </button>
     <input #paperFileInput type="file" accept="image/*,application/pdf" hidden (change)="paperFileSelected($event)" />
     <button type="button" class="btn btn-outline-secondary mt-4" (click)="back()" [disabled]="saving">Annulla</button>
+    <p *ngIf="!canManage && !latestProof">Nessuna richiesta registrata.</p>
     <div class="info-box mt-4" *ngIf="latestProof">
       Ultima richiesta: <strong>{{ latestProof.status }}</strong>
       <span *ngIf="latestProof.acceptedAt"> — firmata il {{ latestProof.acceptedAt | date:'dd/MM/yyyy HH:mm' }}</span>

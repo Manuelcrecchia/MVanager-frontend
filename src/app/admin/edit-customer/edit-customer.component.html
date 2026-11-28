@@ -1,6 +1,14 @@
 <div class="standard-management-page">
   <header class="mv-entity-toolbar"><div class="mv-entity-toolbar__title"><h1>Modifica cliente</h1></div><div class="mv-entity-toolbar__controls"><button class="btn mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button></div></header>
   <div class="container">
+    <app-customer-stamping-location *ngIf="globalService.hasTenantFeature('stamping') && customerModelService.numeroCliente" [numeroCliente]="customerModelService.numeroCliente"></app-customer-stamping-location>
+    <section class="card p-3 mb-3" *ngIf="canManageCustomerAccounts">
+      <h2 class="h5">Accesso area clienti</h2>
+      <p>Invia il link di accesso e una nuova password temporanea all’indirizzo email già salvato. La password precedente e le sessioni attive verranno invalidate.</p>
+      <p>Nome utente: <strong>{{ globalService.customerNumber(customerModelService) }}</strong></p>
+      <button type="button" class="btn btn-outline-primary align-self-start" (click)="regeneratePortalPassword()" [disabled]="sendingCredentials">{{ sendingCredentials ? 'Invio in corso…' : 'Rigenera e invia password' }}</button>
+      <p *ngIf="credentialsMessage" role="status" class="mt-2 mb-0">{{ credentialsMessage }}</p>
+    </section>
   <form #form="ngForm">
     <app-billing-address-link scope="customer" [record]="$any(customerModelService)" (selectionChange)="onBillingAddressChoice()"></app-billing-address-link>
 
@@ -55,7 +63,13 @@
             class="col-md-6"
             *ngFor="let field of row.fields; trackBy: trackByCustomerField"
           >
-            <ng-container [ngSwitch]="field.type">
+            <ng-container [ngSwitch]="globalService.isCalculatedField(field) ? 'calculated' : field.type">
+              <mat-form-field *ngSwitchCase="'calculated'" appearance="fill" class="w-100">
+                <mat-label>{{ field.label || field.dbColumn }}</mat-label>
+                <input matInput readonly
+                  [value]="globalService.getRecordDisplayValueForField($any(customerModelService), field)" />
+                <mat-hint>Calcolato automaticamente</mat-hint>
+              </mat-form-field>
               <mat-checkbox
                 *ngSwitchCase="'boolean'"
                 [name]="field.dbColumn"
@@ -142,13 +156,26 @@
             <mat-form-field *ngSwitchDefault appearance="fill" class="w-100">
               <mat-label>{{ field.label || field.dbColumn }}</mat-label>
               <input
+                *ngIf="globalService.isMappedAmountField(field); else standardMappedInput"
                 matInput
-                [type]="globalService.getDynamicInputType(field)"
+                appMappedAmount
+                type="text"
+                inputmode="decimal"
                 [name]="field.dbColumn"
                 [required]="globalService.isFieldRequired('customer', field.dbColumn || field.key)"
                 [ngModel]="$any(customerModelService)[field.dbColumn]"
                 (ngModelChange)="updateField(field, $event)"
               />
+              <ng-template #standardMappedInput>
+                <input
+                  matInput
+                  [type]="globalService.getDynamicInputType(field)"
+                  [name]="field.dbColumn"
+                  [required]="globalService.isFieldRequired('customer', field.dbColumn || field.key)"
+                  [ngModel]="$any(customerModelService)[field.dbColumn]"
+                  (ngModelChange)="updateField(field, $event)"
+                />
+              </ng-template>
               <mat-hint class="customer-validation-error" *ngIf="getFieldError(field)">{{ getFieldError(field) }}</mat-hint>
             </mat-form-field>
           </ng-container>
@@ -319,11 +346,13 @@
       </div>
     </section>
 
+    <app-customer-work-register-settings *ngIf="globalService.hasTenantFeature('workRegister') && globalService.hasPermission('WORK_REGISTER_MANAGE')" [customer]="customerModelService"  [customerId]="customerModelService.numeroCliente" (configurationChange)="workRegisterConfig=$event" />
     <div class="col-12 text-center mt-4">
       <button mat-raised-button color="primary" type="button" (click)="editCustomer()">
         Salva
       </button>
     </div>
+
   </form>
 </div>
 </div>

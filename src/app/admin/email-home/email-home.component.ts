@@ -317,6 +317,14 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
     this.searchMessages();
   }
 
+  get canCompose(): boolean {
+    return this.globalService.hasPermission('EMAIL_COMPOSE');
+  }
+
+  get canOrganize(): boolean {
+    return this.globalService.hasPermission('EMAIL_ORGANIZE');
+  }
+
   openMessage(message: EmailMessage) {
     this.http.get<EmailMessage>(this.globalService.url + `admin/email/messages/${message.id}`).subscribe({
       next: (detail) => {
@@ -324,7 +332,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
         this.selectedMessage = detail;
         this.inspectedLink = null;
         this.renderMessageBody(detail);
-        if (!message.read) {
+        if (!message.read && detail.read) {
           message.read = true;
           this.updateAccountUnreadCount(message.accountId, -1);
           this.notifyUnreadChanged();
@@ -338,6 +346,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   }
 
   newEmail(to = '', subject = '') {
+    if (!this.canCompose) return;
     this.composeOpen = true;
     this.composeDraftId = null;
     this.composeFromFolder = null;
@@ -362,6 +371,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   }
 
   reply(message: EmailMessage) {
+    if (!this.canCompose) return;
     const sender = message.fromEmail || '';
     this.composeOpen = true;
     this.composeDraftId = null;
@@ -388,6 +398,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   }
 
   replyAll(message: EmailMessage): void {
+    if (!this.canCompose) return;
     const recipients = this.allReplyRecipients(message);
     this.reply(message);
     this.compose.to = recipients.to.join(', ');
@@ -426,6 +437,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   }
 
   forward(message: EmailMessage) {
+    if (!this.canCompose) return;
     this.composeOpen = true;
     this.composeDraftId = null;
     this.composeFromFolder = null;
@@ -441,6 +453,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   }
 
   markUnread(message: EmailMessage) {
+    if (!this.canOrganize) return;
     this.http.post(this.globalService.url + `admin/email/messages/${message.id}/unread`, {}).subscribe({
       next: () => {
         message.read = false;
@@ -602,6 +615,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   }
 
   send() {
+    if (!this.canCompose) return;
     if (!this.compose.accountId || !this.compose.to || !this.compose.subject || !this.compose.body) {
       alert('Mittente, destinatario, oggetto e testo sono obbligatori');
       return;
@@ -640,6 +654,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   }
 
   saveDraft() {
+    if (!this.canCompose) return;
     if (!this.compose.accountId) {
       alert('Mittente obbligatorio');
       return;
@@ -673,6 +688,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   }
 
   editDraft(message: EmailMessage) {
+    if (!this.canCompose) return;
     this.composeOpen = true;
     this.composeDraftId = message.id;
     this.composeFromFolder = message.folder;
@@ -698,9 +714,9 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
 
   get canUseInternalDocuments(): boolean {
     return (
-      this.globalService.hasPermission('INTERNAL_DOCS_ACCESS') ||
-      this.globalService.hasPermission('EMPLOYEE_DOCS_MANAGE') ||
-      this.globalService.hasPermission('CUSTOMER_DOCS_MANAGE')
+      this.globalService.hasPermission('INTERNAL_DOCS_VIEW') ||
+      this.globalService.hasPermission('EMPLOYEE_DOCS_VIEW') ||
+      this.globalService.hasPermission('CUSTOMER_DOCS_VIEW')
     );
   }
 
@@ -870,6 +886,7 @@ export class EmailHomeComponent implements OnInit, OnDestroy {
   }
 
   trash(message: EmailMessage, event?: Event) {
+    if (!this.canOrganize) return;
     event?.stopPropagation();
     this.http.post(this.globalService.url + `admin/email/messages/${message.id}/trash`, {}).subscribe({
       next: () => {

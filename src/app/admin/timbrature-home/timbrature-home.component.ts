@@ -4,6 +4,8 @@ import { Router } from '@angular/router';
 import { GlobalService } from '../../service/global.service';
 
 interface WarehouseStampingLocation {
+  latitude?: number | null;
+  longitude?: number | null;
   tagId: string;
   locationId: string;
   label: string;
@@ -29,7 +31,8 @@ export class TimbratureHomeComponent implements OnInit {
     warehouseLocations: [{ tagId: 'MAGAZZINO', locationId: '__warehouse__', label: 'Magazzino' }],
   };
   stampingSettingsForm = {
-    warehouseLocations: [{ tagId: 'MAGAZZINO', locationId: '__warehouse__', label: 'Magazzino' }],
+    locationRadiusMeters: 200,
+    warehouseLocations: [{ tagId: 'MAGAZZINO', locationId: '__warehouse__', label: 'Magazzino', latitude: null as number | null, longitude: null as number | null }],
     allowCustomerTagFallback: false,
     compareWithShifts: true,
     splitWarehouseStampings: false,
@@ -120,6 +123,8 @@ loadEmployees(silent = false): void {
       tagId: '',
       locationId: `__warehouse_${this.stampingSettingsForm.warehouseLocations.length + 1}__`,
       label: '',
+      latitude: null,
+      longitude: null,
     });
   }
 
@@ -138,6 +143,8 @@ loadEmployees(silent = false): void {
         tagId: String(location.tagId || '').trim(),
         locationId: String(location.locationId || '').trim(),
         label: String(location.label || '').trim(),
+        latitude: location.latitude,
+        longitude: location.longitude,
       }))
       .filter((location) => location.tagId || location.locationId || location.label);
 
@@ -169,6 +176,7 @@ loadEmployees(silent = false): void {
     this.settingsSaving = true;
     this.http
       .post<any>(`${this.global.url}admin/settings/stamping`, {
+        locationRadiusMeters: this.stampingSettingsForm.locationRadiusMeters,
         warehouseLocations,
         allowCustomerTagFallback: this.stampingSettingsForm.allowCustomerTagFallback,
         compareWithShifts: this.stampingSettingsForm.compareWithShifts,
@@ -226,18 +234,23 @@ loadEmployees(silent = false): void {
       tagId: this.stampingConfig?.warehouseTagId || 'MAGAZZINO',
       locationId: this.stampingConfig?.warehouseLocationId || '__warehouse__',
       label: this.stampingConfig?.warehouseLabel || 'Magazzino',
+      latitude: null as number | null,
+      longitude: null as number | null,
     };
     const warehouseLocations = locations
       .map((location: any) => ({
         tagId: String(location?.tagId || '').trim(),
         locationId: String(location?.locationId || '').trim(),
         label: String(location?.label || '').trim(),
+        latitude: location.latitude ?? null,
+        longitude: location.longitude ?? null,
       }))
       .filter((location: WarehouseStampingLocation) =>
         location.tagId || location.locationId || location.label
       );
 
     this.stampingSettingsForm = {
+      locationRadiusMeters: this.stampingConfig.locationRadiusMeters || 200,
       warehouseLocations: warehouseLocations.length ? warehouseLocations : [fallback],
       allowCustomerTagFallback: this.stampingConfig?.allowCustomerTagFallback === true,
       compareWithShifts: this.stampingConfig?.compareWithShifts !== false,

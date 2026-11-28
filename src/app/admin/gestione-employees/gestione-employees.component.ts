@@ -1,3 +1,4 @@
+import { normalizeWhatsappPhone } from '../../shared/whatsapp';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { GlobalService } from '../../service/global.service';
@@ -426,7 +427,7 @@ export class GestioneEmployeesComponent implements OnInit, OnDestroy {
   }
 
   openEmployeeWhatsApp(emp: any): void {
-    const normalizedPhone = this.normalizePhoneForWhatsApp(emp?.cellulare || emp?.telefono || '');
+    const normalizedPhone = normalizeWhatsappPhone(emp?.cellulare || emp?.telefono || '');
     if (!normalizedPhone) {
       this.contactPrompt.promptEmployeePhoneMissing();
       return;
@@ -454,17 +455,6 @@ export class GestioneEmployeesComponent implements OnInit, OnDestroy {
         composeSubject: name ? `Dipendente ${name}` : '',
       },
     });
-  }
-
-  private normalizePhoneForWhatsApp(phone: string): string {
-    let cleaned = String(phone || '').replace(/[^\d+]/g, '');
-    if (!cleaned) return '';
-    if (cleaned.startsWith('+')) cleaned = cleaned.slice(1);
-    if (cleaned.startsWith('00')) cleaned = cleaned.slice(2);
-    if (!cleaned.startsWith('39') && cleaned.length <= 10) {
-      cleaned = `39${cleaned}`;
-    }
-    return cleaned;
   }
 
   private isValidEmail(email: string): boolean {

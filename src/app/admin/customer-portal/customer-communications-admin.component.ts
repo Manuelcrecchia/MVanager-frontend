@@ -1,0 +1,33 @@
+import {CommonModule} from '@angular/common';
+import {Component,OnInit} from '@angular/core';
+import {FormsModule} from '@angular/forms';
+import {HttpClient} from '@angular/common/http';
+import {Router} from '@angular/router';
+import {firstValueFrom} from 'rxjs';
+import {operationId} from '../../offline/offline-codec';
+import {GlobalService} from '../../service/global.service';
+@Component({selector:'app-customer-communications-admin',standalone:true,imports:[CommonModule,FormsModule],template:`
+  <div class="mv-page"><header class="mv-entity-toolbar"><div class="mv-entity-toolbar__title"><h1>Comunicazioni clienti</h1></div><button class="mv-toolbar-back" type="button" (click)="back()">← Torna indietro</button></header>
+  <p *ngIf="error" class="alert alert-danger" role="alert">{{error}}</p><p *ngIf="notice" class="alert alert-success" role="status">{{notice}}</p>
+  <section *ngIf="canSend" class="mv-card communication-form"><h2>Nuova comunicazione</h2>
+    <form (ngSubmit)="send()"><label>Destinatari<select class="form-select" name="selection" [(ngModel)]="selection" [disabled]="busy"><option value="selected">Clienti selezionati</option><option value="all">Tutti i clienti attivi</option><option value="type">Tutti i clienti di un tipo</option></select></label>
+    <label *ngIf="selection!=='all'">Tipo cliente<select class="form-select" name="customerType" [(ngModel)]="customerType" [disabled]="busy"><option value="">{{selection==='selected'?'Tutti i tipi':'Seleziona un tipo'}}</option><option *ngFor="let type of audience.types" [value]="type.key">{{type.label}}</option></select></label>
+    <ng-container *ngIf="selection==='selected'"><label>Cerca cliente<input class="form-control" type="search" name="search" [(ngModel)]="search" [disabled]="busy"></label>
+      <button class="btn btn-outline-secondary" type="button" (click)="selectFiltered()" [disabled]="busy">Seleziona tutti i risultati</button> <button class="btn btn-outline-secondary" type="button" (click)="selected.clear()" [disabled]="busy">Deseleziona tutti</button>
+      <p>{{selected.size}} clienti selezionati</p><div class="recipient-list"><label *ngFor="let customer of filtered"><input type="checkbox" [checked]="selected.has(customer.id)" (change)="toggle(customer.id)" [disabled]="busy"> {{customer.number}} · {{customer.name}} <small>{{customer.type}}</small></label></div>
+    </ng-container><p *ngIf="selection!=='selected'">{{recipientCount}} clienti destinatari. Sono esclusi clienti archiviati e anonimizzati.</p>
+    <label>Oggetto<input class="form-control" name="subject" [(ngModel)]="subject" required maxlength="200" [disabled]="busy"></label><label>Testo della comunicazione<textarea class="form-control" name="body" [(ngModel)]="body" rows="6" required maxlength="20000" [disabled]="busy"></textarea></label>
+    <button class="btn btn-primary" type="submit" [disabled]="busy||!recipientCount||!subject.trim()||!body.trim()">{{busy?'Invio…':'Invia comunicazione'}}</button></form></section>
+  <section class="mv-card communication-form"><h2>Comunicazioni inviate</h2><button class="btn btn-outline-secondary" type="button" (click)="load()" [disabled]="busy">Aggiorna elenco</button><p *ngIf="!rows.length">Nessuna comunicazione inviata.</p>
+    <details *ngFor="let row of rows"><summary><strong>{{row.subject}}</strong> · {{row.createdAt|date:'dd/MM/yyyy HH:mm'}} · {{row.recipients}} destinatari, {{row.read}} letture</summary><p class="communication-body">{{row.body}}</p></details></section></div>`,styles:[`.communication-form{padding:24px;margin-top:20px}.communication-form h2{font-size:1.2rem}.communication-form label{display:block;margin:14px 0}.communication-form input:not([type=checkbox]),.communication-form textarea,.communication-form select{display:block;width:100%;box-sizing:border-box;margin-top:8px}.recipient-list{max-height:300px;overflow:auto;border:1px solid #c7d5e4;border-radius:12px;padding:12px}.recipient-list label{display:flex;align-items:center;gap:10px;padding:8px}.communication-body{white-space:pre-wrap;overflow-wrap:anywhere}.communication-form details{margin-top:16px;padding:14px;border:1px solid #d2dce8;border-radius:10px}`]})
+export class CustomerCommunicationsAdminComponent implements OnInit {
+  readonly realtimeResources=['customer_communications'];refreshRealtimeData(){if(!this.busy)void this.load();}
+  audience:{customers:any[];types:any[]}={customers:[],types:[]};rows:any[]=[];selected=new Set<string>();selection='selected';customerType='';search='';subject='';body='';busy=false;error='';notice='';private requestId=operationId();
+  constructor(private http:HttpClient,public global:GlobalService,private router:Router){}
+  get api(){return this.global.url+'admin/customer-portal/';}get canSend(){return !this.global.consultationOnly&&this.global.hasTenantFeature('customerCommunications')&&this.global.hasPermission('CUSTOMER_COMMUNICATIONS_SEND');}
+  get filtered(){const q=this.search.toLocaleLowerCase();return this.audience.customers.filter(row=>(!this.customerType||row.type===this.customerType)&&(!q||[row.number,row.name].some(v=>String(v).toLocaleLowerCase().includes(q))));}
+  get recipientCount(){return this.selection==='selected'?this.selected.size:this.selection==='all'?this.audience.customers.length:this.customerType?this.audience.customers.filter(row=>row.type===this.customerType).length:0;}
+  ngOnInit(){void this.load();}back(){this.router.navigateByUrl('/homeAdmin');}toggle(id:string){this.selected.has(id)?this.selected.delete(id):this.selected.add(id);}selectFiltered(){this.filtered.forEach(row=>this.selected.add(row.id));}
+  async load(){this.error='';try{this.rows=await firstValueFrom(this.http.get<any[]>(this.api+'communications',{headers:this.global.headers}));if(this.canSend)this.audience=await firstValueFrom(this.http.get<any>(this.api+'communications/audience',{headers:this.global.headers}));}catch(e:any){this.error=e.error?.error||'Impossibile caricare le comunicazioni.';}}
+  async send(){if(!this.canSend||this.busy||!this.recipientCount)return;this.busy=true;this.error='';this.notice='';try{const value=await firstValueFrom(this.http.post<any>(this.api+'communications',{requestId:this.requestId,subject:this.subject,body:this.body,selection:this.selection,customerType:this.customerType,customerIds:[...this.selected]},{headers:this.global.headers}));this.notice='Comunicazione pubblicata per '+value.recipients+' clienti. Gli avvisi email, se abilitati, sono in coda.';this.subject='';this.body='';this.requestId=operationId();await this.load();}catch(e:any){this.error=e.error?.error||'Invio non riuscito. Riprova.';}finally{this.busy=false;}}
+}

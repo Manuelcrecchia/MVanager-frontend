@@ -280,7 +280,10 @@
           </ng-container>
         </div>
       </div>
-      <div class="d-flex justify-content-end mt-4">
+      <div class="d-flex justify-content-end flex-wrap gap-2 mt-4">
+        <button type="button" class="btn btn-outline-secondary btn-round" (click)="regeneratePassword()" [disabled]="resettingPassword">
+          {{ resettingPassword ? 'Invio in corso…' : 'Rigenera e invia password' }}
+        </button>
         <button type="button" class="btn btn-primary btn-round" (click)="saveEdit()">Salva modifiche</button>
       </div>
     </div>
@@ -440,6 +443,7 @@
             </td>
             <td class="actions-cell">
               <button type="button" class="btn btn-primary btn-round btn-sm" (click)="saveEdit()">✅ Salva</button>
+              <button type="button" class="btn btn-outline-secondary btn-round btn-sm" (click)="regeneratePassword()" [disabled]="resettingPassword">Rigenera e invia password</button>
               <button type="button" class="btn btn-glass btn-round btn-sm" (click)="cancelEdit()">✖ Annulla</button>
             </td>
           </ng-template>
@@ -548,6 +552,7 @@
             </div>
           </div>
           <button type="button" class="btn btn-primary btn-round btn-sm w-100 mb-1" (click)="saveEdit()">✅ Salva</button>
+          <button type="button" class="btn btn-outline-secondary btn-round btn-sm w-100 mb-1" (click)="regeneratePassword()" [disabled]="resettingPassword">Rigenera e invia password</button>
           <button type="button" class="btn btn-glass btn-round btn-sm w-100" (click)="cancelEdit()">✖ Annulla</button>
         </ng-template>
       </div>

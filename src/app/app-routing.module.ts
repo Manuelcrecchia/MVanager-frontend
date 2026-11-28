@@ -1,6 +1,9 @@
+import {CustomerWorkRegistersComponent} from './admin/customer-work-registers.component';
+import { CustomerQualityComponent } from './admin/customer-quality/customer-quality.component';
 import { CalendarSettingsComponent } from './admin/calendar-settings/calendar-settings.component';
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
+import { isCustomerPortalHost } from './public/customer-portal/customer-portal-host';
 
 import { PrivateAreaComponent } from './componenti/login/private-area/private-area.component';
 import { PassworddimenticataComponent } from './componenti/login/passworddimenticata/passworddimenticata.component';
@@ -59,6 +62,7 @@ import { WorkCompletionAcceptComponent } from './public/work-completion-accept/w
 import { ServiceOrderAcceptComponent } from './public/service-order-accept/service-order-accept.component';
 import { WorkCompletionStatsComponent } from './admin/work-completion-stats/work-completion-stats.component';
 import { CustomerWorkCompletionComponent } from './admin/customer-work-completion/customer-work-completion.component';
+import { PeriodicAssessmentSettingsComponent } from './admin/customer-quality/periodic-assessment-settings.component';
 import { EmailHomeComponent } from './admin/email-home/email-home.component';
 import { EmailSettingsComponent } from './admin/email-settings/email-settings.component';
 import { EmailSendingSettingsComponent } from './admin/email-sending-settings/email-sending-settings.component';
@@ -78,6 +82,11 @@ import { AuthLevelGuard } from './auth-level.guard';
 import { AdminShellRedirectGuard } from './admin-shell-redirect.guard';
 
 const routes: Routes = [
+  { path: 'clienti', loadComponent: () => import('./public/customer-portal/customer-portal.component').then(m => m.CustomerPortalComponent) },
+  { path: 'clienti/:tenant', loadComponent: () => import('./public/customer-portal/customer-portal.component').then(m => m.CustomerPortalComponent) },
+  { matcher: segments => segments.length === 0 && typeof window !== 'undefined' && isCustomerPortalHost(window.location.hostname) ? { consumed: [] } : null,
+    loadComponent: () => import('./public/customer-portal/customer-portal.component').then(m => m.CustomerPortalComponent) },
+  { path: 'consultazione', redirectTo: 'homeAdmin', pathMatch: 'full' },
   { path: 'quote-accept/:token', component: QuoteAcceptComponent },
   { path: 'contract-accept/:token', component: ContractAcceptComponent },
   { path: 'work-completion-accept/:token', component: WorkCompletionAcceptComponent },
@@ -92,7 +101,12 @@ const routes: Routes = [
     path: 'homeAdmin',
     component: HomeAdminComponent,
     canActivate: [AuthGuard, AuthLevelGuard],
+    data: { allowConsultation: true },
     children: [
+      { path: 'customerCommunications', loadComponent: () => import('./admin/customer-portal/customer-communications-admin.component').then(m => m.CustomerCommunicationsAdminComponent), canActivate: [AuthGuard, AuthLevelGuard], data: { permission: 'CUSTOMER_COMMUNICATIONS_VIEW', feature: 'customerCommunications' } },
+      { path: 'customerTickets', loadComponent: () => import('./admin/customer-portal/customer-tickets-admin.component').then(m => m.CustomerTicketsAdminComponent), canActivate: [AuthGuard, AuthLevelGuard], data: { permission: 'CUSTOMER_TICKETS_VIEW', feature: 'customerTickets' } },
+      { path: 'customerPortalEmails', loadComponent: () => import('./admin/customer-portal/customer-portal-emails.component').then(m => m.CustomerPortalEmailsComponent), canActivate: [AuthGuard, AuthLevelGuard], data: { permission: 'CUSTOMER_PORTAL_EMAIL_MANAGE', feature: 'customerPortalEmails' } },
+
       {
         path: 'userSettings',
         component: UserSettingsComponent,
@@ -122,6 +136,12 @@ const routes: Routes = [
         component: EmailSettingsComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
         data: { permission: 'EMAIL_SETTINGS' },
+      },
+      {
+        path: 'customerDocumentSharingSettings',
+        loadComponent: () => import('./admin/customer-document-sharing-settings/customer-document-sharing-settings.component').then(m => m.CustomerDocumentSharingSettingsComponent),
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'CUSTOMER_DOCS_DEFAULTS_MANAGE', feature: 'customerPortalDocuments' },
       },
       {
         path: 'emailSendingSettings',
@@ -198,13 +218,13 @@ const routes: Routes = [
         path: 'gestionepermessi',
         component: GestionePermessiComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
+        data: { permission: 'EMPLOYEE_PERMITS_VIEW' },
       },
       {
         path: 'gestionepermessi/view/:id',
         component: PermissionDetailComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
+        data: { permission: 'EMPLOYEE_PERMITS_VIEW' },
       },
       {
         path: 'timbratureHome',
@@ -216,13 +236,25 @@ const routes: Routes = [
         path: 'listCustomer',
         component: ListCustomerComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'CUSTOMERS_VIEW' },
+        data: { permission: 'CUSTOMERS_VIEW', allowConsultation: true },
+      },
+      {
+        path: 'listCustomer/:numeroCliente/work-registers',
+        component: CustomerWorkRegistersComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: {permission:'WORK_REGISTER_VIEW',feature:'workRegister'},
       },
       {
         path: 'listCustomer/:numeroCliente/work-completion',
-        component: CustomerWorkCompletionComponent,
+        component: CustomerQualityComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'WORK_COMPLETION_MANAGE', feature: 'workCompletion' },
+        data: { permission: 'WORK_COMPLETION_VIEW', feature: 'workCompletion', qualityKind: 'work_completion' },
+      },
+      {
+        path: 'listCustomer/:numeroCliente/quality-control',
+        component: CustomerQualityComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permission: 'QUALITY_CONTROL_VIEW', feature: 'workCompletion', qualityKind: 'quality_control' },
       },
       {
         path: 'quotesHome',
@@ -334,7 +366,7 @@ const routes: Routes = [
         path: 'internal-documents',
         component: InternalDocumentsComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'INTERNAL_DOCS_ACCESS' },
+        data: { permission: 'INTERNAL_DOCS_VIEW', allowConsultation: true },
       },
       {
         path: 'statistiche',
@@ -352,7 +384,7 @@ const routes: Routes = [
         path: 'email',
         component: EmailHomeComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'EMAIL_VIEW' },
+        data: { permission: 'EMAIL_READ' },
       },
       {
         path: 'addQuote',
@@ -451,6 +483,12 @@ const routes: Routes = [
         data: { permissionsAny: ['CUSTOMER_DEADLINES_VIEW', 'EMPLOYEE_EDIT', 'VEHICLE_SETTINGS_MANAGE', 'EQUIPMENT_SETTINGS_MANAGE'] },
       },
       {
+        path: 'periodic-assessment-settings',
+        component: PeriodicAssessmentSettingsComponent,
+        canActivate: [AuthGuard, AuthLevelGuard],
+        data: { permissionsAny: ['WORK_COMPLETION_VIEW', 'QUALITY_CONTROL_VIEW'], feature: 'workCompletion' },
+      },
+      {
         path: 'settingsemployees',
         component: SettingsEmployeesComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
@@ -460,7 +498,7 @@ const routes: Routes = [
         path: 'gestioneassenze',
         component: GestionePermessiComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
+        data: { permission: 'EMPLOYEE_PERMITS_VIEW' },
       },
       {
         path: 'leave-settings',
@@ -472,13 +510,13 @@ const routes: Routes = [
         path: 'documenti/employee/:id',
         component: DocumentManagerComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'EMPLOYEE_DOCS_MANAGE' },
+        data: { permission: 'EMPLOYEE_DOCS_VIEW' },
       },
       {
         path: 'documenti/client/:id',
         component: DocumentManagerComponent,
         canActivate: [AuthGuard, AuthLevelGuard],
-        data: { permission: 'CUSTOMER_DOCS_MANAGE' },
+        data: { permission: 'CUSTOMER_DOCS_VIEW', allowConsultation: true },
       },
       {
         path: 'view-pdf',
@@ -639,18 +677,35 @@ const routes: Routes = [
     data: { permission: 'CUSTOMER_WAREHOUSE_VIEW' },
   },
 
+  {
+    path: 'customerDocumentSharingSettings',
+    loadComponent: () => import('./admin/customer-document-sharing-settings/customer-document-sharing-settings.component').then(m => m.CustomerDocumentSharingSettingsComponent),
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'CUSTOMER_DOCS_DEFAULTS_MANAGE', feature: 'customerPortalDocuments' },
+  },
+
+  { path: 'customerCommunications', loadComponent: () => import('./admin/customer-portal/customer-communications-admin.component').then(m => m.CustomerCommunicationsAdminComponent), canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard], data: { permission: 'CUSTOMER_COMMUNICATIONS_VIEW', feature: 'customerCommunications' } },
+  { path: 'customerTickets', loadComponent: () => import('./admin/customer-portal/customer-tickets-admin.component').then(m => m.CustomerTicketsAdminComponent), canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard], data: { permission: 'CUSTOMER_TICKETS_VIEW', feature: 'customerTickets' } },
+  { path: 'customerPortalEmails', loadComponent: () => import('./admin/customer-portal/customer-portal-emails.component').then(m => m.CustomerPortalEmailsComponent), canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard], data: { permission: 'CUSTOMER_PORTAL_EMAIL_MANAGE', feature: 'customerPortalEmails' } },
+
   // clienti
   {
     path: 'listCustomer',
     component: ListCustomerComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'CUSTOMERS_VIEW' },
+    data: { permission: 'CUSTOMERS_VIEW', allowConsultation: true },
   },
   {
     path: 'listCustomer/:numeroCliente/work-completion',
-    component: CustomerWorkCompletionComponent,
+    component: CustomerQualityComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'WORK_COMPLETION_MANAGE', feature: 'workCompletion' },
+    data: { permission: 'WORK_COMPLETION_VIEW', feature: 'workCompletion', qualityKind: 'work_completion' },
+  },
+  {
+    path: 'listCustomer/:numeroCliente/quality-control',
+    component: CustomerQualityComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permission: 'QUALITY_CONTROL_VIEW', feature: 'workCompletion', qualityKind: 'quality_control' },
   },
   {
     path: 'addCustomer',
@@ -739,6 +794,12 @@ const routes: Routes = [
     data: { permissionsAny: ['CUSTOMER_DEADLINES_VIEW', 'EMPLOYEE_EDIT', 'VEHICLE_SETTINGS_MANAGE', 'EQUIPMENT_SETTINGS_MANAGE'] },
   },
   {
+    path: 'periodic-assessment-settings',
+    component: PeriodicAssessmentSettingsComponent,
+    canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
+    data: { permissionsAny: ['WORK_COMPLETION_VIEW', 'QUALITY_CONTROL_VIEW'], feature: 'workCompletion' },
+  },
+  {
     path: 'settingsemployees',
     component: SettingsEmployeesComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
@@ -804,19 +865,19 @@ const routes: Routes = [
     path: 'gestionepermessi',
     component: GestionePermessiComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
+    data: { permission: 'EMPLOYEE_PERMITS_VIEW' },
   },
   {
     path: 'gestionepermessi/view/:id',
     component: PermissionDetailComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
+    data: { permission: 'EMPLOYEE_PERMITS_VIEW' },
   },
   {
     path: 'gestioneassenze',
     component: GestionePermessiComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'EMPLOYEE_PERMITS_MANAGE' },
+    data: { permission: 'EMPLOYEE_PERMITS_VIEW' },
   },
   {
     path: 'leave-settings',
@@ -830,13 +891,13 @@ const routes: Routes = [
     path: 'documenti/employee/:id',
     component: DocumentManagerComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'EMPLOYEE_DOCS_MANAGE' },
+    data: { permission: 'EMPLOYEE_DOCS_VIEW' },
   },
   {
     path: 'documenti/client/:id',
     component: DocumentManagerComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'CUSTOMER_DOCS_MANAGE' },
+    data: { permission: 'CUSTOMER_DOCS_VIEW', allowConsultation: true },
   },
 
   // documenti interni
@@ -844,7 +905,7 @@ const routes: Routes = [
     path: 'internal-documents',
     component: InternalDocumentsComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'INTERNAL_DOCS_ACCESS' },
+    data: { permission: 'INTERNAL_DOCS_VIEW', allowConsultation: true },
   },
 
   // pdf viewer (usato in più contesti → lo lascio “solo autenticato”)
@@ -913,7 +974,7 @@ const routes: Routes = [
     path: 'email',
     component: EmailHomeComponent,
     canActivate: [AdminShellRedirectGuard, AuthGuard, AuthLevelGuard],
-    data: { permission: 'EMAIL_VIEW' },
+    data: { permission: 'EMAIL_READ' },
   },
 
   // timbrature

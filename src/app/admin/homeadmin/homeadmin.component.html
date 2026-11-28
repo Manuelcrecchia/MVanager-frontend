@@ -1711,6 +1711,7 @@
           />
           <div class="sidebar-logo-actions">
             <button
+              *ngIf="!global.consultationOnly"
               class="sidebar-icon-btn sidebar-settings-toggle"
               [class.is-open]="settingsMenuOpen"
               type="button"
@@ -1734,8 +1735,11 @@
 
         <div class="sidebar-top-actions" *ngIf="settingsMenuOpen && !sidebarCollapsed">
           <div class="sidebar-settings-menu">
-            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">
-              <i class="fas fa-user-plus"></i> <span class="sidebar-btn-text">Aggiungi utenti</span>
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToUserSettings()">
+              <i class="fas fa-users"></i> <span class="sidebar-btn-text">Gestisci utenti</span>
+            </button>
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('WORK_COMPLETION_VIEW', 'workCompletion') || canUsePermission('QUALITY_CONTROL_VIEW', 'workCompletion')" (click)="navigateToPeriodicAssessmentSettings()">
+              <i class="fas fa-calendar-check" aria-hidden="true"></i> <span class="sidebar-btn-text">Valutazioni periodiche</span>
             </button>
             <button class="sidebar-bottom-btn" type="button" (click)="navigateToCambiapassword()">
               <i class="fas fa-key"></i> <span class="sidebar-btn-text">Cambia password</span>
@@ -1760,6 +1764,9 @@
             </button>
             <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">
               <i class="fas fa-file-invoice-dollar"></i> <span class="sidebar-btn-text">Impostazioni preventivi</span>
+            </button>
+            <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('CUSTOMER_DOCS_DEFAULTS_MANAGE', 'customerPortalDocuments')" (click)="navigateToCustomerDocumentSharingSettings()">
+              <i class="fas fa-folder-open"></i> <span class="sidebar-btn-text">Impostazioni documenti condivisi</span>
             </button>
             <button class="sidebar-bottom-btn" type="button" *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSendingSettings()">
               <i class="fas fa-paper-plane"></i> <span class="sidebar-btn-text">Impostazioni invio email</span>
@@ -2012,6 +2019,7 @@
             <span>Logout</span>
           </button>
           <button
+            *ngIf="!global.consultationOnly"
             class="menu-toggle"
             type="button"
             (click)="toggleMenu()"
@@ -2023,7 +2031,8 @@
         </div>
 
         <div *ngIf="isMenuOpen" class="mobile-menu">
-          <button type="button" *ngIf="canUsePermission('ADMIN_CREATE', 'administrators')" (click)="navigateToUserSettings()">Aggiungi utenti</button>
+          <button type="button" *ngIf="canUsePermission('ADMIN_VIEW', 'administrators')" (click)="navigateToUserSettings()">Gestisci utenti</button>
+          <button type="button" *ngIf="canUsePermission('WORK_COMPLETION_VIEW', 'workCompletion') || canUsePermission('QUALITY_CONTROL_VIEW', 'workCompletion')" (click)="navigateToPeriodicAssessmentSettings()">Valutazioni periodiche</button>
           <button type="button" (click)="navigateToCambiapassword()">Cambia password</button>
           <a href="https://mvtechcore.it/privacy/mvanager" target="_blank" rel="noopener noreferrer">Informativa privacy</a>
           <a href="https://mvtechcore.it/supporto/mvanager" target="_blank" rel="noopener noreferrer">Assistenza</a>
@@ -2033,6 +2042,7 @@
           <button type="button" *ngIf="canUsePermission('VEHICLE_SETTINGS_MANAGE', 'vehicleDeadlines')" (click)="navigateToVehiclesSettings()">Gestione mezzi</button>
           <button type="button" *ngIf="canUsePermission('EQUIPMENT_SETTINGS_MANAGE', 'equipmentDeadlines')" (click)="navigateToEquipmentSettings()">Gestione attrezzature</button>
           <button type="button" *ngIf="canUsePermission('SETTINGS_QUOTES', 'quotes')" (click)="navigateToQuoteSettings()">Impostazioni preventivi</button>
+          <button type="button" *ngIf="canUsePermission('CUSTOMER_DOCS_DEFAULTS_MANAGE', 'customerPortalDocuments')" (click)="navigateToCustomerDocumentSharingSettings()">Impostazioni documenti condivisi</button>
           <button type="button" *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSendingSettings()">Impostazioni invio email</button>
           <button type="button" *ngIf="canUsePermission('EMAIL_SETTINGS', 'email')" (click)="navigateToEmailSettings()">Impostazioni email</button>
           <button type="button" *ngIf="global.forMobile && canUsePermission('NOTIFICATIONS_VIEW', 'notifications')" (click)="navigateToNotificationSettings()">Preferenze notifiche amministratore</button>

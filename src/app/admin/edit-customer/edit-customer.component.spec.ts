@@ -5,6 +5,25 @@ describe('EditCustomerComponent', () => {
   it('should be exported', () => {
     expect(EditCustomerComponent).toBeTruthy();
   });
+  it('permits credential resets only after loading the requested customer and checking the account permission', async () => {
+    const component: any = Object.create(EditCustomerComponent.prototype);
+    let allowed = true;
+    component.globalService = { url: 'https://api.test/', headers: {}, hasTenantFeature: () => true, hasPermission: () => allowed };
+    component.customerModelService = { numeroCliente: 'previous', reset() { this.numeroCliente = ''; } };
+    component.syncCustomerFieldRules = () => {};
+    const loading = new Subject<any>();
+    component.http = { post: jasmine.createSpy('post').and.returnValue(loading) };
+    component.caricaClienteFromDb('1');
+    expect(component.canManageCustomerAccounts).toBeFalse();
+    await component.regeneratePortalPassword();
+    expect(component.http.post).toHaveBeenCalledTimes(1);
+    loading.next([{ numeroCliente: '1' }]); loading.complete();
+    expect(component.canManageCustomerAccounts).toBeTrue();
+    allowed = false;
+    expect(component.canManageCustomerAccounts).toBeFalse();
+    await component.regeneratePortalPassword();
+    expect(component.http.post).toHaveBeenCalledTimes(1);
+  });
   for (const rejectVehicle of [false, true]) {
     it(`waits for each resource save before starting the next (${rejectVehicle ? 'rejected' : 'confirmed'} vehicle)`, async () => {
       const component: any = Object.create(EditCustomerComponent.prototype);
@@ -37,4 +56,18 @@ describe('EditCustomerComponent', () => {
       expect(done).toHaveBeenCalledTimes(1);
     });
   }
+  it('sends customer questionnaire overrides after dynamic fields have been mapped', () => {
+    const source:any={numeroCliente:'1',tipoCliente:'standard',reset:()=>{}};
+    const http:any={post:jasmine.createSpy('post').and.returnValue(new Subject())};
+    const global:any={url:'/api/',headers:{},getMissingRequiredFields:()=>[],userCode:'TEST',applyFieldMappingToPayload:()=>({numeroCliente:'1'})};
+    const component=new EditCustomerComponent(source,http,global,{} as any,{} as any,{} as any,{} as any);
+    spyOn(component as any,'validateAccessHours').and.returnValue(true);
+    spyOn(component as any,'getTechnicalAccessPayload').and.returnValue({});
+    component.workRegisterConfig={mode:'custom',title:'Registro',questions:[{key:'scale',label:'Scale e corrimano',type:'checkbox',options:[]}]};
+    component.editCustomer();
+    expect(http.post.calls.mostRecent().args[1].workRegisterConfig).toEqual(component.workRegisterConfig);
+    component.workRegisterConfig=undefined;component.editCustomer();
+    expect(http.post.calls.mostRecent().args[1].workRegisterConfig).toBeUndefined();
+  });
+
 });

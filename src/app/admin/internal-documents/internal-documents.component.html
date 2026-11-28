@@ -4,205 +4,16 @@
     <button class="mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button>
   </div>
 </header>
-
-<div class="docs-page container-fluid">
-  <div class="docs-shell">
-    <!-- Sidebar -->
-    <aside class="sidebar glass-panel">
-      <div class="sidebar-head">
-        <h3 class="sidebar-title">Cartelle</h3>
-        <p class="path-label">{{ currentPathLabel }}</p>
-      </div>
-
-      <div class="document-search">
-        <mat-icon>search</mat-icon>
-        <input
-          type="search"
-          [(ngModel)]="documentSearch"
-          placeholder="Cerca cartella o file"
-        />
-      </div>
-
-      <button
-        mat-button
-        (click)="selectRoot()"
-        class="folder-btn root-folder-btn"
-        [class.selected]="!selectedFolder"
-        type="button"
-      >
-        <mat-icon>home</mat-icon>
-        Directory principale
-      </button>
-
-      <button
-        *ngIf="canGoUp"
-        mat-button
-        (click)="goUp()"
-        class="folder-btn root-folder-btn"
-        type="button"
-      >
-        <mat-icon>arrow_upward</mat-icon>
-        Torna su
-      </button>
-
-      <mat-list class="folder-list">
-        <mat-list-item *ngFor="let folder of filteredFolders" class="folder-item">
-          <div class="folder-row">
-            <button
-              mat-button
-              (click)="selectFolder(folder)"
-              class="folder-btn"
-              [class.selected]="folder === selectedFolder"
-              type="button"
-            >
-              <mat-icon>folder</mat-icon>
-              {{ folder }}
-            </button>
-
-            <button
-              mat-icon-button
-              color="warn"
-              (click)="deleteFolder(folder)"
-              matTooltip="Elimina"
-              class="icon-btn icon-danger folder-delete-btn"
-              type="button"
-            >
-              <mat-icon>delete</mat-icon>
-            </button>
-          </div>
-        </mat-list-item>
-      </mat-list>
-
-      <div class="new-folder glass-subpanel">
-        <mat-form-field appearance="fill" class="w-100">
-          <mat-label>Nuova cartella</mat-label>
-          <input matInput [(ngModel)]="newFolderName" />
-        </mat-form-field>
-
-        <button type="button"
-          mat-raised-button
-          color="accent"
-          (click)="createFolder()"
-          class="btn-brand"
-        >
-          Crea
-        </button>
-      </div>
-    </aside>
-
-    <!-- Main -->
-    <main class="main glass-panel">
-      <div class="main-head">
-        <h3 class="main-title">File in "{{ currentPathLabel }}"</h3>
-
-        <div class="file-upload">
-          <input type="file" #fileInput multiple (change)="uploadFile($event)" hidden />
-          <button type="button"
-            mat-raised-button
-            color="primary"
-            (click)="fileInput.click()"
-            class="btn-brand"
-          >
-            Carica File
-          </button>
-        </div>
-      </div>
-
-      <div
-        class="file-drop-zone"
-        [class.file-drop-zone--active]="isFileDragActive"
-        [class.file-drop-zone--disabled]="isUploading"
-        role="button"
-        tabindex="0"
-        (click)="fileInput.click()"
-        (keydown.enter)="fileInput.click()"
-        (keydown.space)="fileInput.click(); $event.preventDefault()"
-        (dragover)="onFileDragOver($event)"
-        (dragleave)="onFileDragLeave($event)"
-        (drop)="onFileDrop($event)"
-      >
-        <mat-icon>cloud_upload</mat-icon>
-        <div>
-          <strong>{{ isUploading ? 'Caricamento in corso...' : 'Allega documenti' }}</strong>
-          <span>Trascina o seleziona uno o piu file</span>
-        </div>
-      </div>
-
-      <div class="file-list">
-        <div class="file-row" *ngFor="let file of filteredFiles">
-          <button
-            type="button"
-            class="file-main"
-            (click)="selectFile(file)"
-          >
-            <span class="file-name">{{ displayFileName(file) }}</span>
-
-            <span class="doc-status" *ngIf="file.viewed">
-              ✅ Visualizzato {{ file.viewedAt | date: "dd/MM/yyyy HH:mm" }}
-            </span>
-
-            <span class="doc-status pending" *ngIf="!file.viewed">
-              ⏳ Non visualizzato
-            </span>
-          </button>
-
-          <div class="file-actions">
-            <button
-              mat-icon-button
-              class="icon-btn icon-view"
-              title="Visualizza"
-              type="button"
-              (click)="selectFile(file); $event.stopPropagation()"
-            >
-              <mat-icon>visibility</mat-icon>
-            </button>
-
-            <button
-              mat-icon-button
-              class="icon-btn icon-primary"
-              title="Scarica"
-              type="button"
-              (click)="
-                downloadCurrentFile(file); $event.stopPropagation()
-              "
-            >
-              <mat-icon>download</mat-icon>
-            </button>
-
-            <button
-              mat-icon-button
-              class="icon-btn icon-print"
-              title="Stampa"
-              type="button"
-              (click)="printFile(file); $event.stopPropagation()"
-            >
-              <mat-icon>print</mat-icon>
-            </button>
-
-            <button
-              mat-icon-button
-              class="icon-btn icon-danger"
-              title="Elimina"
-              type="button"
-              (click)="deleteFile(file); $event.stopPropagation()"
-            >
-              <mat-icon>delete</mat-icon>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="empty-hint" *ngIf="(!files || files.length === 0) && (!folders || folders.length === 0)">
-        Carica un documento o crea una sottocartella per iniziare.
-      </div>
-
-      <div
-        class="empty-hint"
-        *ngIf="(files.length > 0 || folders.length > 0) && filteredFiles.length === 0 && filteredFolders.length === 0"
-      >
-        Nessun documento trovato.
-      </div>
-
+<div class="docs-page container-fluid"><div class="document-workspace">
+<app-document-explorer
+  [entries]="explorerEntries" [path]="selectedFolder" rootLabel="Documenti interni" dateLabel="Data di caricamento / creazione"
+  [uploading]="isUploading"
+  [writable]="globalService.hasPermission('INTERNAL_DOCS_EDIT')"
+  [allowDelete]="globalService.hasPermission('INTERNAL_DOCS_DELETE')"
+  [allowPrint]="canPrintDocuments"
+  (navigate)="navigateExplorer($event)" (action)="onExplorerAction($event)"
+  (createFolder)="createExplorerFolder($event)" (upload)="uploadExplorerFiles($event)"
+></app-document-explorer>
       <div *ngIf="pdfBase64" class="pdf-viewer">
         <ngx-extended-pdf-viewer
           [base64Src]="pdfBase64"
@@ -213,7 +24,7 @@
 
         <ng-template #customToolbar>
           <div class="pdf-toolbar">
-            <button type="button"
+            <button *ngIf="canPrintDocuments" type="button"
               mat-raised-button
               color="accent"
               class="btn-brand"
@@ -281,6 +92,5 @@
           ⬇️ Scarica
         </button>
       </div>
-    </main>
-  </div>
-</div>
+
+</div></div>

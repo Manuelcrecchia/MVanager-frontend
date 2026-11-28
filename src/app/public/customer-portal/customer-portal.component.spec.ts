@@ -1,0 +1,217 @@
+import { TestBed } from '@angular/core/testing';
+import { HttpBackend } from '@angular/common/http';
+import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { CustomerPortalComponent } from './customer-portal.component';
+
+describe('CustomerPortalComponent', () => {
+  let component: CustomerPortalComponent;
+  let http: HttpTestingController;
+  beforeEach(() => {
+    sessionStorage.removeItem('customerPortal:portal-test');
+    TestBed.configureTestingModule({ imports: [HttpClientTestingModule, CustomerPortalComponent], providers: [
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ tenant: 'portal-test' }), queryParamMap: convertToParamMap({}) } } },
+    ] });
+    http = TestBed.inject(HttpTestingController);
+    component = new CustomerPortalComponent(TestBed.inject(HttpBackend), TestBed.inject(ActivatedRoute));
+  });
+  afterEach(() => { component.ngOnDestroy(); for(const request of http.match(request=>/\/(summary|communications|tickets|documents)$/.test(request.url))){request.flush(request.request.url.endsWith('/summary')?{communications:0,tickets:0}:request.request.url.endsWith('/documents')?{path:'',entries:[]}:[]);} http.verify(); sessionStorage.removeItem('customerPortal:portal-test'); });
+  async function init(): Promise<void> {
+    const pending = component.ngOnInit();
+    const config = http.expectOne(request => request.url.endsWith('/customer-portal/config'));
+    expect(config.request.headers.get('X-Tenant-Id')).toBe('portal-test');
+    expect(config.request.headers.has('Authorization')).toBeFalse();
+    config.flush({ tenantId: 'portal-test', companyName: 'Ditta di prova', documentsEnabled:true,communicationsEnabled:true,ticketsEnabled:true });
+    await pending;
+  }
+  it('sends customer credentials independently and stores a separate customer session', async () => {
+    await init();
+    component.username = '1/2026'; component.password = 'Temporary password';
+    const pending = component.login();
+    const login = http.expectOne(request => request.url.endsWith('/customer-portal/login'));
+    expect(login.request.headers.has('Authorization')).toBeFalse();
+    expect(login.request.body).toEqual({ username: '1/2026', password: 'Temporary password' });
+    login.flush({ token: 'customer-token', numeroCliente: '42', username: '1/2026', passwordChangeRequired: true });
+    await pending;
+    expect(sessionStorage.getItem('customerPortal:portal-test')).toBe('customer-token');
+    expect(component.session?.passwordChangeRequired).toBeTrue();
+    expect(component.password).toBe('');
+    component.logout();
+    expect(component.session).toBeNull();
+    expect(sessionStorage.getItem('customerPortal:portal-test')).toBeNull();
+  });
+  it('removes expired customer sessions without restoring an authenticated screen', async () => {
+    sessionStorage.setItem('customerPortal:portal-test', 'expired-token');
+    const pending = component.ngOnInit();
+    http.expectOne(request => request.url.endsWith('/customer-portal/config')).flush({ tenantId: 'portal-test', companyName: 'Ditta di prova', documentsEnabled:true,communicationsEnabled:true,ticketsEnabled:true });
+    await Promise.resolve(); await Promise.resolve();
+    const me = http.expectOne(request => request.url.endsWith('/customer-portal/me'));
+    expect(me.request.headers.get('Authorization')).toBe('Bearer expired-token');
+    me.flush({ error: 'Scaduto' }, { status: 401, statusText: 'Unauthorized' });
+    await pending;
+    expect(component.session).toBeNull();
+    expect(sessionStorage.getItem('customerPortal:portal-test')).toBeNull();
+  });
+  it('rejects mismatched password confirmation without making a request', async () => {
+    await init();
+    component.newPassword = 'A long new password'; component.confirmPassword = 'Different password';
+    await component.changePassword();
+    expect(component.error).toContain('non coincidono');
+    http.expectNone(request => request.url.endsWith('/customer-portal/password'));
+  });
+  it('blocks seven characters and submits an eight-character password from the form', async () => {
+    const fixture = TestBed.createComponent(CustomerPortalComponent);
+    fixture.detectChanges();
+    http.expectOne(request => request.url.endsWith('/customer-portal/config')).flush({ tenantId: 'portal-test', companyName: 'Ditta di prova', documentsEnabled:true,communicationsEnabled:true,ticketsEnabled:true });
+    await fixture.whenStable();
+    fixture.componentInstance.session = { numeroCliente: '42', passwordChangeRequired: true };
+    fixture.componentInstance.currentPassword = 'Temporary password';
+    fixture.componentInstance.newPassword = fixture.componentInstance.confirmPassword = 'Sette!1';
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#new-password').minLength).toBe(8);
+    expect(fixture.nativeElement.textContent).toContain('Almeno 8 caratteri');
+    expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBeTrue();
+    fixture.componentInstance.newPassword = fixture.componentInstance.confirmPassword = 'Otto!123';
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    const submit = fixture.nativeElement.querySelector('button[type="submit"]');
+    expect(submit.disabled).toBeFalse();
+    submit.click();
+    const change = http.expectOne(request => request.url.endsWith('/customer-portal/password'));
+    expect(change.request.body.newPassword).toBe('Otto!123');
+    change.flush({ token: 'updated-test-token', numeroCliente: '42', passwordChangeRequired: false });
+    await fixture.whenStable(); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Password aggiornata.');
+  });
+  it('hides access and explains when Account clienti is disabled by the company', async () => {
+    const pending = component.ngOnInit();
+    http.expectOne(request => request.url.endsWith('/customer-portal/config'))
+      .flush({ feature: 'customerAccounts' }, { status: 403, statusText: 'Forbidden' });
+    await pending;
+    expect(component.ready).toBeFalse();
+    expect(component.error).toContain('non è attiva');
+    component.username = '42'; component.password = 'Temporary password';
+    await component.login();
+    http.expectNone(request => request.url.endsWith('/customer-portal/login'));
+  });
+  it('shows the three planned sections only after the temporary password has been changed', async () => {
+    const fixture = TestBed.createComponent(CustomerPortalComponent);
+    fixture.detectChanges();
+    http.expectOne(request => request.url.endsWith('/customer-portal/config')).flush({ tenantId: 'portal-test', companyName: 'Ditta di prova', documentsEnabled:true,communicationsEnabled:true,ticketsEnabled:true });
+    await fixture.whenStable();
+    fixture.componentInstance.session = { numeroCliente: '42', username: '1/2027', passwordChangeRequired: true };
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Scegli la tua password');
+    expect(fixture.nativeElement.querySelectorAll('.sections article').length).toBe(0);
+    fixture.componentInstance.session.passwordChangeRequired = false;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Cliente 1/2027');
+    const cards = Array.from(fixture.nativeElement.querySelectorAll('.sections article')) as HTMLElement[];
+    expect(cards.length).toBe(3);
+    expect(cards.map(card => card.querySelector('h2')?.textContent)).toEqual(['Comunicazioni', 'Documenti', 'Ticket']);
+    expect(cards.every(card => card.textContent?.includes('Apri'))).toBeTrue();
+  });
+  it('uses one workspace header and moves password changes into account settings', async () => {
+    const fixture = TestBed.createComponent(CustomerPortalComponent);
+    fixture.detectChanges();
+    http.expectOne(request => request.url.endsWith('/customer-portal/config')).flush({ tenantId: 'portal-test', companyName: 'Altra azienda', documentsEnabled:true,communicationsEnabled:true,ticketsEnabled:true });
+    await fixture.whenStable();
+    const portal = fixture.componentInstance;
+    portal.session = { numeroCliente: '42', username: '1/2027', passwordChangeRequired: false };
+    fixture.detectChanges();
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelectorAll('header').length).toBe(1);
+    expect(page.querySelector('.mv-auth-shell')).toBeNull();
+    expect(page.querySelector('.home-content')?.textContent).not.toContain('Cambia password');
+    expect(page.querySelector('.company-name')?.textContent).toContain('Altra azienda');
+    const settings = page.querySelector('.portal-sidebar button[aria-label="Impostazioni"]') as HTMLButtonElement;
+    settings.click(); fixture.detectChanges();
+    expect(settings.getAttribute('aria-expanded')).toBe('true');
+    (page.querySelector('.portal-sidebar .settings-menu button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(portal.settingsMenuOpen).toBeFalse();
+    expect(page.querySelectorAll('header').length).toBe(1);
+    expect(page.querySelector('h1')?.textContent).toBe('Cambia password');
+    expect(page.querySelector('.sections')).toBeNull();
+    expect(page.querySelector<HTMLInputElement>('#new-password')?.minLength).toBe(8);
+    portal.currentPassword = 'Disposable current';
+    portal.newPassword = portal.confirmPassword = 'Disposable new';
+    portal.error = 'Errore di prova';
+    fixture.detectChanges();
+    const cancel = Array.from(page.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Annulla');
+    cancel?.click(); fixture.detectChanges();
+    expect(portal.currentPassword + portal.newPassword + portal.confirmPassword).toBe('');
+    expect(portal.error).toBe('');
+    expect(page.querySelectorAll('.sections article').length).toBe(3);
+    expect(page.querySelector('#new-password')).toBeNull();
+  });
+  it('starts without a selection and opens each section from the sidebar', async () => {
+    const fixture = TestBed.createComponent(CustomerPortalComponent);
+    fixture.detectChanges();
+    http.expectOne(request => request.url.endsWith('/customer-portal/config')).flush({ tenantId: 'portal-test', companyName: 'Altra azienda', documentsEnabled:true,communicationsEnabled:true,ticketsEnabled:true });
+    await fixture.whenStable();
+    const portal = fixture.componentInstance;
+    portal.session = { numeroCliente: '42', passwordChangeRequired: false };
+    fixture.detectChanges();
+    const page = fixture.nativeElement as HTMLElement;
+    const navigation = Array.from(page.querySelectorAll<HTMLButtonElement>('.sidebar-nav button'));
+    expect(navigation.map(button => button.textContent?.trim())).toEqual(['Comunicazioni', 'Documenti', 'Ticket']);
+    expect(portal.selectedSection).toBeNull();
+    expect(page.querySelector('.section-panel')).toBeNull();
+    expect(page.querySelector('.home-header')?.classList.contains('mobile-landing')).toBeTrue();
+    expect(page.querySelector('.sections')?.classList.contains('mobile-landing')).toBeTrue();
+    for (let index = 0; index < navigation.length; index++) {
+      navigation[index].click(); fixture.detectChanges();
+      expect(page.querySelector('h1')?.textContent).toBe(portal.sections[index].title);
+      expect(page.querySelector('.section-panel')?.textContent).toContain(portal.sections[index].description);
+      expect(page.querySelector('.section-panel')?.textContent).toContain(['Aggiorna comunicazioni','Aggiorna documenti','Apri nuovo ticket'][index]);
+      expect(page.querySelectorAll('.sidebar-nav [aria-current="page"]').length).toBe(1);
+      expect(navigation[index].getAttribute('aria-current')).toBe('page');
+      expect(page.querySelector('.sections')).toBeNull();
+    }
+    portal.openPasswordChange(); fixture.detectChanges();
+    expect(page.querySelector('h1')?.textContent).toBe('Cambia password');
+    portal.cancelPasswordChange(); fixture.detectChanges();
+    expect(page.querySelector('h1')?.textContent).toBe('Ticket');
+    portal.logout();
+    expect(portal.selectedSection).toBeNull();
+  });
+  it('opens a section from the mobile cards and returns to the mobile home', async () => {
+    const fixture = TestBed.createComponent(CustomerPortalComponent);
+    fixture.detectChanges();
+    http.expectOne(request => request.url.endsWith('/customer-portal/config')).flush({ tenantId: 'portal-test', companyName: 'Ditta di prova', documentsEnabled:true,communicationsEnabled:true,ticketsEnabled:true });
+    await fixture.whenStable();
+    fixture.componentInstance.session = { numeroCliente: '42', passwordChangeRequired: false };
+    fixture.detectChanges();
+    const page = fixture.nativeElement as HTMLElement;
+    (page.querySelectorAll<HTMLButtonElement>('.section-entry')[1]).click(); fixture.detectChanges();
+    expect(page.querySelector('h1')?.textContent).toBe('Documenti');
+    expect(page.querySelector('.sections')).toBeNull();
+    (page.querySelector('.mobile-back') as HTMLButtonElement).click(); fixture.detectChanges();
+    expect(fixture.componentInstance.selectedSection).toBeNull();
+    expect(page.querySelectorAll('.sections article').length).toBe(3);
+    expect(page.querySelector('.section-panel')).toBeNull();
+  });
+  it('closes settings on Escape, outside clicks and logout', async () => {
+    const fixture = TestBed.createComponent(CustomerPortalComponent);
+    fixture.detectChanges();
+    http.expectOne(request => request.url.endsWith('/customer-portal/config')).flush({ tenantId: 'portal-test', companyName: 'Ditta di prova', documentsEnabled:true,communicationsEnabled:true,ticketsEnabled:true });
+    await fixture.whenStable();
+    const portal = fixture.componentInstance;
+    portal.session = { numeroCliente: '42', passwordChangeRequired: false };
+    fixture.detectChanges();
+    const page = fixture.nativeElement as HTMLElement;
+    const settings = page.querySelector('.portal-sidebar button[aria-label="Impostazioni"]') as HTMLButtonElement;
+    settings.click(); fixture.detectChanges();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); fixture.detectChanges();
+    expect(portal.settingsMenuOpen).toBeFalse();
+    settings.click(); fixture.detectChanges();
+    (page.querySelector('h1') as HTMLElement).click(); fixture.detectChanges();
+    expect(portal.settingsMenuOpen).toBeFalse();
+    settings.click(); fixture.detectChanges();
+    (page.querySelector('.portal-sidebar button[aria-label="Esci"]') as HTMLButtonElement).click(); fixture.detectChanges();
+    expect(portal.session).toBeNull();
+    expect(portal.settingsMenuOpen).toBeFalse();
+    expect(page.querySelector('.customer-home')).toBeNull();
+    expect(page.querySelector('#customer-username')).not.toBeNull();
+  });
+});

@@ -20,6 +20,7 @@ import {
   styleUrl: './add-customer.component.css',
 })
 export class AddCustomerComponent {
+  workRegisterConfig:any=undefined;
   canConfigureVehicleRequirements = false;
   canConfigureEquipmentRequirements = false;
   canConfigureEmployeeRequirements = false;
@@ -460,6 +461,7 @@ export class AddCustomerComponent {
       },
       source,
     );
+    if (this.workRegisterConfig !== undefined) (body as Record<string, any>)['workRegisterConfig'] = this.workRegisterConfig;
 
     const numeroPreventivo = sourceNumeroPreventivo;
     const sourceCustomerType = String(
@@ -482,9 +484,12 @@ export class AddCustomerComponent {
         signedQuoteArchived?: boolean;
         signedQuoteArchivePath?: string | null;
         signedQuoteArchiveError?: string | null;
+        credentialsSent?: boolean;
+        credentialsError?: string | null;
       }>(this.globalService.url + 'customers/add', body, { headers: this.globalService.headers })
       .subscribe({
         next: (res) => {
+          if (res.credentialsError) this.popup.show('Cliente creato. ' + res.credentialsError, 'Credenziali area clienti', 'warning');
           const numeroCliente = res?.numeroCliente;
           const finalizeCustomerCreation = () => {
             if (res?.signedQuoteArchiveError) {

@@ -75,6 +75,7 @@ interface Candidate {
 }
 
 interface CandidateNote {
+  canDelete?: boolean;
   id: number;
   data: string;
   ora: string;
@@ -469,7 +470,7 @@ loadCandidates(scope: 'active' | 'discarded' = this.scope, silent = false): void
   }
 
   async deleteNote(note: CandidateNote): Promise<void> {
-    if (!this.selectedCandidate || !this.canManageNotes || this.noteSaving) return;
+    if (!this.selectedCandidate || !this.canManageNotes || !note.canDelete || this.noteSaving) return;
     if (!await this.appDialog.confirm('Eliminare definitivamente questa nota?')) return;
     this.noteSaving = true;
     this.http.delete<{ success: boolean; id: number }>(

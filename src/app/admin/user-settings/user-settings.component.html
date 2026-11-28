@@ -1,197 +1,189 @@
-<div class="standard-management-page">
+<div class="standard-management-page admins-page">
   <header class="mv-entity-toolbar">
     <div class="mv-entity-toolbar__title">
-      <h1>Amministratori</h1>
+      <h1 #pageHeading tabindex="-1">{{ pageTitle }}</h1>
+      <button *ngIf="!editorMode" class="btn mv-toolbar-back mv-mobile-home-back" type="button" (click)="back()">
+        ← Torna indietro
+      </button>
+      <button *ngIf="!editorMode && hasCurrentPermission('ADMIN_CREATE')" class="btn mv-toolbar-primary" type="button" (click)="openNewAdmin()">
+        <i class="fas fa-plus" aria-hidden="true"></i> Nuovo
+      </button>
     </div>
-    <div class="mv-entity-toolbar__controls"><button class="btn mv-toolbar-back" type="button" (click)="back()">&larr; Torna indietro</button></div>
+    <div class="mv-entity-toolbar__controls" *ngIf="!editorMode; else editorControls">
+      <label class="admin-search">
+        <span class="visually-hidden">Cerca amministratore</span>
+        <i class="fas fa-search" aria-hidden="true"></i>
+        <input class="form-control" type="search" [(ngModel)]="adminSearch" placeholder="ID, nominativo, email o codice" />
+      </label>
+      <span class="mv-entity-toolbar__count">{{ filteredAdmins.length }} / {{ admins.length }}</span>
+      <button *ngIf="adminSearch" class="btn btn-light btn-sm" type="button" (click)="adminSearch = ''">Pulisci</button>
+    </div>
+    <ng-template #editorControls>
+      <div class="mv-entity-toolbar__controls">
+        <button class="btn mv-toolbar-back" type="button" [disabled]="saving" (click)="closeEditor()">← Torna all’elenco</button>
+      </div>
+    </ng-template>
   </header>
-  <div class="container">
 
-  <section class="admin-card mb-4">
-    <div class="card-header py-3 px-4">
-      <h3 class="mb-0 fs-5">Elenco amministratori</h3>
-      <p class="mb-0 text-muted small">Visualizza, modifica e gestisci i permessi</p>
+  <div class="container" *ngIf="!editorMode; else editorPage">
+    <div *ngIf="loadingAdmins && !admins.length" class="admin-empty" role="status">Caricamento amministratori…</div>
+    <div *ngIf="!loadingAdmins && !filteredAdmins.length" class="admin-empty" role="status">
+      {{ adminSearch ? 'Nessun risultato per questa ricerca.' : 'Nessun amministratore trovato.' }}
     </div>
-    <div class="card-body p-4">
 
-      <div class="alert alert-info text-center" *ngIf="!admins || admins.length === 0">
-        Nessun amministratore trovato. Aggiungi un admin per iniziare.
-      </div>
+    <div class="admin-list">
+      <article class="admin-record" *ngFor="let admin of filteredAdmins; trackBy: trackAdmin" [class.admin-record--open]="expandedAdminId === admin.id">
+        <button class="admin-record__header" type="button" (click)="toggleAdmin(admin)" [attr.aria-expanded]="expandedAdminId === admin.id" [attr.aria-controls]="'admin-record-' + admin.id">
+          <span class="admin-identity">
+            <span class="admin-id">#{{ admin.id }}</span>
+            <span class="admin-name">{{ admin.nome }} {{ admin.cognome }}</span>
+            <span class="admin-primary" *ngIf="admin.isPrimaryAdmin">Admin iniziale</span>
+            <span class="admin-primary" *ngIf="admin.consultationOnly">Consultazione limitata</span>
+          </span>
+          <i class="fas fa-chevron-down admin-chevron" aria-hidden="true"></i>
+        </button>
 
-      <div class="admin-list" *ngIf="admins && admins.length > 0">
-        <div
-          class="admin-item"
-          *ngFor="let admin of admins; let i = index"
-          [class.admin-item--editing]="editingIndex === i"
-        >
-
-          <!-- ===== VIEW MODE ===== -->
-          <div *ngIf="editingIndex !== i" class="admin-view">
-            <div class="row g-3">
-              <div class="col-6 col-md-3">
-                <div class="small text-muted fw-bold">Nome</div>
-                <div class="fw-semibold">{{ admin.nome }}</div>
-              </div>
-              <div class="col-6 col-md-3">
-                <div class="small text-muted fw-bold">Cognome</div>
-                <div class="fw-semibold">{{ admin.cognome }}</div>
-              </div>
-              <div class="col-12 col-md-4">
-                <div class="small text-muted fw-bold">Email</div>
-                <div class="fw-semibold text-break">{{ admin.email }}</div>
-              </div>
-              <div class="col-6 col-md-2">
-                <div class="small text-muted fw-bold">Codice Op.</div>
-                <span class="badge bg-light text-dark border">{{ admin.codiceOperatore }}</span>
+        <div [id]="'admin-record-' + admin.id" [hidden]="expandedAdminId !== admin.id">
+          <ng-container *ngIf="expandedAdminId === admin.id">
+            <div class="admin-details">
+              <dl class="admin-fields">
+                <div><dt>Email</dt><dd>{{ admin.email || '—' }}</dd></div>
+                <div><dt>Codice operatore</dt><dd>{{ admin.codiceOperatore || '—' }}</dd></div>
+              </dl>
+              <details class="perm-accordion" appReliableDetails *ngIf="admin.permissions.length; else noPermissions">
+                <summary class="perm-accordion__summary">
+                  <span>Permessi assegnati <span class="permission-count">{{ admin.permissions.length }}</span></span>
+                  <i class="fas fa-chevron-down admin-chevron" aria-hidden="true"></i>
+                </summary>
+                <ul class="granted-permissions">
+                  <li *ngFor="let permission of admin.permissions">{{ getPermissionLabel(permission) }}</li>
+                </ul>
+              </details>
+              <ng-template #noPermissions><p class="admin-muted">Nessun permesso assegnato.</p></ng-template>
+            </div>
+            <div class="mv-record-actions" *ngIf="hasCurrentPermission('ADMIN_PROFILE_EDIT') || (!admin.isPrimaryAdmin && hasCurrentPermission('ADMIN_DELETE'))">
+              <div class="mv-record-actions__inner">
+                <button *ngIf="hasCurrentPermission('ADMIN_PROFILE_EDIT')" type="button" class="btn mv-record-action mv-record-action--edit" (click)="startEditAdmin(admin)">
+                  <i class="fas fa-pen-to-square" aria-hidden="true"></i> Modifica
+                </button>
+                <button *ngIf="!admin.isPrimaryAdmin && hasCurrentPermission('ADMIN_DELETE')" type="button" class="btn mv-record-action mv-record-action--danger" [disabled]="deletingAdminId !== null" (click)="deleteAdmin(admin)">
+                  <i class="fas fa-trash" aria-hidden="true"></i> {{ deletingAdminId === admin.id ? 'Eliminazione…' : 'Elimina' }}
+                </button>
               </div>
             </div>
-
-            <div class="mt-3 pt-3 border-top" *ngIf="admin.permissions && admin.permissions.length > 0">
-              <div class="small text-muted fw-bold mb-2">Permessi assegnati</div>
-              <div class="d-flex flex-wrap gap-1">
-                <span class="badge" style="background: linear-gradient(135deg, rgba(47,183,255,0.13), rgba(255,138,0,0.10)); color: var(--mv-blue-700); border: 1px solid rgba(47,183,255,0.20); font-weight: 600;"
-                  *ngFor="let p of admin.permissions"
-                >{{ getPermissionLabel(p) }}</span>
-              </div>
-            </div>
-            <div class="mt-2 small text-muted fst-italic" *ngIf="!admin.permissions || admin.permissions.length === 0">
-              Nessun permesso assegnato
-            </div>
-
-            <div class="d-flex gap-2 mt-3 pt-3 border-top flex-wrap">
-              <button class="btn btn-glass btn-round btn-sm" type="button" (click)="startEditAdmin(i)">
-                ✏️ Modifica
-              </button>
-              <button
-                class="btn btn-glass-dark btn-round btn-sm"
-                type="button"
-                (click)="deleteAdmin(i)"
-                [disabled]="admin.isPrimaryAdmin"
-                [title]="admin.isPrimaryAdmin ? 'L\'admin iniziale non può essere eliminato' : 'Elimina admin'"
-              >
-                🗑️ Elimina
-              </button>
-            </div>
-          </div>
-
-          <!-- ===== EDIT MODE ===== -->
-          <div *ngIf="editingIndex === i" class="admin-edit">
-            <div class="small text-muted fw-bold text-uppercase mb-2" style="font-size: 11px; letter-spacing: 0.7px;">Dati anagrafici</div>
-            <div class="row g-3 mb-3">
-              <div class="col-md-6">
-                <label class="form-label fw-bold">Nome</label>
-                <input class="form-control form-control-glass" [(ngModel)]="adminEdit.nome" name="edit_nome_{{ i }}" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label fw-bold">Cognome</label>
-                <input class="form-control form-control-glass" [(ngModel)]="adminEdit.cognome" name="edit_cognome_{{ i }}" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label fw-bold">Email</label>
-                <input class="form-control form-control-glass" type="email" [(ngModel)]="adminEdit.email" name="edit_email_{{ i }}" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label fw-bold">Codice Operatore</label>
-                <input class="form-control form-control-glass" [(ngModel)]="adminEdit.codiceOperatore" name="edit_codice_{{ i }}" />
-              </div>
-            </div>
-
-            <div class="small text-muted fw-bold text-uppercase mb-2 mt-3" style="font-size: 11px; letter-spacing: 0.7px;">Permessi</div>
-            <ng-container *ngTemplateOutlet="permissionsTemplate; context: { target: adminEdit }"></ng-container>
-
-            <div class="d-flex gap-2 mt-3 pt-3 border-top flex-wrap">
-              <button class="btn btn-primary btn-round btn-sm" type="button" (click)="saveEditAdmin()">
-                ✅ Salva
-              </button>
-              <button class="btn btn-glass btn-round btn-sm" type="button" (click)="cancelEditAdmin()">
-                ↩️ Annulla
-              </button>
-            </div>
-          </div>
-
+          </ng-container>
         </div>
-      </div>
-
+      </article>
     </div>
-  </section>
-
-  <section class="admin-card mb-4">
-    <div class="card-header py-3 px-4">
-      <h3 class="mb-0 fs-5">Aggiungi Nuovo Admin</h3>
-      <p class="mb-0 text-muted small">Crea un amministratore e assegna i permessi</p>
-    </div>
-    <div class="card-body p-4">
-      <form>
-        <div class="small text-muted fw-bold text-uppercase mb-2" style="font-size: 11px; letter-spacing: 0.7px;">Dati anagrafici</div>
-        <div class="row g-3 mb-3">
-          <div class="col-md-6">
-            <label class="form-label fw-bold">Nome</label>
-            <input class="form-control form-control-glass" [(ngModel)]="adminAdd.nome" name="add_nome" />
-          </div>
-          <div class="col-md-6">
-            <label class="form-label fw-bold">Cognome</label>
-            <input class="form-control form-control-glass" [(ngModel)]="adminAdd.cognome" name="add_cognome" />
-          </div>
-          <div class="col-md-6">
-            <label class="form-label fw-bold">Email</label>
-            <input class="form-control form-control-glass" type="email" [(ngModel)]="adminAdd.email" name="add_email" />
-          </div>
-          <div class="col-md-6">
-            <label class="form-label fw-bold">Codice Operatore</label>
-            <input class="form-control form-control-glass" [(ngModel)]="adminAdd.codiceOperatore" name="add_codiceOperatore" />
-          </div>
-        </div>
-
-        <div class="small text-muted fw-bold text-uppercase mb-2 mt-3" style="font-size: 11px; letter-spacing: 0.7px;">Permessi</div>
-        <ng-container *ngTemplateOutlet="permissionsTemplate; context: { target: adminAdd }"></ng-container>
-
-        <div class="d-flex justify-content-end mt-3 pt-3 border-top">
-          <button type="button" class="btn btn-primary btn-round" (click)="addAdmin()">
-            ➕ Aggiungi Admin
-          </button>
-        </div>
-      </form>
-    </div>
-  </section>
-</div>
-
-<ng-template #permissionsTemplate let-target="target">
-  <div class="d-flex flex-column gap-2">
-    <details
-      appReliableDetails
-      class="perm-accordion"
-      *ngFor="let g of permissionGroups; let first = first"
-      [attr.open]="first ? '' : null"
-    >
-      <summary class="perm-accordion__summary">
-        <div class="d-flex align-items-center gap-2">
-          <span class="fw-bold" style="font-size: 14px;">{{ g.title }}</span>
-          <span class="badge" style="background: rgba(47,183,255,0.12); color: var(--mv-blue-700); font-size: 11px;">{{ countGroupActive(g, target.permissions) }} / {{ g.items.length }}</span>
-        </div>
-        <span class="perm-accordion__chev"></span>
-      </summary>
-
-      <div class="perm-accordion__body">
-        <div style="display: grid; gap: 6px;">
-          <label
-            class="perm-row"
-            *ngFor="let p of g.items"
-            [class.perm-row--active]="(target.permissions || []).includes(p.key)"
-          >
-            <input
-              type="checkbox"
-              [checked]="(target.permissions || []).includes(p.key)"
-              [disabled]="isProtectedPrimaryPermission(target, p.key)"
-              (change)="togglePermission(target, p.key)"
-            />
-            <span>
-              <span class="d-block">{{ p.label }}</span>
-              <small class="text-muted" *ngIf="p.description">{{ p.description }}</small>
-            </span>
-          </label>
-        </div>
-      </div>
-    </details>
   </div>
-</ng-template>
+
+  <ng-template #editorPage>
+    <div class="container">
+      <section class="admin-card admin-editor" *ngIf="(editorMode === 'new' ? adminAdd : adminEdit) as draft">
+        <div class="card-header admin-editor__header">
+          <h2>Dati amministratore</h2>
+          <p *ngIf="adminEdit as admin">#{{ admin.id }} · {{ admin.isPrimaryAdmin ? 'Admin iniziale' : admin.email }}</p>
+        </div>
+        <form class="admin-editor__body" (ngSubmit)="saveAdmin()">
+          <fieldset class="admin-editor__fields" [disabled]="saving">
+            <div>
+              <label class="form-label" for="admin-name">Nome</label>
+              <input id="admin-name" class="form-control" [(ngModel)]="draft.nome" name="nome" required />
+            </div>
+            <div>
+              <label class="form-label" for="admin-surname">Cognome</label>
+              <input id="admin-surname" class="form-control" [(ngModel)]="draft.cognome" name="cognome" required />
+            </div>
+            <div>
+              <label class="form-label" for="admin-email">Email</label>
+              <input id="admin-email" class="form-control" type="email" [(ngModel)]="draft.email" name="email" required />
+            </div>
+            <div>
+              <label class="form-label" for="admin-code">Codice operatore</label>
+              <input id="admin-code" class="form-control" [(ngModel)]="draft.codiceOperatore" name="codiceOperatore" required />
+            </div>
+          </fieldset>
+
+          <section class="permissions-panel" aria-labelledby="admin-permissions-heading">
+            <div class="permissions-panel__header">
+              <div class="permissions-panel__title">
+                <h3 id="admin-permissions-heading">Permessi</h3>
+                <span class="permission-count">{{ draft.permissions.length }} assegnati</span>
+              </div>
+              <label class="admin-search" *ngIf="permissionGroups.length">
+                <span class="visually-hidden">Cerca permesso</span>
+                <i class="fas fa-search" aria-hidden="true"></i>
+                <input class="form-control" type="search" [(ngModel)]="permissionSearch" name="permissionSearch" placeholder="Cerca permesso" />
+              </label>
+            </div>
+
+            <p class="admin-muted" *ngIf="limitedConsultation || adminEdit?.consultationOnly && !adminEdit?.accessScope">
+              L’account potrà consultare i clienti e i documenti autorizzati nelle pagine del gestionale.
+            </p>
+            <p class="admin-muted" *ngIf="!hasCurrentPermission('ADMIN_PERMISSIONS_MANAGE')">
+              Per modificare le spunte serve il permesso «Assegna permessi agli amministratori».
+            </p>
+
+            <app-access-scope-picker
+              #scopePicker tabindex="-1" *ngIf="activeScopeKey as section"
+              [section]="section" [scope]="accessScope"
+              (apply)="applyScope($event)" (cancel)="activeScopeKey = null"
+            ></app-access-scope-picker>
+
+            <p class="admin-muted" *ngIf="!visiblePermissionGroups.length" role="status">
+              {{ permissionSearch ? 'Nessun permesso corrisponde alla ricerca.' : 'Nessun permesso disponibile.' }}
+            </p>
+            <details
+              class="perm-accordion"
+              appReliableDetails
+              *ngFor="let group of visiblePermissionGroups; let first = first; trackBy: trackPermissionGroup"
+              [attr.open]="permissionSearch.trim() || first ? '' : null"
+            >
+              <summary class="perm-accordion__summary">
+                <span>{{ group.title }} <span class="permission-count">{{ countGroupActive(group, draft.permissions) }} / {{ group.items.length }}</span></span>
+                <i class="fas fa-chevron-down admin-chevron" aria-hidden="true"></i>
+              </summary>
+              <div class="perm-accordion__body">
+                <div class="perm-row" *ngFor="let permission of group.items" [class.perm-row--active]="draft.permissions.includes(permission.key)">
+                  <label class="perm-choice">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      [checked]="draft.permissions.includes(permission.key)"
+                      [disabled]="saving || !!activeScopeKey || (adminEdit && isProtectedPrimaryPermission(adminEdit, permission.key)) || !canAssignPermission(permission.key)"
+                      (change)="togglePermission(draft, permission.key)"
+                    />
+                    <span>
+                      <span class="perm-label">{{ permission.label }}</span>
+                      <small *ngIf="permission.description">{{ permission.description }}</small>
+                    </span>
+                  </label>
+                  <ng-container *ngIf="scopeKey(permission.key) as section">
+                    <button
+                      *ngIf="draft.permissions.includes(permission.key) && !adminEdit?.isPrimaryAdmin && canAssignPermission(permission.key)"
+                      type="button" class="btn btn-light btn-sm perm-scope-button"
+                      [disabled]="saving || !!activeScopeKey"
+                      [attr.aria-label]="'Scegli cosa può vedere · ' + permission.label"
+                      (click)="openScope(section, permission.key)"
+                    >{{ scopeSummary(section) }} · Scegli</button>
+                  </ng-container>
+                </div>
+              </div>
+            </details>
+          </section>
+
+          <p class="alert alert-danger mb-0" role="alert" *ngIf="formError">{{ formError }}</p>
+          <div class="admin-editor__actions">
+            <button *ngIf="editorMode === 'edit'" class="btn btn-outline-secondary" type="button" [disabled]="saving || resettingPassword" (click)="regeneratePassword()">
+              {{ resettingPassword ? 'Invio in corso…' : 'Rigenera e invia password' }}
+            </button>
+            <button class="btn btn-light" type="button" [disabled]="saving" (click)="closeEditor()">Annulla</button>
+            <button class="btn btn-primary" type="submit" [disabled]="saving || !!activeScopeKey">
+              {{ saving ? 'Salvataggio…' : editorMode === 'new' ? 'Crea amministratore' : 'Salva modifiche' }}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </ng-template>
 </div>

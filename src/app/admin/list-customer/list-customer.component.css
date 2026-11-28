@@ -223,6 +223,10 @@ mat-toolbar button[mat-icon-button] mat-icon { color: var(--mv-ink); }
   gap: 6px;
 }
 
+div.customer-header-btn {
+  cursor: default;
+}
+
 .btn-customer-quick-action {
   display: inline-flex;
   align-items: center;

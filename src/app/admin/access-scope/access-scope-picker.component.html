@@ -1,0 +1,70 @@
+<section class="scope-picker" aria-label="Selezione autorizzazioni">
+  <h4>{{ titles[section] }}</h4>
+  <div class="scope-modes" role="group" aria-label="Modalità di consultazione">
+    <button type="button" class="btn btn-light" [attr.aria-pressed]="mode === 'all'" [disabled]="addingFolder" (click)="setMode('all')">Tutti</button>
+    <button type="button" class="btn btn-light" [attr.aria-pressed]="mode === 'selected'" [disabled]="addingFolder" (click)="setMode('selected')">Solo quelli selezionati</button>
+  </div>
+
+  <p class="scope-hint" *ngIf="mode === 'all' && section === 'customerDocuments'">Include tutti i documenti dei soli clienti autorizzati.</p>
+
+  <ng-container *ngIf="mode === 'selected'">
+    <p class="scope-hint" *ngIf="section === 'customers'">Rimuovere un cliente revoca anche l’accesso ai suoi documenti.</p>
+    <p class="scope-hint" *ngIf="section !== 'customers'">Aggiungere il contenuto di una cartella condivide i file presenti ora, comprese le sottocartelle.</p>
+
+    <ng-container *ngIf="section === 'customers'">
+      <label for="scope-customer-search">Cerca cliente</label>
+      <input id="scope-customer-search" type="search" class="form-control" [(ngModel)]="customerSearch" />
+      <div class="scope-list" *ngIf="visibleCustomers.length">
+        <label *ngFor="let customer of visibleCustomers" class="scope-row">
+          <input type="checkbox" class="form-check-input" [checked]="selectedCustomers.includes(customer.id)" (change)="toggleCustomer(customer.id, $any($event.target).checked)" />
+          <span>{{ customer.name }} <small>#{{ customer.id }}</small></span>
+        </label>
+      </div>
+      <p *ngIf="!loading && !visibleCustomers.length && !error">Nessun cliente trovato.</p>
+    </ng-container>
+
+    <ng-container *ngIf="section === 'customerDocuments'">
+      <label for="scope-customer">Cliente</label>
+      <select id="scope-customer" class="form-select" [ngModel]="currentCustomer" (ngModelChange)="useCustomer($event)" [disabled]="addingFolder">
+        <option value="">Scegli un cliente autorizzato</option>
+        <option *ngFor="let customer of visibleCustomers" [value]="customer.id">{{ customer.name }} · #{{ customer.id }}</option>
+      </select>
+      <p class="scope-hint" *ngIf="!loading && !visibleCustomers.length && !error">Seleziona prima i clienti in «Visualizza clienti».</p>
+    </ng-container>
+
+    <ng-container *ngIf="archiveReady">
+      <nav class="scope-path" aria-label="Percorso cartella">
+        <button type="button" class="btn btn-light" [disabled]="addingFolder" (click)="navigate('')">Archivio</button>
+        <button *ngFor="let crumb of breadcrumbs" type="button" class="btn btn-light" [disabled]="addingFolder" (click)="navigate(crumb.path)">{{ crumb.name }}</button>
+      </nav>
+      <div class="scope-list" *ngIf="listing.folders.length || listing.files.length">
+        <div class="scope-row scope-folder" *ngFor="let name of listing.folders">
+          <button type="button" class="btn btn-link" [disabled]="addingFolder" (click)="openFolder(name)"><i class="fas fa-folder" aria-hidden="true"></i> {{ name }}</button>
+          <button type="button" class="btn btn-light btn-sm" [disabled]="addingFolder" (click)="includeFolder(folder ? folder + '/' + name : name)" [attr.aria-label]="'Aggiungi contenuto di ' + name">Aggiungi contenuto</button>
+        </div>
+        <label class="scope-row" *ngFor="let file of listing.files">
+          <input type="checkbox" class="form-check-input" [disabled]="addingFolder" [checked]="fileSelected(file)" (change)="toggleFile(file, $any($event.target).checked)" />
+          <span>{{ file.name }}</span>
+        </label>
+      </div>
+      <p *ngIf="!loading && !listing.folders.length && !listing.files.length && !error">Questa cartella è vuota.</p>
+      <details *ngIf="selectedFiles.length" class="scope-selection">
+        <summary>File selezionati in questo archivio ({{ selectedFiles.length }})</summary>
+        <div class="scope-list">
+          <div class="scope-row scope-folder" *ngFor="let file of selectedFiles">
+            <span>{{ file.path }}</span>
+            <button type="button" class="btn btn-light btn-sm" [disabled]="addingFolder" (click)="toggleFile(file, false)">Rimuovi</button>
+          </div>
+        </div>
+      </details>
+    </ng-container>
+    <p role="status" *ngIf="loading || addingFolder">{{ addingFolder ? 'Raccolta dei file…' : 'Caricamento…' }}</p>
+    <p *ngIf="error" class="text-danger" role="alert">{{ error }}</p>
+  </ng-container>
+
+  <div class="scope-footer">
+    <span *ngIf="mode === 'selected'">{{ selectionCount }} selezionati</span>
+    <button type="button" class="btn btn-light" (click)="cancel.emit()">Annulla</button>
+    <button type="button" class="btn btn-primary" [disabled]="addingFolder" (click)="confirm()">Applica selezione</button>
+  </div>
+</section>

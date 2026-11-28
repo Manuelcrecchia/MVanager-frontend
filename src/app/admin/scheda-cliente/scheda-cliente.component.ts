@@ -100,13 +100,15 @@ export class SchedaClienteComponent implements OnInit {
 
   formatFieldValue(field: TenantFieldMappingFieldConfig): string {
     if (this.isAnonymized) return '';
-    const value = this.getFieldValue(field);
+    const value = this.globalService.getRecordDisplayValueForField(this.cliente || {}, field);
     if (value === undefined || value === null || value === '') return '-';
     const roomRowsValue = this.formatRoomRowsValue(value);
     if (roomRowsValue) return roomRowsValue;
     if (Array.isArray(value)) return value.filter(Boolean).join(', ') || '-';
     if (typeof value === 'object') return JSON.stringify(value);
-    if (field.type === 'boolean') return value === true || value === 'true' || value === 1 ? 'Sì' : 'No';
+    if (field.type === 'boolean' && !this.globalService.isCalculatedField(field)) {
+      return value === true || value === 'true' || value === 1 ? 'Sì' : 'No';
+    }
     return String(value);
   }
 
